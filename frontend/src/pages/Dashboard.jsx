@@ -1,0 +1,401 @@
+import { useEffect, useState } from "react";
+import {
+  Users,
+  GraduationCap,
+  BookOpen,
+  ClipboardCheck,
+  Wallet,
+  TrendingUp,
+  CalendarDays,
+  Award,
+  RefreshCcw,
+  School,
+} from "lucide-react";
+import API from "../api";
+import { useSchoolSettings } from "../SettingsContext";
+
+export default function Dashboard() {
+  const { settings } = useSchoolSettings();
+
+  const [summary, setSummary] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [marks, setMarks] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const currencySymbol =
+    settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "₹";
+
+  function formatMoney(value) {
+    return `${currencySymbol}${Number(value || 0).toLocaleString("en-IN")}`;
+  }
+
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+
+      const [summaryRes, studentsRes, examsRes, marksRes] = await Promise.all([
+        API.get("/dashboard/summary"),
+        API.get("/students/"),
+        API.get("/exams/"),
+        API.get("/marks/"),
+      ]);
+
+      setSummary(summaryRes.data);
+      setStudents(studentsRes.data);
+      setExams(examsRes.data);
+      setMarks(marksRes.data);
+    } catch (error) {
+      console.error("Dashboard load error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  function getStudent(studentId) {
+    return students.find((student) => student.id === Number(studentId));
+  }
+
+  function getStudentName(studentId) {
+    const student = getStudent(studentId);
+    if (!student) return "Unknown Student";
+    return `${student.first_name} ${student.last_name || ""}`.trim();
+  }
+
+  function getStudentClass(studentId) {
+    const student = getStudent(studentId);
+    if (!student) return "-";
+    return `${student.class_name || "-"}-${student.section || "-"}`;
+  }
+
+  function getExamName(examId) {
+    return exams.find((exam) => exam.id === Number(examId))?.exam_name || "-";
+  }
+
+  const cards = [
+    {
+      title: "Total Students",
+      value: summary?.total_students || 0,
+      note: "Complete student records",
+      icon: Users,
+    },
+    {
+      title: "Active Students",
+      value: summary?.active_students || 0,
+      note: "Currently enrolled",
+      icon: Users,
+    },
+    {
+      title: "Faculty Strength",
+      value: summary?.total_teachers || 0,
+      note: "Registered faculty",
+      icon: GraduationCap,
+    },
+    {
+      title: "Class Sections",
+      value: summary?.total_classes || 0,
+      note: "Academic sections",
+      icon: BookOpen,
+    },
+    {
+      title: "Fee Collection",
+      value: formatMoney(summary?.total_collection),
+      note: `${summary?.collection_percentage || 0}% collected`,
+      icon: Wallet,
+    },
+    {
+      title: "Outstanding Due",
+      value: formatMoney(summary?.total_due),
+      note: "Pending receivables",
+      icon: TrendingUp,
+    },
+    {
+      title: "Today Attendance",
+      value: `${summary?.attendance_percentage || 0}%`,
+      note: "Present percentage",
+      icon: ClipboardCheck,
+    },
+    {
+      title: "International Students",
+      value: summary?.international_students || 0,
+      note: "Non-local nationality records",
+      icon: School,
+    },
+  ];
+
+  return (
+    <div className="dashboard international-dashboard">
+      <section className="institution-hero">
+        <div>
+          <p className="eyebrow">
+            {settings?.institution_type || "International School ERP"}
+          </p>
+
+          <h2>{settings?.school_name || "Institution Dashboard"}</h2>
+
+          <p>
+            {settings?.tagline ||
+              "Executive command center for academics, finance, attendance, and institutional operations."}
+          </p>
+
+          <div className="institution-meta">
+            <span>{settings?.board_affiliation || "Board Not Set"}</span>
+            <span>{settings?.campus_name || "Main Campus"}</span>
+            <span>{settings?.academic_year || "Academic Year"}</span>
+          </div>
+        </div>
+
+        <button className="secondary-button dashboard-refresh" onClick={loadDashboard}>
+          <RefreshCcw size={17} />
+          Refresh
+        </button>
+      </section>
+
+      {loading ? (
+        <div className="loading-box">Loading dashboard...</div>
+      ) : (
+        <>
+          <section className="stats-grid">
+            {cards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <div className="stat-card premium-card" key={card.title}>
+                  <div className="stat-icon">
+                    <Icon size={24} />
+                  </div>
+
+                  <div>
+                    <p>{card.title}</p>
+                    <h3>{card.value}</h3>
+                    <span>{card.note}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          <section className="dashboard-grid">
+            <div className="panel large-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Attendance Today</h3>
+                  <p>Daily attendance snapshot</p>
+                </div>
+                <ClipboardCheck size={22} />
+              </div>
+
+              <div className="overview-list">
+                <div>
+                  <span>Present</span>
+                  <strong>{summary?.today_present || 0}</strong>
+                </div>
+                <div>
+                  <span>Absent</span>
+                  <strong>{summary?.today_absent || 0}</strong>
+                </div>
+                <div>
+                  <span>Late</span>
+                  <strong>{summary?.today_late || 0}</strong>
+                </div>
+                <div>
+                  <span>Excused</span>
+                  <strong>{summary?.today_excused || 0}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Finance Health</h3>
+                  <p>Collection and dues</p>
+                </div>
+                <Wallet size={22} />
+              </div>
+
+              <div className="finance-summary">
+                <div>
+                  <span>Total Collection</span>
+                  <strong>{formatMoney(summary?.total_collection)}</strong>
+                </div>
+
+                <div>
+                  <span>Outstanding Due</span>
+                  <strong>{formatMoney(summary?.total_due)}</strong>
+                </div>
+
+                <div>
+                  <span>Collection Rate</span>
+                  <strong>{summary?.collection_percentage || 0}%</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Student Profile Mix</h3>
+                  <p>International and transport indicators</p>
+                </div>
+                <Users size={22} />
+              </div>
+
+              <div className="finance-summary">
+                <div>
+                  <span>International Students</span>
+                  <strong>{summary?.international_students || 0}</strong>
+                </div>
+
+                <div>
+                  <span>Transport Users</span>
+                  <strong>{summary?.transport_users || 0}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel large-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Recent Admissions</h3>
+                  <p>Latest student records</p>
+                </div>
+                <Users size={22} />
+              </div>
+
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Admission No</th>
+                    <th>Student</th>
+                    <th>Class</th>
+                    <th>House</th>
+                    <th>Admission Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {(summary?.recent_admissions || []).length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="empty-table">
+                        No recent admissions.
+                      </td>
+                    </tr>
+                  ) : (
+                    summary.recent_admissions.map((student) => (
+                      <tr key={student.id}>
+                        <td>{student.admission_no}</td>
+                        <td>{student.student_name}</td>
+                        <td>
+                          {student.class_name || "-"}-{student.section || "-"}
+                        </td>
+                        <td>{student.house || "-"}</td>
+                        <td>{student.admission_date || "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Upcoming Exams</h3>
+                  <p>Next 30 days</p>
+                </div>
+                <CalendarDays size={22} />
+              </div>
+
+              <ul className="task-list">
+                {(summary?.upcoming_exams || []).length === 0 ? (
+                  <li>No upcoming exams</li>
+                ) : (
+                  summary.upcoming_exams.map((exam) => (
+                    <li key={exam.id}>
+                      {exam.exam_name} - {exam.class_name}-{exam.section} on{" "}
+                      {exam.exam_date}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Top Performers</h3>
+                  <p>Highest marks records</p>
+                </div>
+                <Award size={22} />
+              </div>
+
+              <ul className="task-list">
+                {(summary?.top_performers || []).length === 0 ? (
+                  <li>No marks records yet</li>
+                ) : (
+                  summary.top_performers.map((mark) => (
+                    <li key={mark.id}>
+                      {getStudentName(mark.student_id)} - {mark.subject}:{" "}
+                      {mark.marks_obtained}/{mark.total_marks} ({mark.grade || "-"})
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+
+            <div className="panel large-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Fee Defaulters</h3>
+                  <p>Top outstanding dues</p>
+                </div>
+                <TrendingUp size={22} />
+              </div>
+
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Class</th>
+                    <th>Fee Type</th>
+                    <th>Due</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {(summary?.fee_defaulters || []).length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="empty-table">
+                        No fee defaulters.
+                      </td>
+                    </tr>
+                  ) : (
+                    summary.fee_defaulters.map((fee) => (
+                      <tr key={fee.id}>
+                        <td>{getStudentName(fee.student_id)}</td>
+                        <td>{getStudentClass(fee.student_id)}</td>
+                        <td>{fee.fee_type}</td>
+                        <td>{formatMoney(fee.due_amount)}</td>
+                        <td>
+                          <span className="status danger">
+                            {fee.payment_status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
