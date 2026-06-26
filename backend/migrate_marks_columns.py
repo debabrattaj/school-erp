@@ -31,3 +31,4 @@ conn.commit()
 conn.close()
 
 print("Marks table migration completed successfully.")
+
