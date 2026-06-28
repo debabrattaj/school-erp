@@ -270,6 +270,7 @@ export default function Teachers() {
   const [customFormData, setCustomFormData] = useState({});
 
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [selectedTeacherCustomValues, setSelectedTeacherCustomValues] =
     useState({});
@@ -588,6 +589,7 @@ export default function Teachers() {
       setFormData(emptyTeacherForm);
       setCustomFormData({});
       setEditingId(null);
+      setPageMode("list");
 
       await Promise.all([loadTeachers(), loadClasses()]);
     } catch (error) {
@@ -600,6 +602,7 @@ export default function Teachers() {
 
   async function handleEdit(teacher) {
     setEditingId(teacher.id);
+    setPageMode("form");
 
     setFormData({
       employee_no: teacher.employee_no || "",
@@ -656,6 +659,16 @@ export default function Teachers() {
     setFormData(emptyTeacherForm);
     setCustomFormData({});
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddTeacher() {
+    setEditingId(null);
+    setFormData(emptyTeacherForm);
+    setCustomFormData({});
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function renderField(field) {
@@ -836,6 +849,89 @@ export default function Teachers() {
 
   const customFields = getCustomFields();
 
+  if (pageMode === "form") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Teacher Management</p>
+            <h2>{editingId ? "Edit Teacher" : "Add Teacher"}</h2>
+            <p>This form is generated from the backend Teachers layout.</p>
+          </div>
+
+          <button
+            type="button"
+            className="light-button"
+            onClick={handleCancelEdit}
+          >
+            Back to Teacher Records
+          </button>
+        </section>
+
+        {message && <div className="message-box">{message}</div>}
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>{editingId ? "Edit Teacher" : "Add Teacher"}</h3>
+              <p>This form is generated from the backend Teachers layout.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={handleSubmit}>
+            {layout.map((section) => (
+              <div key={section.id}>
+                <div className="sis-section-title">{section.title}</div>
+
+                {section.fields.length === 0 ? (
+                  <div className="empty-table">No fields in this section.</div>
+                ) : (
+                  <div className="form-grid">
+                    {section.fields.map((field) => (
+                      <div
+                        key={field.id}
+                        className={
+                          field.type === "multiline"
+                            ? "form-field full-width"
+                            : "form-field"
+                        }
+                      >
+                        <label>
+                          {field.label}
+                          {field.required && " *"}
+                          {field.source === "custom" && (
+                            <small className="custom-field-badge"> Custom</small>
+                          )}
+                        </label>
+
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                <PlusCircle size={18} />
+                {editingId ? "Update Teacher" : "Add Teacher"}
+              </button>
+
+              <button
+                type="button"
+                className="light-button"
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -871,6 +967,11 @@ export default function Teachers() {
           >
             <RefreshCcw size={17} />
             Refresh
+          </button>
+
+          <button type="button" className="primary-button" onClick={handleAddTeacher}>
+            <PlusCircle size={18} />
+            Add Teacher
           </button>
         </div>
       </section>
@@ -910,67 +1011,6 @@ export default function Teachers() {
       </section>
 
       {message && <div className="message-box">{message}</div>}
-
-      <section className="form-panel">
-        <div className="panel-header">
-          <div>
-            <h3>{editingId ? "Edit Teacher" : "Add Teacher"}</h3>
-            <p>This form is generated from the backend Teachers layout.</p>
-          </div>
-        </div>
-
-        <form className="classic-form" onSubmit={handleSubmit}>
-          {layout.map((section) => (
-            <div key={section.id}>
-              <div className="sis-section-title">{section.title}</div>
-
-              {section.fields.length === 0 ? (
-                <div className="empty-table">No fields in this section.</div>
-              ) : (
-                <div className="form-grid">
-                  {section.fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className={
-                        field.type === "multiline"
-                          ? "form-field full-width"
-                          : "form-field"
-                      }
-                    >
-                      <label>
-                        {field.label}
-                        {field.required && " *"}
-                        {field.source === "custom" && (
-                          <small className="custom-field-badge"> Custom</small>
-                        )}
-                      </label>
-
-                      {renderField(field)}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div className="form-actions">
-            <button type="submit" className="primary-button">
-              <PlusCircle size={18} />
-              {editingId ? "Update Teacher" : "Add Teacher"}
-            </button>
-
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
 
       <section className="table-panel">
         <div className="table-toolbar">

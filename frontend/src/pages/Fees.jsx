@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import StudentPicker from "../components/StudentPicker";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyFeeForm = {
@@ -128,6 +129,7 @@ export default function Fees() {
 
   const [formData, setFormData] = useState(emptyFeeForm);
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
   const [selectedFee, setSelectedFee] = useState(null);
 
   const [searchText, setSearchText] = useState("");
@@ -301,6 +303,7 @@ export default function Fees() {
 
       setFormData(emptyFeeForm);
       setEditingId(null);
+      setPageMode("list");
       await loadFees();
     } catch (error) {
       console.error(error);
@@ -312,6 +315,7 @@ export default function Fees() {
 
   function handleEdit(fee) {
     setEditingId(fee.id);
+    setPageMode("form");
 
     const totalAmount = getFeeAmount(fee);
     const paidAmount = getPaidAmount(fee);
@@ -353,6 +357,15 @@ export default function Fees() {
     setEditingId(null);
     setFormData(emptyFeeForm);
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddFee() {
+    setEditingId(null);
+    setFormData(emptyFeeForm);
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const filteredFees = fees.filter((fee) => {
@@ -398,6 +411,11 @@ export default function Fees() {
             <RefreshCcw size={17} />
             Refresh
           </button>
+
+          <button type="button" className="primary-button" onClick={handleAddFee}>
+            <PlusCircle size={18} />
+            Add Fee
+          </button>
         </div>
       </section>
 
@@ -437,6 +455,7 @@ export default function Fees() {
 
       {message && <div className="message-box">{message}</div>}
 
+      {pageMode === "form" && (
       <section className="form-panel">
         <div className="panel-header">
           <div>
@@ -449,26 +468,11 @@ export default function Fees() {
           <div className="sis-section-title">Fee Information</div>
 
           <div className="form-grid">
-            <div className="form-field">
-              <label>Student *</label>
-              <select
-                name="student_id"
-                value={formData.student_id}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="">Select Student</option>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.admission_no
-                      ? `${student.admission_no} - ${student.first_name || ""} ${
-                          student.last_name || ""
-                        }`
-                      : `${student.first_name || ""} ${student.last_name || ""}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <StudentPicker
+              students={students}
+              value={formData.student_id}
+              onChange={handleInputChange}
+            />
 
             <div className="form-field">
               <label>Fee Type *</label>
@@ -569,19 +573,19 @@ export default function Fees() {
               {editingId ? "Update Fee" : "Add Fee"}
             </button>
 
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </button>
           </div>
         </form>
       </section>
+      )}
 
+      {pageMode === "list" && (
       <section className="table-panel">
         <div className="table-toolbar">
           <div>
@@ -723,6 +727,7 @@ export default function Fees() {
           </div>
         )}
       </section>
+      )}
 
       {selectedFee && (
         <div className="student-drawer-backdrop">

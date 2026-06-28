@@ -6,10 +6,20 @@ import {
   PlusCircle,
   Search,
   RefreshCcw,
-  Eye,
   X,
   UserRound,
   LayoutTemplate,
+  Menu,
+  SlidersHorizontal,
+  ListFilter,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  Pin,
+  Filter,
+  EyeOff,
 } from "lucide-react";
 import API from "../api";
 import { getMasterValues } from "../services/masterDataService";
@@ -324,6 +334,29 @@ const defaultStudentLayout = [
   },
 ];
 
+const studentFilterFields = [
+  ["admission_no", "Admission No"],
+  ["roll_no", "Roll No"],
+  ["first_name", "First Name"],
+  ["last_name", "Last Name"],
+  ["class_name", "Class"],
+  ["section", "Section"],
+  ["house", "House"],
+  ["student_status", "Student Status"],
+  ["gender", "Gender"],
+  ["dob", "Date of Birth"],
+  ["nationality", "Nationality"],
+  ["blood_group", "Blood Group"],
+  ["father_name", "Father Name"],
+  ["mother_name", "Mother Name"],
+  ["guardian_name", "Guardian Name"],
+  ["guardian_phone", "Guardian Phone"],
+  ["guardian_email", "Guardian Email"],
+  ["transport_route", "Transport Route"],
+  ["pickup_point", "Pickup Point"],
+  ["passport_no", "Passport No"],
+];
+
 export default function Students() {
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
@@ -334,6 +367,7 @@ export default function Students() {
   const [formData, setFormData] = useState(systemEmptyForm);
   const [customFormData, setCustomFormData] = useState({});
 
+  const [pageMode, setPageMode] = useState("list");
   const [editingId, setEditingId] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentCustomValues, setSelectedStudentCustomValues] =
@@ -343,6 +377,22 @@ export default function Students() {
   const [classFilter, setClassFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [fieldFilters, setFieldFilters] = useState({});
+  const [showFilters, setShowFilters] = useState(true);
+  const [recordsPerPage, setRecordsPerPage] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showColumnManager, setShowColumnManager] = useState(false);
+  const [activeColumnMenu, setActiveColumnMenu] = useState(null);
+  const [sortConfig, setSortConfig] = useState(null);
+  const [pinnedColumns, setPinnedColumns] = useState([]);
+  const [visibleColumns, setVisibleColumns] = useState([
+    "admission_no",
+    "student",
+    "class",
+    "section",
+    "status",
+    "guardian",
+  ]);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -633,6 +683,7 @@ export default function Students() {
       setFormData(systemEmptyForm);
       setCustomFormData({});
       setEditingId(null);
+      setPageMode("list");
       await loadStudents();
     } catch (error) {
       console.error(error);
@@ -644,6 +695,7 @@ export default function Students() {
   }
 
   async function handleEdit(student) {
+    setPageMode("form");
     setEditingId(student.id);
 
     setFormData({
@@ -717,7 +769,17 @@ export default function Students() {
     setEditingId(null);
     setFormData(systemEmptyForm);
     setCustomFormData({});
+    setPageMode("list");
     setMessage("");
+  }
+
+  function handleAddStudent() {
+    setEditingId(null);
+    setFormData(systemEmptyForm);
+    setCustomFormData({});
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function renderField(field) {
@@ -825,6 +887,48 @@ export default function Students() {
     return value || "-";
   }
 
+  function getStudentFilterValue(student, fieldName) {
+    const value = student[fieldName];
+    return value === null || value === undefined ? "" : String(value);
+  }
+
+  function updateFieldFilter(fieldName, patch) {
+    setFieldFilters((prev) => ({
+      ...prev,
+      [fieldName]: {
+        enabled: false,
+        operator: "contains",
+        value: "",
+        ...(prev[fieldName] || {}),
+        ...patch,
+      },
+    }));
+  }
+
+  function clearAllFilters() {
+    setClassFilter("");
+    setSectionFilter("");
+    setStatusFilter("");
+    setSearchText("");
+    setFieldFilters({});
+  }
+
+  function matchesFieldFilters(student) {
+    return Object.entries(fieldFilters).every(([fieldName, filter]) => {
+      if (!filter?.enabled) return true;
+
+      const filterValue = String(filter.value || "").trim().toLowerCase();
+      if (!filterValue) return true;
+
+      const studentValue = getStudentFilterValue(student, fieldName).toLowerCase();
+
+      if (filter.operator === "is") return studentValue === filterValue;
+      if (filter.operator === "starts") return studentValue.startsWith(filterValue);
+
+      return studentValue.includes(filterValue);
+    });
+  }
+
   const filteredStudents = students.filter((student) => {
     const fullText = `
       ${student.admission_no}
@@ -854,7 +958,13 @@ export default function Students() {
       ? student.student_status === statusFilter
       : true;
 
-    return matchSearch && matchClass && matchSection && matchStatus;
+    return (
+      matchSearch &&
+      matchClass &&
+      matchSection &&
+      matchStatus &&
+      matchesFieldFilters(student)
+    );
   });
 
   const activeCount = students.filter(
@@ -875,16 +985,544 @@ export default function Students() {
   const sectionFilterOptions = dropdownValues.Section || [];
   const statusFilterOptions = dropdownValues.StudentStatus || [];
   const customFields = getCustomFields();
+  const studentListColumns = [
+    ["admission_no", "Admission No"],
+    ["student", "Student"],
+    ["class", "Class"],
+    ["section", "Section"],
+    ["house", "House"],
+    ["status", "Status"],
+    ["guardian", "Guardian"],
+    ["phone", "Phone"],
+    ["transport", "Transport"],
+  ];
+
+  function toggleColumn(columnKey) {
+    setVisibleColumns((prev) => {
+      if (prev.includes(columnKey)) {
+        return prev.length === 1
+          ? prev
+          : prev.filter((item) => item !== columnKey);
+      }
+
+      return [...prev, columnKey];
+    });
+  }
+
+  function sortByColumn(columnKey, direction) {
+    setSortConfig({ columnKey, direction });
+    setActiveColumnMenu(null);
+  }
+
+  function togglePinnedColumn(columnKey) {
+    setPinnedColumns((prev) =>
+      prev.includes(columnKey)
+        ? prev.filter((item) => item !== columnKey)
+        : [...prev, columnKey]
+    );
+    setActiveColumnMenu(null);
+  }
+
+  function filterByColumn(columnKey) {
+    const fieldNameMap = {
+      student: "first_name",
+      class: "class_name",
+      status: "student_status",
+      guardian: "guardian_name",
+      phone: "guardian_phone",
+      transport: "transport_route",
+    };
+
+    updateFieldFilter(fieldNameMap[columnKey] || columnKey, { enabled: true });
+    setActiveColumnMenu(null);
+  }
+
+  function getColumnSortValue(student, columnKey) {
+    if (columnKey === "student") {
+      return `${student.first_name || ""} ${student.last_name || ""}`.trim();
+    }
+
+    if (columnKey === "class") {
+      return `${student.class_name || ""} ${student.section || ""}`.trim();
+    }
+
+    const fieldNameMap = {
+      status: "student_status",
+      guardian: "guardian_name",
+      phone: "guardian_phone",
+      transport: "transport_route",
+    };
+
+    const value = student[fieldNameMap[columnKey] || columnKey];
+    return value === null || value === undefined ? "" : String(value);
+  }
+
+  function renderStudentCell(student, columnKey) {
+    const valueMap = {
+      admission_no: student.admission_no || "-",
+      student: `${student.first_name || ""} ${student.last_name || ""}`.trim() || "-",
+      class: `${student.class_name || "-"} ${student.section || ""}`,
+      section: student.section || "-",
+      house: student.house || "-",
+      guardian: student.guardian_name || "-",
+      phone: student.guardian_phone || "-",
+      transport: student.transport_route || "-",
+    };
+
+    if (columnKey === "status") {
+      return (
+        <span
+          className={
+            student.student_status === "Active"
+              ? "status active"
+              : "status warning"
+          }
+        >
+          {student.student_status || "Active"}
+        </span>
+      );
+    }
+
+    return valueMap[columnKey] || "-";
+  }
+
+  const visibleStudentColumns = studentListColumns
+    .filter(([key]) => visibleColumns.includes(key))
+    .sort(([firstKey], [secondKey]) => {
+      const firstPinned = pinnedColumns.includes(firstKey);
+      const secondPinned = pinnedColumns.includes(secondKey);
+
+      if (firstPinned && !secondPinned) return -1;
+      if (!firstPinned && secondPinned) return 1;
+
+      return 0;
+    });
+
+  const sortedStudents = [...filteredStudents].sort((firstStudent, secondStudent) => {
+    if (!sortConfig) return 0;
+
+    const firstValue = getColumnSortValue(
+      firstStudent,
+      sortConfig.columnKey
+    ).toLowerCase();
+    const secondValue = getColumnSortValue(
+      secondStudent,
+      sortConfig.columnKey
+    ).toLowerCase();
+    const result = firstValue.localeCompare(secondValue, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+
+    return sortConfig.direction === "desc" ? -result : result;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedStudents.length / recordsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safeCurrentPage - 1) * recordsPerPage;
+  const pageEndIndex = Math.min(pageStartIndex + recordsPerPage, sortedStudents.length);
+  const displayedStudents = sortedStudents.slice(pageStartIndex, pageEndIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, classFilter, sectionFilter, statusFilter, fieldFilters, recordsPerPage]);
+
+  if (pageMode === "form") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Student Management</p>
+            <h2>{editingId ? "Edit Student" : "Add Student"}</h2>
+            <p>
+              {editingId
+                ? "Update admission, academic, guardian, and profile details."
+                : "Create a new student admission profile."}
+            </p>
+          </div>
+
+          <div className="module-header-actions">
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              <X size={17} />
+              Back to List
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={loadBackendLayoutOnly}
+            >
+              <LayoutTemplate size={17} />
+              Reload Layout
+            </button>
+          </div>
+        </section>
+
+        {message && <div className="message-box">{message}</div>}
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>{editingId ? "Edit Student Profile" : "Add Student Profile"}</h3>
+              <p>Use this form to manage student profile details.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={handleSubmit}>
+            {layout.map((section) => (
+              <div key={section.id}>
+                <div className="sis-section-title">{section.title}</div>
+
+                {section.fields.length === 0 ? (
+                  <div className="empty-table">No fields in this section.</div>
+                ) : (
+                  <div className="form-grid">
+                    {section.fields.map((field) => (
+                      <div
+                        key={field.id}
+                        className={
+                          field.type === "multiline"
+                            ? "form-field full-width"
+                            : "form-field"
+                        }
+                      >
+                        <label>
+                          {field.label}
+                          {field.required && " *"}
+                          {field.source === "custom" && (
+                            <small className="custom-field-badge"> Custom</small>
+                          )}
+                        </label>
+
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                <PlusCircle size={18} />
+                {editingId ? "Update Student" : "Add Student"}
+              </button>
+
+              <button
+                type="button"
+                className="light-button"
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="management-page students-list-page">
+      <section className="page-heading">
+        <div>
+          <p className="eyebrow">Student Management</p>
+          <h2>Students</h2>
+          <p>All student records in one place.</p>
+        </div>
+
+        <button type="button" className="primary-button" onClick={handleAddStudent}>
+          <PlusCircle size={18} />
+          Add Student
+        </button>
+      </section>
+
+      {message && <div className="message-box">{message}</div>}
+
+      <section className={showFilters ? "student-list-shell" : "student-list-shell filters-hidden"}>
+        {showFilters && (
+          <aside className="student-filter-panel">
+            <div className="student-filter-section student-field-filter-section">
+              <h4>Filter By Fields</h4>
+
+              <div className="student-field-filter-list">
+                {studentFilterFields.map(([fieldName, label]) => {
+                  const filter = fieldFilters[fieldName] || {};
+                  const enabled = Boolean(filter.enabled);
+
+                  return (
+                    <div className="student-field-filter" key={fieldName}>
+                      <label className="student-field-filter-check">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(event) =>
+                            updateFieldFilter(fieldName, {
+                              enabled: event.target.checked,
+                            })
+                          }
+                        />
+                        <span>{label}</span>
+                      </label>
+
+                      {enabled && (
+                        <div className="student-field-filter-controls">
+                          <select
+                            value={filter.operator || "contains"}
+                            onChange={(event) =>
+                              updateFieldFilter(fieldName, {
+                                operator: event.target.value,
+                              })
+                            }
+                          >
+                            <option value="contains">contains</option>
+                            <option value="is">is</option>
+                            <option value="starts">starts with</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            value={filter.value || ""}
+                            placeholder={label}
+                            onChange={(event) =>
+                              updateFieldFilter(fieldName, {
+                                value: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="light-button student-clear-filters"
+              onClick={clearAllFilters}
+            >
+              Clear Filters
+            </button>
+          </aside>
+        )}
+
+        <div className="student-list-main">
+          <div className="student-table-card">
+            {loading ? (
+              <div className="loading-box">Loading students...</div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="classic-table student-list-table">
+                  <thead>
+                    <tr>
+                      <th className="student-filter-toggle-cell">
+                        <button
+                          type="button"
+                          className="student-grid-filter-toggle"
+                          onClick={() => setShowFilters((prev) => !prev)}
+                          title={showFilters ? "Hide filters" : "Show filters"}
+                        >
+                          <ListFilter size={17} />
+                        </button>
+                      </th>
+                      {visibleStudentColumns
+                        .map(([key, label]) => (
+                          <th key={key}>
+                            <div className="student-column-head">
+                              <span>{label}</span>
+                              <button
+                                type="button"
+                                className="student-column-menu-button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setActiveColumnMenu((current) =>
+                                    current === key ? null : key
+                                  );
+                                  setShowColumnManager(false);
+                                }}
+                                title={`${label} options`}
+                              >
+                                <Menu size={16} />
+                              </button>
+
+                              {activeColumnMenu === key && (
+                                <div className="student-column-menu">
+                                  <button type="button" onClick={() => sortByColumn(key, "asc")}>
+                                    <ArrowUp size={17} />
+                                    Asc
+                                  </button>
+                                  <button type="button" onClick={() => sortByColumn(key, "desc")}>
+                                    <ArrowDown size={17} />
+                                    Desc
+                                  </button>
+                                  <button type="button" onClick={() => togglePinnedColumn(key)}>
+                                    <Pin size={17} />
+                                    {pinnedColumns.includes(key)
+                                      ? "Unpin Column"
+                                      : "Pin Column"}
+                                  </button>
+                                  <button type="button" onClick={() => filterByColumn(key)}>
+                                    <Filter size={17} />
+                                    Filter by
+                                  </button>
+                                  <button type="button" onClick={() => toggleColumn(key)}>
+                                    <EyeOff size={17} />
+                                    Hide Column
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                      <th className="student-column-actions">
+                        <div className="student-actions-head">
+                          <span>Actions</span>
+                          <div className="column-manager-wrap">
+                            <button
+                              type="button"
+                              className="student-column-menu-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setShowColumnManager((prev) => !prev);
+                                setActiveColumnMenu(null);
+                              }}
+                              title="Manage columns"
+                            >
+                              <SlidersHorizontal size={16} />
+                            </button>
+
+                            {showColumnManager && (
+                              <div className="column-manager-menu toolbar-column-menu">
+                                <h4>Manage Columns</h4>
+                                {studentListColumns.map(([key, label]) => (
+                                  <label key={key}>
+                                    <input
+                                      type="checkbox"
+                                      checked={visibleColumns.includes(key)}
+                                      onChange={() => toggleColumn(key)}
+                                    />
+                                    <span>{label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {displayedStudents.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={visibleColumns.length + 2}
+                          className="empty-table"
+                        >
+                          No student records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedStudents.map((student) => (
+                        <tr
+                          key={student.id}
+                          className="clickable-row"
+                          onClick={() => navigate(`/students/${student.id}`)}
+                        >
+                          <td className="student-filter-toggle-cell" />
+                          {visibleStudentColumns
+                            .map(([key]) => (
+                              <td key={key}>{renderStudentCell(student, key)}</td>
+                            ))}
+                          <td>
+                            <div className="action-buttons">
+                              <button
+                                type="button"
+                                className="edit-button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleEdit(student);
+                                }}
+                                title="Edit"
+                              >
+                                <Edit size={15} />
+                              </button>
+
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="student-list-pagination">
+        <div>
+          <label className="student-record-size-control">
+            <select
+              value={recordsPerPage}
+              onChange={(event) => setRecordsPerPage(Number(event.target.value))}
+            >
+              <option value={25}>25 Records Per Page</option>
+              <option value={50}>50 Records Per Page</option>
+              <option value={100}>100 Records Per Page</option>
+              <option value={200}>200 Records Per Page</option>
+            </select>
+            <ChevronDown size={15} />
+          </label>
+
+          <span className="student-total-records">
+            Total Count: <strong>{filteredStudents.length}</strong>
+          </span>
+        </div>
+
+        <div>
+          <span className="student-page-range">
+            {sortedStudents.length === 0 ? 0 : pageStartIndex + 1} - {pageEndIndex}
+          </span>
+          <button
+            type="button"
+            className="student-page-arrow"
+            title="Previous page"
+            disabled={safeCurrentPage <= 1}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            className="student-page-arrow"
+            title="Next page"
+            disabled={safeCurrentPage >= totalPages}
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="management-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Student Information System</p>
-          <h2>Student Information System</h2>
+          <p className="eyebrow">Student Management</p>
+          <h2>Students</h2>
           <p>
-            Manage student profiles using the Student module layout saved in
-            backend.
+            Manage admissions, profiles, class details, guardians, documents,
+            transport, and residential information in one place.
           </p>
         </div>
 
@@ -959,7 +1597,7 @@ export default function Students() {
           <div>
             <h3>{editingId ? "Edit Student Profile" : "Add Student Profile"}</h3>
             <p>
-              This form is generated from the backend Student layout.
+              Use this form to add or update student admission and profile details.
             </p>
           </div>
         </div>
@@ -1160,15 +1798,6 @@ export default function Students() {
                       <td>{student.transport_route || "-"}</td>
                       <td>
                         <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => navigate(`/students/${student.id}`)}
-                            title="View profile"
-                          >
-                            <Eye size={15} />
-                          </button>
-
                           <button
                             type="button"
                             className="edit-button"

@@ -114,8 +114,10 @@ def delete_subject(
 )
 def get_class_subjects(
     class_id: int | None = None,
+    academic_year: str | None = None,
     subject_name: str | None = None,
     teacher_id: int | None = None,
+    active_only: bool = False,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.ClassSubject)
@@ -123,11 +125,17 @@ def get_class_subjects(
     if class_id:
         query = query.filter(models.ClassSubject.class_id == class_id)
 
+    if academic_year:
+        query = query.filter(models.ClassSubject.academic_year == academic_year)
+
     if subject_name:
         query = query.filter(models.ClassSubject.subject_name == subject_name)
 
     if teacher_id:
         query = query.filter(models.ClassSubject.teacher_id == teacher_id)
+
+    if active_only:
+        query = query.filter(models.ClassSubject.is_active == True)
 
     return query.order_by(models.ClassSubject.id.desc()).all()
 
@@ -220,3 +228,107 @@ def delete_class_subject(
     db.commit()
 
     return {"message": "Class subject mapping deleted successfully"}
+
+
+# ======================================================
+# Class Exam Mapping
+# ======================================================
+
+@router.get(
+    "/class-exam-mappings/",
+    response_model=list[schemas.ClassExamMappingResponse]
+)
+def get_class_exam_mappings(
+    class_id: int | None = None,
+    exam_id: int | None = None,
+    academic_year: str | None = None,
+    active_only: bool = False,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.ClassExamMapping)
+
+    if class_id:
+        query = query.filter(models.ClassExamMapping.class_id == class_id)
+
+    if exam_id:
+        query = query.filter(models.ClassExamMapping.exam_id == exam_id)
+
+    if academic_year:
+        query = query.filter(models.ClassExamMapping.academic_year == academic_year)
+
+    if active_only:
+        query = query.filter(models.ClassExamMapping.is_active == True)
+
+    return query.order_by(models.ClassExamMapping.id.desc()).all()
+
+
+@router.post(
+    "/class-exam-mappings/",
+    response_model=schemas.ClassExamMappingResponse
+)
+def create_class_exam_mapping(
+    payload: schemas.ClassExamMappingCreate,
+    db: Session = Depends(get_db)
+):
+    validate_class(db, payload.class_id)
+    get_or_404(db, models.Exam, payload.exam_id, "Exam")
+
+    mapping = models.ClassExamMapping(**payload.model_dump())
+
+    db.add(mapping)
+    commit_or_400(
+        db,
+        "This exam is already mapped to this class for this academic year"
+    )
+
+    db.refresh(mapping)
+    return mapping
+
+
+@router.put(
+    "/class-exam-mappings/{mapping_id}",
+    response_model=schemas.ClassExamMappingResponse
+)
+def update_class_exam_mapping(
+    mapping_id: int,
+    payload: schemas.ClassExamMappingCreate,
+    db: Session = Depends(get_db)
+):
+    mapping = get_or_404(
+        db,
+        models.ClassExamMapping,
+        mapping_id,
+        "Class exam mapping"
+    )
+
+    validate_class(db, payload.class_id)
+    get_or_404(db, models.Exam, payload.exam_id, "Exam")
+
+    for key, value in payload.model_dump().items():
+        setattr(mapping, key, value)
+
+    commit_or_400(
+        db,
+        "This exam is already mapped to this class for this academic year"
+    )
+
+    db.refresh(mapping)
+    return mapping
+
+
+@router.delete("/class-exam-mappings/{mapping_id}")
+def delete_class_exam_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    mapping = get_or_404(
+        db,
+        models.ClassExamMapping,
+        mapping_id,
+        "Class exam mapping"
+    )
+
+    db.delete(mapping)
+    db.commit()
+
+    return {"message": "Class exam mapping deleted successfully"}

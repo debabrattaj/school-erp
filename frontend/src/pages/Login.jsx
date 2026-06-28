@@ -8,6 +8,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    account_code: "default",
     email: "admin@school.com",
     password: "admin123",
   });
@@ -49,8 +50,9 @@ export default function Login() {
     }
   }
 
-  function quickLogin(email, password) {
+  function quickLogin(email, password, accountCode = "default") {
     setFormData({
+      account_code: accountCode,
       email,
       password,
     });
@@ -77,6 +79,21 @@ export default function Login() {
           </p>
 
           {message && <div className="message-box">{message}</div>}
+
+          <div className="login-field">
+            <label>School Account Code</label>
+            <div className="login-input">
+              <School size={18} />
+              <input
+                type="text"
+                name="account_code"
+                value={formData.account_code}
+                onChange={handleChange}
+                placeholder="default"
+                required
+              />
+            </div>
+          </div>
 
           <div className="login-field">
             <label>Email Address</label>

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Menu, PanelLeftClose } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -21,18 +23,38 @@ import ModuleLayoutBuilder from "./pages/ModuleLayoutBuilder";
 import StudentDetails from "./pages/StudentDetails";
 import ClassDetails from "./pages/ClassDetails";
 import Subjects from "./pages/Subjects";
+import StudentEnrollments from "./pages/StudentEnrollments";
+import Hostel from "./pages/Hostel";
+import Transport from "./pages/Transport";
+import HealthInfirmary from "./pages/HealthInfirmary";
+import MessManagement from "./pages/MessManagement";
+import Library from "./pages/Library";
+import Inventory from "./pages/Inventory";
 
 function ProtectedLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   return (
     <SettingsProvider>
       <div className="app-layout">
-        <Sidebar />
+        <Topbar />
 
-        <main className="main-area">
-          <Topbar />
+        <div className={sidebarOpen ? "app-body" : "app-body sidebar-hidden"}>
+          <button
+            type="button"
+            className="sidebar-toggle-button"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          >
+            {sidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
+          </button>
 
-          <div className="page-content">{children}</div>
-        </main>
+          {sidebarOpen && <Sidebar />}
+
+          <main className="main-area">
+            <div className="page-content">{children}</div>
+          </main>
+        </div>
       </div>
     </SettingsProvider>
   );
@@ -225,6 +247,76 @@ export default function App() {
             </ProtectedRoute>
           }
           />
+        <Route
+          path="/student-enrollments"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <StudentEnrollments />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hostel"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal"]}>
+              <ProtectedLayout>
+                <Hostel />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transport"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
+              <ProtectedLayout>
+                <Transport />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/health-infirmary"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <HealthInfirmary />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mess"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts", "Teacher"]}>
+              <ProtectedLayout>
+                <MessManagement />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Library />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts", "Teacher"]}>
+              <ProtectedLayout>
+                <Inventory />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

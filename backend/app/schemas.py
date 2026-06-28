@@ -10,6 +10,7 @@ from datetime import date
 class LoginRequest(BaseModel):
     email: str
     password: str
+    account_code: Optional[str] = "default"
 
 
 class TokenResponse(BaseModel):
@@ -375,6 +376,7 @@ class MarkBase(BaseModel):
 
     class_subject_id: Optional[int] = None
     subject_name: Optional[str] = None
+    academic_year: Optional[str] = None
     subject: Optional[str] = None
 
     marks_obtained: float
@@ -396,9 +398,16 @@ class MarkResponse(MarkBase):
         from_attributes = True
 
 class MarkUpdate(BaseModel):
+    student_id: Optional[int] = None
+    exam_id: Optional[int] = None
+    class_subject_id: Optional[int] = None
+    subject_name: Optional[str] = None
+    academic_year: Optional[str] = None
     subject: Optional[str] = None
     marks_obtained: Optional[float] = None
+    max_marks: Optional[float] = None
     total_marks: Optional[float] = None
+    grade: Optional[str] = None
     remarks: Optional[str] = None
 
 
@@ -534,6 +543,7 @@ class SubjectResponse(SubjectBase):
 class ClassSubjectBase(BaseModel):
     class_id: int
     subject_name: str
+    academic_year: str = "2026-27"
     teacher_id: Optional[int] = None
     weekly_periods: Optional[int] = 0
     is_active: Optional[bool] = True
@@ -545,6 +555,444 @@ class ClassSubjectCreate(ClassSubjectBase):
 
 class ClassSubjectResponse(ClassSubjectBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+class SchoolAccountCreate(BaseModel):
+    school_name: str
+    account_code: str
+    domain: Optional[str] = None
+    school_type: Optional[str] = "English Medium"
+    curriculum: Optional[str] = "CBSE"
+    country: Optional[str] = "India"
+    timezone: Optional[str] = "Asia/Calcutta"
+    database_url: Optional[str] = None
+    status: Optional[str] = "Active"
+    admin_name: str = "Admin User"
+    admin_email: str
+    admin_password: str
+    features: Optional[dict[str, bool]] = None
+
+
+class SchoolAccountResponse(BaseModel):
+    id: int
+    school_name: str
+    account_code: str
+    domain: Optional[str] = None
+    school_type: Optional[str] = None
+    curriculum: Optional[str] = None
+    country: Optional[str] = None
+    timezone: Optional[str] = None
+    database_url: str
+    status: str
+    features: dict[str, bool] = {}
+
+
+class SchoolFeatureUpdate(BaseModel):
+    features: dict[str, bool]
+
+
+class ClassExamMappingBase(BaseModel):
+    class_id: int
+    exam_id: int
+    academic_year: str
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class ClassExamMappingCreate(ClassExamMappingBase):
+    pass
+
+
+class ClassExamMappingResponse(ClassExamMappingBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class StudentEnrollmentBase(BaseModel):
+    student_id: int
+    class_id: int
+    academic_year: str
+    roll_no: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    enrollment_status: Optional[str] = "Active"
+    promotion_status: Optional[str] = "Not Promoted"
+    remarks: Optional[str] = None
+
+
+class StudentEnrollmentCreate(StudentEnrollmentBase):
+    pass
+
+
+class StudentEnrollmentUpdate(StudentEnrollmentBase):
+    pass
+
+
+class StudentEnrollmentResponse(BaseModel):
+    id: int
+    student_id: int
+    class_id: Optional[int] = None
+    academic_year: str
+    class_name_snapshot: Optional[str] = None
+    section_snapshot: Optional[str] = None
+    roll_no: Optional[str] = None
+    enrollment_status: str
+    promotion_status: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    remarks: Optional[str] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_display: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class StudentPromotionRequest(BaseModel):
+    student_ids: List[int]
+    from_class_id: int
+    to_class_id: int
+    from_academic_year: str
+    to_academic_year: str
+    start_date: Optional[date] = None
+    remarks: Optional[str] = None
+
+
+class HostelBlockBase(BaseModel):
+    block_name: str
+    hostel_type: str = "Boys"
+    warden_name: Optional[str] = None
+    warden_phone: Optional[str] = None
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class HostelBlockCreate(HostelBlockBase):
+    pass
+
+
+class HostelBlockResponse(HostelBlockBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class HostelRoomBase(BaseModel):
+    block_id: int
+    room_no: str
+    floor: Optional[str] = None
+    capacity: int = 1
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class HostelRoomCreate(HostelRoomBase):
+    pass
+
+
+class HostelRoomResponse(HostelRoomBase):
+    id: int
+    block_name: Optional[str] = None
+    occupied_beds: Optional[int] = 0
+    available_beds: Optional[int] = 0
+
+
+class HostelAllocationBase(BaseModel):
+    student_id: int
+    room_id: int
+    bed_no: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: str = "Active"
+    remarks: Optional[str] = None
+
+
+class HostelAllocationCreate(HostelAllocationBase):
+    pass
+
+
+class HostelAllocationResponse(HostelAllocationBase):
+    id: int
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    room_no: Optional[str] = None
+    block_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TransportRouteBase(BaseModel):
+    route_name: str
+    start_point: Optional[str] = None
+    end_point: Optional[str] = None
+    monthly_fee: Optional[float] = 0
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class TransportRouteCreate(TransportRouteBase):
+    pass
+
+
+class TransportRouteResponse(TransportRouteBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class TransportVehicleBase(BaseModel):
+    vehicle_no: str
+    route_id: Optional[int] = None
+    vehicle_type: Optional[str] = "Bus"
+    capacity: int = 1
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    attendant_name: Optional[str] = None
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class TransportVehicleCreate(TransportVehicleBase):
+    pass
+
+
+class TransportVehicleResponse(TransportVehicleBase):
+    id: int
+    route_name: Optional[str] = None
+    assigned_students: Optional[int] = 0
+    available_seats: Optional[int] = 0
+
+
+class TransportStopBase(BaseModel):
+    route_id: int
+    stop_name: str
+    pickup_time: Optional[str] = None
+    drop_time: Optional[str] = None
+    sort_order: Optional[int] = 0
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class TransportStopCreate(TransportStopBase):
+    pass
+
+
+class TransportStopResponse(TransportStopBase):
+    id: int
+    route_name: Optional[str] = None
+
+
+class TransportAssignmentBase(BaseModel):
+    student_id: int
+    route_id: int
+    vehicle_id: Optional[int] = None
+    stop_id: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: str = "Active"
+    remarks: Optional[str] = None
+
+
+class TransportAssignmentCreate(TransportAssignmentBase):
+    pass
+
+
+class TransportAssignmentResponse(TransportAssignmentBase):
+    id: int
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    route_name: Optional[str] = None
+    vehicle_no: Optional[str] = None
+    stop_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class HealthInfirmaryVisitBase(BaseModel):
+    student_id: int
+    visit_date: date
+    visit_time: Optional[str] = None
+    symptoms: str
+    diagnosis: Optional[str] = None
+    treatment: Optional[str] = None
+    medicine_given: Optional[str] = None
+    attended_by: Optional[str] = None
+    referred_to_hospital: Optional[bool] = False
+    follow_up_date: Optional[date] = None
+    status: str = "Open"
+    remarks: Optional[str] = None
+
+
+class HealthInfirmaryVisitCreate(HealthInfirmaryVisitBase):
+    pass
+
+
+class HealthInfirmaryVisitResponse(HealthInfirmaryVisitBase):
+    id: int
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MessMenuBase(BaseModel):
+    menu_date: date
+    meal_type: str
+    menu_items: str
+    nutrition_notes: Optional[str] = None
+    allergen_notes: Optional[str] = None
+    is_published: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class MessMenuCreate(MessMenuBase):
+    pass
+
+
+class MessMenuResponse(MessMenuBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class MessAttendanceBase(BaseModel):
+    student_id: int
+    meal_date: date
+    meal_type: str
+    status: str = "Present"
+    remarks: Optional[str] = None
+
+
+class MessAttendanceCreate(MessAttendanceBase):
+    pass
+
+
+class MessAttendanceResponse(MessAttendanceBase):
+    id: int
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryBookBase(BaseModel):
+    accession_no: str
+    title: str
+    author: Optional[str] = None
+    category: Optional[str] = None
+    publisher: Optional[str] = None
+    isbn: Optional[str] = None
+    total_copies: int = 1
+    available_copies: int = 1
+    shelf_no: Optional[str] = None
+    status: str = "Available"
+    remarks: Optional[str] = None
+
+
+class LibraryBookCreate(LibraryBookBase):
+    pass
+
+
+class LibraryBookResponse(LibraryBookBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryIssueBase(BaseModel):
+    book_id: int
+    student_id: int
+    issue_date: date
+    due_date: Optional[date] = None
+    return_date: Optional[date] = None
+    status: str = "Issued"
+    fine_amount: Optional[float] = 0
+    remarks: Optional[str] = None
+
+
+class LibraryIssueCreate(LibraryIssueBase):
+    pass
+
+
+class LibraryIssueResponse(LibraryIssueBase):
+    id: int
+    book_title: Optional[str] = None
+    accession_no: Optional[str] = None
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InventoryItemBase(BaseModel):
+    item_name: str
+    item_code: Optional[str] = None
+    category: Optional[str] = None
+    unit: Optional[str] = "pcs"
+    quantity_available: Optional[float] = 0
+    reorder_level: Optional[float] = 0
+    location: Optional[str] = None
+    status: str = "Active"
+    remarks: Optional[str] = None
+
+
+class InventoryItemCreate(InventoryItemBase):
+    pass
+
+
+class InventoryItemResponse(InventoryItemBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class InventoryTransactionBase(BaseModel):
+    item_id: int
+    transaction_date: date
+    transaction_type: str
+    quantity: float
+    issued_to_student_id: Optional[int] = None
+    issued_to_staff: Optional[str] = None
+    reference_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class InventoryTransactionCreate(InventoryTransactionBase):
+    pass
+
+
+class InventoryTransactionResponse(InventoryTransactionBase):
+    id: int
+    item_name: Optional[str] = None
+    item_code: Optional[str] = None
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
 
     class Config:
         from_attributes = True

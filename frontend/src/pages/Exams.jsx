@@ -113,6 +113,7 @@ export default function Exams() {
   const [customFormData, setCustomFormData] = useState({});
 
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
   const [selectedExam, setSelectedExam] = useState(null);
   const [selectedExamCustomValues, setSelectedExamCustomValues] = useState({});
 
@@ -404,6 +405,7 @@ export default function Exams() {
       setFormData(emptyExamForm);
       setCustomFormData({});
       setEditingId(null);
+      setPageMode("list");
       await loadExams();
     } catch (error) {
       console.error(error);
@@ -415,7 +417,8 @@ export default function Exams() {
   }
 
   async function handleEdit(exam) {
-  setEditingId(exam.id);
+    setEditingId(exam.id);
+    setPageMode("form");
 
     setFormData({
       exam_name: exam.exam_name || "",
@@ -465,6 +468,16 @@ export default function Exams() {
     setFormData(emptyExamForm);
     setCustomFormData({});
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddExam() {
+    setEditingId(null);
+    setFormData(emptyExamForm);
+    setCustomFormData({});
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function renderField(field) {
@@ -651,6 +664,11 @@ export default function Exams() {
             <RefreshCcw size={17} />
             Refresh
           </button>
+
+          <button type="button" className="primary-button" onClick={handleAddExam}>
+            <PlusCircle size={18} />
+            Add Exam
+          </button>
         </div>
       </section>
 
@@ -690,6 +708,7 @@ export default function Exams() {
 
       {message && <div className="message-box">{message}</div>}
 
+      {pageMode === "form" && (
       <section className="form-panel">
         <div className="panel-header">
           <div>
@@ -738,19 +757,19 @@ export default function Exams() {
               {editingId ? "Update Exam" : "Add Exam"}
             </button>
 
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </button>
           </div>
         </form>
       </section>
+      )}
 
+      {pageMode === "list" && (
       <section className="table-panel">
         <div className="table-toolbar">
           <div>
@@ -880,6 +899,7 @@ export default function Exams() {
           </div>
         )}
       </section>
+      )}
 
       {selectedExam && (
         <div className="student-drawer-backdrop">

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import StudentPicker from "../components/StudentPicker";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
 import {
@@ -55,6 +56,7 @@ export default function Attendance() {
   const [customFormData, setCustomFormData] = useState({});
 
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
   const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [selectedAttendanceCustomValues, setSelectedAttendanceCustomValues] =
     useState({});
@@ -351,6 +353,7 @@ export default function Attendance() {
       setFormData(emptyAttendanceForm);
       setCustomFormData({});
       setEditingId(null);
+      setPageMode("list");
       await loadAttendance();
     } catch (error) {
       console.error(error);
@@ -363,6 +366,7 @@ export default function Attendance() {
 
   async function handleEdit(attendance) {
     setEditingId(attendance.id);
+    setPageMode("form");
 
     setFormData({
       student_id: attendance.student_id || "",
@@ -412,6 +416,16 @@ export default function Attendance() {
     setFormData(emptyAttendanceForm);
     setCustomFormData({});
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddAttendance() {
+    setEditingId(null);
+    setFormData(emptyAttendanceForm);
+    setCustomFormData({});
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function renderField(field) {
@@ -424,23 +438,6 @@ export default function Attendance() {
       required: Boolean(field.required),
       placeholder: field.placeholder || "",
     };
-
-    if (field.name === "student_id") {
-      return (
-        <select {...commonProps}>
-          <option value="">Select Student</option>
-          {students.map((student) => (
-            <option key={student.id} value={student.id}>
-              {student.admission_no
-                ? `${student.admission_no} - ${student.first_name || ""} ${
-                    student.last_name || ""
-                  }`
-                : `${student.first_name || ""} ${student.last_name || ""}`}
-            </option>
-          ))}
-        </select>
-      );
-    }
 
     if (field.name === "status") {
       return (
@@ -600,6 +597,11 @@ export default function Attendance() {
             <RefreshCcw size={17} />
             Refresh
           </button>
+
+          <button type="button" className="primary-button" onClick={handleAddAttendance}>
+            <PlusCircle size={18} />
+            Add Attendance
+          </button>
         </div>
       </section>
 
@@ -639,6 +641,7 @@ export default function Attendance() {
 
       {message && <div className="message-box">{message}</div>}
 
+      {pageMode === "form" && (
       <section className="form-panel">
         <div className="panel-header">
           <div>
@@ -656,26 +659,37 @@ export default function Attendance() {
                 <div className="empty-table">No fields in this section.</div>
               ) : (
                 <div className="form-grid">
-                  {section.fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className={
-                        field.type === "multiline"
-                          ? "form-field full-width"
-                          : "form-field"
-                      }
-                    >
-                      <label>
-                        {field.label}
-                        {field.required && " *"}
-                        {field.source === "custom" && (
-                          <small className="custom-field-badge"> Custom</small>
-                        )}
-                      </label>
+                  {section.fields.map((field) =>
+                    field.name === "student_id" ? (
+                      <StudentPicker
+                        key={field.id}
+                        students={students}
+                        value={getFieldValue(field)}
+                        onChange={(event) => handleFieldChange(field, event)}
+                        required={Boolean(field.required)}
+                        label={`${field.label}${field.required ? " *" : ""}`}
+                      />
+                    ) : (
+                      <div
+                        key={field.id}
+                        className={
+                          field.type === "multiline"
+                            ? "form-field full-width"
+                            : "form-field"
+                        }
+                      >
+                        <label>
+                          {field.label}
+                          {field.required && " *"}
+                          {field.source === "custom" && (
+                            <small className="custom-field-badge"> Custom</small>
+                          )}
+                        </label>
 
-                      {renderField(field)}
-                    </div>
-                  ))}
+                        {renderField(field)}
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -687,19 +701,19 @@ export default function Attendance() {
               {editingId ? "Update Attendance" : "Add Attendance"}
             </button>
 
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </button>
           </div>
         </form>
       </section>
+      )}
 
+      {pageMode === "list" && (
       <section className="table-panel">
         <div className="table-toolbar">
           <div>
@@ -827,6 +841,7 @@ export default function Attendance() {
           </div>
         )}
       </section>
+      )}
 
       {selectedAttendance && (
         <div className="student-drawer-backdrop">

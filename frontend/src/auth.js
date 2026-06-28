@@ -1,6 +1,10 @@
 export function saveAuth(token, user) {
   localStorage.setItem("school_erp_token", token);
   localStorage.setItem("school_erp_user", JSON.stringify(user));
+
+  if (user?.account?.account_code) {
+    localStorage.setItem("school_erp_account_code", user.account.account_code);
+  }
 }
 
 export function getToken() {
@@ -18,6 +22,7 @@ export function getUser() {
 export function logout() {
   localStorage.removeItem("school_erp_token");
   localStorage.removeItem("school_erp_user");
+  localStorage.removeItem("school_erp_account_code");
 }
 
 export function isLoggedIn() {
@@ -32,4 +37,14 @@ export function hasAccess(allowedRoles) {
   if (!allowedRoles || allowedRoles.length === 0) return true;
 
   return allowedRoles.includes(user.role);
+}
+
+export function isFeatureEnabled(featureKey) {
+  if (!featureKey) return true;
+
+  const user = getUser();
+
+  if (!user?.features) return true;
+
+  return user.features[featureKey] !== false;
 }

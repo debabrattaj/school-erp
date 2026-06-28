@@ -25,6 +25,9 @@ ALLOWED_CATEGORIES = [
     "BloodGroup",
     "Nationality",
     "TransportRoute",
+    "LibraryCategory",
+    "InventoryCategory",
+    "InventoryUnit",
     "SalaryGrade",
     "StudentStatus",
     "AcademicYear"

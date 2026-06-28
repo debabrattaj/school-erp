@@ -215,6 +215,7 @@ class Mark(Base):
 
     class_subject_id = Column(Integer, ForeignKey("class_subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     subject_name = Column(String, nullable=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
 
     subject = Column(String, nullable=True)
 
@@ -325,6 +326,7 @@ class ClassSubject(Base):
     )
 
     subject_name = Column(String, nullable=False, index=True)
+    academic_year = Column(String, nullable=False, default="2026-27", index=True)
 
     teacher_id = Column(
         Integer,
@@ -337,11 +339,413 @@ class ClassSubject(Base):
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         UniqueConstraint(
             "class_id",
+            "academic_year",
             "subject_name",
             name="uq_class_subject_name"
         ),
     )
+
+
+class ClassExamMapping(Base):
+    __tablename__ = "class_exam_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    class_id = Column(
+        Integer,
+        ForeignKey("classes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    exam_id = Column(
+        Integer,
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    academic_year = Column(String, nullable=False, index=True)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "class_id",
+            "exam_id",
+            "academic_year",
+            name="uq_class_exam_academic_year",
+        ),
+    )
+
+
+class StudentEnrollment(Base):
+    __tablename__ = "student_enrollments"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    class_id = Column(
+        Integer,
+        ForeignKey("classes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    academic_year = Column(String, nullable=False, index=True)
+    class_name_snapshot = Column(String, nullable=True)
+    section_snapshot = Column(String, nullable=True)
+    roll_no = Column(String, nullable=True)
+
+    enrollment_status = Column(String, default="Active", index=True)
+    promotion_status = Column(String, default="Not Promoted", index=True)
+
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            "class_id",
+            "academic_year",
+            name="uq_student_enrollment_class_year",
+        ),
+    )
+
+
+class HostelBlock(Base):
+    __tablename__ = "hostel_blocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    block_name = Column(String, nullable=False, unique=True, index=True)
+    hostel_type = Column(String, nullable=False, default="Boys")
+    warden_name = Column(String, nullable=True)
+    warden_phone = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HostelRoom(Base):
+    __tablename__ = "hostel_rooms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    block_id = Column(
+        Integer,
+        ForeignKey("hostel_blocks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    room_no = Column(String, nullable=False, index=True)
+    floor = Column(String, nullable=True)
+    capacity = Column(Integer, nullable=False, default=1)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("block_id", "room_no", name="uq_hostel_block_room"),
+    )
+
+
+class HostelAllocation(Base):
+    __tablename__ = "hostel_allocations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    room_id = Column(
+        Integer,
+        ForeignKey("hostel_rooms.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    bed_no = Column(String, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    status = Column(String, default="Active", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "bed_no", "status", name="uq_active_hostel_bed"),
+    )
+
+
+class TransportRoute(Base):
+    __tablename__ = "transport_routes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    route_name = Column(String, nullable=False, unique=True, index=True)
+    start_point = Column(String, nullable=True)
+    end_point = Column(String, nullable=True)
+    monthly_fee = Column(Float, default=0)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TransportVehicle(Base):
+    __tablename__ = "transport_vehicles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_no = Column(String, nullable=False, unique=True, index=True)
+    route_id = Column(
+        Integer,
+        ForeignKey("transport_routes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    vehicle_type = Column(String, nullable=True, default="Bus")
+    capacity = Column(Integer, nullable=False, default=1)
+    driver_name = Column(String, nullable=True)
+    driver_phone = Column(String, nullable=True)
+    attendant_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TransportStop(Base):
+    __tablename__ = "transport_stops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(
+        Integer,
+        ForeignKey("transport_routes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    stop_name = Column(String, nullable=False, index=True)
+    pickup_time = Column(String, nullable=True)
+    drop_time = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("route_id", "stop_name", name="uq_transport_route_stop"),
+    )
+
+
+class TransportAssignment(Base):
+    __tablename__ = "transport_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    route_id = Column(
+        Integer,
+        ForeignKey("transport_routes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    vehicle_id = Column(
+        Integer,
+        ForeignKey("transport_vehicles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    stop_id = Column(
+        Integer,
+        ForeignKey("transport_stops.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    status = Column(String, default="Active", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HealthInfirmaryVisit(Base):
+    __tablename__ = "health_infirmary_visits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    visit_date = Column(Date, nullable=False)
+    visit_time = Column(String, nullable=True)
+    symptoms = Column(Text, nullable=False)
+    diagnosis = Column(Text, nullable=True)
+    treatment = Column(Text, nullable=True)
+    medicine_given = Column(String, nullable=True)
+    attended_by = Column(String, nullable=True)
+    referred_to_hospital = Column(Boolean, default=False)
+    follow_up_date = Column(Date, nullable=True)
+    status = Column(String, default="Open", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MessMenu(Base):
+    __tablename__ = "mess_menus"
+
+    id = Column(Integer, primary_key=True, index=True)
+    menu_date = Column(Date, nullable=False, index=True)
+    meal_type = Column(String, nullable=False, index=True)
+    menu_items = Column(Text, nullable=False)
+    nutrition_notes = Column(String, nullable=True)
+    allergen_notes = Column(String, nullable=True)
+    is_published = Column(Boolean, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("menu_date", "meal_type", name="uq_mess_menu_date_meal"),
+    )
+
+
+class MessAttendance(Base):
+    __tablename__ = "mess_attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    meal_date = Column(Date, nullable=False, index=True)
+    meal_type = Column(String, nullable=False, index=True)
+    status = Column(String, default="Present", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            "meal_date",
+            "meal_type",
+            name="uq_mess_student_meal_attendance",
+        ),
+    )
+
+
+class LibraryBook(Base):
+    __tablename__ = "library_books"
+
+    id = Column(Integer, primary_key=True, index=True)
+    accession_no = Column(String, nullable=False, unique=True, index=True)
+    title = Column(String, nullable=False, index=True)
+    author = Column(String, nullable=True)
+    category = Column(String, nullable=True, index=True)
+    publisher = Column(String, nullable=True)
+    isbn = Column(String, nullable=True)
+    total_copies = Column(Integer, default=1)
+    available_copies = Column(Integer, default=1)
+    shelf_no = Column(String, nullable=True)
+    status = Column(String, default="Available", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LibraryIssue(Base):
+    __tablename__ = "library_issues"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(
+        Integer,
+        ForeignKey("library_books.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    issue_date = Column(Date, nullable=False, index=True)
+    due_date = Column(Date, nullable=True)
+    return_date = Column(Date, nullable=True)
+    status = Column(String, default="Issued", index=True)
+    fine_amount = Column(Float, default=0)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_name = Column(String, nullable=False, index=True)
+    item_code = Column(String, nullable=True, unique=True, index=True)
+    category = Column(String, nullable=True, index=True)
+    unit = Column(String, nullable=True, default="pcs")
+    quantity_available = Column(Float, default=0)
+    reorder_level = Column(Float, default=0)
+    location = Column(String, nullable=True)
+    status = Column(String, default="Active", index=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InventoryTransaction(Base):
+    __tablename__ = "inventory_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(
+        Integer,
+        ForeignKey("inventory_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    transaction_date = Column(Date, nullable=False, index=True)
+    transaction_type = Column(String, nullable=False, index=True)
+    quantity = Column(Float, nullable=False)
+    issued_to_student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    issued_to_staff = Column(String, nullable=True)
+    reference_no = Column(String, nullable=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

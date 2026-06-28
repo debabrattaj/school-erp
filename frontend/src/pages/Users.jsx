@@ -24,6 +24,7 @@ export default function Users() {
   const [users, setUsers] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
   const [searchText, setSearchText] = useState("");
   const [resetUserId, setResetUserId] = useState(null);
   const [newPassword, setNewPassword] = useState("");
@@ -84,6 +85,7 @@ export default function Users() {
 
       setFormData(emptyForm);
       setEditingId(null);
+      setPageMode("list");
       loadUsers();
     } catch (error) {
       console.error(error);
@@ -98,6 +100,7 @@ export default function Users() {
 
   function handleEdit(user) {
     setEditingId(user.id);
+    setPageMode("form");
 
     setFormData({
       name: user.name || "",
@@ -161,6 +164,15 @@ export default function Users() {
     setEditingId(null);
     setFormData(emptyForm);
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddUser() {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function closeResetBox() {
@@ -183,6 +195,125 @@ export default function Users() {
   const accountsCount = users.filter((user) => user.role === "Accounts").length;
   const teacherCount = users.filter((user) => user.role === "Teacher").length;
 
+  const userForm = (
+    <section className="form-panel">
+      <div className="panel-header">
+        <div>
+          <h3>{editingId ? "Edit User" : "Add New User"}</h3>
+          <p>
+            {editingId
+              ? "Update user details and role"
+              : "Create a new ERP login user"}
+          </p>
+        </div>
+      </div>
+
+      <form className="classic-form" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <div className="form-field">
+            <label>Name *</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              placeholder="User name"
+            />
+          </div>
+
+          <div className="form-field">
+            <label>Email *</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              placeholder="user@school.com"
+            />
+          </div>
+
+          {!editingId && (
+            <div className="form-field">
+              <label>Password *</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                minLength="6"
+                placeholder="Minimum 6 characters"
+              />
+            </div>
+          )}
+
+          <div className="form-field">
+            <label>Role *</label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Role</option>
+              <option value="Admin">Admin</option>
+              <option value="Principal">Principal</option>
+              <option value="Accounts">Accounts</option>
+              <option value="Teacher">Teacher</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="primary-button">
+            <PlusCircle size={18} />
+            {editingId ? "Update User" : "Add User"}
+          </button>
+
+          <button
+            type="button"
+            className="light-button"
+            onClick={handleCancelEdit}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+
+  if (pageMode === "form") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Admin Control Panel</p>
+            <h2>{editingId ? "Edit User" : "Add User"}</h2>
+            <p>
+              {editingId
+                ? "Update user details and role."
+                : "Create a new ERP login user."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="light-button"
+            onClick={handleCancelEdit}
+          >
+            Back to User Records
+          </button>
+        </section>
+
+        {message && <div className="message-box">{message}</div>}
+
+        {userForm}
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -194,10 +325,17 @@ export default function Users() {
           </p>
         </div>
 
-        <button className="secondary-button" onClick={loadUsers}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
+        <div className="module-header-actions">
+          <button className="secondary-button" onClick={loadUsers}>
+            <RefreshCcw size={17} />
+            Refresh
+          </button>
+
+          <button type="button" className="primary-button" onClick={handleAddUser}>
+            <PlusCircle size={18} />
+            Add User
+          </button>
+        </div>
       </section>
 
       <section className="summary-strip report-summary-grid">
@@ -237,95 +375,6 @@ export default function Users() {
       </section>
 
       {message && <div className="message-box">{message}</div>}
-
-      <section className="form-panel">
-        <div className="panel-header">
-          <div>
-            <h3>{editingId ? "Edit User" : "Add New User"}</h3>
-            <p>
-              {editingId
-                ? "Update user details and role"
-                : "Create a new ERP login user"}
-            </p>
-          </div>
-        </div>
-
-        <form className="classic-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label>Name *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="User name"
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="user@school.com"
-              />
-            </div>
-
-            {!editingId && (
-              <div className="form-field">
-                <label>Password *</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength="6"
-                  placeholder="Minimum 6 characters"
-                />
-              </div>
-            )}
-
-            <div className="form-field">
-              <label>Role *</label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Role</option>
-                <option value="Admin">Admin</option>
-                <option value="Principal">Principal</option>
-                <option value="Accounts">Accounts</option>
-                <option value="Teacher">Teacher</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="primary-button">
-              <PlusCircle size={18} />
-              {editingId ? "Update User" : "Add User"}
-            </button>
-
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
 
       {resetUserId && (
         <section className="form-panel password-reset-panel">

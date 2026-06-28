@@ -54,6 +54,7 @@ export default function Subjects() {
   const [subjects, setSubjects] = useState([]);
   const [formData, setFormData] = useState(emptySubjectForm);
   const [editingId, setEditingId] = useState(null);
+  const [pageMode, setPageMode] = useState("list");
 
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -126,6 +127,7 @@ export default function Subjects() {
 
       setFormData(emptySubjectForm);
       setEditingId(null);
+      setPageMode("list");
       await loadSubjects();
     } catch (error) {
       console.error(error);
@@ -137,6 +139,7 @@ export default function Subjects() {
 
   function handleEdit(subject) {
     setEditingId(subject.id);
+    setPageMode("form");
 
     setFormData({
       subject_code: subject.subject_code || "",
@@ -175,6 +178,15 @@ export default function Subjects() {
     setEditingId(null);
     setFormData(emptySubjectForm);
     setMessage("");
+    setPageMode("list");
+  }
+
+  function handleAddSubject() {
+    setEditingId(null);
+    setFormData(emptySubjectForm);
+    setMessage("");
+    setPageMode("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const subjectTypes = useMemo(() => {
@@ -212,6 +224,114 @@ export default function Subjects() {
   const activeCount = subjects.filter((subject) => subject.is_active).length;
   const inactiveCount = subjects.filter((subject) => !subject.is_active).length;
 
+  const subjectForm = (
+    <section className="form-panel">
+      <div className="panel-header">
+        <div>
+          <h3>{editingId ? "Edit Subject" : "Add Subject"}</h3>
+          <p>Create subjects once, then map them to classes.</p>
+        </div>
+      </div>
+
+      <form className="classic-form" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <div className="form-field">
+            <label>Subject Code *</label>
+            <input
+              type="text"
+              name="subject_code"
+              value={formData.subject_code}
+              onChange={handleChange}
+              placeholder="Example: MATH"
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label>Subject Name *</label>
+            <input
+              type="text"
+              name="subject_name"
+              value={formData.subject_name}
+              onChange={handleChange}
+              placeholder="Example: Mathematics"
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label>Subject Type</label>
+            <select
+              name="subject_type"
+              value={formData.subject_type}
+              onChange={handleChange}
+            >
+              {subjectTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-field">
+            <label>Status</label>
+            <label className="switch-row">
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={Boolean(formData.is_active)}
+                onChange={handleChange}
+              />
+              <span>{formData.is_active ? "Active" : "Inactive"}</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="primary-button">
+            <PlusCircle size={18} />
+            {editingId ? "Update Subject" : "Add Subject"}
+          </button>
+
+          <button
+            type="button"
+            className="light-button"
+            onClick={handleCancelEdit}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+
+  if (pageMode === "form") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Academic Setup</p>
+            <h2>{editingId ? "Edit Subject" : "Add Subject"}</h2>
+            <p>Create subjects once, then map them to classes.</p>
+          </div>
+
+          <button
+            type="button"
+            className="light-button"
+            onClick={handleCancelEdit}
+          >
+            Back to Subject Records
+          </button>
+        </section>
+
+        {message && <div className="message-box">{message}</div>}
+
+        {subjectForm}
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -231,6 +351,11 @@ export default function Subjects() {
           >
             <RefreshCcw size={17} />
             Refresh
+          </button>
+
+          <button type="button" className="primary-button" onClick={handleAddSubject}>
+            <PlusCircle size={18} />
+            Add Subject
           </button>
         </div>
       </section>
@@ -270,88 +395,6 @@ export default function Subjects() {
       </section>
 
       {message && <div className="message-box">{message}</div>}
-
-      <section className="form-panel">
-        <div className="panel-header">
-          <div>
-            <h3>{editingId ? "Edit Subject" : "Add Subject"}</h3>
-            <p>Create subjects once, then map them to classes.</p>
-          </div>
-        </div>
-
-        <form className="classic-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label>Subject Code *</label>
-              <input
-                type="text"
-                name="subject_code"
-                value={formData.subject_code}
-                onChange={handleChange}
-                placeholder="Example: MATH"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Subject Name *</label>
-              <input
-                type="text"
-                name="subject_name"
-                value={formData.subject_name}
-                onChange={handleChange}
-                placeholder="Example: Mathematics"
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Subject Type</label>
-              <select
-                name="subject_type"
-                value={formData.subject_type}
-                onChange={handleChange}
-              >
-                {subjectTypeOptions.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label>Status</label>
-              <label className="switch-row">
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  checked={Boolean(formData.is_active)}
-                  onChange={handleChange}
-                />
-                <span>{formData.is_active ? "Active" : "Inactive"}</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="primary-button">
-              <PlusCircle size={18} />
-              {editingId ? "Update Subject" : "Add Subject"}
-            </button>
-
-            {editingId && (
-              <button
-                type="button"
-                className="light-button"
-                onClick={handleCancelEdit}
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
 
       <section className="table-panel">
         <div className="table-toolbar">

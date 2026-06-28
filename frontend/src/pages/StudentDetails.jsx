@@ -2,22 +2,57 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  UserRound,
+  Bed,
   BookOpen,
-  Mail,
-  Phone,
+  Bus,
   CalendarCheck,
-  Wallet,
-  FileText,
   ClipboardList,
+  FileText,
+  HeartPulse,
+  Mail,
+  PackageCheck,
+  Phone,
   RefreshCcw,
-  Eye,
+  UserRound,
+  Utensils,
+  Wallet,
 } from "lucide-react";
 
 import API from "../api";
-import {
-  getModuleCustomFields,
-} from "../services/moduleCustomFieldService";
+import { getModuleCustomFields } from "../services/moduleCustomFieldService";
+
+function getMoney(value) {
+  return Number(value || 0).toLocaleString("en-IN");
+}
+
+function getFeeAmount(fee) {
+  return Number(fee.total_amount ?? fee.amount ?? 0);
+}
+
+function getPaidAmount(fee) {
+  return Number(fee.paid_amount ?? (String(fee.status || "").toLowerCase() === "paid" ? getFeeAmount(fee) : 0));
+}
+
+function getStudentDisplayName(student) {
+  if (!student) return "-";
+
+  return (
+    student.student_name ||
+    student.name ||
+    `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
+    "Student"
+  );
+}
+
+function getInitials(name) {
+  return String(name || "Student")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
 
 export default function StudentDetails() {
   const { studentId } = useParams();
@@ -25,12 +60,19 @@ export default function StudentDetails() {
 
   const [student, setStudent] = useState(null);
   const [classRecord, setClassRecord] = useState(null);
+  const [customFields, setCustomFields] = useState([]);
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [feeRecords, setFeeRecords] = useState([]);
   const [markRecords, setMarkRecords] = useState([]);
   const [examRecords, setExamRecords] = useState([]);
-  const [customFields, setCustomFields] = useState([]);
+  const [enrollmentRecords, setEnrollmentRecords] = useState([]);
+  const [hostelAllocations, setHostelAllocations] = useState([]);
+  const [transportAssignments, setTransportAssignments] = useState([]);
+  const [healthVisits, setHealthVisits] = useState([]);
+  const [messAttendance, setMessAttendance] = useState([]);
+  const [libraryIssues, setLibraryIssues] = useState([]);
+  const [inventoryIssues, setInventoryIssues] = useState([]);
 
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
@@ -59,77 +101,94 @@ export default function StudentDetails() {
     }
   }
 
+  async function safeGet(url, fallback = []) {
+    try {
+      const response = await API.get(url);
+      return response.data || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   async function loadStudentDetails() {
     try {
       setLoading(true);
       setMessage("");
 
       const [
-        studentResponse,
-        classesResponse,
-        attendanceResponse,
-        feesResponse,
-        marksResponse,
-        examsResponse,
+        studentData,
+        classes,
+        attendance,
+        fees,
+        marks,
+        exams,
+        enrollments,
+        hostel,
+        transport,
+        health,
+        mess,
+        library,
+        inventory,
         customValues,
       ] = await Promise.all([
-        API.get(`/students/${studentId}`),
-        API.get("/classes/"),
-        API.get("/attendance/").catch(() => ({ data: [] })),
-        API.get("/fees/").catch(() => ({ data: [] })),
-        API.get("/marks/").catch(() => ({ data: [] })),
-        API.get("/exams/").catch(() => ({ data: [] })),
+        safeGet(`/students/${studentId}`, null),
+        safeGet("/classes/"),
+        safeGet(`/attendance/student/${studentId}`),
+        safeGet(`/fees/student/${studentId}`),
+        safeGet(`/marks/student/${studentId}`),
+        safeGet("/exams/"),
+        safeGet(`/student-enrollments/?student_id=${studentId}`),
+        safeGet("/hostel/allocations/"),
+        safeGet("/transport/assignments/"),
+        safeGet(`/health-infirmary/visits/?student_id=${studentId}`),
+        safeGet("/mess/attendance/"),
+        safeGet(`/library/issues/?student_id=${studentId}`),
+        safeGet("/inventory/transactions/"),
         loadStudentCustomFields(studentId),
       ]);
 
-      const studentData = studentResponse.data;
-      const classes = classesResponse.data || [];
-
-      let matchedClass = null;
-
-      if (studentData.class_id) {
-        matchedClass = classes.find(
-          (item) => Number(item.id) === Number(studentData.class_id)
-        );
+      if (!studentData) {
+        setStudent(null);
+        setMessage("Student not found.");
+        return;
       }
 
-      if (!matchedClass) {
-        matchedClass = classes.find(
+      const matchedClass =
+        classes.find((item) => Number(item.id) === Number(studentData.class_id)) ||
+        classes.find(
           (item) =>
             item.class_name === studentData.class_name &&
             item.section === studentData.section
-        );
-      }
-
-      const allAttendance = attendanceResponse.data || [];
-      const allFees = feesResponse.data || [];
-      const allMarks = marksResponse.data || [];
-      const allExams = examsResponse.data || [];
+        ) ||
+        null;
 
       setStudent(studentData);
-      setClassRecord(matchedClass || null);
-
-      setAttendanceRecords(
-        allAttendance.filter(
-          (item) => Number(item.student_id) === Number(studentId)
+      setClassRecord(matchedClass);
+      setAttendanceRecords(attendance || []);
+      setFeeRecords(fees || []);
+      setMarkRecords(marks || []);
+      setExamRecords(exams || []);
+      setEnrollmentRecords(enrollments || []);
+      setHostelAllocations(
+        (hostel || []).filter((item) => Number(item.student_id) === Number(studentId))
+      );
+      setTransportAssignments(
+        (transport || []).filter((item) => Number(item.student_id) === Number(studentId))
+      );
+      setHealthVisits(health || []);
+      setMessAttendance(
+        (mess || []).filter((item) => Number(item.student_id) === Number(studentId))
+      );
+      setLibraryIssues(library || []);
+      setInventoryIssues(
+        (inventory || []).filter(
+          (item) => Number(item.issued_to_student_id) === Number(studentId)
         )
       );
-
-      setFeeRecords(
-        allFees.filter((item) => Number(item.student_id) === Number(studentId))
-      );
-
-      setMarkRecords(
-        allMarks.filter((item) => Number(item.student_id) === Number(studentId))
-      );
-
-      setExamRecords(allExams);
       setCustomFields(customValues || []);
     } catch (error) {
       console.error(error);
-      setMessage(
-        error.response?.data?.detail || "Unable to load student details."
-      );
+      setMessage(error.response?.data?.detail || "Unable to load student details.");
     } finally {
       setLoading(false);
     }
@@ -141,11 +200,9 @@ export default function StudentDetails() {
 
   const examMap = useMemo(() => {
     const map = {};
-
     examRecords.forEach((exam) => {
-      map[exam.id] = exam.exam_name || `Exam ID: ${exam.id}`;
+      map[exam.id] = exam.exam_name || exam.name || `Exam ID: ${exam.id}`;
     });
-
     return map;
   }, [examRecords]);
 
@@ -153,58 +210,32 @@ export default function StudentDetails() {
     const present = attendanceRecords.filter(
       (item) => String(item.status || "").toLowerCase() === "present"
     ).length;
-
     const absent = attendanceRecords.filter(
       (item) => String(item.status || "").toLowerCase() === "absent"
     ).length;
-
     const late = attendanceRecords.filter(
       (item) => String(item.status || "").toLowerCase() === "late"
     ).length;
 
-    return {
-      total: attendanceRecords.length,
-      present,
-      absent,
-      late,
-    };
+    return { total: attendanceRecords.length, present, absent, late };
   }, [attendanceRecords]);
 
   const feeSummary = useMemo(() => {
-    const total = feeRecords.reduce(
-      (sum, item) => sum + Number(item.amount || 0),
-      0
-    );
-
-    const paid = feeRecords
-      .filter((item) => String(item.status || "").toLowerCase() === "paid")
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-    return {
-      total,
-      paid,
-      pending: total - paid,
-    };
+    const total = feeRecords.reduce((sum, item) => sum + getFeeAmount(item), 0);
+    const paid = feeRecords.reduce((sum, item) => sum + getPaidAmount(item), 0);
+    return { total, paid, pending: Math.max(total - paid, 0) };
   }, [feeRecords]);
 
   const marksSummary = useMemo(() => {
     if (markRecords.length === 0) {
-      return {
-        average: "0.00",
-        pass: 0,
-        needsImprovement: 0,
-      };
+      return { average: "0.00", pass: 0, needsImprovement: 0 };
     }
 
     const percentages = markRecords.map((mark) => {
       const obtained = Number(mark.marks_obtained || 0);
-      const max = Number(mark.max_marks || 0);
-
-      if (!max) return 0;
-
-      return (obtained / max) * 100;
+      const max = Number(mark.max_marks || mark.total_marks || 0);
+      return max ? (obtained / max) * 100 : 0;
     });
-
     const average =
       percentages.reduce((sum, value) => sum + value, 0) / percentages.length;
 
@@ -214,6 +245,13 @@ export default function StudentDetails() {
       needsImprovement: percentages.filter((value) => value < 40).length,
     };
   }, [markRecords]);
+
+  const activeHostel = hostelAllocations.find((item) => item.status === "Active");
+  const activeTransport = transportAssignments.find((item) => item.status === "Active");
+  const openHealthCases = healthVisits.filter((item) =>
+    ["Open", "Under Observation", "Referred"].includes(item.status)
+  ).length;
+  const activeLibraryIssues = libraryIssues.filter((item) => item.status === "Issued").length;
 
   function getCustomValue(field) {
     if (field.field_type === "checkbox") {
@@ -226,11 +264,11 @@ export default function StudentDetails() {
   function getStatusClass(status) {
     const text = String(status || "").toLowerCase();
 
-    if (["paid", "present", "pass", "active"].includes(text)) {
+    if (["paid", "present", "pass", "active", "returned", "recovered", "closed"].includes(text)) {
       return "status active";
     }
 
-    if (["absent", "failed", "cancelled"].includes(text)) {
+    if (["absent", "failed", "cancelled", "lost", "damaged", "referred"].includes(text)) {
       return "status danger";
     }
 
@@ -239,28 +277,38 @@ export default function StudentDetails() {
 
   function calculatePercentage(mark) {
     const obtained = Number(mark.marks_obtained || 0);
-    const max = Number(mark.max_marks || 0);
-
-    if (!max) return "0.00";
-
-    return ((obtained / max) * 100).toFixed(2);
+    const max = Number(mark.max_marks || mark.total_marks || 0);
+    return max ? ((obtained / max) * 100).toFixed(2) : "0.00";
   }
 
   function getResultStatus(mark) {
     const percentage = Number(calculatePercentage(mark));
-
     if (percentage >= 90) return "Excellent";
     if (percentage >= 75) return "Very Good";
     if (percentage >= 60) return "Good";
     if (percentage >= 40) return "Pass";
-
     return "Needs Improvement";
   }
+
+  const tabs = [
+    ["profile", "Profile"],
+    ["enrollment", "Enrollment"],
+    ["attendance", "Attendance"],
+    ["fees", "Fees"],
+    ["marks", "Marks"],
+    ["hostel", "Hostel"],
+    ["transport", "Transport"],
+    ["health", "Health"],
+    ["mess", "Mess"],
+    ["library", "Library"],
+    ["inventory", "Inventory"],
+    ["custom", "Custom Fields"],
+  ];
 
   if (loading) {
     return (
       <div className="management-page">
-        <div className="loading-box">Loading student details...</div>
+        <div className="loading-box">Loading student 360 profile...</div>
       </div>
     );
   }
@@ -275,11 +323,7 @@ export default function StudentDetails() {
             <p>{message || "Unable to load student."}</p>
           </div>
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => navigate("/students")}
-          >
+          <button type="button" className="light-button" onClick={() => navigate("/students")}>
             <ArrowLeft size={17} />
             Back to Students
           </button>
@@ -288,488 +332,400 @@ export default function StudentDetails() {
     );
   }
 
+  const studentName = getStudentDisplayName(student);
+  const classDisplay = classRecord
+    ? `${classRecord.class_name} - ${classRecord.section}`
+    : `${student.class_name || "-"} ${student.section || ""}`.trim();
+  const studentStatus = student.student_status || student.status || "Active";
+  const guardianName = student.guardian_name || student.father_name || student.mother_name || "-";
+
   return (
-    <div className="management-page">
-      <section className="page-heading">
-        <div>
-          <p className="eyebrow">Student 360 Profile</p>
-          <h2>
-            {student.first_name} {student.last_name}
-          </h2>
-          <p>Admission No: {student.admission_no || "-"}</p>
+    <div className="management-page student360-page">
+      <section className="student360-hero">
+        <div className="student360-profile">
+          <div className="student360-avatar">
+            {student.photo_url ? (
+              <img src={student.photo_url} alt={studentName} />
+            ) : (
+              <span>{getInitials(studentName)}</span>
+            )}
+          </div>
+
+          <div className="student360-title">
+            <p className="eyebrow">Student 360 Profile</p>
+            <h2>{studentName}</h2>
+            <div className="student360-tags">
+              <span>{student.admission_no || "No Admission No"}</span>
+              <span>{classDisplay || "-"}</span>
+              <span className={getStatusClass(studentStatus)}>{studentStatus}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="module-header-actions">
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => navigate("/students")}
-          >
+        <div className="student360-actions">
+          <button type="button" className="light-button" onClick={() => navigate("/students")}>
             <ArrowLeft size={17} />
             Back
           </button>
-
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadStudentDetails}
-          >
+          <button type="button" className="secondary-button" onClick={loadStudentDetails}>
             <RefreshCcw size={17} />
             Refresh
           </button>
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
-
-      <section className="summary-strip report-summary-grid">
-        <div className="summary-card">
-          <UserRound size={22} />
-          <div>
-            <span>Student</span>
-            <strong>
-              {student.first_name} {student.last_name}
-            </strong>
-          </div>
+      <section className="student360-facts">
+        <div>
+          <span>Guardian</span>
+          <strong>{guardianName}</strong>
         </div>
-
-        <div className="summary-card">
-          <BookOpen size={22} />
-          <div>
-            <span>Class</span>
-            <strong>
-              {classRecord ? (
-                <button
-                  type="button"
-                  className="text-link-button"
-                  onClick={() => navigate(`/classes/${classRecord.id}`)}
-                >
-                  {classRecord.class_name} - {classRecord.section}
-                </button>
-              ) : (
-                `${student.class_name || "-"} ${student.section || ""}`
-              )}
-            </strong>
-          </div>
+        <div>
+          <span>Phone</span>
+          <strong>{student.guardian_phone || student.phone || "-"}</strong>
         </div>
-
-        <div className="summary-card">
-          <CalendarCheck size={22} />
-          <div>
-            <span>Attendance</span>
-            <strong>
-              {attendanceSummary.present}/{attendanceSummary.total} Present
-            </strong>
-          </div>
+        <div>
+          <span>Academic Class</span>
+          <strong>{classDisplay || "-"}</strong>
         </div>
-
-        <div className="summary-card warning">
-          <Wallet size={22} />
-          <div>
-            <span>Pending Fees</span>
-            <strong>₹{feeSummary.pending.toLocaleString("en-IN")}</strong>
-          </div>
+        <div>
+          <span>Admission Date</span>
+          <strong>{student.admission_date || "-"}</strong>
         </div>
       </section>
 
+      {message && <div className="message-box">{message}</div>}
+
+      <section className="student360-metrics">
+        <SummaryCard icon={UserRound} label="Student" value={getStudentDisplayName(student)} />
+        <SummaryCard
+          icon={BookOpen}
+          label="Class"
+          value={
+            classRecord
+              ? `${classRecord.class_name} - ${classRecord.section}`
+              : `${student.class_name || "-"} ${student.section || ""}`
+          }
+        />
+        <SummaryCard
+          icon={CalendarCheck}
+          label="Attendance"
+          value={`${attendanceSummary.present}/${attendanceSummary.total} Present`}
+        />
+        <SummaryCard icon={Wallet} label="Pending Fees" value={`Rs ${getMoney(feeSummary.pending)}`} warning />
+        <SummaryCard
+          icon={Bed}
+          label="Hostel"
+          value={activeHostel ? `${activeHostel.block_name || "-"} / ${activeHostel.room_no || "-"}` : "-"}
+        />
+        <SummaryCard
+          icon={Bus}
+          label="Transport"
+          value={activeTransport ? activeTransport.route_name || "-" : "-"}
+        />
+        <SummaryCard icon={HeartPulse} label="Open Health Cases" value={openHealthCases} warning={openHealthCases > 0} />
+        <SummaryCard icon={BookOpen} label="Books Issued" value={activeLibraryIssues} />
+      </section>
+
       <section className="student-profile-tabs">
-        <button
-          type="button"
-          className={activeTab === "profile" ? "active" : ""}
-          onClick={() => setActiveTab("profile")}
-        >
-          Profile
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === "attendance" ? "active" : ""}
-          onClick={() => setActiveTab("attendance")}
-        >
-          Attendance
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === "fees" ? "active" : ""}
-          onClick={() => setActiveTab("fees")}
-        >
-          Fees
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === "marks" ? "active" : ""}
-          onClick={() => setActiveTab("marks")}
-        >
-          Marks
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === "custom" ? "active" : ""}
-          onClick={() => setActiveTab("custom")}
-        >
-          Custom Fields
-        </button>
+        {tabs.map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            className={activeTab === tab ? "active" : ""}
+            onClick={() => setActiveTab(tab)}
+          >
+            {label}
+          </button>
+        ))}
       </section>
 
       {activeTab === "profile" && (
         <>
-          <section className="form-panel">
-            <div className="panel-header">
-              <div>
-                <h3>Personal & Academic Information</h3>
-                <p>Core student details and class lookup.</p>
-              </div>
-            </div>
-
-            <div className="details-grid">
-              <p>
-                <strong>Admission No:</strong> {student.admission_no || "-"}
-              </p>
-              <p>
-                <strong>First Name:</strong> {student.first_name || "-"}
-              </p>
-              <p>
-                <strong>Last Name:</strong> {student.last_name || "-"}
-              </p>
-              <p>
-                <strong>Gender:</strong> {student.gender || "-"}
-              </p>
-              <p>
-                <strong>Class:</strong>{" "}
-                {classRecord ? (
-                  <button
-                    type="button"
-                    className="text-link-button"
-                    onClick={() => navigate(`/classes/${classRecord.id}`)}
-                  >
-                    {classRecord.class_name} - {classRecord.section}
-                  </button>
-                ) : (
-                  `${student.class_name || "-"} ${student.section || ""}`
-                )}
-              </p>
-              <p>
-                <strong>Section:</strong> {student.section || "-"}
-              </p>
-              <p>
-                <strong>Status:</strong> {student.status || "-"}
-              </p>
-              <p>
-                <strong>Phone:</strong> {student.phone || "-"}
-              </p>
-              <p>
-                <strong>Email:</strong> {student.email || "-"}
-              </p>
+          <section className="student360-panel">
+            <PanelTitle title="Personal & Academic Information" text="Core student details and class lookup." />
+            <div className="student360-detail-grid">
+              <Detail label="Admission No" value={student.admission_no} />
+              <Detail label="Name" value={getStudentDisplayName(student)} />
+              <Detail label="Gender" value={student.gender} />
+              <Detail
+                label="Class"
+                value={
+                  classRecord
+                    ? `${classRecord.class_name} - Section ${classRecord.section}`
+                    : `${student.class_name || "-"} ${student.section || ""}`
+                }
+              />
+              <Detail label="Status" value={student.status} />
+              <Detail label="Phone" value={student.phone} />
+              <Detail label="Email" value={student.email} />
             </div>
           </section>
 
-          <section className="summary-strip report-summary-grid">
-            <div className="summary-card">
-              <Phone size={22} />
-              <div>
-                <span>Phone</span>
-                <strong>{student.phone || "-"}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <Mail size={22} />
-              <div>
-                <span>Email</span>
-                <strong>{student.email || "-"}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <BookOpen size={22} />
-              <div>
-                <span>Class Teacher</span>
-                <strong>{classRecord?.class_teacher || "-"}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <BookOpen size={22} />
-              <div>
-                <span>Room No</span>
-                <strong>{classRecord?.room_no || "-"}</strong>
-              </div>
-            </div>
+          <section className="student360-metrics">
+            <SummaryCard icon={Phone} label="Phone" value={student.phone || "-"} />
+            <SummaryCard icon={Mail} label="Email" value={student.email || "-"} />
+            <SummaryCard icon={BookOpen} label="Class Teacher" value={classRecord?.class_teacher || "-"} />
+            <SummaryCard icon={BookOpen} label="Room No" value={classRecord?.room_no || "-"} />
           </section>
         </>
       )}
 
+      {activeTab === "enrollment" && (
+        <RecordsTable
+          title="Enrollment History"
+          count={enrollmentRecords.length}
+          headers={["Academic Year", "Class", "Roll No", "Status", "Promotion", "Start", "End"]}
+        >
+          {enrollmentRecords.map((item) => (
+            <tr key={item.id}>
+              <td>{item.academic_year}</td>
+              <td>{item.class_display || `${item.class_name_snapshot || "-"} - ${item.section_snapshot || "-"}`}</td>
+              <td>{item.roll_no || "-"}</td>
+              <td><span className={getStatusClass(item.enrollment_status)}>{item.enrollment_status}</span></td>
+              <td>{item.promotion_status || "-"}</td>
+              <td>{item.start_date || "-"}</td>
+              <td>{item.end_date || "-"}</td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
       {activeTab === "attendance" && (
         <>
-          <section className="summary-strip report-summary-grid">
-            <div className="summary-card">
-              <CalendarCheck size={22} />
-              <div>
-                <span>Total Records</span>
-                <strong>{attendanceSummary.total}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <CalendarCheck size={22} />
-              <div>
-                <span>Present</span>
-                <strong>{attendanceSummary.present}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card warning">
-              <CalendarCheck size={22} />
-              <div>
-                <span>Absent</span>
-                <strong>{attendanceSummary.absent}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <CalendarCheck size={22} />
-              <div>
-                <span>Late</span>
-                <strong>{attendanceSummary.late}</strong>
-              </div>
-            </div>
+          <section className="student360-metrics">
+            <SummaryCard icon={CalendarCheck} label="Total Records" value={attendanceSummary.total} />
+            <SummaryCard icon={CalendarCheck} label="Present" value={attendanceSummary.present} />
+            <SummaryCard icon={CalendarCheck} label="Absent" value={attendanceSummary.absent} warning />
+            <SummaryCard icon={CalendarCheck} label="Late" value={attendanceSummary.late} />
           </section>
-
-          <section className="table-panel">
-            <div className="table-toolbar">
-              <div>
-                <h3>Attendance History</h3>
-                <p>{attendanceRecords.length} record(s) found</p>
-              </div>
-            </div>
-
-            <div className="table-wrapper">
-              <table className="classic-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Remarks</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {attendanceRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan="3" className="empty-table">
-                        No attendance records found.
-                      </td>
-                    </tr>
-                  ) : (
-                    attendanceRecords.map((item) => (
-                      <tr key={item.id}>
-                        <td>{item.attendance_date || "-"}</td>
-                        <td>
-                          <span className={getStatusClass(item.status)}>
-                            {item.status || "-"}
-                          </span>
-                        </td>
-                        <td>{item.remarks || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <RecordsTable title="Attendance History" count={attendanceRecords.length} headers={["Date", "Status", "Remarks"]}>
+            {attendanceRecords.map((item) => (
+              <tr key={item.id}>
+                <td>{item.attendance_date || "-"}</td>
+                <td><span className={getStatusClass(item.status)}>{item.status || "-"}</span></td>
+                <td>{item.remarks || "-"}</td>
+              </tr>
+            ))}
+          </RecordsTable>
         </>
       )}
 
       {activeTab === "fees" && (
         <>
-          <section className="summary-strip report-summary-grid">
-            <div className="summary-card">
-              <Wallet size={22} />
-              <div>
-                <span>Total Fees</span>
-                <strong>₹{feeSummary.total.toLocaleString("en-IN")}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <Wallet size={22} />
-              <div>
-                <span>Paid</span>
-                <strong>₹{feeSummary.paid.toLocaleString("en-IN")}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card warning">
-              <Wallet size={22} />
-              <div>
-                <span>Pending</span>
-                <strong>₹{feeSummary.pending.toLocaleString("en-IN")}</strong>
-              </div>
-            </div>
+          <section className="student360-metrics">
+            <SummaryCard icon={Wallet} label="Total Fees" value={`Rs ${getMoney(feeSummary.total)}`} />
+            <SummaryCard icon={Wallet} label="Paid" value={`Rs ${getMoney(feeSummary.paid)}`} />
+            <SummaryCard icon={Wallet} label="Pending" value={`Rs ${getMoney(feeSummary.pending)}`} warning />
           </section>
-
-          <section className="table-panel">
-            <div className="table-toolbar">
-              <div>
-                <h3>Fees History</h3>
-                <p>{feeRecords.length} record(s) found</p>
-              </div>
-            </div>
-
-            <div className="table-wrapper">
-              <table className="classic-table">
-                <thead>
-                  <tr>
-                    <th>Fee Type</th>
-                    <th>Amount</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {feeRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="empty-table">
-                        No fee records found.
-                      </td>
-                    </tr>
-                  ) : (
-                    feeRecords.map((item) => (
-                      <tr key={item.id}>
-                        <td>{item.fee_type || "-"}</td>
-                        <td>
-                          ₹{Number(item.amount || 0).toLocaleString("en-IN")}
-                        </td>
-                        <td>{item.due_date || "-"}</td>
-                        <td>
-                          <span className={getStatusClass(item.status)}>
-                            {item.status || "Pending"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <RecordsTable title="Fees History" count={feeRecords.length} headers={["Fee Type", "Total", "Paid", "Due Date", "Status"]}>
+            {feeRecords.map((item) => (
+              <tr key={item.id}>
+                <td>{item.fee_type || "-"}</td>
+                <td>Rs {getMoney(getFeeAmount(item))}</td>
+                <td>Rs {getMoney(getPaidAmount(item))}</td>
+                <td>{item.due_date || "-"}</td>
+                <td><span className={getStatusClass(item.status)}>{item.status || "Pending"}</span></td>
+              </tr>
+            ))}
+          </RecordsTable>
         </>
       )}
 
       {activeTab === "marks" && (
         <>
-          <section className="summary-strip report-summary-grid">
-            <div className="summary-card">
-              <FileText size={22} />
-              <div>
-                <span>Marks Records</span>
-                <strong>{markRecords.length}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <FileText size={22} />
-              <div>
-                <span>Average %</span>
-                <strong>{marksSummary.average}%</strong>
-              </div>
-            </div>
-
-            <div className="summary-card">
-              <FileText size={22} />
-              <div>
-                <span>Pass</span>
-                <strong>{marksSummary.pass}</strong>
-              </div>
-            </div>
-
-            <div className="summary-card warning">
-              <FileText size={22} />
-              <div>
-                <span>Needs Improvement</span>
-                <strong>{marksSummary.needsImprovement}</strong>
-              </div>
-            </div>
+          <section className="student360-metrics">
+            <SummaryCard icon={FileText} label="Marks Records" value={markRecords.length} />
+            <SummaryCard icon={FileText} label="Average %" value={`${marksSummary.average}%`} />
+            <SummaryCard icon={FileText} label="Pass" value={marksSummary.pass} />
+            <SummaryCard icon={FileText} label="Needs Improvement" value={marksSummary.needsImprovement} warning />
           </section>
-
-          <section className="table-panel">
-            <div className="table-toolbar">
-              <div>
-                <h3>Exam / Marks History</h3>
-                <p>{markRecords.length} record(s) found</p>
-              </div>
-            </div>
-
-            <div className="table-wrapper">
-              <table className="classic-table">
-                <thead>
-                  <tr>
-                    <th>Exam</th>
-                    <th>Subject</th>
-                    <th>Marks</th>
-                    <th>Percentage</th>
-                    <th>Result</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {markRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="empty-table">
-                        No marks records found.
-                      </td>
-                    </tr>
-                  ) : (
-                    markRecords.map((mark) => (
-                      <tr key={mark.id}>
-                        <td>{examMap[mark.exam_id] || "-"}</td>
-                        <td>{mark.subject || "-"}</td>
-                        <td>
-                          {mark.marks_obtained ?? 0} / {mark.max_marks ?? 0}
-                        </td>
-                        <td>{calculatePercentage(mark)}%</td>
-                        <td>
-                          <span className={getStatusClass(getResultStatus(mark))}>
-                            {getResultStatus(mark)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <RecordsTable title="Exam / Marks History" count={markRecords.length} headers={["Exam", "Academic Year", "Subject", "Marks", "Percentage", "Result"]}>
+            {markRecords.map((mark) => (
+              <tr key={mark.id}>
+                <td>{examMap[mark.exam_id] || "-"}</td>
+                <td>{mark.academic_year || "-"}</td>
+                <td>{mark.subject_name || mark.subject || "-"}</td>
+                <td>{mark.marks_obtained ?? 0} / {mark.max_marks ?? mark.total_marks ?? 0}</td>
+                <td>{calculatePercentage(mark)}%</td>
+                <td><span className={getStatusClass(getResultStatus(mark))}>{getResultStatus(mark)}</span></td>
+              </tr>
+            ))}
+          </RecordsTable>
         </>
       )}
 
-      {activeTab === "custom" && (
-        <section className="form-panel">
-          <div className="panel-header">
-            <div>
-              <h3>Custom Fields</h3>
-              <p>Extra fields added using layout builder.</p>
-            </div>
-          </div>
+      {activeTab === "hostel" && (
+        <RecordsTable title="Hostel History" count={hostelAllocations.length} headers={["Block", "Room", "Bed", "Start", "End", "Status"]}>
+          {hostelAllocations.map((item) => (
+            <tr key={item.id}>
+              <td>{item.block_name || "-"}</td>
+              <td>{item.room_no || "-"}</td>
+              <td>{item.bed_no || "-"}</td>
+              <td>{item.start_date || "-"}</td>
+              <td>{item.end_date || "-"}</td>
+              <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
 
+      {activeTab === "transport" && (
+        <RecordsTable title="Transport History" count={transportAssignments.length} headers={["Route", "Vehicle", "Pickup Point", "Start", "End", "Status"]}>
+          {transportAssignments.map((item) => (
+            <tr key={item.id}>
+              <td>{item.route_name || "-"}</td>
+              <td>{item.vehicle_no || "-"}</td>
+              <td>{item.stop_name || "-"}</td>
+              <td>{item.start_date || "-"}</td>
+              <td>{item.end_date || "-"}</td>
+              <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
+      {activeTab === "health" && (
+        <RecordsTable title="Health Infirmary History" count={healthVisits.length} headers={["Date", "Symptoms", "Diagnosis", "Medicine", "Follow Up", "Status"]}>
+          {healthVisits.map((item) => (
+            <tr key={item.id}>
+              <td>{item.visit_date || "-"}</td>
+              <td>{item.symptoms || "-"}</td>
+              <td>{item.diagnosis || "-"}</td>
+              <td>{item.medicine_given || "-"}</td>
+              <td>{item.follow_up_date || "-"}</td>
+              <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
+      {activeTab === "mess" && (
+        <RecordsTable title="Mess Attendance" count={messAttendance.length} headers={["Date", "Meal", "Status", "Remarks"]}>
+          {messAttendance.map((item) => (
+            <tr key={item.id}>
+              <td>{item.meal_date || "-"}</td>
+              <td>{item.meal_type || "-"}</td>
+              <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
+              <td>{item.remarks || "-"}</td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
+      {activeTab === "library" && (
+        <RecordsTable title="Library Issue History" count={libraryIssues.length} headers={["Book", "Issue Date", "Due Date", "Return Date", "Status", "Fine"]}>
+          {libraryIssues.map((item) => (
+            <tr key={item.id}>
+              <td>{item.accession_no ? `${item.accession_no} - ${item.book_title}` : item.book_title}</td>
+              <td>{item.issue_date || "-"}</td>
+              <td>{item.due_date || "-"}</td>
+              <td>{item.return_date || "-"}</td>
+              <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
+              <td>Rs {getMoney(item.fine_amount)}</td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
+      {activeTab === "inventory" && (
+        <RecordsTable title="Inventory Issue History" count={inventoryIssues.length} headers={["Date", "Item", "Type", "Quantity", "Reference", "Remarks"]}>
+          {inventoryIssues.map((item) => (
+            <tr key={item.id}>
+              <td>{item.transaction_date || "-"}</td>
+              <td>{item.item_code ? `${item.item_code} - ${item.item_name}` : item.item_name}</td>
+              <td>{item.transaction_type || "-"}</td>
+              <td>{item.quantity || 0}</td>
+              <td>{item.reference_no || "-"}</td>
+              <td>{item.remarks || "-"}</td>
+            </tr>
+          ))}
+        </RecordsTable>
+      )}
+
+      {activeTab === "custom" && (
+        <section className="student360-panel">
+          <PanelTitle title="Custom Fields" text="Extra fields added using layout builder." />
           {customFields.length === 0 ? (
             <div className="empty-table">No custom fields found.</div>
           ) : (
-            <div className="details-grid">
+            <div className="student360-detail-grid">
               {customFields.map((field) => (
-                <p key={field.id}>
-                  <strong>{field.field_label || field.field_key}:</strong>{" "}
-                  {getCustomValue(field)}
-                </p>
+                <Detail
+                  key={field.id || field.field_key}
+                  label={field.field_label || field.field_key}
+                  value={getCustomValue(field)}
+                />
               ))}
             </div>
           )}
         </section>
       )}
     </div>
+  );
+}
+
+function SummaryCard({ icon: Icon, label, value, warning = false }) {
+  return (
+    <div className={warning ? "student360-metric warning" : "student360-metric"}>
+      <span className="student360-metric-icon">
+        <Icon size={18} />
+      </span>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+function PanelTitle({ title, text }) {
+  return (
+    <div className="panel-header">
+      <div>
+        <h3>{title}</h3>
+        <p>{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function Detail({ label, value }) {
+  return (
+    <div className="student360-detail-item">
+      <span>{label}</span>
+      <strong>{value || "-"}</strong>
+    </div>
+  );
+}
+
+function RecordsTable({ title, count, headers, children }) {
+  return (
+    <section className="student360-table-panel">
+      <div className="table-toolbar">
+        <div>
+          <h3>{title}</h3>
+          <p>{count} record(s) found</p>
+        </div>
+      </div>
+
+      <div className="table-wrapper">
+        <table className="classic-table">
+          <thead>
+            <tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr>
+          </thead>
+          <tbody>
+            {count === 0 ? (
+              <tr>
+                <td colSpan={headers.length} className="empty-table">
+                  No records found.
+                </td>
+              </tr>
+            ) : (
+              children
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

@@ -2,7 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Mark, Student, Exam, SchoolSettings, User
+from app.models import (
+    ClassExamMapping,
+    ClassSubject,
+    Exam,
+    Mark,
+    SchoolSettings,
+    Student,
+    User,
+)
 from app.schemas import MarkCreate, MarkUpdate, MarkResponse
 from app.security import require_roles
 
@@ -84,6 +92,66 @@ def calculate_grade(
     return "Pass"
 
 
+def find_student_class_id(student: Student):
+    if student.class_id:
+        return student.class_id
+
+    return None
+
+
+def normalize_mark_payload(db: Session, mark_data):
+    data = mark_data.model_dump(exclude_unset=True)
+
+    if data.get("class_subject_id"):
+        class_subject = db.query(ClassSubject).filter(
+            ClassSubject.id == data["class_subject_id"]
+        ).first()
+
+        if not class_subject:
+            raise HTTPException(
+                status_code=404,
+                detail="Class subject mapping not found"
+            )
+
+        data["subject_name"] = data.get("subject_name") or class_subject.subject_name
+        data["subject"] = data.get("subject") or class_subject.subject_name
+        data["academic_year"] = (
+            data.get("academic_year") or class_subject.academic_year
+        )
+
+    subject_name = data.get("subject_name") or data.get("subject")
+
+    if subject_name:
+        data["subject_name"] = subject_name
+        data["subject"] = subject_name
+
+    data["max_marks"] = data.get("max_marks") or data.get("total_marks") or 100
+    data["total_marks"] = data.get("total_marks") or data["max_marks"]
+
+    return data
+
+
+def validate_exam_mapping(db: Session, student: Student, data: dict):
+    class_id = find_student_class_id(student)
+    academic_year = data.get("academic_year")
+
+    if not class_id or not academic_year:
+        return
+
+    mapping = db.query(ClassExamMapping).filter(
+        ClassExamMapping.class_id == class_id,
+        ClassExamMapping.exam_id == data["exam_id"],
+        ClassExamMapping.academic_year == academic_year,
+        ClassExamMapping.is_active == True,
+    ).first()
+
+    if not mapping:
+        raise HTTPException(
+            status_code=400,
+            detail="Exam is not mapped to this student's class for the academic year"
+        )
+
+
 @router.post("/", response_model=MarkResponse)
 def create_mark(
     mark: MarkCreate,
@@ -112,34 +180,36 @@ def create_mark(
             detail="Exam not found"
         )
 
-    if mark.subject not in VALID_SUBJECTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid subject. Allowed: {', '.join(VALID_SUBJECTS)}"
-        )
+    data = normalize_mark_payload(db, mark)
 
-    if mark.total_marks <= 0:
+    if not data.get("subject_name"):
+        raise HTTPException(status_code=400, detail="Subject is required")
+
+    if data["total_marks"] <= 0:
         raise HTTPException(
             status_code=400,
             detail="Total marks must be greater than 0"
         )
 
-    if mark.marks_obtained < 0:
+    if data["marks_obtained"] < 0:
         raise HTTPException(
             status_code=400,
             detail="Marks obtained cannot be negative"
         )
 
-    if mark.marks_obtained > mark.total_marks:
+    if data["marks_obtained"] > data["total_marks"]:
         raise HTTPException(
             status_code=400,
             detail="Marks obtained cannot be greater than total marks"
         )
 
+    validate_exam_mapping(db, student, data)
+
     existing_mark = db.query(Mark).filter(
-        Mark.student_id == mark.student_id,
-        Mark.exam_id == mark.exam_id,
-        Mark.subject == mark.subject
+        Mark.student_id == data["student_id"],
+        Mark.exam_id == data["exam_id"],
+        Mark.subject_name == data["subject_name"],
+        Mark.academic_year == data.get("academic_year")
     ).first()
 
     if existing_mark:
@@ -149,19 +219,23 @@ def create_mark(
         )
 
     grade = calculate_grade(
-        mark.marks_obtained,
-        mark.total_marks,
+        data["marks_obtained"],
+        data["total_marks"],
         db
     )
 
     new_mark = Mark(
-        student_id=mark.student_id,
-        exam_id=mark.exam_id,
-        subject=mark.subject,
-        marks_obtained=mark.marks_obtained,
-        total_marks=mark.total_marks,
+        student_id=data["student_id"],
+        exam_id=data["exam_id"],
+        class_subject_id=data.get("class_subject_id"),
+        subject_name=data["subject_name"],
+        academic_year=data.get("academic_year"),
+        subject=data["subject_name"],
+        marks_obtained=data["marks_obtained"],
+        max_marks=data["max_marks"],
+        total_marks=data["total_marks"],
         grade=grade,
-        remarks=mark.remarks
+        remarks=data.get("remarks")
     )
 
     db.add(new_mark)
@@ -173,14 +247,26 @@ def create_mark(
 
 @router.get("/", response_model=list[MarkResponse])
 def get_marks(
+    student_id: int | None = None,
+    exam_id: int | None = None,
+    academic_year: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Teacher"])
     )
 ):
-    marks = db.query(Mark).order_by(
-        Mark.id.desc()
-    ).all()
+    query = db.query(Mark)
+
+    if student_id:
+        query = query.filter(Mark.student_id == student_id)
+
+    if exam_id:
+        query = query.filter(Mark.exam_id == exam_id)
+
+    if academic_year:
+        query = query.filter(Mark.academic_year == academic_year)
+
+    marks = query.order_by(Mark.id.desc()).all()
 
     return marks
 
@@ -290,14 +376,42 @@ def update_mark(
         exclude_unset=True
     )
 
-    if "subject" in update_data and update_data["subject"]:
-        if update_data["subject"] not in VALID_SUBJECTS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid subject. Allowed: {', '.join(VALID_SUBJECTS)}"
-            )
+    merged_data = {
+        "student_id": mark.student_id,
+        "exam_id": mark.exam_id,
+        "class_subject_id": mark.class_subject_id,
+        "subject_name": mark.subject_name,
+        "academic_year": mark.academic_year,
+        "subject": mark.subject,
+        "marks_obtained": mark.marks_obtained,
+        "max_marks": mark.max_marks,
+        "total_marks": mark.total_marks,
+        "grade": mark.grade,
+        "remarks": mark.remarks,
+    }
+    merged_data.update(update_data)
+    merged_data = normalize_mark_payload(
+        db,
+        MarkCreate(**merged_data)
+    )
 
-    for key, value in update_data.items():
+    student = db.query(Student).filter(
+        Student.id == merged_data["student_id"]
+    ).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    exam = db.query(Exam).filter(
+        Exam.id == merged_data["exam_id"]
+    ).first()
+
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    validate_exam_mapping(db, student, merged_data)
+
+    for key, value in merged_data.items():
         setattr(mark, key, value)
 
     if mark.total_marks <= 0:

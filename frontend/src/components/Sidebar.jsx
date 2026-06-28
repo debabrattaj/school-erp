@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -11,113 +11,183 @@ import {
   UserCog,
   Settings,
   Database,
-  Layers
+  Layers,
+  Building2,
+  Bus,
+  HeartPulse,
+  Utensils,
+  Library,
+  Boxes,
+  LogOut
 } from "lucide-react";
-import { getUser } from "../auth";
-import { useSchoolSettings } from "../SettingsContext";
+import { getUser, isFeatureEnabled, logout } from "../auth";
+
 
 export default function Sidebar() {
+  const navigate = useNavigate();
   const user = getUser();
 
-  console.log("Logged in user from Sidebar:", user);
-  const { settings } = useSchoolSettings();
   const menuItems = [
     {
       label: "Dashboard",
       icon: LayoutDashboard,
       path: "/",
       roles: ["Admin", "Principal", "Accounts", "Teacher"],
+      feature: "dashboard",
     },
     {
       label: "Students",
       icon: Users,
       path: "/students",
       roles: ["Admin", "Principal"],
+      feature: "students",
     },
     {
       label: "Teachers",
       icon: GraduationCap,
       path: "/teachers",
       roles: ["Admin", "Principal"],
+      feature: "teachers",
     },
     {
       label: "Classes",
       icon: BookOpen,
       path: "/classes",
       roles: ["Admin", "Principal"],
+      feature: "classes",
     },
     {
       label: "Attendance",
       icon: ClipboardCheck,
       path: "/attendance",
       roles: ["Admin", "Teacher"],
+      feature: "attendance",
     },
     {
       label: "Fees",
       icon: Wallet,
       path: "/fees",
       roles: ["Admin", "Accounts"],
+      feature: "fees",
     },
     {
       label: "Exams",
       icon: FileText,
       path: "/exams",
       roles: ["Admin", "Principal", "Teacher"],
+      feature: "exams",
     },
     {
     label: "Marks",
     path: "/marks",
     icon: FileText,
     roles: ["Admin", "Principal", "Teacher"],
+    feature: "marks",
   },
     {
       label: "Reports",
       icon: BarChart3,
       path: "/reports",
       roles: ["Admin", "Principal", "Accounts"],
+      feature: "reports",
     },
     {
       label: "User Management",
       icon: UserCog,
       path: "/users",
       roles: ["Admin"],
+      feature: "users",
     },
     {
         label: "Institution Settings",
         icon: Settings,
         path: "/settings",
         roles: ["Admin", "Principal"],
+        feature: "settings",
     },
     {
       label: "Master Data",
       icon: Database,
       path: "/master-data",
       roles: ["Admin"],
+      feature: "master_data",
     },
     {
       label: "Student Layout",
       icon: Layers,
       path: "/students/layout",
       roles: ["Admin"],
+      feature: "student_layout",
+    },
+     {
+      label: "Report Card",
+      icon: Layers,
+      path: "/report-card",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "report_card",
+    },
+    {
+      label: "Student Enrollments",
+      icon: Layers,
+      path: "/student-enrollments",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "student_enrollments",
+    },
+    {
+      label: "Hostel",
+      icon: Building2,
+      path: "/hostel",
+      roles: ["Admin", "Principal"],
+      feature: "hostel",
+    },
+    {
+      label: "Transport",
+      icon: Bus,
+      path: "/transport",
+      roles: ["Admin", "Principal", "Accounts"],
+      feature: "transport",
+    },
+    {
+      label: "Health Infirmary",
+      icon: HeartPulse,
+      path: "/health-infirmary",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "health_infirmary",
+    },
+    {
+      label: "Mess Management",
+      icon: Utensils,
+      path: "/mess",
+      roles: ["Admin", "Principal", "Accounts", "Teacher"],
+      feature: "mess_management",
+    },
+    {
+      label: "Library",
+      icon: Library,
+      path: "/library",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "library",
+    },
+    {
+      label: "Inventory",
+      icon: Boxes,
+      path: "/inventory",
+      roles: ["Admin", "Principal", "Accounts", "Teacher"],
+      feature: "inventory",
     },
   ];
 
-  const allowedMenuItems = menuItems.filter((item) =>
-    item.roles.includes(user?.role)
+  const allowedMenuItems = menuItems.filter(
+    (item) => item.roles.includes(user?.role) && isFeatureEnabled(item.feature)
   );
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
 
   return (
     <aside className="sidebar">
-      <div className="school-brand">
-        <div className="school-logo">
-            {(settings?.school_name || "S").charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h2>{settings?.school_name || "School ERP"}</h2>
-          <p>Management Portal</p>
-        </div>
-      </div>
-
       <nav className="sidebar-menu">
         {allowedMenuItems.map((item) => {
           const Icon = item.icon;
@@ -137,10 +207,18 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* <div className="sidebar-footer">
-        <p>Logged in as</p>
-        <strong>{user?.name || "User"}</strong>
-      </div> */}
+      <div className="sidebar-footer">
+        <div>
+          <p>Logged in as</p>
+          <strong>{user?.name || "User"}</strong>
+          <span>{user?.role || "User"}</span>
+        </div>
+
+        <button type="button" onClick={handleLogout}>
+          <LogOut size={15} />
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

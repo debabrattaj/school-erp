@@ -182,5 +182,231 @@
     border-right-color: var(--border);
   }
 }
+.report-card-page {
+  background: #f6f7fb;
+}
 
+.report-card-search {
+  width: 100%;
+}
+
+.report-card-paper {
+  background: #ffffff;
+  border: 1px solid #d8dee9;
+  border-radius: 18px;
+  padding: 28px;
+  max-width: 1050px;
+  margin: 0 auto 40px auto;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.report-card-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 2px solid #1e3a8a;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+}
+
+.school-logo-box {
+  width: 74px;
+  height: 74px;
+  border-radius: 16px;
+  border: 1px solid #d8dee9;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e3a8a;
+  overflow: hidden;
+}
+
+.school-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.report-card-header h1 {
+  margin: 0;
+  color: #172554;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.report-card-header p {
+  margin: 4px 0 0;
+  color: #475569;
+}
+
+.report-card-title {
+  text-align: center;
+  margin: 22px 0;
+}
+
+.report-card-title h2 {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #0f172a;
+  font-size: 21px;
+}
+
+.report-card-title p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.report-card-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #d8dee9;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+
+.report-card-info-grid div {
+  padding: 12px 14px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.report-card-info-grid div:nth-child(3n) {
+  border-right: 0;
+}
+
+.report-card-info-grid div:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.report-card-info-grid span,
+.report-card-result-grid span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.report-card-info-grid strong,
+.report-card-result-grid strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.report-card-table-wrapper {
+  overflow-x: auto;
+}
+
+.report-card-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.report-card-table th {
+  background: #1e3a8a;
+  color: #ffffff;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #1e3a8a;
+}
+
+.report-card-table td {
+  padding: 11px 12px;
+  border: 1px solid #d8dee9;
+  color: #0f172a;
+}
+
+.report-card-table tfoot td {
+  font-weight: 800;
+  background: #eff6ff;
+}
+
+.report-card-result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.report-card-result-grid div {
+  background: #f8fafc;
+  border: 1px solid #d8dee9;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.report-card-signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin-top: 60px;
+}
+
+.report-card-signatures div {
+  border-top: 1px solid #0f172a;
+  text-align: center;
+  padding-top: 8px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.report-card-empty {
+  padding: 40px;
+  text-align: center;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .no-print,
+  .sidebar,
+  .navbar,
+  .topbar,
+  .page-heading,
+  .summary-strip,
+  .form-panel:not(.print-area) {
+    display: none !important;
+  }
+
+  .management-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .print-area,
+  .report-card-paper {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12px !important;
+  }
+
+  .report-card-table th {
+    background: #e5e7eb !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  .report-card-table td {
+    border-color: #000000 !important;
+  }
+
+  .status {
+    border: none !important;
+    background: transparent !important;
+    color: #000000 !important;
+    padding: 0 !important;
+  }
+}
 
