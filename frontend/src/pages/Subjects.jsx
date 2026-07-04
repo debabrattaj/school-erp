@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   BookOpen,
   CheckCircle,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptySubjectForm = {
   subject_code: "",
@@ -396,24 +396,7 @@ export default function Subjects() {
 
       {message && <div className="message-box">{message}</div>}
 
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Subject Records</h3>
-            <p>{filteredSubjects.length} subject record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search subject code, name, type..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
+      <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">
           <div className="form-field">
             <label>Subject Type</label>
@@ -455,75 +438,49 @@ export default function Subjects() {
             Clear Filters
           </button>
         </div>
-
-        {loading ? (
-          <div className="loading-box">Loading subjects...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Subject Code</th>
-                  <th>Subject Name</th>
-                  <th>Subject Type</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredSubjects.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="empty-table">
-                      No subject records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSubjects.map((subject) => (
-                    <tr key={subject.id}>
-                      <td>{subject.subject_code || "-"}</td>
-                      <td>{subject.subject_name || "-"}</td>
-                      <td>{subject.subject_type || "-"}</td>
-                      <td>
-                        <span
-                          className={
-                            subject.is_active
-                              ? "status active"
-                              : "status danger"
-                          }
-                        >
-                          {subject.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleEdit(subject)}
-                            title="Edit"
-                          >
-                            <Edit size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => handleDelete(subject.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
+
+      <EnhancedRecordsTable
+        data={filteredSubjects}
+        emptyText="No subject records found."
+        loading={loading}
+        loadingText="Loading subjects..."
+        searchPlaceholder="Search subject code, name, type..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+        columns={[
+          { key: "subject_code", label: "Subject Code", render: (subject) => subject.subject_code || "-" },
+          { key: "subject_name", label: "Subject Name", render: (subject) => subject.subject_name || "-" },
+          { key: "subject_type", label: "Subject Type", render: (subject) => subject.subject_type || "-" },
+          {
+            key: "status",
+            label: "Status",
+            render: (subject) => (
+              <span className={subject.is_active ? "status active" : "status danger"}>
+                {subject.is_active ? "Active" : "Inactive"}
+              </span>
+            ),
+            value: (subject) => (subject.is_active ? "Active" : "Inactive"),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            hideable: false,
+            actions: false,
+            render: (subject) => (
+              <div className="action-buttons">
+                <button type="button" className="edit-button" onClick={() => handleEdit(subject)} title="Edit">
+                  <Edit size={15} />
+                </button>
+                <button type="button" className="delete-button" onClick={() => handleDelete(subject.id)} title="Delete">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ),
+            value: () => "",
+          },
+        ]}
+      />
     </div>
   );
 }

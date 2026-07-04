@@ -12,15 +12,22 @@ import {
   X,
 } from "lucide-react";
 
-import { getMasterValues } from "../services/masterDataService";
-
 import API from "../api";
 
 const emptyMappingForm = {
+  subject_id: "",
   subject_name: "",
   teacher_id: "",
   weekly_periods: 0,
   is_active: true,
+};
+
+const emptyExamMappingForm = {
+  exam_id: "",
+  academic_year: "",
+  exam_date: "",
+  is_active: true,
+  remarks: "",
 };
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -62,6 +69,21 @@ function getSubjectLabel(subject) {
   return code ? `${code} - ${name}` : name;
 }
 
+function getMappingSubjectLabel(mapping, subjectOptions) {
+  const subject = subjectOptions.find(
+    (item) => String(item.id) === String(mapping.subject_id)
+  );
+
+  if (subject) return getSubjectLabel(subject);
+
+  return mapping.subject_name || "-";
+}
+
+function getExamLabel(exam) {
+  if (!exam) return "-";
+  return exam.exam_name || exam.name || `Exam ID: ${exam.id}`;
+}
+
 export default function ClassDetails() {
   const { classId } = useParams();
   const navigate = useNavigate();
@@ -69,11 +91,15 @@ export default function ClassDetails() {
   const [classRecord, setClassRecord] = useState(null);
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
-const [subjectOptions, setSubjectOptions] = useState([]);
+  const [subjectOptions, setSubjectOptions] = useState([]);
   const [classSubjects, setClassSubjects] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [classExamMappings, setClassExamMappings] = useState([]);
 
   const [formData, setFormData] = useState(emptyMappingForm);
   const [editingMappingId, setEditingMappingId] = useState(null);
+  const [examFormData, setExamFormData] = useState(emptyExamMappingForm);
+  const [editingExamMappingId, setEditingExamMappingId] = useState(null);
 
   const [activeTab, setActiveTab] = useState("students");
   const [loading, setLoading] = useState(false);
@@ -102,14 +128,26 @@ const [subjectOptions, setSubjectOptions] = useState([]);
     setTeachers(response.data || []);
   }
 
- async function loadSubjects() {
-  const values = await getMasterValues("Subject");
-  setSubjectOptions(values || []);
-}
+  async function loadSubjects() {
+    const response = await API.get("/subjects/");
+    setSubjectOptions(
+      (response.data || []).filter((subject) => subject.is_active !== false)
+    );
+  }
 
   async function loadClassSubjects() {
     const response = await API.get(`/class-subjects/?class_id=${classId}`);
     setClassSubjects(response.data || []);
+  }
+
+  async function loadExams() {
+    const response = await API.get("/exams/");
+    setExams(response.data || []);
+  }
+
+  async function loadClassExamMappings() {
+    const response = await API.get(`/class-exam-mappings/?class_id=${classId}`);
+    setClassExamMappings(response.data || []);
   }
 
   async function loadPageData() {
@@ -123,6 +161,8 @@ const [subjectOptions, setSubjectOptions] = useState([]);
         loadTeachers(),
         loadSubjects(),
         loadClassSubjects(),
+        loadExams(),
+        loadClassExamMappings(),
       ]);
     } catch (error) {
       console.error(error);
@@ -145,6 +185,16 @@ const [subjectOptions, setSubjectOptions] = useState([]);
 
     return map;
   }, [teachers]);
+
+  const examMap = useMemo(() => {
+    const map = {};
+
+    exams.forEach((exam) => {
+      map[exam.id] = exam;
+    });
+
+    return map;
+  }, [exams]);
 
 
 
@@ -170,16 +220,41 @@ const [subjectOptions, setSubjectOptions] = useState([]);
   }, [teachers]);
 
   const availableSubjects = useMemo(() => {
-    const alreadyMappedSubjects = new Set(
+    const mappedSubjectIds = new Set(
+      classSubjects
+        .filter((item) => String(item.id) !== String(editingMappingId))
+        .map((item) => item.subject_id)
+        .filter(Boolean)
+        .map(String)
+    );
+    const mappedSubjectNames = new Set(
       classSubjects
         .filter((item) => String(item.id) !== String(editingMappingId))
         .map((item) => item.subject_name)
+        .filter(Boolean)
     );
 
-    return subjectOptions.filter(
-      (subject) => !alreadyMappedSubjects.has(subject)
-    );
+    return subjectOptions.filter((subject) => {
+      if (subject.id && mappedSubjectIds.has(String(subject.id))) {
+        return false;
+      }
+
+      return !mappedSubjectNames.has(subject.subject_name);
+    });
   }, [subjectOptions, classSubjects, editingMappingId]);
+
+  const availableExams = useMemo(() => {
+    const mappedExamKeys = new Set(
+      classExamMappings
+        .filter((item) => String(item.id) !== String(editingExamMappingId))
+        .map((item) => `${item.exam_id}:${item.academic_year}`)
+    );
+
+    return exams.filter(
+      (exam) =>
+        !mappedExamKeys.has(`${exam.id}:${examFormData.academic_year}`)
+    );
+  }, [classExamMappings, editingExamMappingId, examFormData.academic_year, exams]);
 
   function getClassTeacherName() {
     if (!classRecord) return "-";
@@ -194,7 +269,29 @@ const [subjectOptions, setSubjectOptions] = useState([]);
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
 
+    if (name === "subject_id") {
+      const selectedSubject = subjectOptions.find(
+        (subject) => String(subject.id) === String(value)
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        subject_id: value,
+        subject_name: selectedSubject?.subject_name || "",
+      }));
+      return;
+    }
+
     setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  function handleExamMappingChange(e) {
+    const { name, value, type, checked } = e.target;
+
+    setExamFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
@@ -203,6 +300,7 @@ const [subjectOptions, setSubjectOptions] = useState([]);
   function buildPayload() {
     return {
       class_id: Number(classId),
+      subject_id: formData.subject_id ? Number(formData.subject_id) : null,
       subject_name: formData.subject_name || "",
       teacher_id: formData.teacher_id ? Number(formData.teacher_id) : null,
       weekly_periods: Number(formData.weekly_periods || 0),
@@ -244,10 +342,66 @@ const [subjectOptions, setSubjectOptions] = useState([]);
     }
   }
 
+  function buildExamMappingPayload() {
+    return {
+      class_id: Number(classId),
+      exam_id: examFormData.exam_id ? Number(examFormData.exam_id) : null,
+      academic_year: examFormData.academic_year.trim(),
+      exam_date: examFormData.exam_date || null,
+      is_active: Boolean(examFormData.is_active),
+      remarks: examFormData.remarks || null,
+    };
+  }
+
+  async function handleExamMappingSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      const payload = buildExamMappingPayload();
+
+      if (!payload.exam_id) {
+        setMessage("Exam is required.");
+        return;
+      }
+
+      if (!payload.academic_year) {
+        setMessage("Academic year is required.");
+        return;
+      }
+
+      if (editingExamMappingId) {
+        await API.put(`/class-exam-mappings/${editingExamMappingId}`, payload);
+        setMessage("Class exam mapping updated successfully.");
+      } else {
+        await API.post("/class-exam-mappings/", payload);
+        setMessage("Exam mapped to class successfully.");
+      }
+
+      setExamFormData(emptyExamMappingForm);
+      setEditingExamMappingId(null);
+      await loadClassExamMappings();
+    } catch (error) {
+      console.error(error);
+      setMessage(
+        getApiErrorMessage(
+          error,
+          "Something went wrong while saving class exam mapping."
+        )
+      );
+    }
+  }
+
   function handleEdit(mapping) {
     setEditingMappingId(mapping.id);
 
     setFormData({
+      subject_id:
+        mapping.subject_id ||
+        subjectOptions.find(
+          (subject) => subject.subject_name === mapping.subject_name
+        )?.id ||
+        "",
       subject_name: mapping.subject_name || "",
       teacher_id: mapping.teacher_id || "",
       weekly_periods: mapping.weekly_periods || 0,
@@ -255,6 +409,18 @@ const [subjectOptions, setSubjectOptions] = useState([]);
     });
 
     setActiveTab("subjects");
+  }
+
+  function handleExamMappingEdit(mapping) {
+    setEditingExamMappingId(mapping.id);
+    setExamFormData({
+      exam_id: mapping.exam_id || "",
+      academic_year: mapping.academic_year || "",
+      exam_date: mapping.exam_date || "",
+      is_active: Boolean(mapping.is_active),
+      remarks: mapping.remarks || "",
+    });
+    setActiveTab("exams");
   }
 
   async function handleDelete(mappingId) {
@@ -282,9 +448,34 @@ const [subjectOptions, setSubjectOptions] = useState([]);
     }
   }
 
+  async function handleExamMappingDelete(mappingId) {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to remove this exam from the class?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/class-exam-mappings/${mappingId}`);
+      setMessage("Exam removed from class successfully.");
+
+      if (editingExamMappingId === mappingId) {
+        setEditingExamMappingId(null);
+        setExamFormData(emptyExamMappingForm);
+      }
+
+      await loadClassExamMappings();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove exam from class."));
+    }
+  }
+
   function handleCancelEdit() {
     setEditingMappingId(null);
     setFormData(emptyMappingForm);
+    setEditingExamMappingId(null);
+    setExamFormData(emptyExamMappingForm);
     setMessage("");
   }
 
@@ -380,12 +571,20 @@ const [subjectOptions, setSubjectOptions] = useState([]);
             <strong>{classSubjects.length}</strong>
           </div>
         </div>
+
+        <div className="summary-card">
+          <GraduationCap size={22} />
+          <div>
+            <span>Mapped Exams</span>
+            <strong>{classExamMappings.length}</strong>
+          </div>
+        </div>
       </section>
 
       {message && <div className="message-box">{message}</div>}
 
-      <section className="table-panel">
-        <div className="tabs-row">
+      <section className="table-panel tabs-panel">
+        <div className="tabs-row tab-strip">
           <button
             type="button"
             className={activeTab === "students" ? "tab active" : "tab"}
@@ -400,6 +599,14 @@ const [subjectOptions, setSubjectOptions] = useState([]);
             onClick={() => setActiveTab("subjects")}
           >
             Subjects
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "exams" ? "tab active" : "tab"}
+            onClick={() => setActiveTab("exams")}
+          >
+            Exams
           </button>
 
           <button
@@ -428,6 +635,7 @@ const [subjectOptions, setSubjectOptions] = useState([]);
             <p>Room No: {classRecord.room_no || "-"}</p>
             <p>Total Students: {classStudents.length}</p>
             <p>Total Subjects: {classSubjects.length}</p>
+            <p>Total Exams: {classExamMappings.length}</p>
           </div>
         </section>
       )}
@@ -509,16 +717,16 @@ const [subjectOptions, setSubjectOptions] = useState([]);
                 <div className="form-field">
                   <label>Subject *</label>
                   <select
-                    name="subject_name"
-                    value={formData.subject_name}
+                    name="subject_id"
+                    value={formData.subject_id}
                     onChange={handleChange}
                     required
                   >
                     <option value="">Select Subject</option>
 
                     {availableSubjects.map((subject) => (
-                      <option key={subject} value={subject}>
-                        {subject}
+                      <option key={subject.id} value={subject.id}>
+                        {getSubjectLabel(subject)}
                       </option>
                     ))}
                   </select>
@@ -616,7 +824,7 @@ const [subjectOptions, setSubjectOptions] = useState([]);
                   ) : (
                     classSubjects.map((mapping) => (
                       <tr key={mapping.id}>
-                        <td>{mapping.subject_name || "-"}</td>
+                        <td>{getMappingSubjectLabel(mapping, subjectOptions)}</td>
                         <td>{getTeacherLabel(teacherMap[mapping.teacher_id])}</td>
                         <td>{mapping.weekly_periods ?? 0}</td>
                         <td>
@@ -645,6 +853,180 @@ const [subjectOptions, setSubjectOptions] = useState([]);
                               type="button"
                               className="delete-button"
                               onClick={() => handleDelete(mapping.id)}
+                              title="Remove"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === "exams" && (
+        <>
+          <section className="form-panel">
+            <div className="panel-header">
+              <div>
+                <h3>
+                  {editingExamMappingId
+                    ? "Edit Exam Mapping"
+                    : "Map Exam to Class"}
+                </h3>
+                <p>Assign exam masters to this class by academic year and date.</p>
+              </div>
+            </div>
+
+            <form className="classic-form" onSubmit={handleExamMappingSubmit}>
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Academic Year *</label>
+                  <input
+                    type="text"
+                    name="academic_year"
+                    value={examFormData.academic_year}
+                    onChange={handleExamMappingChange}
+                    placeholder="2026-27"
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Exam *</label>
+                  <select
+                    name="exam_id"
+                    value={examFormData.exam_id}
+                    onChange={handleExamMappingChange}
+                    required
+                  >
+                    <option value="">Select Exam</option>
+                    {availableExams.map((exam) => (
+                      <option key={exam.id} value={exam.id}>
+                        {getExamLabel(exam)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Exam Date</label>
+                  <input
+                    type="date"
+                    name="exam_date"
+                    value={examFormData.exam_date}
+                    onChange={handleExamMappingChange}
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Status</label>
+                  <label className="switch-row">
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={Boolean(examFormData.is_active)}
+                      onChange={handleExamMappingChange}
+                    />
+                    <span>{examFormData.is_active ? "Active" : "Inactive"}</span>
+                  </label>
+                </div>
+
+                <div className="form-field full-width">
+                  <label>Remarks</label>
+                  <textarea
+                    name="remarks"
+                    rows="3"
+                    value={examFormData.remarks}
+                    onChange={handleExamMappingChange}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  <PlusCircle size={18} />
+                  {editingExamMappingId ? "Update Mapping" : "Add Exam"}
+                </button>
+
+                {editingExamMappingId && (
+                  <button
+                    type="button"
+                    className="light-button"
+                    onClick={handleCancelEdit}
+                  >
+                    <X size={17} />
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+
+          <section className="table-panel">
+            <div className="table-toolbar">
+              <div>
+                <h3>Exams Mapped to this Class</h3>
+                <p>{classExamMappings.length} exam mapping(s) found</p>
+              </div>
+            </div>
+
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Exam</th>
+                    <th>Academic Year</th>
+                    <th>Exam Date</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {classExamMappings.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-table">
+                        No exams are mapped to this class yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    classExamMappings.map((mapping) => (
+                      <tr key={mapping.id}>
+                        <td>{getExamLabel(examMap[mapping.exam_id])}</td>
+                        <td>{mapping.academic_year || "-"}</td>
+                        <td>{mapping.exam_date || "-"}</td>
+                        <td>
+                          <span
+                            className={
+                              mapping.is_active ? "status active" : "status danger"
+                            }
+                          >
+                            {mapping.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td>{mapping.remarks || "-"}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              type="button"
+                              className="edit-button"
+                              onClick={() => handleExamMappingEdit(mapping)}
+                              title="Edit"
+                            >
+                              <Edit size={15} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="delete-button"
+                              onClick={() => handleExamMappingDelete(mapping.id)}
                               title="Remove"
                             >
                               <Trash2 size={15} />

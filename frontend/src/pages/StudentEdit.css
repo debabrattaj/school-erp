@@ -1,0 +1,196 @@
+.student-edit-page {
+  gap: 12px;
+}
+
+.student-edit-page > .page-heading {
+  border-radius: 10px;
+  min-height: 96px;
+  padding: 16px 18px;
+}
+
+.student-edit-page > .page-heading .eyebrow {
+  color: #697586;
+  font-size: 11px;
+  letter-spacing: 0;
+  margin: 0 0 5px;
+}
+
+.student-edit-page > .page-heading h2 {
+  color: #10213f;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.student-edit-page > .page-heading p {
+  color: #697586;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 7px;
+}
+
+.student-edit-page .module-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.student-edit-page .form-panel {
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.student-edit-page .panel-header h3 {
+  color: #10213f;
+  font-size: 18px;
+  margin: 0;
+}
+
+.student-edit-page .panel-header p {
+  color: #697586;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
+.student-edit-page .classic-form {
+  margin-top: 14px;
+}
+
+.student-edit-page .sis-section-title {
+  background: #f8fafc;
+  border-left: 4px solid #d4af37;
+  border-radius: 8px;
+  color: #10213f;
+  font-size: 16px;
+  font-weight: 900;
+  margin: 18px 0 12px;
+  padding: 12px 16px;
+}
+
+.student-edit-page .form-grid {
+  gap: 14px 18px;
+}
+
+.student-edit-page .form-field label {
+  color: #10213f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.student-edit-page .form-field input,
+.student-edit-page .form-field select,
+.student-edit-page .form-field textarea {
+  border-radius: 8px;
+  font-size: 14px;
+  min-height: 46px;
+}
+
+.student-edit-page .form-actions {
+  margin-top: 22px;
+}
+
+.student-edit-page .form-actions .primary-button {
+  min-height: 44px;
+}
+
+/* Shared edit/form styling for modules that render a form panel. */
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) {
+  gap: 12px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading {
+  border-radius: 10px;
+  min-height: 96px;
+  padding: 16px 18px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading .eyebrow {
+  color: #697586;
+  font-size: 11px;
+  letter-spacing: 0;
+  margin: 0 0 5px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading h2 {
+  color: #10213f;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading p {
+  color: #697586;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 7px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .module-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-panel {
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .panel-header h3 {
+  color: #10213f;
+  font-size: 18px;
+  margin: 0;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .panel-header p {
+  color: #697586;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .classic-form {
+  margin-top: 14px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .sis-section-title {
+  background: #f8fafc;
+  border-left: 4px solid #d4af37;
+  border-radius: 8px;
+  color: #10213f;
+  font-size: 16px;
+  font-weight: 900;
+  margin: 18px 0 12px;
+  padding: 12px 16px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-grid {
+  gap: 14px 18px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-field label {
+  color: #10213f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-field input,
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-field select,
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-field textarea {
+  border-radius: 8px;
+  font-size: 14px;
+  min-height: 46px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-actions {
+  margin-top: 22px;
+}
+
+.management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-actions .primary-button {
+  min-height: 44px;
+}

@@ -13,6 +13,8 @@ router = APIRouter(
 
 
 ALLOWED_CATEGORIES = [
+    "Class",
+    "Exam",
     "Department",
     "Subject",
     "House",

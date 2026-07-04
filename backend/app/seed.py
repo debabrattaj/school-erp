@@ -62,6 +62,33 @@ def seed_master_data():
 
     try:
         default_master_data = {
+            "Class": [
+                "Nursery",
+                "LKG",
+                "UKG",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+            ],
+            "Exam": [
+                "Unit Test",
+                "Mid Term Exam",
+                "Final Term Exam",
+                "Assessment",
+                "Practical Exam",
+                "Internal Assessment",
+                "Board Exam",
+                "Other",
+            ],
             "Department": [
                 "Primary",
                 "Middle School",

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Edit,
   Trash2,
@@ -11,10 +11,10 @@ import {
   LayoutTemplate,
   Menu,
   SlidersHorizontal,
-  ListFilter,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
   ArrowUp,
   ArrowDown,
   Pin,
@@ -359,6 +359,8 @@ const studentFilterFields = [
 
 export default function Students() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editStudentId = searchParams.get("edit");
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [layout, setLayout] = useState(defaultStudentLayout);
@@ -378,10 +380,12 @@ export default function Students() {
   const [sectionFilter, setSectionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [fieldFilters, setFieldFilters] = useState({});
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
   const [showColumnManager, setShowColumnManager] = useState(false);
+  const [showStudentActions, setShowStudentActions] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [activeColumnMenu, setActiveColumnMenu] = useState(null);
   const [sortConfig, setSortConfig] = useState(null);
   const [pinnedColumns, setPinnedColumns] = useState([]);
@@ -392,6 +396,7 @@ export default function Students() {
     "section",
     "status",
     "guardian",
+    "actions",
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -513,6 +518,33 @@ export default function Students() {
   useEffect(() => {
     loadPageData();
   }, []);
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
+  useEffect(() => {
+    if (!editStudentId || loading || students.length === 0) return;
+
+    const studentToEdit = students.find(
+      (student) => String(student.id) === String(editStudentId)
+    );
+
+    if (!studentToEdit) return;
+
+    handleEdit(studentToEdit);
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.delete("edit");
+      return nextParams;
+    }, { replace: true });
+  }, [editStudentId, loading, students, setSearchParams]);
 
   const classOptions = useMemo(() => {
     const existingClasses = students
@@ -911,6 +943,7 @@ export default function Students() {
     setStatusFilter("");
     setSearchText("");
     setFieldFilters({});
+    setShowFilters(false);
   }
 
   function matchesFieldFilters(student) {
@@ -995,6 +1028,7 @@ export default function Students() {
     ["guardian", "Guardian"],
     ["phone", "Phone"],
     ["transport", "Transport"],
+    ["actions", "Actions"],
   ];
 
   function toggleColumn(columnKey) {
@@ -1034,6 +1068,7 @@ export default function Students() {
     };
 
     updateFieldFilter(fieldNameMap[columnKey] || columnKey, { enabled: true });
+    setShowFilters(true);
     setActiveColumnMenu(null);
   }
 
@@ -1055,6 +1090,10 @@ export default function Students() {
 
     const value = student[fieldNameMap[columnKey] || columnKey];
     return value === null || value === undefined ? "" : String(value);
+  }
+
+  function getStudentDisplayName(student) {
+    return `${student.first_name || ""} ${student.last_name || ""}`.trim() || "student";
   }
 
   function renderStudentCell(student, columnKey) {
@@ -1087,7 +1126,7 @@ export default function Students() {
   }
 
   const visibleStudentColumns = studentListColumns
-    .filter(([key]) => visibleColumns.includes(key))
+    .filter(([key]) => key !== "actions" && visibleColumns.includes(key))
     .sort(([firstKey], [secondKey]) => {
       const firstPinned = pinnedColumns.includes(firstKey);
       const secondPinned = pinnedColumns.includes(secondKey);
@@ -1122,14 +1161,83 @@ export default function Students() {
   const pageStartIndex = (safeCurrentPage - 1) * recordsPerPage;
   const pageEndIndex = Math.min(pageStartIndex + recordsPerPage, sortedStudents.length);
   const displayedStudents = sortedStudents.slice(pageStartIndex, pageEndIndex);
+  const selectedStudentCount = selectedStudentIds.length;
+  const displayedStudentIds = displayedStudents.map((student) => String(student.id));
+  const showActionsColumn = visibleColumns.includes("actions");
+  const tableColumnCount =
+    visibleStudentColumns.length + (showActionsColumn ? 1 : 0) + 2;
+  const allDisplayedStudentsSelected =
+    displayedStudentIds.length > 0 &&
+    displayedStudentIds.every((studentId) => selectedStudentIds.includes(studentId));
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, classFilter, sectionFilter, statusFilter, fieldFilters, recordsPerPage]);
 
+  useEffect(() => {
+    if (selectedStudentCount === 0) {
+      setShowStudentActions(false);
+    }
+  }, [selectedStudentCount]);
+
+  useEffect(() => {
+    function closeMenusOnOutsideClick(event) {
+      if (
+        event.target.closest(
+          ".student-column-head, .records-header-column-manager, .column-manager-menu, .column-manager-wrap, .student-bulk-action-wrap"
+        )
+      ) {
+        return;
+      }
+
+      setActiveColumnMenu(null);
+      setShowColumnManager(false);
+      setShowStudentActions(false);
+    }
+
+    document.addEventListener("pointerdown", closeMenusOnOutsideClick);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeMenusOnOutsideClick);
+    };
+  }, []);
+
+  function toggleStudentSelection(studentId) {
+    setSelectedStudentIds((currentIds) => {
+      const normalizedId = String(studentId);
+
+      if (currentIds.includes(normalizedId)) {
+        return currentIds.filter((id) => id !== normalizedId);
+      }
+
+      return [...currentIds, normalizedId];
+    });
+  }
+
+  function toggleDisplayedStudentSelection() {
+    if (displayedStudentIds.length === 0) return;
+
+    setSelectedStudentIds((currentIds) => {
+      if (displayedStudentIds.every((studentId) => currentIds.includes(studentId))) {
+        return currentIds.filter((studentId) => !displayedStudentIds.includes(studentId));
+      }
+
+      return Array.from(new Set([...currentIds, ...displayedStudentIds]));
+    });
+  }
+
+  function handleSendWhatsappMessage() {
+    setShowStudentActions(false);
+    setMessage(
+      `Send Whatsapp message selected for ${selectedStudentCount} student${
+        selectedStudentCount === 1 ? "" : "s"
+      }.`
+    );
+  }
+
   if (pageMode === "form") {
     return (
-      <div className="management-page">
+      <div className="management-page student-edit-page">
         <section className="page-heading">
           <div>
             <p className="eyebrow">Student Management</p>
@@ -1235,10 +1343,34 @@ export default function Students() {
           <p>All student records in one place.</p>
         </div>
 
-        <button type="button" className="primary-button" onClick={handleAddStudent}>
-          <PlusCircle size={18} />
-          Add Student
-        </button>
+        <div className="student-heading-actions">
+          {selectedStudentCount > 0 && (
+            <div className="student-bulk-action-wrap">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowStudentActions((prev) => !prev)}
+              >
+                Actions
+                <ChevronDown size={16} />
+              </button>
+
+              {showStudentActions && (
+                <div className="student-bulk-action-menu">
+                  <button type="button" onClick={handleSendWhatsappMessage}>
+                    <MessageCircle size={16} />
+                    Send Whatsapp message
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button type="button" className="primary-button" onClick={handleAddStudent}>
+            <PlusCircle size={18} />
+            Add Student
+          </button>
+        </div>
       </section>
 
       {message && <div className="message-box">{message}</div>}
@@ -1314,6 +1446,65 @@ export default function Students() {
 
         <div className="student-list-main">
           <div className="student-table-card">
+            <section className="student-list-pagination student-records-toolbar">
+              <div className="student-records-summary">
+                <div className="table-search student-records-search">
+                  <Search size={22} />
+                  <input
+                    type="text"
+                    placeholder="Search admission, name, class, guardian..."
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="student-records-controls">
+                <span className="student-total-records">
+                  Total: <strong>{filteredStudents.length}</strong>
+                </span>
+
+                <div className="student-records-size">
+                  <label className="student-record-size-control">
+                    <select
+                      value={recordsPerPage}
+                      onChange={(event) => setRecordsPerPage(Number(event.target.value))}
+                    >
+                      <option value={25}>25 Records Per Page</option>
+                      <option value={50}>50 Records Per Page</option>
+                      <option value={100}>100 Records Per Page</option>
+                      <option value={200}>200 Records Per Page</option>
+                    </select>
+                    <ChevronDown size={15} />
+                  </label>
+                </div>
+
+                <div className="student-records-pages">
+                  <span className="student-page-range">
+                    {sortedStudents.length === 0 ? 0 : pageStartIndex + 1} - {pageEndIndex}
+                  </span>
+                  <button
+                    type="button"
+                    className="student-page-arrow"
+                    title="Previous page"
+                    disabled={safeCurrentPage <= 1}
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="student-page-arrow"
+                    title="Next page"
+                    disabled={safeCurrentPage >= totalPages}
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+            </section>
+
             {loading ? (
               <div className="loading-box">Loading students...</div>
             ) : (
@@ -1322,14 +1513,23 @@ export default function Students() {
                   <thead>
                     <tr>
                       <th className="student-filter-toggle-cell">
-                        <button
-                          type="button"
-                          className="student-grid-filter-toggle"
-                          onClick={() => setShowFilters((prev) => !prev)}
-                          title={showFilters ? "Hide filters" : "Show filters"}
-                        >
-                          <ListFilter size={17} />
-                        </button>
+                        <input
+                          type="checkbox"
+                          className="student-row-checkbox student-mass-select-checkbox"
+                          checked={allDisplayedStudentsSelected}
+                          onChange={toggleDisplayedStudentSelection}
+                          disabled={displayedStudentIds.length === 0}
+                          title={
+                            allDisplayedStudentsSelected
+                              ? "Unselect visible students"
+                              : "Select visible students"
+                          }
+                          aria-label={
+                            allDisplayedStudentsSelected
+                              ? "Unselect visible students"
+                              : "Select visible students"
+                          }
+                        />
                       </th>
                       {visibleStudentColumns
                         .map(([key, label]) => (
@@ -1380,40 +1580,42 @@ export default function Students() {
                             </div>
                           </th>
                         ))}
-                      <th className="student-column-actions">
-                        <div className="student-actions-head">
-                          <span>Actions</span>
-                          <div className="column-manager-wrap">
-                            <button
-                              type="button"
-                              className="student-column-menu-button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setShowColumnManager((prev) => !prev);
-                                setActiveColumnMenu(null);
-                              }}
-                              title="Manage columns"
-                            >
-                              <SlidersHorizontal size={16} />
-                            </button>
-
-                            {showColumnManager && (
-                              <div className="column-manager-menu toolbar-column-menu">
-                                <h4>Manage Columns</h4>
-                                {studentListColumns.map(([key, label]) => (
-                                  <label key={key}>
-                                    <input
-                                      type="checkbox"
-                                      checked={visibleColumns.includes(key)}
-                                      onChange={() => toggleColumn(key)}
-                                    />
-                                    <span>{label}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
+                      {showActionsColumn && (
+                        <th className="student-column-actions">
+                          <div className="student-actions-head">
+                            <span>Actions</span>
                           </div>
-                        </div>
+                        </th>
+                      )}
+                      <th className="records-header-column-manager student-header-column-manager">
+                        <button
+                          type="button"
+                          className="student-column-menu-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setShowColumnManager((prev) => !prev);
+                            setActiveColumnMenu(null);
+                          }}
+                          title="Manage columns"
+                        >
+                          <SlidersHorizontal size={16} />
+                        </button>
+
+                        {showColumnManager && (
+                          <div className="column-manager-menu toolbar-column-menu">
+                            <h4>Manage Columns</h4>
+                            {studentListColumns.map(([columnKey, columnLabel]) => (
+                              <label key={columnKey}>
+                                <input
+                                  type="checkbox"
+                                  checked={visibleColumns.includes(columnKey)}
+                                  onChange={() => toggleColumn(columnKey)}
+                                />
+                                <span>{columnLabel}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </th>
                     </tr>
                   </thead>
@@ -1422,7 +1624,7 @@ export default function Students() {
                     {displayedStudents.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={visibleColumns.length + 2}
+                          colSpan={tableColumnCount}
                           className="empty-table"
                         >
                           No student records found.
@@ -1432,30 +1634,44 @@ export default function Students() {
                       displayedStudents.map((student) => (
                         <tr
                           key={student.id}
-                          className="clickable-row"
+                          className={
+                            selectedStudentIds.includes(String(student.id))
+                              ? "clickable-row selected-row"
+                              : "clickable-row"
+                          }
                           onClick={() => navigate(`/students/${student.id}`)}
                         >
-                          <td className="student-filter-toggle-cell" />
+                          <td className="student-filter-toggle-cell">
+                            <input
+                              type="checkbox"
+                              className="student-row-checkbox"
+                              checked={selectedStudentIds.includes(String(student.id))}
+                              onChange={() => toggleStudentSelection(student.id)}
+                              onClick={(event) => event.stopPropagation()}
+                              aria-label={`Select ${getStudentDisplayName(student)}`}
+                            />
+                          </td>
                           {visibleStudentColumns
                             .map(([key]) => (
                               <td key={key}>{renderStudentCell(student, key)}</td>
                             ))}
-                          <td>
-                            <div className="action-buttons">
-                              <button
-                                type="button"
-                                className="edit-button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleEdit(student);
-                                }}
-                                title="Edit"
-                              >
-                                <Edit size={15} />
-                              </button>
-
-                            </div>
-                          </td>
+                          {showActionsColumn && (
+                            <td>
+                              <div className="action-buttons">
+                                <button
+                                  type="button"
+                                  className="edit-button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleEdit(student);
+                                  }}
+                                  title="Edit"
+                                >
+                                  <Edit size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
@@ -1464,51 +1680,6 @@ export default function Students() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="student-list-pagination">
-        <div>
-          <label className="student-record-size-control">
-            <select
-              value={recordsPerPage}
-              onChange={(event) => setRecordsPerPage(Number(event.target.value))}
-            >
-              <option value={25}>25 Records Per Page</option>
-              <option value={50}>50 Records Per Page</option>
-              <option value={100}>100 Records Per Page</option>
-              <option value={200}>200 Records Per Page</option>
-            </select>
-            <ChevronDown size={15} />
-          </label>
-
-          <span className="student-total-records">
-            Total Count: <strong>{filteredStudents.length}</strong>
-          </span>
-        </div>
-
-        <div>
-          <span className="student-page-range">
-            {sortedStudents.length === 0 ? 0 : pageStartIndex + 1} - {pageEndIndex}
-          </span>
-          <button
-            type="button"
-            className="student-page-arrow"
-            title="Previous page"
-            disabled={safeCurrentPage <= 1}
-            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            type="button"
-            className="student-page-arrow"
-            title="Next page"
-            disabled={safeCurrentPage >= totalPages}
-            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-          >
-            <ChevronRight size={18} />
-          </button>
         </div>
       </section>
     </div>

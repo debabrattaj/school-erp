@@ -3,11 +3,11 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   Database,
 } from "lucide-react";
 import API from "../api";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 
 const emptyForm = {
   category: "",
@@ -336,47 +336,17 @@ export default function MasterData() {
             </form>
           </section>
 
-          <section className="table-panel">
-            <div className="table-toolbar">
-              <div>
-                <h3>{selectedCategory} Values</h3>
-                <p>{filteredItems.length} value(s) found</p>
-              </div>
-
-              <div className="table-search">
-                <Search size={17} />
-                <input
-                  type="text"
-                  placeholder="Search value..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="loading-box">Loading master data...</div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="classic-table">
-                  <thead>
-                    <tr>
-                      <th>Value</th>
-                      <th>Sort Order</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredItems.length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="empty-table">
-                          No values found for this category.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredItems.map((item) => (
+          <ManagedRecordsTable
+            count={filteredItems.length}
+            emptyText="No values found for this category."
+            headers={["Value", "Sort Order", "Status", "Actions"]}
+            loading={loading}
+            loadingText="Loading master data..."
+            searchPlaceholder="Search value..."
+            searchText={searchText}
+            setSearchText={setSearchText}
+          >
+            {filteredItems.map((item) => (
                         <tr key={item.id}>
                           <td>{item.value}</td>
                           <td>{item.sort_order}</td>
@@ -407,13 +377,8 @@ export default function MasterData() {
                             </div>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+            ))}
+          </ManagedRecordsTable>
         </main>
       </section>
     </div>

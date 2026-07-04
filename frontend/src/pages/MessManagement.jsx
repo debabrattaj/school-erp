@@ -5,7 +5,6 @@ import {
   Edit,
   PlusCircle,
   RefreshCcw,
-  Search,
   Trash2,
   Utensils,
   Users,
@@ -13,6 +12,7 @@ import {
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -580,47 +580,18 @@ function MessTable({
   children,
 }) {
   return (
-    <section className="table-panel">
-      <div className="table-toolbar">
-        <div>
-          <h3>{title}</h3>
-          <p>{count} record(s) found</p>
-        </div>
-
-        <div className="table-search">
-          <Search size={17} />
-          <input
-            type="text"
-            placeholder="Search mess records..."
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="loading-box">Loading mess records...</div>
-      ) : (
-        <div className="table-wrapper">
-          <table className="classic-table">
-            <thead>
-              <tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr>
-            </thead>
-            <tbody>
-              {count === 0 ? (
-                <tr>
-                  <td colSpan={headers.length} className="empty-table">
-                    {emptyText}
-                  </td>
-                </tr>
-              ) : (
-                children
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+    <ManagedRecordsTable
+      count={count}
+      emptyText={emptyText}
+      headers={headers}
+      loading={loading}
+      loadingText={`Loading ${title.toLowerCase()}...`}
+      searchPlaceholder="Search mess records..."
+      searchText={searchText}
+      setSearchText={setSearchText}
+    >
+      {children}
+    </ManagedRecordsTable>
   );
 }
 

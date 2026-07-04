@@ -123,6 +123,10 @@ def create_fee(
     new_fee = Fee(
         student_id=fee.student_id,
         fee_type=fee.fee_type,
+        academic_year=fee.academic_year or get_settings(db).academic_year,
+        class_id=fee.class_id or student.class_id,
+        class_name_snapshot=fee.class_name_snapshot or student.class_name,
+        section_snapshot=fee.section_snapshot or student.section,
         total_amount=fee.total_amount,
         paid_amount=fee.paid_amount,
         due_amount=due_amount,
@@ -141,12 +145,18 @@ def create_fee(
 
 @router.get("/", response_model=list[FeeResponse])
 def get_fees(
+    academic_year: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Accounts"])
     )
 ):
-    return db.query(Fee).order_by(Fee.id.desc()).all()
+    query = db.query(Fee)
+
+    if academic_year:
+        query = query.filter(Fee.academic_year == academic_year)
+
+    return query.order_by(Fee.id.desc()).all()
 
 
 @router.get("/student/{student_id}", response_model=list[FeeResponse])
@@ -222,6 +232,27 @@ def update_fee(
                 status_code=400,
                 detail=f"Invalid fee type. Allowed: {', '.join(VALID_FEE_TYPES)}"
             )
+
+    student = db.query(Student).filter(Student.id == fee.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    update_data["academic_year"] = (
+        update_data.get("academic_year")
+        or fee.academic_year
+        or get_settings(db).academic_year
+    )
+    update_data["class_id"] = update_data.get("class_id") or fee.class_id or student.class_id
+    update_data["class_name_snapshot"] = (
+        update_data.get("class_name_snapshot")
+        or fee.class_name_snapshot
+        or student.class_name
+    )
+    update_data["section_snapshot"] = (
+        update_data.get("section_snapshot")
+        or fee.section_snapshot
+        or student.section
+    )
 
     for key, value in update_data.items():
         setattr(fee, key, value)

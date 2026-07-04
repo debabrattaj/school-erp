@@ -1,6 +1,8 @@
 export const MODULE_LAYOUT_LIMIT = 20;
 
 export const MASTER_CATEGORIES = [
+  "Class",
+  "Exam",
   "Gender",
   "House",
   "Section",
@@ -54,6 +56,7 @@ export const MODULE_CONFIGS = {
             type: "picklist",
             required: false,
             source: "system",
+            masterCategory: "Class",
           },
           {
             id: "field_section",
@@ -327,9 +330,10 @@ export const MODULE_CONFIGS = {
             id: "field_class_name",
             name: "class_name",
             label: "Class Name",
-            type: "singleline",
+            type: "picklist",
             required: true,
             source: "system",
+            masterCategory: "Class",
           },
           {
             id: "field_section",
@@ -487,37 +491,13 @@ export const MODULE_CONFIGS = {
           source: "system",
         },
         {
-          id: "field_class_name",
-          name: "class_name",
-          label: "Class",
-          type: "singleline",
-          required: true,
-          source: "system",
-        },
-        {
-          id: "field_section",
-          name: "section",
-          label: "Section",
+          id: "field_exam_type",
+          name: "exam_type",
+          label: "Exam Type",
           type: "picklist",
           required: true,
           source: "system",
-          masterCategory: "Section",
-        },
-        {
-          id: "field_exam_date",
-          name: "exam_date",
-          label: "Exam Date",
-          type: "date",
-          required: true,
-          source: "system",
-        },
-        {
-          id: "field_academic_year",
-          name: "academic_year",
-          label: "Academic Year",
-          type: "singleline",
-          required: false,
-          source: "system",
+          masterCategory: "ExamType",
         },
         {
           id: "field_remarks",

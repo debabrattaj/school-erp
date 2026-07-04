@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Edit, PlusCircle, RefreshCcw, Search, Trash2, Undo2 } from "lucide-react";
+import { BookOpen, Edit, PlusCircle, RefreshCcw, Trash2, Undo2 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
 
 const today = new Date().toISOString().slice(0, 10);
@@ -376,10 +377,18 @@ function FormActions({ editing, label, resetForms }) {
 
 function RecordsTable({ title, count, searchText, setSearchText, loading, headers, children }) {
   return (
-    <section className="table-panel">
-      <div className="table-toolbar"><div><h3>{title}</h3><p>{count} record(s) found</p></div><div className="table-search"><Search size={17} /><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search library records..." /></div></div>
-      {loading ? <div className="loading-box">Loading library records...</div> : <div className="table-wrapper"><table className="classic-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{count === 0 ? <tr><td colSpan={headers.length} className="empty-table">No records found.</td></tr> : children}</tbody></table></div>}
-    </section>
+    <ManagedRecordsTable
+      count={count}
+      emptyText="No records found."
+      headers={headers}
+      loading={loading}
+      loadingText={`Loading ${title.toLowerCase()}...`}
+      searchPlaceholder="Search library records..."
+      searchText={searchText}
+      setSearchText={setSearchText}
+    >
+      {children}
+    </ManagedRecordsTable>
   );
 }
 

@@ -35,7 +35,8 @@ def get_allowed_sections(db: Session):
     ]
 
 
-@router.post("/classes/", response_model=schemas.ClassResponse)
+@router.post("/", response_model=schemas.ClassResponse)
+@router.post("/classes/", response_model=schemas.ClassResponse, include_in_schema=False)
 def create_class(payload: schemas.ClassCreate, db: Session = Depends(get_db)):
     existing_class = (
         db.query(models.SchoolClass)
@@ -134,7 +135,8 @@ def get_class(
     return school_class
 
 
-@router.put("/classes/{class_id}", response_model=schemas.ClassResponse)
+@router.put("/{class_id}", response_model=schemas.ClassResponse)
+@router.put("/classes/{class_id}", response_model=schemas.ClassResponse, include_in_schema=False)
 def update_class(class_id: int, payload: schemas.ClassCreate, db: Session = Depends(get_db)):
     db_class = (
         db.query(models.SchoolClass)

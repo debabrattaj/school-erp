@@ -5,13 +5,13 @@ import {
   MapPin,
   PlusCircle,
   RefreshCcw,
-  Search,
   Trash2,
   UserCheck,
 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyRouteForm = {
@@ -759,43 +759,18 @@ function FormActions({ editing, label, resetForms }) {
 
 function TransportTable({ title, count, searchText, setSearchText, loading, headers, emptyText, children }) {
   return (
-    <section className="table-panel">
-      <div className="table-toolbar">
-        <div>
-          <h3>{title}</h3>
-          <p>{count} record(s) found</p>
-        </div>
-
-        <div className="table-search">
-          <Search size={17} />
-          <input
-            type="text"
-            placeholder="Search transport records..."
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="loading-box">Loading transport records...</div>
-      ) : (
-        <div className="table-wrapper">
-          <table className="classic-table">
-            <thead>
-              <tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr>
-            </thead>
-            <tbody>
-              {count === 0 ? (
-                <tr>
-                  <td colSpan={headers.length} className="empty-table">{emptyText}</td>
-                </tr>
-              ) : children}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+    <ManagedRecordsTable
+      count={count}
+      emptyText={emptyText}
+      headers={headers}
+      loading={loading}
+      loadingText={`Loading ${title.toLowerCase()}...`}
+      searchPlaceholder="Search transport records..."
+      searchText={searchText}
+      setSearchText={setSearchText}
+    >
+      {children}
+    </ManagedRecordsTable>
   );
 }
 

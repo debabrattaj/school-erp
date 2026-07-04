@@ -4,7 +4,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   Eye,
   X,
@@ -13,16 +12,18 @@ import {
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyFeeForm = {
   student_id: "",
   fee_type: "",
+  academic_year: "",
   total_amount: "",
   paid_amount: "",
-  due_date: "",
   payment_date: "",
-  status: "Pending",
+  receipt_no: "",
+  remarks: "",
 };
 
 const fallbackFeeTypes = [
@@ -36,11 +37,9 @@ const fallbackFeeTypes = [
 ];
 
 const statusOptions = [
-  "Pending",
-  "Partially Paid",
   "Paid",
-  "Overdue",
-  "Cancelled",
+  "Partial",
+  "Unpaid",
 ];
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -80,14 +79,10 @@ function getPaidAmount(fee) {
 }
 
 function getBalanceAmount(fee) {
-  return Math.max(getFeeAmount(fee) - getPaidAmount(fee), 0);
+  return Number(fee.due_amount ?? Math.max(getFeeAmount(fee) - getPaidAmount(fee), 0));
 }
 
-function calculateFeeStatus(totalAmount, paidAmount, dueDate, currentStatus) {
-  if (currentStatus === "Cancelled") {
-    return "Cancelled";
-  }
-
+function calculateFeeStatus(totalAmount, paidAmount) {
   const total = Number(totalAmount || 0);
   const paid = Number(paidAmount || 0);
 
@@ -96,26 +91,17 @@ function calculateFeeStatus(totalAmount, paidAmount, dueDate, currentStatus) {
   }
 
   if (paid > 0 && paid < total) {
-    return "Partially Paid";
+    return "Partial";
   }
 
-  if (dueDate) {
-    const today = new Date().toISOString().split("T")[0];
-
-    if (dueDate < today) {
-      return "Overdue";
-    }
-  }
-
-  return "Pending";
+  return "Unpaid";
 }
 
 function getStatusClass(status) {
   const text = String(status || "").toLowerCase();
 
   if (text === "paid") return "status active";
-  if (text === "cancelled") return "status danger";
-  if (text === "overdue") return "status danger";
+  if (text === "unpaid") return "status danger";
 
   return "status warning";
 }
@@ -135,6 +121,7 @@ export default function Fees() {
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [academicYearFilter, setAcademicYearFilter] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -181,13 +168,7 @@ export default function Fees() {
     const map = {};
 
     students.forEach((student) => {
-      const name = `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim();
-
-      map[student.id] = student.admission_no
-        ? `${student.admission_no} - ${name}`
-        : name || `Student ID: ${student.id}`;
+      map[student.id] = student;
     });
 
     return map;
@@ -195,8 +176,36 @@ export default function Fees() {
 
   function getStudentName(studentId) {
     if (!studentId) return "-";
-    return studentMap[studentId] || `Student ID: ${studentId}`;
+    const student = studentMap[studentId];
+
+    if (!student) return `Student ID: ${studentId}`;
+
+    const name =
+      student.name ||
+      student.student_name ||
+      `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
+      `Student ID: ${student.id}`;
+
+    return student.admission_no ? `${student.admission_no} - ${name}` : name;
   }
+
+  function getClassLabel(fee) {
+    const student = studentMap[fee.student_id];
+    const className = fee.class_name_snapshot || student?.class_name || "";
+    const section = fee.section_snapshot || student?.section || "";
+
+    if (className && section) return `${className} - Section ${section}`;
+    if (className) return className;
+    if (fee.class_id || student?.class_id) {
+      return `Class ID: ${fee.class_id || student.class_id}`;
+    }
+
+    return "-";
+  }
+
+  const academicYearOptions = useMemo(() => {
+    return Array.from(new Set(fees.map((fee) => fee.academic_year).filter(Boolean)));
+  }, [fees]);
 
   function handleInputChange(e) {
     const { name, value } = e.target;
@@ -209,16 +218,9 @@ export default function Fees() {
 
       if (
         name === "total_amount" ||
-        name === "paid_amount" ||
-        name === "due_date" ||
-        name === "status"
+        name === "paid_amount"
       ) {
-        updated.status = calculateFeeStatus(
-          updated.total_amount,
-          updated.paid_amount,
-          updated.due_date,
-          updated.status
-        );
+        updated.payment_status = calculateFeeStatus(updated.total_amount, updated.paid_amount);
       }
 
       return updated;
@@ -235,16 +237,12 @@ export default function Fees() {
     return {
       student_id: formData.student_id ? Number(formData.student_id) : null,
       fee_type: formData.fee_type || "",
+      academic_year: formData.academic_year || null,
       total_amount: totalAmount,
       paid_amount: paidAmount,
-      due_date: formData.due_date || "",
       payment_date: formData.payment_date || null,
-      status: calculateFeeStatus(
-        totalAmount,
-        paidAmount,
-        formData.due_date,
-        formData.status
-      ),
+      receipt_no: formData.receipt_no || null,
+      remarks: formData.remarks || null,
     };
   }
 
@@ -267,10 +265,6 @@ export default function Fees() {
 
     if (payload.paid_amount > payload.total_amount) {
       return "Paid Amount cannot be greater than Total Amount.";
-    }
-
-    if (!payload.due_date) {
-      return "Due Date is required.";
     }
 
     if (payload.paid_amount > 0 && !payload.payment_date) {
@@ -323,13 +317,12 @@ export default function Fees() {
     setFormData({
       student_id: fee.student_id || "",
       fee_type: fee.fee_type || "",
+      academic_year: fee.academic_year || "",
       total_amount: totalAmount || "",
       paid_amount: paidAmount || "",
-      due_date: normalizeDateInput(fee.due_date),
       payment_date: normalizeDateInput(fee.payment_date),
-      status:
-        fee.status ||
-        calculateFeeStatus(totalAmount, paidAmount, fee.due_date, "Pending"),
+      receipt_no: fee.receipt_no || "",
+      remarks: fee.remarks || "",
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -377,16 +370,22 @@ export default function Fees() {
       ${getFeeAmount(fee)}
       ${getPaidAmount(fee)}
       ${getBalanceAmount(fee)}
-      ${fee.due_date}
+      ${fee.academic_year}
+      ${getClassLabel(fee)}
       ${fee.payment_date}
-      ${fee.status}
+      ${fee.payment_status}
+      ${fee.receipt_no}
+      ${fee.remarks}
     `.toLowerCase();
 
     const matchSearch = searchableText.includes(searchText.toLowerCase());
     const matchFeeType = feeTypeFilter ? fee.fee_type === feeTypeFilter : true;
-    const matchStatus = statusFilter ? fee.status === statusFilter : true;
+    const matchStatus = statusFilter ? fee.payment_status === statusFilter : true;
+    const matchAcademicYear = academicYearFilter
+      ? fee.academic_year === academicYearFilter
+      : true;
 
-    return matchSearch && matchFeeType && matchStatus;
+    return matchSearch && matchFeeType && matchStatus && matchAcademicYear;
   });
 
   const totalAmount = fees.reduce((sum, fee) => sum + getFeeAmount(fee), 0);
@@ -432,7 +431,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Total Amount</span>
-            <strong>₹{totalAmount.toLocaleString("en-IN")}</strong>
+            <strong>Rs {totalAmount.toLocaleString("en-IN")}</strong>
           </div>
         </div>
 
@@ -440,7 +439,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Paid Amount</span>
-            <strong>₹{paidAmount.toLocaleString("en-IN")}</strong>
+            <strong>Rs {paidAmount.toLocaleString("en-IN")}</strong>
           </div>
         </div>
 
@@ -448,7 +447,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Balance Amount</span>
-            <strong>₹{balanceAmount.toLocaleString("en-IN")}</strong>
+            <strong>Rs {balanceAmount.toLocaleString("en-IN")}</strong>
           </div>
         </div>
       </section>
@@ -505,6 +504,17 @@ export default function Fees() {
             </div>
 
             <div className="form-field">
+              <label>Academic Year</label>
+              <input
+                type="text"
+                name="academic_year"
+                value={formData.academic_year}
+                onChange={handleInputChange}
+                placeholder="2026-27"
+              />
+            </div>
+
+            <div className="form-field">
               <label>Paid Amount</label>
               <input
                 type="number"
@@ -513,17 +523,6 @@ export default function Fees() {
                 onChange={handleInputChange}
                 min="0"
                 step="0.01"
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Due Date *</label>
-              <input
-                type="date"
-                name="due_date"
-                value={formData.due_date}
-                onChange={handleInputChange}
-                required
               />
             </div>
 
@@ -538,32 +537,37 @@ export default function Fees() {
             </div>
 
             <div className="form-field">
-              <label>Status *</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                required
-              >
-                {statusOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-field">
               <label>Balance Amount</label>
               <input
                 type="text"
-                value={`₹${Math.max(
+                value={`Rs ${Math.max(
                   Number(formData.total_amount || 0) -
                     Number(formData.paid_amount || 0),
                   0
                 ).toLocaleString("en-IN")}`}
                 disabled
               />
+            </div>
+
+            <div className="form-field">
+              <label>Receipt No</label>
+              <input
+                type="text"
+                name="receipt_no"
+                value={formData.receipt_no}
+                onChange={handleInputChange}
+                placeholder="Auto generated when paid"
+              />
+            </div>
+
+            <div className="form-field full-width">
+              <label>Remarks</label>
+              <textarea
+                name="remarks"
+                rows="3"
+                value={formData.remarks}
+                onChange={handleInputChange}
+              ></textarea>
             </div>
           </div>
 
@@ -586,107 +590,80 @@ export default function Fees() {
       )}
 
       {pageMode === "list" && (
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Fee Records</h3>
-            <p>{filteredFees.length} fee record(s) found</p>
-          </div>
+        <>
+          <section className="table-panel module-filter-panel">
+            <div className="filter-row sis-filter-row">
+              <div className="form-field">
+                <label>Fee Type</label>
+                <select value={feeTypeFilter} onChange={(e) => setFeeTypeFilter(e.target.value)}>
+                  <option value="">All Fee Types</option>
+                  {feeTypes.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search student, fee type, status..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
+              <div className="form-field">
+                <label>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="">All Status</option>
+                  {statusOptions.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="filter-row sis-filter-row">
-          <div className="form-field">
-            <label>Fee Type</label>
-            <select
-              value={feeTypeFilter}
-              onChange={(e) => setFeeTypeFilter(e.target.value)}
-            >
-              <option value="">All Fee Types</option>
-              {feeTypes.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="form-field">
+                <label>Academic Year</label>
+                <select
+                  value={academicYearFilter}
+                  onChange={(e) => setAcademicYearFilter(e.target.value)}
+                >
+                  <option value="">All Years</option>
+                  {academicYearOptions.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="form-field">
-            <label>Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-              {statusOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
+              <button
+                type="button"
+                className="light-button"
+                onClick={() => {
+                  setFeeTypeFilter("");
+                  setStatusFilter("");
+                  setAcademicYearFilter("");
+                  setSearchText("");
+                }}
+              >
+                Clear Filters
+              </button>
+            </div>
+          </section>
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => {
-              setFeeTypeFilter("");
-              setStatusFilter("");
-              setSearchText("");
-            }}
+          <ManagedRecordsTable
+            count={filteredFees.length}
+            emptyText="No fee records found."
+            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Balance", "Payment Date", "Status", "Actions"]}
+            loading={loading}
+            loadingText="Loading fees..."
+            searchPlaceholder="Search student, class, year, fee type, status..."
+            searchText={searchText}
+            setSearchText={setSearchText}
           >
-            Clear Filters
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading fees...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Fee Type</th>
-                  <th>Total Amount</th>
-                  <th>Paid Amount</th>
-                  <th>Balance</th>
-                  <th>Due Date</th>
-                  <th>Payment Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredFees.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="empty-table">
-                      No fee records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredFees.map((fee) => (
+            {filteredFees.map((fee) => (
                     <tr key={fee.id}>
                       <td>{getStudentName(fee.student_id)}</td>
+                      <td>{getClassLabel(fee)}</td>
+                      <td>{fee.academic_year || "-"}</td>
                       <td>{fee.fee_type || "-"}</td>
-                      <td>₹{getFeeAmount(fee).toLocaleString("en-IN")}</td>
-                      <td>₹{getPaidAmount(fee).toLocaleString("en-IN")}</td>
-                      <td>₹{getBalanceAmount(fee).toLocaleString("en-IN")}</td>
-                      <td>{normalizeDateInput(fee.due_date) || "-"}</td>
+                      <td>Rs {getFeeAmount(fee).toLocaleString("en-IN")}</td>
+                      <td>Rs {getPaidAmount(fee).toLocaleString("en-IN")}</td>
+                      <td>Rs {getBalanceAmount(fee).toLocaleString("en-IN")}</td>
                       <td>{normalizeDateInput(fee.payment_date) || "-"}</td>
                       <td>
-                        <span className={getStatusClass(fee.status)}>
-                          {fee.status || "Pending"}
+                        <span className={getStatusClass(fee.payment_status)}>
+                          {fee.payment_status || "Unpaid"}
                         </span>
                       </td>
                       <td>
@@ -720,13 +697,9 @@ export default function Fees() {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+            ))}
+          </ManagedRecordsTable>
+        </>
       )}
 
       {selectedFee && (
@@ -752,27 +725,16 @@ export default function Fees() {
             <div className="drawer-section">
               <h4>Fee Information</h4>
               <p>Student: {getStudentName(selectedFee.student_id)}</p>
+              <p>Class: {getClassLabel(selectedFee)}</p>
+              <p>Academic Year: {selectedFee.academic_year || "-"}</p>
               <p>Fee Type: {selectedFee.fee_type || "-"}</p>
-              <p>
-                Total Amount: ₹
-                {getFeeAmount(selectedFee).toLocaleString("en-IN")}
-              </p>
-              <p>
-                Paid Amount: ₹
-                {getPaidAmount(selectedFee).toLocaleString("en-IN")}
-              </p>
-              <p>
-                Balance: ₹
-                {getBalanceAmount(selectedFee).toLocaleString("en-IN")}
-              </p>
-              <p>
-                Due Date: {normalizeDateInput(selectedFee.due_date) || "-"}
-              </p>
-              <p>
-                Payment Date:{" "}
-                {normalizeDateInput(selectedFee.payment_date) || "-"}
-              </p>
-              <p>Status: {selectedFee.status || "Pending"}</p>
+              <p>Total Amount: Rs {getFeeAmount(selectedFee).toLocaleString("en-IN")}</p>
+              <p>Paid Amount: Rs {getPaidAmount(selectedFee).toLocaleString("en-IN")}</p>
+              <p>Balance: Rs {getBalanceAmount(selectedFee).toLocaleString("en-IN")}</p>
+              <p>Payment Date: {normalizeDateInput(selectedFee.payment_date) || "-"}</p>
+              <p>Receipt No: {selectedFee.receipt_no || "-"}</p>
+              <p>Status: {selectedFee.payment_status || "Unpaid"}</p>
+              <p>Remarks: {selectedFee.remarks || "-"}</p>
             </div>
           </aside>
         </div>
@@ -780,3 +742,4 @@ export default function Fees() {
     </div>
   );
 }
+

@@ -30,6 +30,17 @@ import HealthInfirmary from "./pages/HealthInfirmary";
 import MessManagement from "./pages/MessManagement";
 import Library from "./pages/Library";
 import Inventory from "./pages/Inventory";
+import Admissions from "./pages/Admissions";
+import InternationalDocuments from "./pages/InternationalDocuments";
+import MultiCurriculum from "./pages/MultiCurriculum";
+import AdmissionAssessments from "./pages/AdmissionAssessments";
+import Communications from "./pages/Communications";
+import StudentServices from "./pages/StudentServices";
+import AlumniWithdrawals from "./pages/AlumniWithdrawals";
+import Counseling from "./pages/Counseling";
+import Enrichment from "./pages/Enrichment";
+import Compliance from "./pages/Compliance";
+import ReportCard from "./pages/ReportCard";
 
 function ProtectedLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -165,6 +176,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/report-card"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <ReportCard />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/users"
@@ -253,6 +274,106 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <StudentEnrollments />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admissions"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal"]}>
+              <ProtectedLayout>
+                <Admissions />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admission-assessments"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <AdmissionAssessments />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/communications"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher", "Accounts"]}>
+              <ProtectedLayout>
+                <Communications />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-services"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher", "Accounts"]}>
+              <ProtectedLayout>
+                <StudentServices />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/alumni-withdrawals"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher", "Accounts"]}>
+              <ProtectedLayout>
+                <AlumniWithdrawals />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/counseling"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Counseling />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enrichment"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher", "Accounts"]}>
+              <ProtectedLayout>
+                <Enrichment />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/compliance"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal"]}>
+              <ProtectedLayout>
+                <Compliance />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/international-documents"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <InternationalDocuments />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/multi-curriculum"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <MultiCurriculum />
               </ProtectedLayout>
             </ProtectedRoute>
           }

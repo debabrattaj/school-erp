@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   FileText,
   Award,
@@ -13,6 +12,7 @@ import {
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 
 const emptyMarkForm = {
   student_id: "",
@@ -23,6 +23,15 @@ const emptyMarkForm = {
   marks_obtained: "",
   max_marks: 100,
   grade: "",
+  remarks: "",
+};
+
+const emptyComponentScoreRow = {
+  exam_component_id: null,
+  component_name: "",
+  marks_obtained: "",
+  max_marks: "",
+  sort_order: 0,
   remarks: "",
 };
 
@@ -85,6 +94,28 @@ function getClassLabelFromStudent(student) {
   return "-";
 }
 
+function getClassLabelFromMark(mark, student) {
+  const className = mark.class_name_snapshot || student?.class_name || "";
+  const section = mark.section_snapshot || student?.section || "";
+
+  if (className && section) return `${className} - Section ${section}`;
+  if (className) return className;
+  if (mark.class_id || student?.class_id) {
+    return `Class ID: ${mark.class_id || student.class_id}`;
+  }
+
+  return "-";
+}
+
+function getExamNameForMark(mark, exam) {
+  return mark.exam_name_snapshot || getExamName(exam);
+}
+
+function getExamOptionLabel(exam) {
+  const name = getExamName(exam);
+  return exam?.exam_type ? `${name} (${exam.exam_type})` : name;
+}
+
 function calculateGrade(marksObtained, maxMarks) {
   const obtained = Number(marksObtained);
   const maximum = Number(maxMarks);
@@ -123,6 +154,8 @@ export default function Marks() {
   const [classes, setClasses] = useState([]);
   const [classExamMappings, setClassExamMappings] = useState([]);
   const [mappedSubjects, setMappedSubjects] = useState([]);
+  const [examComponents, setExamComponents] = useState([]);
+  const [componentScoreRows, setComponentScoreRows] = useState([]);
 
   const [formData, setFormData] = useState(emptyMarkForm);
   const [editingId, setEditingId] = useState(null);
@@ -165,6 +198,13 @@ export default function Marks() {
     setClassExamMappings(response.data || []);
   }
 
+  async function loadExamComponents() {
+    const response = await API.get("/exam-components/", {
+      params: { active_only: true },
+    });
+    setExamComponents(response.data || []);
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -176,6 +216,7 @@ export default function Marks() {
         loadExams(),
         loadClasses(),
         loadClassExamMappings(),
+        loadExamComponents(),
       ]);
     } catch (error) {
       console.error(error);
@@ -218,6 +259,75 @@ export default function Marks() {
 
     return map;
   }, [classes]);
+
+  const selectedExamComponents = useMemo(() => {
+    if (!formData.exam_id) return [];
+
+    return examComponents
+      .filter(
+        (component) =>
+          String(component.exam_id) === String(formData.exam_id) &&
+          component.is_active !== false
+      )
+      .sort((first, second) => {
+        const firstOrder = Number(first.sort_order || 0);
+        const secondOrder = Number(second.sort_order || 0);
+        return firstOrder - secondOrder || first.id - second.id;
+      });
+  }, [examComponents, formData.exam_id]);
+
+  function buildScoreRowsForExam(examId, savedScores = []) {
+    const components = examComponents
+      .filter(
+        (component) =>
+          String(component.exam_id) === String(examId) &&
+          component.is_active !== false
+      )
+      .sort((first, second) => {
+        const firstOrder = Number(first.sort_order || 0);
+        const secondOrder = Number(second.sort_order || 0);
+        return firstOrder - secondOrder || first.id - second.id;
+      });
+
+    return components.map((component, index) => {
+      const savedScore = savedScores.find(
+        (score) =>
+          String(score.exam_component_id) === String(component.id) ||
+          score.component_name === component.component_name
+      );
+
+      return {
+        exam_component_id: component.id,
+        component_name: component.component_name,
+        marks_obtained: savedScore?.marks_obtained ?? "",
+        max_marks: savedScore?.max_marks ?? component.max_marks ?? "",
+        sort_order: component.sort_order ?? index + 1,
+        remarks: savedScore?.remarks || "",
+      };
+    });
+  }
+
+  function applyScoreRows(nextRows) {
+    setComponentScoreRows(nextRows);
+
+    if (nextRows.length === 0) return;
+
+    const obtained = nextRows.reduce(
+      (sum, row) => sum + Number(row.marks_obtained || 0),
+      0
+    );
+    const maximum = nextRows.reduce(
+      (sum, row) => sum + Number(row.max_marks || 0),
+      0
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      marks_obtained: obtained,
+      max_marks: maximum,
+      grade: calculateGrade(obtained, maximum),
+    }));
+  }
 
   const subjectOptions = useMemo(() => {
     const mapped = mappedSubjects.map((item) => item.subject_name).filter(Boolean);
@@ -354,6 +464,7 @@ export default function Marks() {
         class_subject_id: "",
         subject_name: "",
       }));
+      setComponentScoreRows([]);
 
       loadMappedSubjectsForStudent(value, formData.academic_year);
       return;
@@ -367,6 +478,7 @@ export default function Marks() {
         class_subject_id: "",
         subject_name: "",
       }));
+      setComponentScoreRows([]);
 
       if (formData.student_id) {
         loadMappedSubjectsForStudent(formData.student_id, value);
@@ -381,10 +493,23 @@ export default function Marks() {
         class_subject_id: "",
         subject_name: "",
       }));
+      applyScoreRows(buildScoreRowsForExam(value));
 
       if (formData.student_id) {
         loadMappedSubjectsForStudent(formData.student_id, formData.academic_year);
       }
+      return;
+    }
+
+    if (name.startsWith("component_")) {
+      const [, indexText, ...fieldParts] = name.split("_");
+      const rowIndex = Number(indexText);
+      const field = fieldParts.join("_");
+      const nextRows = componentScoreRows.map((row, index) =>
+        index === rowIndex ? { ...row, [field]: value } : row
+      );
+
+      applyScoreRows(nextRows);
       return;
     }
 
@@ -470,8 +595,43 @@ export default function Marks() {
 
         grade: formData.grade || "",
         remarks: formData.remarks || "",
+        component_scores:
+          componentScoreRows.length > 0
+            ? componentScoreRows
+                .filter((row) => row.component_name)
+                .map((row) => ({
+                  exam_component_id: row.exam_component_id || null,
+                  component_name: row.component_name,
+                  marks_obtained: Number(row.marks_obtained || 0),
+                  max_marks: Number(row.max_marks || 0),
+                  sort_order: Number(row.sort_order || 0),
+                  remarks: row.remarks || "",
+                }))
+            : null,
       };
     }
+
+  function validateComponentScores(componentScores = []) {
+    for (const score of componentScores) {
+      const componentName = score.component_name || "Component";
+      const obtained = Number(score.marks_obtained || 0);
+      const maximum = Number(score.max_marks || 0);
+
+      if (maximum <= 0) {
+        return `${componentName} maximum marks must be greater than 0.`;
+      }
+
+      if (obtained < 0) {
+        return `${componentName} marks cannot be negative.`;
+      }
+
+      if (obtained > maximum) {
+        return `${componentName} marks cannot be greater than its maximum marks.`;
+      }
+    }
+
+    return "";
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -521,6 +681,12 @@ export default function Marks() {
         return;
       }
 
+      const componentError = validateComponentScores(payload.component_scores || []);
+      if (componentError) {
+        setMessage(componentError);
+        return;
+      }
+
       if (editingId) {
         await API.put(`/marks/${editingId}`, payload);
         setMessage("Marks updated successfully.");
@@ -532,6 +698,7 @@ export default function Marks() {
       setFormData(emptyMarkForm);
       setEditingId(null);
       setMappedSubjects([]);
+      setComponentScoreRows([]);
       setPageMode("list");
 
       await loadMarks();
@@ -582,6 +749,7 @@ export default function Marks() {
       grade: mark.grade || "",
       remarks: mark.remarks || "",
     });
+    setComponentScoreRows(buildScoreRowsForExam(mark.exam_id, mark.component_scores || []));
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -601,6 +769,7 @@ export default function Marks() {
         setEditingId(null);
         setFormData(emptyMarkForm);
         setMappedSubjects([]);
+        setComponentScoreRows([]);
       }
 
       await loadMarks();
@@ -614,6 +783,7 @@ export default function Marks() {
     setEditingId(null);
     setFormData(emptyMarkForm);
     setMappedSubjects([]);
+    setComponentScoreRows([]);
     setMessage("");
     setPageMode("list");
   }
@@ -622,6 +792,7 @@ export default function Marks() {
     setEditingId(null);
     setFormData(emptyMarkForm);
     setMappedSubjects([]);
+    setComponentScoreRows([]);
     setMessage("");
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -632,10 +803,10 @@ export default function Marks() {
     const exam = examMap[mark.exam_id];
 
     const studentName = getStudentName(student);
-    const examName = getExamName(exam);
+    const examName = getExamNameForMark(mark, exam);
     const subjectName = mark.subject_name || mark.subject || "";
     const academicYear = mark.academic_year || exam?.academic_year || "";
-    const classLabel = getClassLabelFromStudent(student);
+    const classLabel = getClassLabelFromMark(mark, student);
 
     const fullText = `
       ${studentName}
@@ -688,6 +859,25 @@ export default function Marks() {
 
     return Math.round(totalPercentage / marks.length);
   }, [marks]);
+
+  const componentSummary = useMemo(() => {
+    const obtained = componentScoreRows.reduce(
+      (sum, row) => sum + Number(row.marks_obtained || 0),
+      0
+    );
+    const maximum = componentScoreRows.reduce(
+      (sum, row) => sum + Number(row.max_marks || 0),
+      0
+    );
+    const percentage = maximum ? Math.round((obtained / maximum) * 100) : 0;
+
+    return {
+      obtained,
+      maximum,
+      percentage,
+      grade: calculateGrade(obtained, maximum) || "-",
+    };
+  }, [componentScoreRows]);
 
   return (
     <div className="management-page">
@@ -786,7 +976,7 @@ export default function Marks() {
             </div>
 
             <div className="form-field">
-              <label>Exam *</label>
+              <label>Exam Name *</label>
               <select
                 name="exam_id"
                 value={formData.exam_id}
@@ -804,7 +994,7 @@ export default function Marks() {
 
                 {availableExamOptions.map((exam) => (
                   <option key={exam.id} value={exam.id}>
-                    {getExamName(exam)}
+                    {getExamOptionLabel(exam)}
                   </option>
                 ))}
               </select>
@@ -837,6 +1027,80 @@ export default function Marks() {
               </select>
             </div>
 
+            {componentScoreRows.length > 0 && (
+              <div className="form-field full-width exam-components-card">
+                <label>Component Marks</label>
+                <div className="marks-component-summary">
+                  <div>
+                    <span>Obtained</span>
+                    <strong>{componentSummary.obtained}</strong>
+                  </div>
+                  <div>
+                    <span>Maximum</span>
+                    <strong>{componentSummary.maximum}</strong>
+                  </div>
+                  <div>
+                    <span>Percentage</span>
+                    <strong>{componentSummary.percentage}%</strong>
+                  </div>
+                  <div>
+                    <span>Grade</span>
+                    <strong>{componentSummary.grade}</strong>
+                  </div>
+                </div>
+                <div className="table-wrapper exam-components-wrapper">
+                  <table className="classic-table exam-components-table marks-components-table">
+                    <thead>
+                      <tr>
+                        <th>Component</th>
+                        <th>Max Marks</th>
+                        <th>Marks Obtained</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {componentScoreRows.map((row, index) => (
+                        <tr key={`${row.exam_component_id || row.component_name}-${index}`}>
+                          <td>{row.component_name}</td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              name={`component_${index}_max_marks`}
+                              value={row.max_marks}
+                              onChange={handleChange}
+                              required
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              max={row.max_marks || undefined}
+                              step="0.01"
+                              name={`component_${index}_marks_obtained`}
+                              value={row.marks_obtained}
+                              onChange={handleChange}
+                              required
+                            />
+                          </td>
+                          <td>
+                            <input
+                              name={`component_${index}_remarks`}
+                              value={row.remarks}
+                              onChange={handleChange}
+                              placeholder="Optional"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div className="form-field">
               <label>Maximum Marks *</label>
               <input
@@ -845,6 +1109,7 @@ export default function Marks() {
                 min="1"
                 value={formData.max_marks}
                 onChange={handleChange}
+                readOnly={componentScoreRows.length > 0}
                 required
               />
             </div>
@@ -858,6 +1123,7 @@ export default function Marks() {
                 max={formData.max_marks || undefined}
                 value={formData.marks_obtained}
                 onChange={handleChange}
+                readOnly={componentScoreRows.length > 0}
                 required
               />
             </div>
@@ -910,24 +1176,8 @@ export default function Marks() {
       )}
 
       {pageMode === "list" && (
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Marks Records</h3>
-            <p>{filteredMarks.length} marks record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search student, exam, subject..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
+        <>
+      <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">
           <StudentPicker
             students={students}
@@ -1000,35 +1250,19 @@ export default function Marks() {
           </button>
         </div>
 
-        {loading ? (
-          <div className="loading-box">Loading marks...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Class</th>
-                  <th>Exam</th>
-                  <th>Academic Year</th>
-                  <th>Subject</th>
-                  <th>Marks</th>
-                  <th>Percentage</th>
-                  <th>Grade</th>
-                  <th>Result</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+      </section>
 
-              <tbody>
-                {filteredMarks.length === 0 ? (
-                  <tr>
-                    <td colSpan="10" className="empty-table">
-                      No marks records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredMarks.map((mark) => {
+      <ManagedRecordsTable
+        count={filteredMarks.length}
+        emptyText="No marks records found."
+        headers={["Student", "Class", "Exam", "Academic Year", "Subject", "Marks", "Components", "Percentage", "Grade", "Result", "Actions"]}
+        loading={loading}
+        loadingText="Loading marks..."
+        searchPlaceholder="Search student, exam, subject..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+      >
+        {filteredMarks.map((mark) => {
                     const student = studentMap[mark.student_id];
                     const exam = examMap[mark.exam_id];
 
@@ -1045,12 +1279,22 @@ export default function Marks() {
                     return (
                       <tr key={mark.id}>
                         <td>{getStudentName(student)}</td>
-                        <td>{getClassLabelFromStudent(student)}</td>
-                        <td>{getExamName(exam)}</td>
+                        <td>{getClassLabelFromMark(mark, student)}</td>
+                        <td>{getExamNameForMark(mark, exam)}</td>
                         <td>{mark.academic_year || exam?.academic_year || "-"}</td>
                         <td>{mark.subject_name || mark.subject || "-"}</td>
                         <td>
                           {obtained} / {maximum}
+                        </td>
+                        <td>
+                          {mark.component_scores?.length
+                            ? mark.component_scores
+                                .map(
+                                  (score) =>
+                                    `${score.component_name}: ${score.marks_obtained}/${score.max_marks}`
+                                )
+                                .join(", ")
+                            : "-"}
                         </td>
                         <td>{percentage}%</td>
                         <td>{mark.grade || calculateGrade(obtained, maximum) || "-"}</td>
@@ -1088,13 +1332,9 @@ export default function Marks() {
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        })}
+      </ManagedRecordsTable>
+        </>
       )}
     </div>
   );

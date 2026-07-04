@@ -6,12 +6,12 @@ import {
   Hospital,
   PlusCircle,
   RefreshCcw,
-  Search,
   Trash2,
 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptyVisitForm = {
   student_id: "",
@@ -376,113 +376,82 @@ export default function HealthInfirmary() {
       )}
 
       {pageMode === "list" && (
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Health Visit Records</h3>
-            <p>{filteredVisits.length} record(s) found</p>
-          </div>
+        <>
+          <section className="table-panel module-filter-panel">
+            <div className="student-profile-tabs">
+              {["", "Open", "Under Observation", "Recovered", "Referred", "Closed"].map(
+                (status) => (
+                  <button
+                    key={status || "All"}
+                    type="button"
+                    className={statusFilter === status ? "active" : ""}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status || "All"}
+                  </button>
+                )
+              )}
+            </div>
+          </section>
 
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search student, symptom, medicine..."
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="student-profile-tabs">
-          {["", "Open", "Under Observation", "Recovered", "Referred", "Closed"].map(
-            (status) => (
-              <button
-                key={status || "All"}
-                type="button"
-                className={statusFilter === status ? "active" : ""}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status || "All"}
-              </button>
-            )
-          )}
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading health records...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Class</th>
-                  <th>Visit Date</th>
-                  <th>Symptoms</th>
-                  <th>Medicine</th>
-                  <th>Follow Up</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVisits.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="empty-table">
-                      No health visit records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredVisits.map((visit) => (
-                    <tr key={visit.id}>
-                      <td>
-                        {visit.admission_no
-                          ? `${visit.admission_no} - ${visit.student_name}`
-                          : visit.student_name}
-                      </td>
-                      <td>
-                        {visit.class_name || "-"}
-                        {visit.section ? `-${visit.section}` : ""}
-                      </td>
-                      <td>
-                        {visit.visit_date || "-"}
-                        {visit.visit_time ? ` ${visit.visit_time}` : ""}
-                      </td>
-                      <td>{visit.symptoms}</td>
-                      <td>{visit.medicine_given || "-"}</td>
-                      <td>{visit.follow_up_date || "-"}</td>
-                      <td>
-                        <span className={getStatusClass(visit)}>{visit.status}</span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => editVisit(visit)}
-                            title="Edit"
-                          >
-                            <Edit size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => deleteVisit(visit.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          <EnhancedRecordsTable
+            data={filteredVisits}
+            emptyText="No health visit records found."
+            loading={loading}
+            loadingText="Loading health records..."
+            searchPlaceholder="Search student, symptom, medicine..."
+            searchText={searchText}
+            setSearchText={setSearchText}
+            columns={[
+              {
+                key: "student",
+                label: "Student",
+                render: (visit) =>
+                  visit.admission_no ? `${visit.admission_no} - ${visit.student_name}` : visit.student_name,
+                value: (visit) =>
+                  visit.admission_no ? `${visit.admission_no} - ${visit.student_name}` : visit.student_name,
+              },
+              {
+                key: "class",
+                label: "Class",
+                render: (visit) => `${visit.class_name || "-"}${visit.section ? `-${visit.section}` : ""}`,
+                value: (visit) => `${visit.class_name || "-"}${visit.section ? `-${visit.section}` : ""}`,
+              },
+              {
+                key: "visit_date",
+                label: "Visit Date",
+                render: (visit) => `${visit.visit_date || "-"}${visit.visit_time ? ` ${visit.visit_time}` : ""}`,
+                value: (visit) => `${visit.visit_date || "-"}${visit.visit_time ? ` ${visit.visit_time}` : ""}`,
+              },
+              { key: "symptoms", label: "Symptoms", render: (visit) => visit.symptoms },
+              { key: "medicine_given", label: "Medicine", render: (visit) => visit.medicine_given || "-" },
+              { key: "follow_up_date", label: "Follow Up", render: (visit) => visit.follow_up_date || "-" },
+              {
+                key: "status",
+                label: "Status",
+                render: (visit) => <span className={getStatusClass(visit)}>{visit.status}</span>,
+                value: (visit) => visit.status,
+              },
+              {
+                key: "actions",
+                label: "Actions",
+                hideable: false,
+                actions: false,
+                render: (visit) => (
+                  <div className="action-buttons">
+                    <button type="button" className="edit-button" onClick={() => editVisit(visit)} title="Edit">
+                      <Edit size={15} />
+                    </button>
+                    <button type="button" className="delete-button" onClick={() => deleteVisit(visit.id)} title="Delete">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ),
+                value: () => "",
+              },
+            ]}
+          />
+        </>
       )}
     </div>
   );

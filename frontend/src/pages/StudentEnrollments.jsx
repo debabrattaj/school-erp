@@ -408,6 +408,58 @@ export default function StudentEnrollments() {
           </div>
         </form>
       </section>
+
+      <section className="table-panel">
+        <div className="table-toolbar">
+          <div>
+            <h3>Enrollment Records</h3>
+            <p>{enrollments.length} academic-year enrollment record(s) found</p>
+          </div>
+        </div>
+
+        <div className="table-wrapper">
+          <table className="classic-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Class</th>
+                <th>Academic Year</th>
+                <th>Roll No</th>
+                <th>Status</th>
+                <th>Promotion</th>
+                <th>Start</th>
+                <th>End</th>
+              </tr>
+            </thead>
+            <tbody>
+              {enrollments.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="empty-table">
+                    {loading ? "Loading enrollments..." : "No enrollment records found."}
+                  </td>
+                </tr>
+              ) : (
+                enrollments.map((enrollment) => (
+                  <tr key={enrollment.id}>
+                    <td>
+                      {enrollment.admission_no
+                        ? `${enrollment.admission_no} - ${enrollment.student_name}`
+                        : enrollment.student_name || "-"}
+                    </td>
+                    <td>{enrollment.class_display || getClassLabel(classMap[enrollment.class_id])}</td>
+                    <td>{enrollment.academic_year || "-"}</td>
+                    <td>{enrollment.roll_no || "-"}</td>
+                    <td>{enrollment.enrollment_status || "-"}</td>
+                    <td>{enrollment.promotion_status || "-"}</td>
+                    <td>{enrollment.start_date || "-"}</td>
+                    <td>{enrollment.end_date || "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

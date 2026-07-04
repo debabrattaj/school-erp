@@ -152,6 +152,14 @@ class SchoolClass(Base):
     class_teacher = Column(String, nullable=True)
     room_number = Column(String, nullable=True)
     academic_year = Column(String, nullable=True)
+
+    @property
+    def room_no(self):
+        return self.room_number
+
+    @room_no.setter
+    def room_no(self, value):
+        self.room_number = value
     
     class_teacher_id = Column(
     Integer,
@@ -168,6 +176,10 @@ class Attendance(Base):
 
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     attendance_date = Column(Date, nullable=False)
+    academic_year = Column(String, nullable=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True, index=True)
+    class_name_snapshot = Column(String, nullable=True)
+    section_snapshot = Column(String, nullable=True)
     status = Column(String, nullable=False)  # Present, Absent, Late, Half Day
     remarks = Column(String, nullable=True)
 
@@ -179,6 +191,10 @@ class Fee(Base):
 
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     fee_type = Column(String, nullable=False)
+    academic_year = Column(String, nullable=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True, index=True)
+    class_name_snapshot = Column(String, nullable=True)
+    section_snapshot = Column(String, nullable=True)
 
     total_amount = Column(Float, nullable=False)
     paid_amount = Column(Float, default=0)
@@ -197,11 +213,25 @@ class Exam(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     exam_name = Column(String, nullable=False)
+    exam_type = Column(String, nullable=True)
     class_name = Column(String, nullable=False)
     section = Column(String, nullable=False)
     exam_date = Column(Date, nullable=False)
     academic_year = Column(String, nullable=True)
 
+    remarks = Column(String, nullable=True)
+
+
+class ExamComponent(Base):
+    __tablename__ = "exam_components"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
+    component_name = Column(String, nullable=False, index=True)
+    max_marks = Column(Float, default=100)
+    weightage = Column(Float, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True, index=True)
     remarks = Column(String, nullable=True)
 
 
@@ -216,6 +246,10 @@ class Mark(Base):
     class_subject_id = Column(Integer, ForeignKey("class_subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     subject_name = Column(String, nullable=True, index=True)
     academic_year = Column(String, nullable=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True, index=True)
+    class_name_snapshot = Column(String, nullable=True)
+    section_snapshot = Column(String, nullable=True)
+    exam_name_snapshot = Column(String, nullable=True)
 
     subject = Column(String, nullable=True)
 
@@ -227,6 +261,20 @@ class Mark(Base):
 
     grade = Column(String, nullable=True)
     remarks = Column(String, nullable=True)
+
+
+class MarkComponentScore(Base):
+    __tablename__ = "mark_component_scores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mark_id = Column(Integer, ForeignKey("marks.id", ondelete="CASCADE"), nullable=False, index=True)
+    exam_component_id = Column(Integer, ForeignKey("exam_components.id", ondelete="SET NULL"), nullable=True, index=True)
+    component_name = Column(String, nullable=False)
+    marks_obtained = Column(Float, default=0)
+    max_marks = Column(Float, default=100)
+    sort_order = Column(Integer, default=0)
+    remarks = Column(String, nullable=True)
+
 
 class MasterData(Base):
     __tablename__ = "master_data"
@@ -325,6 +373,12 @@ class ClassSubject(Base):
         index=True,
     )
 
+    subject_id = Column(
+        Integer,
+        ForeignKey("subjects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     subject_name = Column(String, nullable=False, index=True)
     academic_year = Column(String, nullable=False, default="2026-27", index=True)
 
@@ -371,6 +425,7 @@ class ClassExamMapping(Base):
     )
 
     academic_year = Column(String, nullable=False, index=True)
+    exam_date = Column(Date, nullable=True)
     is_active = Column(Boolean, default=True)
     remarks = Column(String, nullable=True)
 
@@ -749,3 +804,291 @@ class InventoryTransaction(Base):
     reference_no = Column(String, nullable=True)
     remarks = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdmissionInquiry(Base):
+    __tablename__ = "admission_inquiries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_no = Column(String, nullable=False, unique=True, index=True)
+    student_name = Column(String, nullable=False, index=True)
+    grade_applying = Column(String, nullable=False, index=True)
+    academic_year = Column(String, nullable=False, index=True)
+    guardian_name = Column(String, nullable=False)
+    guardian_phone = Column(String, nullable=False, index=True)
+    guardian_email = Column(String, nullable=True)
+    source = Column(String, nullable=True, index=True)
+    stage = Column(String, default="Inquiry", index=True)
+    follow_up_date = Column(Date, nullable=True, index=True)
+    assigned_to = Column(String, nullable=True)
+    converted_student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdmissionFollowUp(Base):
+    __tablename__ = "admission_follow_ups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer,
+        ForeignKey("admission_inquiries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    activity_date = Column(Date, nullable=False, index=True)
+    activity_type = Column(String, default="Call", index=True)
+    notes = Column(Text, nullable=False)
+    next_action = Column(String, nullable=True)
+    next_follow_up_date = Column(Date, nullable=True, index=True)
+    owner = Column(String, nullable=True)
+    outcome = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class InternationalDocument(Base):
+    __tablename__ = "international_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_type = Column(String, nullable=False, index=True)
+    document_no = Column(String, nullable=True, index=True)
+    issue_date = Column(Date, nullable=True)
+    expiry_date = Column(Date, nullable=True, index=True)
+    issuing_country = Column(String, nullable=True, index=True)
+    status = Column(String, default="Pending", index=True)
+    file_url = Column(String, nullable=True)
+    verified_by = Column(String, nullable=True)
+    verified_date = Column(Date, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MultiCurriculumPlan(Base):
+    __tablename__ = "multi_curriculum_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    program_name = Column(String, nullable=False, index=True)
+    curriculum_track = Column(String, nullable=False, index=True)
+    grade_level = Column(String, nullable=False, index=True)
+    academic_year = Column(String, nullable=False, index=True)
+    class_id = Column(
+        Integer,
+        ForeignKey("classes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    subject_groups = Column(Text, nullable=True)
+    assessment_model = Column(String, nullable=True)
+    coordinator = Column(String, nullable=True)
+    status = Column(String, default="Draft", index=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdmissionAssessment(Base):
+    __tablename__ = "admission_assessments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer,
+        ForeignKey("admission_inquiries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assessment_type = Column(String, nullable=False, index=True)
+    scheduled_date = Column(Date, nullable=False, index=True)
+    scheduled_time = Column(String, nullable=True)
+    mode = Column(String, default="On Campus", index=True)
+    panel_members = Column(Text, nullable=True)
+    location = Column(String, nullable=True)
+    status = Column(String, default="Scheduled", index=True)
+    score = Column(Float, nullable=True)
+    outcome = Column(String, default="Pending", index=True)
+    next_follow_up_date = Column(Date, nullable=True, index=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CommunicationTemplate(Base):
+    __tablename__ = "communication_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_name = Column(String, nullable=False, unique=True, index=True)
+    channel = Column(String, default="WhatsApp", index=True)
+    category = Column(String, nullable=False, index=True)
+    audience = Column(String, default="Parents", index=True)
+    subject = Column(String, nullable=True)
+    body = Column(Text, nullable=False)
+    variables = Column(String, nullable=True)
+    language = Column(String, default="English", index=True)
+    status = Column(String, default="Active", index=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CommunicationLog(Base):
+    __tablename__ = "communication_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(
+        Integer,
+        ForeignKey("communication_templates.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    channel = Column(String, default="WhatsApp", index=True)
+    category = Column(String, nullable=False, index=True)
+    recipient_name = Column(String, nullable=False, index=True)
+    recipient_phone = Column(String, nullable=True, index=True)
+    recipient_email = Column(String, nullable=True)
+    message_body = Column(Text, nullable=False)
+    related_module = Column(String, nullable=True, index=True)
+    related_record_id = Column(Integer, nullable=True)
+    status = Column(String, default="Queued", index=True)
+    sent_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StudentServiceTicket(Base):
+    __tablename__ = "student_service_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_no = Column(String, nullable=False, unique=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    requester_name = Column(String, nullable=False, index=True)
+    requester_role = Column(String, default="Parent", index=True)
+    contact_phone = Column(String, nullable=True, index=True)
+    contact_email = Column(String, nullable=True)
+    category = Column(String, nullable=False, index=True)
+    priority = Column(String, default="Medium", index=True)
+    subject = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    assigned_to = Column(String, nullable=True, index=True)
+    due_date = Column(Date, nullable=True, index=True)
+    status = Column(String, default="Open", index=True)
+    resolution = Column(Text, nullable=True)
+    closed_date = Column(Date, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AlumniWithdrawalRecord(Base):
+    __tablename__ = "alumni_withdrawal_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_no = Column(String, nullable=False, unique=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    student_name = Column(String, nullable=False, index=True)
+    admission_no = Column(String, nullable=True, index=True)
+    last_class = Column(String, nullable=True, index=True)
+    record_type = Column(String, default="Withdrawal", index=True)
+    request_date = Column(Date, nullable=True, index=True)
+    leaving_date = Column(Date, nullable=True, index=True)
+    reason = Column(String, nullable=False, index=True)
+    destination_school = Column(String, nullable=True)
+    destination_country = Column(String, nullable=True, index=True)
+    certificate_status = Column(String, default="Pending", index=True)
+    alumni_email = Column(String, nullable=True)
+    alumni_phone = Column(String, nullable=True, index=True)
+    current_status = Column(String, default="Pending", index=True)
+    approved_by = Column(String, nullable=True)
+    approval_date = Column(Date, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CounselingCase(Base):
+    __tablename__ = "counseling_cases"
+
+    id = Column(Integer, primary_key=True, index=True)
+    case_no = Column(String, nullable=False, unique=True, index=True)
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    concern_type = Column(String, nullable=False, index=True)
+    risk_level = Column(String, default="Low", index=True)
+    reported_by = Column(String, nullable=True, index=True)
+    counselor = Column(String, nullable=True, index=True)
+    session_date = Column(Date, nullable=True, index=True)
+    next_follow_up_date = Column(Date, nullable=True, index=True)
+    guardian_contacted = Column(Boolean, default=False, index=True)
+    action_plan = Column(Text, nullable=True)
+    confidentiality_level = Column(String, default="Restricted", index=True)
+    status = Column(String, default="Open", index=True)
+    outcome = Column(Text, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EnrichmentActivity(Base):
+    __tablename__ = "enrichment_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    activity_code = Column(String, nullable=False, unique=True, index=True)
+    activity_name = Column(String, nullable=False, index=True)
+    activity_type = Column(String, nullable=False, index=True)
+    category = Column(String, nullable=True, index=True)
+    coordinator = Column(String, nullable=True, index=True)
+    start_date = Column(Date, nullable=True, index=True)
+    end_date = Column(Date, nullable=True, index=True)
+    venue = Column(String, nullable=True)
+    eligible_classes = Column(String, nullable=True)
+    capacity = Column(Integer, nullable=True)
+    enrolled_count = Column(Integer, default=0)
+    fee_amount = Column(Float, default=0)
+    status = Column(String, default="Planned", index=True)
+    description = Column(Text, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ComplianceTask(Base):
+    __tablename__ = "compliance_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_code = Column(String, nullable=False, unique=True, index=True)
+    accreditation_body = Column(String, nullable=False, index=True)
+    standard_area = Column(String, nullable=False, index=True)
+    requirement = Column(Text, nullable=False)
+    evidence_link = Column(String, nullable=True)
+    owner = Column(String, nullable=True, index=True)
+    due_date = Column(Date, nullable=True, index=True)
+    review_date = Column(Date, nullable=True, index=True)
+    risk_level = Column(String, default="Medium", index=True)
+    status = Column(String, default="Open", index=True)
+    finding = Column(Text, nullable=True)
+    action_plan = Column(Text, nullable=True)
+    completed_date = Column(Date, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

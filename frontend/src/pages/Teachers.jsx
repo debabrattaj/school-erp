@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Edit,
-  Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   Eye,
   X,
@@ -24,6 +22,7 @@ import {
   deleteModuleCustomField,
   deleteAllModuleCustomFields,
 } from "../services/moduleCustomFieldService";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const MODULE_NAME = "Teachers";
 
@@ -1012,149 +1011,61 @@ export default function Teachers() {
 
       {message && <div className="message-box">{message}</div>}
 
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Teacher Records</h3>
-            <p>{filteredTeachers.length} teacher record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search teacher, department, subject..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="filter-row sis-filter-row">
-          <div className="form-field">
-            <label>Department</label>
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-            >
-              <option value="">All Departments</option>
-
-              {departmentOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-field">
-            <label>Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-
-              {statusOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => {
-              setDepartmentFilter("");
-              setStatusFilter("");
-              setSearchText("");
-            }}
-          >
-            Clear Filters
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading teachers...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Employee No</th>
-                  <th>Teacher Name</th>
-                  <th>Department</th>
-                  <th>Subject</th>
-                  <th>Class Teacher</th>
-                  <th>Class</th>
-                  <th>Phone</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredTeachers.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="empty-table">
-                      No teacher records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTeachers.map((teacher) => (
-                    <tr key={teacher.id}>
-                      <td>{teacher.employee_no || "-"}</td>
-                      <td>{teacher.name || "-"}</td>
-                      <td>{teacher.department || "-"}</td>
-                      <td>{teacher.subject || "-"}</td>
-                      <td>{teacher.is_class_teacher ? "Yes" : "No"}</td>
-                      <td>{getClassName(teacher.class_id)}</td>
-                      <td>{teacher.phone || "-"}</td>
-                      <td>
-                        <span className={getStatusClass(teacher.status)}>
-                          {teacher.status || "Active"}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleView(teacher)}
-                            title="View"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleEdit(teacher)}
-                            title="Edit"
-                          >
-                            <Edit size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => handleDelete(teacher.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <EnhancedRecordsTable
+        data={filteredTeachers}
+        emptyText="No teacher records found."
+        loading={loading}
+        loadingText="Loading teachers..."
+        searchPlaceholder="Search teacher, department, subject..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+        columns={[
+          { key: "employee_no", label: "Employee No", render: (teacher) => teacher.employee_no || "-" },
+          { key: "name", label: "Teacher Name", render: (teacher) => teacher.name || "-" },
+          { key: "department", label: "Department", render: (teacher) => teacher.department || "-" },
+          { key: "subject", label: "Subject", render: (teacher) => teacher.subject || "-" },
+          {
+            key: "is_class_teacher",
+            label: "Class Teacher",
+            render: (teacher) => (teacher.is_class_teacher ? "Yes" : "No"),
+            value: (teacher) => (teacher.is_class_teacher ? "Yes" : "No"),
+          },
+          {
+            key: "class",
+            label: "Class",
+            render: (teacher) => getClassName(teacher.class_id),
+            value: (teacher) => getClassName(teacher.class_id),
+          },
+          { key: "phone", label: "Phone", render: (teacher) => teacher.phone || "-" },
+          {
+            key: "status",
+            label: "Status",
+            render: (teacher) => (
+              <span className={getStatusClass(teacher.status)}>
+                {teacher.status || "Active"}
+              </span>
+            ),
+            value: (teacher) => teacher.status || "Active",
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            hideable: false,
+            actions: false,
+            render: (teacher) => (
+              <div className="action-buttons">
+                <button type="button" className="edit-button" onClick={() => handleView(teacher)} title="View">
+                  <Eye size={15} />
+                </button>
+                <button type="button" className="edit-button" onClick={() => handleEdit(teacher)} title="Edit">
+                  <Edit size={15} />
+                </button>
+              </div>
+            ),
+            value: () => "",
+          },
+        ]}
+      />
 
       {selectedTeacher && (
         <div className="student-drawer-backdrop">

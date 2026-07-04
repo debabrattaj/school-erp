@@ -4,11 +4,11 @@ import {
   Download,
   Filter,
   RefreshCcw,
-  Search,
   X,
 } from "lucide-react";
 
 import API from "../api";
+import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getModuleLayout } from "../services/moduleLayoutService";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
 
@@ -68,13 +68,16 @@ const MODULES = {
     idKey: "id",
     columns: [
       { key: "student_name", label: "Student" },
+      { key: "academic_year", label: "Academic Year" },
+      { key: "class_display", label: "Class" },
       { key: "fee_type", label: "Fee Type" },
       { key: "total_amount", label: "Total Amount" },
       { key: "paid_amount", label: "Paid Amount" },
       { key: "balance_amount", label: "Balance" },
-      { key: "due_date", label: "Due Date" },
       { key: "payment_date", label: "Payment Date" },
+      { key: "receipt_no", label: "Receipt No" },
       { key: "status", label: "Status" },
+      { key: "remarks", label: "Remarks" },
     ],
   },
 
@@ -86,6 +89,8 @@ const MODULES = {
     idKey: "id",
     columns: [
       { key: "student_name", label: "Student" },
+      { key: "academic_year", label: "Academic Year" },
+      { key: "class_display", label: "Class" },
       { key: "attendance_date", label: "Date" },
       { key: "status", label: "Status" },
       { key: "remarks", label: "Remarks" },
@@ -93,17 +98,31 @@ const MODULES = {
   },
 
   Exams: {
-    label: "Exams",
+    label: "Exam Master",
     apiPath: "/exams/",
     layoutModuleName: "Exams",
     idKey: "id",
     columns: [
       { key: "exam_name", label: "Exam Name" },
-      { key: "class_display", label: "Class" },
-      { key: "section", label: "Section" },
-      { key: "exam_date", label: "Exam Date" },
-      { key: "academic_year", label: "Academic Year" },
       { key: "remarks", label: "Remarks" },
+    ],
+  },
+
+  StudentEnrollments: {
+    label: "Student Enrollments",
+    apiPath: "/student-enrollments/",
+    layoutModuleName: "StudentEnrollments",
+    idKey: "id",
+    columns: [
+      { key: "student_name", label: "Student" },
+      { key: "admission_no", label: "Admission No" },
+      { key: "academic_year", label: "Academic Year" },
+      { key: "class_display", label: "Class" },
+      { key: "roll_no", label: "Roll No" },
+      { key: "enrollment_status", label: "Enrollment Status" },
+      { key: "promotion_status", label: "Promotion Status" },
+      { key: "start_date", label: "Start Date" },
+      { key: "end_date", label: "End Date" },
     ],
   },
 
@@ -114,6 +133,8 @@ const MODULES = {
     idKey: "id",
     columns: [
       { key: "student_name", label: "Student" },
+      { key: "academic_year", label: "Academic Year" },
+      { key: "class_display", label: "Class" },
       { key: "exam_name", label: "Exam" },
       { key: "subject", label: "Subject" },
       { key: "marks_obtained", label: "Marks Obtained" },
@@ -161,7 +182,7 @@ function normalizeDate(value) {
 }
 
 function formatCurrency(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatValue(key, value) {
@@ -262,17 +283,7 @@ function buildExamMap(exams = []) {
   const map = {};
 
   exams.forEach((exam) => {
-    let name = exam.exam_name || `Exam ID: ${exam.id}`;
-
-    if (exam.class_name || exam.section) {
-      name += ` - ${exam.class_name || ""} ${exam.section || ""}`.trimEnd();
-    }
-
-    if (exam.exam_date) {
-      name += ` (${normalizeDate(exam.exam_date)})`;
-    }
-
-    map[exam.id] = name;
+    map[exam.id] = exam.exam_name || `Exam ID: ${exam.id}`;
   });
 
   return map;
@@ -297,10 +308,15 @@ function enrichRecord(moduleName, record, lookupData) {
   if (["Fees", "Attendance", "Marks"].includes(moduleName)) {
     enriched.student_name =
       studentMap[record.student_id] || `Student ID: ${record.student_id || "-"}`;
+    enriched.class_display =
+      record.class_name_snapshot || record.section_snapshot
+        ? `${record.class_name_snapshot || ""} ${record.section_snapshot || ""}`.trim()
+        : enriched.class_display;
   }
 
   if (moduleName === "Marks") {
-    enriched.exam_name = examMap[record.exam_id] || `Exam ID: ${record.exam_id || "-"}`;
+    enriched.exam_name =
+      record.exam_name_snapshot || examMap[record.exam_id] || `Exam ID: ${record.exam_id || "-"}`;
   }
 
   if (moduleName === "Classes") {
@@ -318,7 +334,8 @@ function enrichRecord(moduleName, record, lookupData) {
 
     enriched.total_amount = total;
     enriched.paid_amount = paid;
-    enriched.balance_amount = Math.max(total - paid, 0);
+    enriched.balance_amount = Number(record.due_amount ?? Math.max(total - paid, 0));
+    enriched.status = record.payment_status || record.status || "Unpaid";
   }
 
   if (moduleName === "Marks") {
@@ -378,16 +395,29 @@ export default function Reports() {
 
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [academicYearFilter, setAcademicYearFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function loadRecordsFromPath(config) {
+  function moduleSupportsAcademicYear(moduleName) {
+    return ["StudentEnrollments", "Fees", "Attendance", "Marks"].includes(moduleName);
+  }
+
+  async function loadRecordsFromPath(config, moduleName) {
     try {
-      const response = await API.get(config.apiPath);
+      const params =
+        academicYearFilter && moduleSupportsAcademicYear(moduleName)
+          ? { academic_year: academicYearFilter }
+          : {};
+      const response = await API.get(config.apiPath, { params });
       return response.data || [];
     } catch (error) {
       if (config.fallbackApiPath) {
-        const fallbackResponse = await API.get(config.fallbackApiPath);
+        const params =
+          academicYearFilter && moduleSupportsAcademicYear(moduleName)
+            ? { academic_year: academicYearFilter }
+            : {};
+        const fallbackResponse = await API.get(config.fallbackApiPath, { params });
         return fallbackResponse.data || [];
       }
 
@@ -502,7 +532,7 @@ export default function Reports() {
       const config = MODULES[moduleName];
 
       const [rawRecords, layoutFields, lookupData] = await Promise.all([
-        loadRecordsFromPath(config),
+        loadRecordsFromPath(config, moduleName),
         loadLayoutFields(config.layoutModuleName),
         loadLookupData(moduleName),
       ]);
@@ -538,11 +568,18 @@ export default function Reports() {
 
   useEffect(() => {
     loadReportData(selectedModule);
-  }, [selectedModule]);
+  }, [selectedModule, academicYearFilter]);
 
   const statusOptions = useMemo(() => {
     const values = records.map((record) => record.status).filter(Boolean);
     return Array.from(new Set(values));
+  }, [records]);
+
+  const academicYearOptions = useMemo(() => {
+    const values = records
+      .map((record) => record.academic_year)
+      .filter(Boolean);
+    return Array.from(new Set(values)).sort().reverse();
   }, [records]);
 
   const filteredRecords = useMemo(() => {
@@ -558,9 +595,14 @@ export default function Reports() {
         ? String(record.status || "") === statusFilter
         : true;
 
-      return matchSearch && matchStatus;
+      const matchAcademicYear =
+        academicYearFilter && moduleSupportsAcademicYear(selectedModule)
+          ? String(record.academic_year || "") === academicYearFilter
+          : true;
+
+      return matchSearch && matchStatus && matchAcademicYear;
     });
-  }, [records, columns, searchText, statusFilter]);
+  }, [records, columns, searchText, statusFilter, academicYearFilter, selectedModule]);
 
   const activeColumns = columns.filter((column) =>
     visibleColumns.includes(column.key)
@@ -750,24 +792,7 @@ export default function Reports() {
         </div>
       </section>
 
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>{MODULES[selectedModule].label} Report</h3>
-            <p>{filteredRecords.length} record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search report..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
+      <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">
           <div className="form-field">
             <label>Module</label>
@@ -777,6 +802,7 @@ export default function Reports() {
                 setSelectedModule(e.target.value);
                 setSearchText("");
                 setStatusFilter("");
+                setAcademicYearFilter("");
               }}
             >
               {Object.keys(MODULES).map((moduleName) => (
@@ -786,6 +812,24 @@ export default function Reports() {
               ))}
             </select>
           </div>
+
+          {moduleSupportsAcademicYear(selectedModule) && (
+            <div className="form-field">
+              <label>Academic Year</label>
+              <select
+                value={academicYearFilter}
+                onChange={(e) => setAcademicYearFilter(e.target.value)}
+              >
+                <option value="">All Years</option>
+
+                {academicYearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-field">
             <label>Status</label>
@@ -809,6 +853,7 @@ export default function Reports() {
             onClick={() => {
               setSearchText("");
               setStatusFilter("");
+              setAcademicYearFilter("");
             }}
           >
             <X size={16} />
@@ -836,31 +881,19 @@ export default function Reports() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="loading-box">Loading report...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  {activeColumns.map((column) => (
-                    <th key={column.key}>{column.label}</th>
-                  ))}
-                </tr>
-              </thead>
+      </section>
 
-              <tbody>
-                {filteredRecords.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={Math.max(activeColumns.length, 1)}
-                      className="empty-table"
-                    >
-                      No records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRecords.map((record, index) => (
+      <ManagedRecordsTable
+        count={filteredRecords.length}
+        emptyText="No records found."
+        headers={activeColumns.map((column) => column.label)}
+        loading={loading}
+        loadingText="Loading report..."
+        searchPlaceholder="Search report..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+      >
+        {filteredRecords.map((record, index) => (
                     <tr key={record.id || index}>
                       {activeColumns.map((column) => (
                         <td key={column.key}>
@@ -871,13 +904,8 @@ export default function Reports() {
                         </td>
                       ))}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        ))}
+      </ManagedRecordsTable>
     </div>
   );
 }

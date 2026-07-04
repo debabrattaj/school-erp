@@ -5,6 +5,8 @@ export function saveAuth(token, user) {
   if (user?.account?.account_code) {
     localStorage.setItem("school_erp_account_code", user.account.account_code);
   }
+
+  window.dispatchEvent(new CustomEvent("school-erp-auth-updated"));
 }
 
 export function getToken() {
@@ -23,6 +25,7 @@ export function logout() {
   localStorage.removeItem("school_erp_token");
   localStorage.removeItem("school_erp_user");
   localStorage.removeItem("school_erp_account_code");
+  window.dispatchEvent(new CustomEvent("school-erp-auth-updated"));
 }
 
 export function isLoggedIn() {

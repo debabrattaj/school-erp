@@ -3,13 +3,13 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   KeyRound,
   Users as UsersIcon,
 } from "lucide-react";
 import API from "../api";
 import { getUser } from "../auth";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptyForm = {
   name: "",
@@ -418,99 +418,61 @@ export default function Users() {
         </section>
       )}
 
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>User Records</h3>
-            <p>{filteredUsers.length} user record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search name, email, role..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading users...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Current User</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="empty-table">
-                      No user records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        <span className="status active">{user.role}</span>
-                      </td>
-                      <td>
-                        {loggedInUser?.id === user.id ? (
-                          <span className="status pending">You</span>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="edit-button"
-                            onClick={() => handleEdit(user)}
-                          >
-                            <Edit size={15} />
-                          </button>
-
-                          <button
-                            className="password-button"
-                            onClick={() => setResetUserId(user.id)}
-                          >
-                            <KeyRound size={15} />
-                          </button>
-
-                          <button
-                            className="delete-button"
-                            disabled={loggedInUser?.id === user.id}
-                            onClick={() => handleDelete(user.id)}
-                            title={
-                              loggedInUser?.id === user.id
-                                ? "You cannot delete your own account"
-                                : "Delete user"
-                            }
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <EnhancedRecordsTable
+        data={filteredUsers}
+        emptyText="No user records found."
+        loading={loading}
+        loadingText="Loading users..."
+        searchPlaceholder="Search name, email, role..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+        columns={[
+          { key: "name", label: "Name", render: (user) => user.name },
+          { key: "email", label: "Email", render: (user) => user.email },
+          {
+            key: "role",
+            label: "Role",
+            render: (user) => <span className="status active">{user.role}</span>,
+            value: (user) => user.role,
+          },
+          {
+            key: "current_user",
+            label: "Current User",
+            render: (user) =>
+              loggedInUser?.id === user.id ? <span className="status pending">You</span> : "-",
+            value: (user) => (loggedInUser?.id === user.id ? "You" : "-"),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            hideable: false,
+            actions: false,
+            render: (user) => (
+              <div className="action-buttons">
+                <button className="edit-button" onClick={() => handleEdit(user)}>
+                  <Edit size={15} />
+                </button>
+                <button className="password-button" onClick={() => setResetUserId(user.id)}>
+                  <KeyRound size={15} />
+                </button>
+                <button
+                  className="delete-button"
+                  disabled={loggedInUser?.id === user.id}
+                  onClick={() => handleDelete(user.id)}
+                  title={
+                    loggedInUser?.id === user.id
+                      ? "You cannot delete your own account"
+                      : "Delete user"
+                  }
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ),
+            value: () => "",
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Edit,
-  Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   Eye,
   X,
@@ -26,6 +24,7 @@ import {
   deleteModuleCustomField,
   deleteAllModuleCustomFields,
 } from "../services/moduleCustomFieldService";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const MODULE_NAME = "Classes";
 
@@ -38,9 +37,10 @@ const fallbackClassLayout = [
         id: "field_class_name",
         name: "class_name",
         label: "Class",
-        type: "singleline",
+        type: "picklist",
         required: true,
         source: "system",
+        masterCategory: "Class",
       },
       {
         id: "field_section",
@@ -77,6 +77,15 @@ const emptyClassForm = {
   class_teacher_id: "",
   class_teacher: "",
   room_no: "",
+};
+
+const emptySubjectMappingForm = {
+  subject_id: "",
+  subject_name: "",
+  teacher_id: "",
+  academic_year: "2026-27",
+  weekly_periods: 0,
+  is_active: true,
 };
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -178,19 +187,33 @@ function getTeacherDisplayLabel(teacher) {
   return `${name} : ${department}`;
 }
 
+function getSubjectLabel(subject) {
+  if (!subject) return "-";
+
+  const code = subject.subject_code || "";
+  const name = subject.subject_name || "Unknown Subject";
+
+  return code ? `${code} - ${name}` : name;
+}
+
 export default function Classes() {
   const navigate = useNavigate();
 
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
+  const [subjectOptions, setSubjectOptions] = useState([]);
+  const [classSubjects, setClassSubjects] = useState([]);
   const [layout, setLayout] = useState(repairClassLayout(fallbackClassLayout));
 
   const [dropdownValues, setDropdownValues] = useState({});
   const [formData, setFormData] = useState(emptyClassForm);
+  const [subjectMappingForm, setSubjectMappingForm] = useState(emptySubjectMappingForm);
   const [customFormData, setCustomFormData] = useState({});
 
   const [editingId, setEditingId] = useState(null);
+  const [editingSubjectMappingId, setEditingSubjectMappingId] = useState(null);
+  const [subjectMappingClass, setSubjectMappingClass] = useState(null);
   const [pageMode, setPageMode] = useState("list");
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedClassCustomValues, setSelectedClassCustomValues] =
@@ -243,8 +266,25 @@ export default function Classes() {
     setStudents(response.data || []);
   }
 
+  async function loadSubjects() {
+    const response = await API.get("/subjects/");
+    setSubjectOptions(
+      (response.data || []).filter((subject) => subject.is_active !== false)
+    );
+  }
+
+  async function loadClassSubjects(classId) {
+    if (!classId) {
+      setClassSubjects([]);
+      return;
+    }
+
+    const response = await API.get(`/class-subjects/?class_id=${classId}`);
+    setClassSubjects(response.data || []);
+  }
+
   async function loadMasterDropdowns(layoutToRead = layout) {
-    const categories = new Set();
+    const categories = new Set(["Class"]);
 
     layoutToRead.forEach((section) => {
       if (!Array.isArray(section.fields)) return;
@@ -288,6 +328,7 @@ export default function Classes() {
         loadClasses(),
         loadTeachers(),
         loadStudents(),
+        loadSubjects(),
         loadMasterDropdowns(activeLayout),
       ]);
     } catch (error) {
@@ -344,6 +385,50 @@ export default function Classes() {
 
     return Array.from(new Set([...masterValues, ...usedValues]));
   }, [dropdownValues, classes]);
+
+  const teacherMapById = useMemo(() => {
+    const map = {};
+
+    teachers.forEach((teacher) => {
+      map[teacher.id] = teacher;
+    });
+
+    return map;
+  }, [teachers]);
+
+  const subjectMap = useMemo(() => {
+    const map = {};
+
+    subjectOptions.forEach((subject) => {
+      map[subject.id] = subject;
+    });
+
+    return map;
+  }, [subjectOptions]);
+
+  const availableSubjects = useMemo(() => {
+    const mappedSubjectIds = new Set(
+      classSubjects
+        .filter((item) => String(item.id) !== String(editingSubjectMappingId))
+        .map((item) => item.subject_id)
+        .filter(Boolean)
+        .map(String)
+    );
+    const mappedSubjectNames = new Set(
+      classSubjects
+        .filter((item) => String(item.id) !== String(editingSubjectMappingId))
+        .map((item) => item.subject_name)
+        .filter(Boolean)
+    );
+
+    return subjectOptions.filter((subject) => {
+      if (subject.id && mappedSubjectIds.has(String(subject.id))) {
+        return false;
+      }
+
+      return !mappedSubjectNames.has(subject.subject_name);
+    });
+  }, [classSubjects, editingSubjectMappingId, subjectOptions]);
 
   function getStudentCount(classRecord) {
     if (!classRecord) return 0;
@@ -543,6 +628,131 @@ export default function Classes() {
     }
   }
 
+  async function openSubjectMapping(classRecord) {
+    setSubjectMappingClass(classRecord);
+    setSubjectMappingForm(emptySubjectMappingForm);
+    setEditingSubjectMappingId(null);
+    setMessage("");
+    setPageMode("subjects");
+
+    try {
+      await loadClassSubjects(classRecord.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load class subject mappings."));
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleSubjectMappingChange(event) {
+    const { checked, name, type, value } = event.target;
+
+    if (name === "subject_id") {
+      const selectedSubject = subjectOptions.find(
+        (subject) => String(subject.id) === String(value)
+      );
+
+      setSubjectMappingForm((prev) => ({
+        ...prev,
+        subject_id: value,
+        subject_name: selectedSubject?.subject_name || "",
+      }));
+      return;
+    }
+
+    setSubjectMappingForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  function buildSubjectMappingPayload() {
+    return {
+      class_id: Number(subjectMappingClass.id),
+      subject_id: subjectMappingForm.subject_id
+        ? Number(subjectMappingForm.subject_id)
+        : null,
+      subject_name: subjectMappingForm.subject_name || "",
+      teacher_id: subjectMappingForm.teacher_id
+        ? Number(subjectMappingForm.teacher_id)
+        : null,
+      academic_year: subjectMappingForm.academic_year || "2026-27",
+      weekly_periods: Number(subjectMappingForm.weekly_periods || 0),
+      is_active: Boolean(subjectMappingForm.is_active),
+    };
+  }
+
+  async function handleSubjectMappingSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+
+    try {
+      const payload = buildSubjectMappingPayload();
+
+      if (!payload.subject_name) {
+        setMessage("Subject is required.");
+        return;
+      }
+
+      if (editingSubjectMappingId) {
+        await API.put(`/class-subjects/${editingSubjectMappingId}`, payload);
+        setMessage("Class subject mapping updated successfully.");
+      } else {
+        await API.post("/class-subjects/", payload);
+        setMessage("Subject mapped to class successfully.");
+      }
+
+      setSubjectMappingForm(emptySubjectMappingForm);
+      setEditingSubjectMappingId(null);
+      await loadClassSubjects(subjectMappingClass.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(
+        getApiErrorMessage(error, "Unable to save class subject mapping.")
+      );
+    }
+  }
+
+  function handleSubjectMappingEdit(mapping) {
+    setEditingSubjectMappingId(mapping.id);
+    setSubjectMappingForm({
+      subject_id: mapping.subject_id || "",
+      subject_name: mapping.subject_name || "",
+      teacher_id: mapping.teacher_id || "",
+      academic_year: mapping.academic_year || "2026-27",
+      weekly_periods: mapping.weekly_periods || 0,
+      is_active: Boolean(mapping.is_active),
+    });
+  }
+
+  async function handleSubjectMappingDelete(mappingId) {
+    if (!window.confirm("Remove this subject from the class?")) return;
+
+    try {
+      await API.delete(`/class-subjects/${mappingId}`);
+      setMessage("Subject removed from class successfully.");
+
+      if (editingSubjectMappingId === mappingId) {
+        setEditingSubjectMappingId(null);
+        setSubjectMappingForm(emptySubjectMappingForm);
+      }
+
+      await loadClassSubjects(subjectMappingClass.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove subject from class."));
+    }
+  }
+
+  function closeSubjectMapping() {
+    setSubjectMappingClass(null);
+    setClassSubjects([]);
+    setSubjectMappingForm(emptySubjectMappingForm);
+    setEditingSubjectMappingId(null);
+    setPageMode("list");
+  }
+
   async function handleEdit(classRecord) {
     setEditingId(classRecord.id);
     setPageMode("form");
@@ -649,6 +859,22 @@ export default function Classes() {
       required: Boolean(field.required),
       placeholder: field.placeholder || "",
     };
+
+    if (field.name === "class_name") {
+      const values = dropdownValues.Class || [];
+
+      return (
+        <select {...commonProps}>
+          <option value="">Select Class</option>
+
+          {values.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      );
+    }
 
     if (field.type === "picklist") {
       const values = field.masterCategory
@@ -829,6 +1055,211 @@ export default function Classes() {
     );
   }
 
+  if (pageMode === "subjects" && subjectMappingClass) {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Class Management</p>
+            <h2>Subject Mapping</h2>
+            <p>
+              {subjectMappingClass.class_name || "-"} - Section{" "}
+              {subjectMappingClass.section || "-"}
+            </p>
+          </div>
+
+          <button type="button" className="light-button" onClick={closeSubjectMapping}>
+            Back to Class Records
+          </button>
+        </section>
+
+        {message && <div className="message-box">{message}</div>}
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>
+                {editingSubjectMappingId
+                  ? "Edit Subject Mapping"
+                  : "Map Subject to Class"}
+              </h3>
+              <p>Assign subjects, subject teachers, and academic year for this class.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={handleSubjectMappingSubmit}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Subject *</label>
+                <select
+                  name="subject_id"
+                  value={subjectMappingForm.subject_id}
+                  onChange={handleSubjectMappingChange}
+                  required
+                >
+                  <option value="">Select Subject</option>
+                  {availableSubjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {getSubjectLabel(subject)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Subject Teacher</label>
+                <select
+                  name="teacher_id"
+                  value={subjectMappingForm.teacher_id}
+                  onChange={handleSubjectMappingChange}
+                >
+                  <option value="">Select Teacher</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {getTeacherDisplayLabel(teacher)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Academic Year *</label>
+                <input
+                  name="academic_year"
+                  value={subjectMappingForm.academic_year}
+                  onChange={handleSubjectMappingChange}
+                  placeholder="2026-27"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label>Weekly Periods</label>
+                <input
+                  type="number"
+                  name="weekly_periods"
+                  min="0"
+                  value={subjectMappingForm.weekly_periods}
+                  onChange={handleSubjectMappingChange}
+                />
+              </div>
+
+              <div className="form-field checkbox-field">
+                <label>Status</label>
+                <label className="switch-row">
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={subjectMappingForm.is_active}
+                    onChange={handleSubjectMappingChange}
+                  />
+                  <span>{subjectMappingForm.is_active ? "Active" : "Inactive"}</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                <PlusCircle size={18} />
+                {editingSubjectMappingId ? "Update Mapping" : "Add Subject"}
+              </button>
+
+              {editingSubjectMappingId && (
+                <button
+                  type="button"
+                  className="light-button"
+                  onClick={() => {
+                    setEditingSubjectMappingId(null);
+                    setSubjectMappingForm(emptySubjectMappingForm);
+                  }}
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+
+        <section className="table-panel">
+          <div className="table-toolbar">
+            <div>
+              <h3>Subjects Mapped to this Class</h3>
+              <p>{classSubjects.length} subject mapping(s) found</p>
+            </div>
+          </div>
+
+          <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Subject Teacher</th>
+                  <th>Academic Year</th>
+                  <th>Weekly Periods</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classSubjects.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="empty-table">
+                      No subjects are mapped to this class yet.
+                    </td>
+                  </tr>
+                ) : (
+                  classSubjects.map((mapping) => (
+                    <tr key={mapping.id}>
+                      <td>
+                        {mapping.subject_id
+                          ? getSubjectLabel(subjectMap[mapping.subject_id])
+                          : mapping.subject_name || "-"}
+                      </td>
+                      <td>{getTeacherDisplayLabel(teacherMapById[mapping.teacher_id])}</td>
+                      <td>{mapping.academic_year || "-"}</td>
+                      <td>{mapping.weekly_periods ?? 0}</td>
+                      <td>
+                        <span
+                          className={
+                            mapping.is_active !== false
+                              ? "status-pill active"
+                              : "status-pill inactive"
+                          }
+                        >
+                          {mapping.is_active !== false ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            type="button"
+                            className="edit-button"
+                            onClick={() => handleSubjectMappingEdit(mapping)}
+                            title="Edit"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() => handleSubjectMappingDelete(mapping.id)}
+                            title="Delete"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -911,141 +1342,52 @@ export default function Classes() {
 
       {message && <div className="message-box">{message}</div>}
 
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Class Records</h3>
-            <p>{filteredClasses.length} class record(s) found</p>
-          </div>
-
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search class, section, teacher..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="filter-row sis-filter-row">
-          <div className="form-field">
-            <label>Class</label>
-            <select
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-            >
-              <option value="">All Classes</option>
-
-              {classOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-field">
-            <label>Section</label>
-            <select
-              value={sectionFilter}
-              onChange={(e) => setSectionFilter(e.target.value)}
-            >
-              <option value="">All Sections</option>
-
-              {sectionOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => {
-              setClassFilter("");
-              setSectionFilter("");
-              setSearchText("");
-            }}
-          >
-            Clear Filters
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading classes...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Class</th>
-                  <th>Section</th>
-                  <th>Class Teacher</th>
-                  <th>Room No</th>
-                  <th>Students</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredClasses.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="empty-table">
-                      No class records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredClasses.map((classRecord) => (
-                    <tr key={classRecord.id}>
-                      <td>{classRecord.class_name || "-"}</td>
-                      <td>{classRecord.section || "-"}</td>
-                      <td>{getClassTeacherName(classRecord)}</td>
-                      <td>{classRecord.room_no || "-"}</td>
-                      <td>{getStudentCount(classRecord)}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() =>
-                              navigate(`/classes/${classRecord.id}`)
-                            }
-                            title="Open Class"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleEdit(classRecord)}
-                            title="Edit"
-                          >
-                            <Edit size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => handleDelete(classRecord.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <EnhancedRecordsTable
+        data={filteredClasses}
+        emptyText="No class records found."
+        loading={loading}
+        loadingText="Loading classes..."
+        searchPlaceholder="Search class, section, teacher..."
+        searchText={searchText}
+        setSearchText={setSearchText}
+        columns={[
+          { key: "class_name", label: "Class", render: (classRecord) => classRecord.class_name || "-" },
+          { key: "section", label: "Section", render: (classRecord) => classRecord.section || "-" },
+          {
+            key: "class_teacher",
+            label: "Class Teacher",
+            render: (classRecord) => getClassTeacherName(classRecord),
+            value: (classRecord) => getClassTeacherName(classRecord),
+          },
+          { key: "room_no", label: "Room No", render: (classRecord) => classRecord.room_no || "-" },
+          {
+            key: "students",
+            label: "Students",
+            render: (classRecord) => getStudentCount(classRecord),
+            value: (classRecord) => getStudentCount(classRecord),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            hideable: false,
+            actions: false,
+            render: (classRecord) => (
+              <div className="action-buttons">
+                <button type="button" className="edit-button" onClick={() => navigate(`/classes/${classRecord.id}`)} title="Open Class">
+                  <Eye size={15} />
+                </button>
+                <button type="button" className="edit-button" onClick={() => openSubjectMapping(classRecord)} title="Subject Mapping">
+                  <BookOpen size={15} />
+                </button>
+                <button type="button" className="edit-button" onClick={() => handleEdit(classRecord)} title="Edit">
+                  <Edit size={15} />
+                </button>
+              </div>
+            ),
+            value: () => "",
+          },
+        ]}
+      />
 
       {selectedClass && (
         <div className="student-drawer-backdrop">

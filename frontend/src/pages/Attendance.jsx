@@ -4,7 +4,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  Search,
   RefreshCcw,
   Eye,
   X,
@@ -14,6 +13,7 @@ import {
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
 import {
@@ -38,8 +38,7 @@ const fallbackStatusOptions = [
   "Absent",
   "Late",
   "Half Day",
-  "Leave",
-  "Holiday",
+  "Excused",
 ];
 
 export default function Attendance() {
@@ -64,6 +63,7 @@ export default function Attendance() {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [academicYearFilter, setAcademicYearFilter] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -169,9 +169,7 @@ export default function Attendance() {
     const map = {};
 
     students.forEach((student) => {
-      map[student.id] = `${student.first_name || ""} ${
-        student.last_name || ""
-      }`.trim();
+      map[student.id] = student;
     });
 
     return map;
@@ -191,8 +189,37 @@ export default function Attendance() {
   function getStudentName(studentId) {
     if (!studentId) return "-";
 
-    return studentMap[studentId] || `Student ID: ${studentId}`;
+    const student = studentMap[studentId];
+
+    if (!student) return `Student ID: ${studentId}`;
+
+    return (
+      student.name ||
+      student.student_name ||
+      `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
+      `Student ID: ${studentId}`
+    );
   }
+
+  function getClassLabel(attendance) {
+    const student = studentMap[attendance.student_id];
+    const className = attendance.class_name_snapshot || student?.class_name || "";
+    const section = attendance.section_snapshot || student?.section || "";
+
+    if (className && section) return `${className} - Section ${section}`;
+    if (className) return className;
+    if (attendance.class_id || student?.class_id) {
+      return `Class ID: ${attendance.class_id || student.class_id}`;
+    }
+
+    return "-";
+  }
+
+  const academicYearOptions = useMemo(() => {
+    return Array.from(
+      new Set(attendanceRecords.map((item) => item.academic_year).filter(Boolean))
+    );
+  }, [attendanceRecords]);
 
   function getFieldValue(field) {
     if (field.source === "custom") {
@@ -528,6 +555,8 @@ export default function Attendance() {
     const fullText = `
       ${studentName}
       ${attendance.student_id}
+      ${attendance.academic_year}
+      ${getClassLabel(attendance)}
       ${attendance.attendance_date}
       ${attendance.status}
       ${attendance.remarks}
@@ -540,8 +569,11 @@ export default function Attendance() {
     const matchDate = dateFilter
       ? attendance.attendance_date === dateFilter
       : true;
+    const matchAcademicYear = academicYearFilter
+      ? attendance.academic_year === academicYearFilter
+      : true;
 
-    return matchSearch && matchStatus && matchDate;
+    return matchSearch && matchStatus && matchDate && matchAcademicYear;
   });
 
   const presentCount = attendanceRecords.filter(
@@ -714,133 +746,91 @@ export default function Attendance() {
       )}
 
       {pageMode === "list" && (
-      <section className="table-panel">
-        <div className="table-toolbar">
-          <div>
-            <h3>Attendance Records</h3>
-            <p>{filteredAttendance.length} attendance record(s) found</p>
-          </div>
+        <>
+          <section className="table-panel module-filter-panel">
+            <div className="filter-row sis-filter-row">
+              <div className="form-field">
+                <label>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="">All Status</option>
+                  {statusOptions.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="table-search">
-            <Search size={17} />
-            <input
-              type="text"
-              placeholder="Search student, status, remarks..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-        </div>
+              <div className="form-field">
+                <label>Date</label>
+                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
+              </div>
 
-        <div className="filter-row sis-filter-row">
-          <div className="form-field">
-            <label>Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-              {statusOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="form-field">
+                <label>Academic Year</label>
+                <select
+                  value={academicYearFilter}
+                  onChange={(e) => setAcademicYearFilter(e.target.value)}
+                >
+                  <option value="">All Years</option>
+                  {academicYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="form-field">
-            <label>Date</label>
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-            />
-          </div>
+              <button
+                type="button"
+                className="light-button"
+                onClick={() => {
+                  setStatusFilter("");
+                  setDateFilter("");
+                  setAcademicYearFilter("");
+                  setSearchText("");
+                }}
+              >
+                Clear Filters
+              </button>
+            </div>
+          </section>
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={() => {
-              setStatusFilter("");
-              setDateFilter("");
-              setSearchText("");
-            }}
-          >
-            Clear Filters
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="loading-box">Loading attendance...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredAttendance.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="empty-table">
-                      No attendance records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAttendance.map((attendance) => (
-                    <tr key={attendance.id}>
-                      <td>{getStudentName(attendance.student_id)}</td>
-                      <td>{attendance.attendance_date || "-"}</td>
-                      <td>
-                        <span className={getStatusClass(attendance.status)}>
-                          {attendance.status || "-"}
-                        </span>
-                      </td>
-                      <td>{attendance.remarks || "-"}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleView(attendance)}
-                            title="View"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="edit-button"
-                            onClick={() => handleEdit(attendance)}
-                            title="Edit"
-                          >
-                            <Edit size={15} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className="delete-button"
-                            onClick={() => handleDelete(attendance.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          <EnhancedRecordsTable
+            data={filteredAttendance}
+            emptyText="No attendance records found."
+            loading={loading}
+            loadingText="Loading attendance..."
+            searchPlaceholder="Search student, status, remarks..."
+            searchText={searchText}
+            setSearchText={setSearchText}
+            columns={[
+              { key: "student", label: "Student", render: (attendance) => getStudentName(attendance.student_id), value: (attendance) => getStudentName(attendance.student_id) },
+              { key: "class", label: "Class", render: (attendance) => getClassLabel(attendance), value: (attendance) => getClassLabel(attendance) },
+              { key: "academic_year", label: "Academic Year", render: (attendance) => attendance.academic_year || "-" },
+              { key: "attendance_date", label: "Date", render: (attendance) => attendance.attendance_date || "-" },
+              {
+                key: "status",
+                label: "Status",
+                render: (attendance) => <span className={getStatusClass(attendance.status)}>{attendance.status || "-"}</span>,
+                value: (attendance) => attendance.status || "-",
+              },
+              { key: "remarks", label: "Remarks", render: (attendance) => attendance.remarks || "-" },
+              {
+                key: "actions",
+                label: "Actions",
+                hideable: false,
+                actions: false,
+                render: (attendance) => (
+                  <div className="action-buttons">
+                    <button type="button" className="edit-button" onClick={() => handleView(attendance)} title="View"><Eye size={15} /></button>
+                    <button type="button" className="edit-button" onClick={() => handleEdit(attendance)} title="Edit"><Edit size={15} /></button>
+                    <button type="button" className="delete-button" onClick={() => handleDelete(attendance.id)} title="Delete"><Trash2 size={15} /></button>
+                  </div>
+                ),
+                value: () => "",
+              },
+            ]}
+          />
+        </>
       )}
 
       {selectedAttendance && (
@@ -870,6 +860,8 @@ export default function Attendance() {
             <div className="drawer-section">
               <h4>Attendance Information</h4>
               <p>Student: {getStudentName(selectedAttendance.student_id)}</p>
+              <p>Class: {getClassLabel(selectedAttendance)}</p>
+              <p>Academic Year: {selectedAttendance.academic_year || "-"}</p>
               <p>Date: {selectedAttendance.attendance_date || "-"}</p>
               <p>Status: {selectedAttendance.status || "-"}</p>
               <p>Remarks: {selectedAttendance.remarks || "-"}</p>

@@ -115,6 +115,7 @@ def delete_subject(
 def get_class_subjects(
     class_id: int | None = None,
     academic_year: str | None = None,
+    subject_id: int | None = None,
     subject_name: str | None = None,
     teacher_id: int | None = None,
     active_only: bool = False,
@@ -128,6 +129,9 @@ def get_class_subjects(
     if academic_year:
         query = query.filter(models.ClassSubject.academic_year == academic_year)
 
+    if subject_id:
+        query = query.filter(models.ClassSubject.subject_id == subject_id)
+
     if subject_name:
         query = query.filter(models.ClassSubject.subject_name == subject_name)
 
@@ -138,6 +142,22 @@ def get_class_subjects(
         query = query.filter(models.ClassSubject.is_active == True)
 
     return query.order_by(models.ClassSubject.id.desc()).all()
+
+
+def normalize_class_subject_payload(db: Session, payload: schemas.ClassSubjectCreate):
+    data = payload.model_dump()
+
+    if data.get("subject_id"):
+        subject = validate_subject(db, data["subject_id"])
+        data["subject_name"] = subject.subject_name
+
+    if not data.get("subject_name"):
+        raise HTTPException(status_code=400, detail="Subject is required")
+
+    data["subject_name"] = data["subject_name"].strip()
+    data["academic_year"] = (data.get("academic_year") or "2026-27").strip()
+
+    return data
 
 @router.get(
     "/class-subjects/{class_subject_id}",
@@ -168,7 +188,8 @@ def create_class_subject(
     if payload.teacher_id:
         validate_teacher(db, payload.teacher_id)
 
-    mapping = models.ClassSubject(**payload.model_dump())
+    data = normalize_class_subject_payload(db, payload)
+    mapping = models.ClassSubject(**data)
 
     db.add(mapping)
     commit_or_400(
@@ -200,7 +221,9 @@ def update_class_subject(
     if payload.teacher_id:
         validate_teacher(db, payload.teacher_id)
 
-    for key, value in payload.model_dump().items():
+    data = normalize_class_subject_payload(db, payload)
+
+    for key, value in data.items():
         setattr(mapping, key, value)
 
     commit_or_400(

@@ -41,8 +41,8 @@ def serialize_enrollment(enrollment, db: Session):
 
     if enrollment.class_id:
         class_record = (
-            db.query(models.Class)
-            .filter(models.Class.id == enrollment.class_id)
+            db.query(models.SchoolClass)
+            .filter(models.SchoolClass.id == enrollment.class_id)
             .first()
         )
 

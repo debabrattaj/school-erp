@@ -2,19 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Bed,
-  BookOpen,
-  Bus,
   CalendarCheck,
-  ClipboardList,
+  Edit,
   FileText,
-  HeartPulse,
-  Mail,
-  PackageCheck,
-  Phone,
   RefreshCcw,
-  UserRound,
-  Utensils,
   Wallet,
 } from "lucide-react";
 
@@ -246,13 +237,6 @@ export default function StudentDetails() {
     };
   }, [markRecords]);
 
-  const activeHostel = hostelAllocations.find((item) => item.status === "Active");
-  const activeTransport = transportAssignments.find((item) => item.status === "Active");
-  const openHealthCases = healthVisits.filter((item) =>
-    ["Open", "Under Observation", "Referred"].includes(item.status)
-  ).length;
-  const activeLibraryIssues = libraryIssues.filter((item) => item.status === "Issued").length;
-
   function getCustomValue(field) {
     if (field.field_type === "checkbox") {
       return field.field_value === "true" ? "Yes" : "No";
@@ -337,8 +321,6 @@ export default function StudentDetails() {
     ? `${classRecord.class_name} - ${classRecord.section}`
     : `${student.class_name || "-"} ${student.section || ""}`.trim();
   const studentStatus = student.student_status || student.status || "Active";
-  const guardianName = student.guardian_name || student.father_name || student.mother_name || "-";
-
   return (
     <div className="management-page student360-page">
       <section className="student360-hero">
@@ -367,6 +349,14 @@ export default function StudentDetails() {
             <ArrowLeft size={17} />
             Back
           </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => navigate(`/students?edit=${student.id}`)}
+          >
+            <Edit size={17} />
+            Edit
+          </button>
           <button type="button" className="secondary-button" onClick={loadStudentDetails}>
             <RefreshCcw size={17} />
             Refresh
@@ -374,57 +364,7 @@ export default function StudentDetails() {
         </div>
       </section>
 
-      <section className="student360-facts">
-        <div>
-          <span>Guardian</span>
-          <strong>{guardianName}</strong>
-        </div>
-        <div>
-          <span>Phone</span>
-          <strong>{student.guardian_phone || student.phone || "-"}</strong>
-        </div>
-        <div>
-          <span>Academic Class</span>
-          <strong>{classDisplay || "-"}</strong>
-        </div>
-        <div>
-          <span>Admission Date</span>
-          <strong>{student.admission_date || "-"}</strong>
-        </div>
-      </section>
-
       {message && <div className="message-box">{message}</div>}
-
-      <section className="student360-metrics">
-        <SummaryCard icon={UserRound} label="Student" value={getStudentDisplayName(student)} />
-        <SummaryCard
-          icon={BookOpen}
-          label="Class"
-          value={
-            classRecord
-              ? `${classRecord.class_name} - ${classRecord.section}`
-              : `${student.class_name || "-"} ${student.section || ""}`
-          }
-        />
-        <SummaryCard
-          icon={CalendarCheck}
-          label="Attendance"
-          value={`${attendanceSummary.present}/${attendanceSummary.total} Present`}
-        />
-        <SummaryCard icon={Wallet} label="Pending Fees" value={`Rs ${getMoney(feeSummary.pending)}`} warning />
-        <SummaryCard
-          icon={Bed}
-          label="Hostel"
-          value={activeHostel ? `${activeHostel.block_name || "-"} / ${activeHostel.room_no || "-"}` : "-"}
-        />
-        <SummaryCard
-          icon={Bus}
-          label="Transport"
-          value={activeTransport ? activeTransport.route_name || "-" : "-"}
-        />
-        <SummaryCard icon={HeartPulse} label="Open Health Cases" value={openHealthCases} warning={openHealthCases > 0} />
-        <SummaryCard icon={BookOpen} label="Books Issued" value={activeLibraryIssues} />
-      </section>
 
       <section className="student-profile-tabs">
         {tabs.map(([tab, label]) => (
@@ -461,12 +401,6 @@ export default function StudentDetails() {
             </div>
           </section>
 
-          <section className="student360-metrics">
-            <SummaryCard icon={Phone} label="Phone" value={student.phone || "-"} />
-            <SummaryCard icon={Mail} label="Email" value={student.email || "-"} />
-            <SummaryCard icon={BookOpen} label="Class Teacher" value={classRecord?.class_teacher || "-"} />
-            <SummaryCard icon={BookOpen} label="Room No" value={classRecord?.room_no || "-"} />
-          </section>
         </>
       )}
 
@@ -498,9 +432,15 @@ export default function StudentDetails() {
             <SummaryCard icon={CalendarCheck} label="Absent" value={attendanceSummary.absent} warning />
             <SummaryCard icon={CalendarCheck} label="Late" value={attendanceSummary.late} />
           </section>
-          <RecordsTable title="Attendance History" count={attendanceRecords.length} headers={["Date", "Status", "Remarks"]}>
+          <RecordsTable title="Attendance History" count={attendanceRecords.length} headers={["Academic Year", "Class", "Date", "Status", "Remarks"]}>
             {attendanceRecords.map((item) => (
               <tr key={item.id}>
+                <td>{item.academic_year || "-"}</td>
+                <td>
+                  {[item.class_name_snapshot, item.section_snapshot]
+                    .filter(Boolean)
+                    .join(" - ") || "-"}
+                </td>
                 <td>{item.attendance_date || "-"}</td>
                 <td><span className={getStatusClass(item.status)}>{item.status || "-"}</span></td>
                 <td>{item.remarks || "-"}</td>
@@ -517,14 +457,21 @@ export default function StudentDetails() {
             <SummaryCard icon={Wallet} label="Paid" value={`Rs ${getMoney(feeSummary.paid)}`} />
             <SummaryCard icon={Wallet} label="Pending" value={`Rs ${getMoney(feeSummary.pending)}`} warning />
           </section>
-          <RecordsTable title="Fees History" count={feeRecords.length} headers={["Fee Type", "Total", "Paid", "Due Date", "Status"]}>
+          <RecordsTable title="Fees History" count={feeRecords.length} headers={["Academic Year", "Class", "Fee Type", "Total", "Paid", "Balance", "Payment Date", "Status"]}>
             {feeRecords.map((item) => (
               <tr key={item.id}>
+                <td>{item.academic_year || "-"}</td>
+                <td>
+                  {[item.class_name_snapshot, item.section_snapshot]
+                    .filter(Boolean)
+                    .join(" - ") || "-"}
+                </td>
                 <td>{item.fee_type || "-"}</td>
                 <td>Rs {getMoney(getFeeAmount(item))}</td>
                 <td>Rs {getMoney(getPaidAmount(item))}</td>
-                <td>{item.due_date || "-"}</td>
-                <td><span className={getStatusClass(item.status)}>{item.status || "Pending"}</span></td>
+                <td>Rs {getMoney(item.due_amount ?? Math.max(getFeeAmount(item) - getPaidAmount(item), 0))}</td>
+                <td>{item.payment_date || "-"}</td>
+                <td><span className={getStatusClass(item.payment_status)}>{item.payment_status || "Unpaid"}</span></td>
               </tr>
             ))}
           </RecordsTable>

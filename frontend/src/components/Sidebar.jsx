@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -18,14 +19,36 @@ import {
   Utensils,
   Library,
   Boxes,
+  UserPlus,
+  FileCheck,
+  CalendarCheck,
+  MessageCircle,
+  LifeBuoy,
+  Archive,
+  Award,
+  ClipboardList,
   LogOut
 } from "lucide-react";
-import { getUser, isFeatureEnabled, logout } from "../auth";
+import { getUser, logout } from "../auth";
 
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const user = getUser();
+  const [user, setUser] = useState(getUser());
+
+  useEffect(() => {
+    function refreshUser() {
+      setUser(getUser());
+    }
+
+    window.addEventListener("school-erp-auth-updated", refreshUser);
+    window.addEventListener("storage", refreshUser);
+
+    return () => {
+      window.removeEventListener("school-erp-auth-updated", refreshUser);
+      window.removeEventListener("storage", refreshUser);
+    };
+  }, []);
 
   const menuItems = [
     {
@@ -134,6 +157,76 @@ export default function Sidebar() {
       feature: "student_enrollments",
     },
     {
+      label: "Admissions CRM",
+      icon: UserPlus,
+      path: "/admissions",
+      roles: ["Admin", "Principal"],
+      feature: "admissions",
+    },
+    {
+      label: "Admission Tests",
+      icon: CalendarCheck,
+      path: "/admission-assessments",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "admission_assessments",
+    },
+    {
+      label: "Communication",
+      icon: MessageCircle,
+      path: "/communications",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "parent_communication",
+    },
+    {
+      label: "Student Services",
+      icon: LifeBuoy,
+      path: "/student-services",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "student_services",
+    },
+    {
+      label: "Alumni & Exit",
+      icon: Archive,
+      path: "/alumni-withdrawals",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "alumni_withdrawals",
+    },
+    {
+      label: "Counseling",
+      icon: HeartPulse,
+      path: "/counseling",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "counseling",
+    },
+    {
+      label: "Enrichment",
+      icon: Award,
+      path: "/enrichment",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "enrichment",
+    },
+    {
+      label: "Compliance",
+      icon: ClipboardList,
+      path: "/compliance",
+      roles: ["Admin", "Principal"],
+      feature: "compliance",
+    },
+    {
+      label: "Intl. Documents",
+      icon: FileCheck,
+      path: "/international-documents",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "international_documents",
+    },
+    {
+      label: "Multi Curriculum",
+      icon: Layers,
+      path: "/multi-curriculum",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "multi_curriculum",
+    },
+    {
       label: "Hostel",
       icon: Building2,
       path: "/hostel",
@@ -178,7 +271,9 @@ export default function Sidebar() {
   ];
 
   const allowedMenuItems = menuItems.filter(
-    (item) => item.roles.includes(user?.role) && isFeatureEnabled(item.feature)
+    (item) =>
+      item.roles.includes(user?.role) &&
+      (!item.feature || user?.features?.[item.feature] !== false)
   );
 
   function handleLogout() {

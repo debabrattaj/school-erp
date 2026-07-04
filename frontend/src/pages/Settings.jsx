@@ -57,6 +57,14 @@ const featureGroups = [
       ["reports", "Reports"],
       ["report_card", "Report Card"],
       ["student_enrollments", "Student Enrollments"],
+      ["admissions", "Admissions CRM"],
+      ["admission_assessments", "Admission Assessments"],
+      ["parent_communication", "Parent Communication"],
+      ["student_services", "Student Services"],
+      ["alumni_withdrawals", "Alumni & Withdrawals"],
+      ["counseling", "Counseling & Wellbeing"],
+      ["enrichment", "Activities & Enrichment"],
+      ["compliance", "Compliance & Accreditation"],
       ["library", "Library"],
       ["student_layout", "Student Layout"],
       ["multi_curriculum", "Multi Curriculum"],
@@ -84,7 +92,7 @@ const featureGroups = [
 ];
 
 export default function Settings() {
-  const user = getUser();
+  const [user, setUser] = useState(getUser());
 
   const [formData, setFormData] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
@@ -97,8 +105,17 @@ export default function Settings() {
 
   async function loadAccountFeatures() {
     const response = await API.get("/accounts/me");
+    const nextAccount = response.data.account || null;
+    const nextFeatures = response.data.features || {};
     setAccount(response.data.account || null);
-    setFeatures(response.data.features || {});
+    setFeatures(nextFeatures);
+
+    saveAuth(localStorage.getItem("school_erp_token"), {
+      ...getUser(),
+      account: nextAccount,
+      features: nextFeatures,
+    });
+    setUser(getUser());
   }
 
   async function loadSettings() {
@@ -188,6 +205,7 @@ export default function Settings() {
         account,
         features: nextFeatures,
       });
+      setUser(getUser());
 
       setMessage("Feature access saved successfully. Sidebar updated for this account.");
     } catch (error) {
