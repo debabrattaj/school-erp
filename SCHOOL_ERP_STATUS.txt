@@ -1,0 +1,48 @@
+School ERP Project Snapshot
+===========================
+
+Date:
+Project Goal:
+Current Stack:
+Backend:
+Frontend:
+Database:
+
+Main Modules Already Built:
+- Students
+- Teachers
+- Classes
+- Attendance
+- Fees
+- Exams
+- Marks
+- Reports
+- Report Card
+- Master Data
+- User Management
+- Settings
+- Student Enrollment
+- Add anything Codex added here
+
+Problems / Bugs:
+- 
+- 
+- 
+
+Features I Want Finally:
+- International school ERP
+- Academic year history
+- Promotion
+- Report card
+- AI chatbot
+- Fees
+- Attendance
+- Parent/student portal
+- Add more here
+
+Questions for ChatGPT:
+1. What is already complete?
+2. What is missing?
+3. What should I build next?
+4. Is the database structure correct?
+5. Is this ready for demo/live school?
