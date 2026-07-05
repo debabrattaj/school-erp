@@ -27,3 +27,6 @@ desktop.ini
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
 
+# Local database backups (created before destructive DB operations)
+db_backups/
+

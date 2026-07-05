@@ -81,6 +81,7 @@ export default function Topbar() {
                 top: "100%",
                 right: 0,
                 width: "340px",
+                maxWidth: "calc(100vw - 2rem)",
                 maxHeight: "400px",
                 overflowY: "auto",
                 background: "#fff",

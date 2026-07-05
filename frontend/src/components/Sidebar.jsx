@@ -32,7 +32,7 @@ import {
 import { getUser, logout } from "../auth";
 
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(getUser());
 
@@ -319,6 +319,7 @@ export default function Sidebar() {
             <NavLink
               key={item.label}
               to={item.path}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 isActive ? "menu-item active" : "menu-item"
               }

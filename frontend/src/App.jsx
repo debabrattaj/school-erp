@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Menu, PanelLeftClose } from "lucide-react";
 import Sidebar from "./components/Sidebar";
@@ -58,8 +58,31 @@ import Enrichment from "./pages/Enrichment";
 import Compliance from "./pages/Compliance";
 import ReportCard from "./pages/ReportCard";
 
+const MOBILE_BREAKPOINT = 900;
+
 function ProtectedLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > MOBILE_BREAKPOINT
+  );
+
+  useEffect(() => {
+    let wasMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    function handleResize() {
+      const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+      if (isMobile !== wasMobile) {
+        wasMobile = isMobile;
+        setSidebarOpen(!isMobile);
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  function closeOnMobile() {
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      setSidebarOpen(false);
+    }
+  }
 
   return (
     <SettingsProvider>
@@ -76,7 +99,11 @@ function ProtectedLayout({ children }) {
             {sidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
           </button>
 
-          {sidebarOpen && <Sidebar />}
+          {sidebarOpen && <Sidebar onNavigate={closeOnMobile} />}
+
+          {sidebarOpen && (
+            <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+          )}
 
           <main className="main-area">
             <div className="page-content">{children}</div>
