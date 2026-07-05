@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -29,14 +28,13 @@ from app.tenant import (
     CentralSessionLocal,
 )
 from app.tenant_models import PasswordResetToken
+from app.mailer import send_email
 from app.rate_limit import (
     login_keys,
     check_login_allowed,
     record_login_failure,
     clear_login_failures,
 )
-
-logger = logging.getLogger("auth")
 
 router = APIRouter(
     prefix="/auth",
@@ -205,9 +203,16 @@ def forgot_password(payload: ForgotPasswordRequest, request: Request):
         f"{FRONTEND_BASE_URL}/reset-password"
         f"?token={raw_token}&account_code={account['account_code']}"
     )
-    # No email transport yet: log the link so it can be delivered manually / in
-    # dev. Wire an email sender here to go live.
-    logger.info("Password reset link for %s: %s", payload.email, reset_link)
+    # Deliver the reset link. In log-only mode (no SMTP configured) the mailer
+    # logs it instead of sending — the flow still completes.
+    subject = "Reset your School ERP password"
+    body = (
+        f"We received a request to reset your School ERP password.\n\n"
+        f"Use the link below within {RESET_TOKEN_TTL_MINUTES} minutes to choose "
+        f"a new password:\n\n{reset_link}\n\n"
+        f"If you did not request this, you can safely ignore this email."
+    )
+    send_email(payload.email, subject, body)
     if RESET_DEBUG_RETURN_TOKEN:
         debug_token = raw_token
 
