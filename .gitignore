@@ -1,0 +1,29 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Secrets
+backend/.env
+
+# Databases (per-tenant SQLite files — real data shouldn't ship with source)
+backend/*.db
+backend/*.db-journal
+
+# Logs
+backend/*.log
+
+# Frontend (has its own .gitignore too)
+frontend/node_modules/
+frontend/dist/
+
+# Windows shell artifacts
+desktop.ini
+*.lnk
+
+# OS
+.DS_Store
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json
+

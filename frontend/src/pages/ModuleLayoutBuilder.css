@@ -1,0 +1,189 @@
+/* ===============================
+   Module Layout Builder - Isolated CSS
+   Prefix: mlb-
+================================ */
+
+.mlb-builder-grid {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.mlb-toolbox {
+  width: 100%;
+  max-width: 290px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  position: sticky;
+  top: 90px;
+  overflow: hidden;
+  color: #0f172a;
+}
+
+.mlb-toolbox-header {
+  margin-bottom: 16px;
+}
+
+.mlb-toolbox-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.mlb-toolbox-header p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.mlb-toolbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.mlb-toolbox-item {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #1e293b;
+  cursor: grab;
+  font-size: 14px;
+  font-weight: 700;
+  box-sizing: border-box;
+  transition: 0.2s ease;
+}
+
+.mlb-toolbox-item:hover {
+  background: #eef4ff;
+  border-color: #93c5fd;
+}
+
+.mlb-toolbox-item svg {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.mlb-toolbox-item span {
+  color: #1e293b;
+  display: inline-block;
+  opacity: 1;
+  visibility: visible;
+}
+
+.mlb-add-section-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.mlb-canvas {
+  min-width: 0;
+}
+
+.mlb-section-card {
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+  background: #ffffff;
+}
+
+.mlb-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mlb-section-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.mlb-section-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.mlb-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mlb-field-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.mlb-field-card.mlb-protected-field {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.mlb-field-left {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mlb-field-left strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.mlb-field-left p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.mlb-section-title-editor {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mlb-section-title-editor input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .mlb-builder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mlb-toolbox {
+    max-width: 100%;
+    position: static;
+  }
+}

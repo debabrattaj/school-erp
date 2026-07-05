@@ -1,0 +1,88 @@
+School ERP Project Snapshot
+===========================
+
+Date: 2026-07-04 (analysis by Claude)
+Project Goal: International school ERP — full student lifecycle, academics,
+  finance, and operations management, multi-school/multi-tenant capable.
+Current Stack:
+Backend: FastAPI (Python), SQLAlchemy ORM, SQLite, JWT auth (python-jose),
+  Argon2 password hashing, role-based access control. Multi-tenant: a central
+  school_accounts.db maps account codes to per-school SQLite databases, with
+  a SchoolFeature table toggling modules per school.
+Frontend: React 19 + Vite 8, react-router-dom v7, axios, lucide-react icons.
+  ~35 page components, plain CSS (styles.css), no component library.
+Database: SQLite (file-based). One DB per tenant/school + one central registry DB.
+
+Main Modules Already Built:
+- Students (incl. enrollment, layout builder for custom student profile fields)
+- Teachers
+- Classes (+ class-exam mappings, class subjects)
+- Attendance
+- Fees (fee types, status tracking: Paid/Partial/Unpaid, receipt numbering)
+- Exams (+ exam components)
+- Marks
+- Reports
+- Report Card
+- Master Data
+- User Management (role-based)
+- Settings
+- Student Enrollment
+- Admissions (+ Admission Assessments)
+- Alumni / Withdrawals
+- Communications (parent/school messaging)
+- Counseling
+- Compliance
+- Enrichment
+- Student Services
+- Multi-Curriculum support
+- International Documents
+- Optional/off-by-default modules already coded: Hostel, Transport,
+  Health/Infirmary, Mess Management, Library, Inventory
+
+Problems / Bugs:
+- App fails to start out of the box: SECRET_KEY is required via backend/.env
+  but no .env or .env.example was in the repo (now added).
+- Database files (school_erp.db, school_accounts.db, test-school db) are
+  committed to git — should be gitignored; ships real/seed data with source.
+- CORS wide open (allow_origins=["*"]) — fine for dev, not production.
+- No formal migration tool (Alembic) — schema changes are patched ad hoc via
+  ensure_dev_schema() in main.py, which will get fragile as it grows.
+- Stray Windows shell artifacts committed (Command Prompt.lnk, desktop.ini).
+
+Features I Want Finally:
+- International school ERP
+- Academic year history
+- Promotion
+- Report card
+- AI chatbot
+- Fees
+- Attendance
+- Parent/student portal
+- Add more here
+
+Questions for ChatGPT:
+1. What is already complete?
+   -> Nearly full core-admin coverage: students, teachers, classes, attendance,
+      fees, exams, marks, reports, report cards, admissions, users/roles,
+      multi-tenancy scaffolding. This is well beyond MVP stage.
+2. What is missing?
+   -> Parent/student-facing portal (frontend has no distinct parent/student
+      login flow yet — auth.js/Login.jsx appear staff-oriented), AI chatbot,
+      formal migrations, automated tests, production-hardening (CORS, secrets
+      management, real Postgres/MySQL option instead of SQLite for scale).
+3. What should I build next?
+   -> Priority order: (1) fix onboarding friction (.env.example — done),
+      (2) parent/student portal + auth roles for it, (3) academic year
+      history/promotion workflow (mentioned as wanted but not seen as a
+      dedicated module yet), (4) swap ad hoc schema patching for Alembic
+      before the schema grows further.
+4. Is the database structure correct?
+   -> Structurally reasonable (proper FK relations, tenant isolation via
+      separate DBs per school). Two concerns: SQLite doesn't scale well past
+      a handful of concurrent users/schools, and there's no migration history,
+      so schema drift between environments is a real risk.
+5. Is this ready for demo/live school?
+   -> Ready for an internal/offline demo once .env is configured. NOT ready
+      for a live school yet: needs CORS lockdown, secrets out of source
+      control, DB files out of git, backups, and at least basic tests before
+      trusting it with real student/fee data.
