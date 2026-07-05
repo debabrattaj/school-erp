@@ -25,6 +25,7 @@ export default function StudentPicker({
   name = "student_id",
   required = true,
   label = "Student *",
+  disabled = false,
 }) {
   const selectedStudent = students.find((student) => String(student.id) === String(value));
   const [classFilter, setClassFilter] = useState(selectedStudent?.class_name || "");
@@ -75,7 +76,7 @@ export default function StudentPicker({
     <>
       <div className="form-field">
         <label>Class</label>
-        <select value={classFilter} onChange={handleClassChange}>
+        <select value={classFilter} onChange={handleClassChange} disabled={disabled}>
           <option value="">All Classes</option>
           {classOptions.map((className) => (
             <option key={className} value={className}>
@@ -87,7 +88,7 @@ export default function StudentPicker({
 
       <div className="form-field">
         <label>Section</label>
-        <select value={sectionFilter} onChange={handleSectionChange}>
+        <select value={sectionFilter} onChange={handleSectionChange} disabled={disabled}>
           <option value="">All Sections</option>
           {sectionOptions.map((section) => (
             <option key={section} value={section}>
@@ -104,7 +105,7 @@ export default function StudentPicker({
           value={value}
           onChange={onChange}
           required={required}
-          disabled={students.length > 0 && filteredStudents.length === 0}
+          disabled={disabled || (students.length > 0 && filteredStudents.length === 0)}
         >
           <option value="">Select Student</option>
           {filteredStudents.map((student) => (

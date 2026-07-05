@@ -992,6 +992,12 @@ input {
   color: #1d4ed8;
 }
 
+.edit-button:disabled,
+.delete-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .delete-button {
   background: #ffe4e6;
   color: #be123c;

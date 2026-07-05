@@ -227,6 +227,27 @@ def update_fee(
         exclude_unset=True
     )
 
+    _, original_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+
+    if original_status == "Paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Fully paid fees cannot be edited"
+        )
+
+    locked_fields = [
+        "fee_type", "academic_year", "total_amount",
+        "due_date", "receipt_no", "remarks"
+    ]
+    for field in locked_fields:
+        if field in update_data and update_data[field] != getattr(fee, field):
+            raise HTTPException(
+                status_code=400,
+                detail="Only Payment Amount can be updated once a fee record has been created"
+            )
+
+    update_data["payment_date"] = datetime.now().date()
+
     if "fee_type" in update_data and update_data["fee_type"]:
         if update_data["fee_type"] not in VALID_FEE_TYPES:
             raise HTTPException(

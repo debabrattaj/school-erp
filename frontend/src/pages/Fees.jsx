@@ -85,6 +85,10 @@ function getApiErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+function getTodayDateString() {
+  return new Date().toISOString().split("T")[0];
+}
+
 function normalizeDateInput(value) {
   if (!value) return "";
   return String(value).split("T")[0];
@@ -357,7 +361,7 @@ export default function Fees() {
         [name]: value,
       };
 
-      if (["fee_type", "academic_year", "student_id"].includes(name)) {
+      if (["fee_type", "academic_year", "student_id"].includes(name) && !editingId) {
         updated.total_amount = "";
         updated.due_date = "";
       }
@@ -455,13 +459,19 @@ export default function Fees() {
   }
 
   function handleEdit(fee) {
+    const totalAmount = getFeeAmount(fee);
+    const paidAmount = getPaidAmount(fee);
+    const status = calculateFeeStatus(totalAmount, paidAmount);
+
+    if (status === "Paid") {
+      setMessage("Fully paid fees cannot be edited.");
+      return;
+    }
+
     setEditingId(fee.id);
     setPageMode("form");
     setStructureFound(false);
     setStructureLookupMessage("");
-
-    const totalAmount = getFeeAmount(fee);
-    const paidAmount = getPaidAmount(fee);
 
     setFormData({
       student_id: fee.student_id || "",
@@ -469,7 +479,7 @@ export default function Fees() {
       academic_year: fee.academic_year || "",
       total_amount: totalAmount || "",
       paid_amount: paidAmount || "",
-      payment_date: normalizeDateInput(fee.payment_date),
+      payment_date: getTodayDateString(),
       due_date: normalizeDateInput(fee.due_date),
       receipt_no: fee.receipt_no || "",
       remarks: fee.remarks || "",
@@ -725,6 +735,7 @@ export default function Fees() {
               students={students}
               value={formData.student_id}
               onChange={handleInputChange}
+              disabled={Boolean(editingId)}
             />
 
             <div className="form-field">
@@ -734,6 +745,7 @@ export default function Fees() {
                 value={formData.fee_type}
                 onChange={handleInputChange}
                 required
+                disabled={Boolean(editingId)}
               >
                 <option value="">Select Fee Type</option>
                 {feeTypes.map((item) => (
@@ -754,11 +766,13 @@ export default function Fees() {
                 min="0"
                 step="0.01"
                 required
-                disabled={structureFound}
+                disabled={structureFound || Boolean(editingId)}
               />
               <small>
-                {structureLookupMessage ||
-                  "Auto-filled from Fee Structure once Fee Type and Academic Year are set."}
+                {editingId
+                  ? "Locked while editing — only Payment Amount can be updated."
+                  : structureLookupMessage ||
+                    "Auto-filled from Fee Structure once Fee Type and Academic Year are set."}
                 {" "}
                 <button
                   type="button"
@@ -777,6 +791,7 @@ export default function Fees() {
                 name="academic_year"
                 value={formData.academic_year}
                 onChange={handleInputChange}
+                disabled={Boolean(editingId)}
               >
                 <option value="">Select academic year</option>
                 {academicYears.map((year) => (
@@ -794,7 +809,7 @@ export default function Fees() {
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleInputChange}
-                disabled={structureFound}
+                disabled={structureFound || Boolean(editingId)}
               />
               <small>Auto-filled from Fee Structure when configured.</small>
             </div>
@@ -818,7 +833,11 @@ export default function Fees() {
                 name="payment_date"
                 value={formData.payment_date}
                 onChange={handleInputChange}
+                disabled={Boolean(editingId)}
               />
+              {editingId && (
+                <small>Automatically set to today's date.</small>
+              )}
             </div>
 
             <div className="form-field">
@@ -842,6 +861,7 @@ export default function Fees() {
                 value={formData.receipt_no}
                 onChange={handleInputChange}
                 placeholder="Auto generated when paid"
+                disabled={Boolean(editingId)}
               />
             </div>
 
@@ -852,6 +872,7 @@ export default function Fees() {
                 rows="3"
                 value={formData.remarks}
                 onChange={handleInputChange}
+                disabled={Boolean(editingId)}
               ></textarea>
             </div>
           </div>
@@ -1192,7 +1213,12 @@ export default function Fees() {
                             type="button"
                             className="edit-button"
                             onClick={() => handleEdit(fee)}
-                            title="Edit"
+                            disabled={fee.payment_status === "Paid"}
+                            title={
+                              fee.payment_status === "Paid"
+                                ? "Fully paid fees cannot be edited"
+                                : "Edit"
+                            }
                           >
                             <Edit size={15} />
                           </button>
