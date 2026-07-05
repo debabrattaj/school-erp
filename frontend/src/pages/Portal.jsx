@@ -176,7 +176,8 @@ export default function Portal() {
           {loading && <p>Loading...</p>}
 
           {!loading && activeTab === "summary" && summary && (
-            <table className="records-table">
+            <div className="table-wrapper">
+            <table className="classic-table">
               <tbody>
                 <tr>
                   <th>Current Academic Year</th>
@@ -213,6 +214,7 @@ export default function Portal() {
                 </tr>
               </tbody>
             </table>
+            </div>
           )}
 
           {!loading && activeTab === "attendance" && attendance && (
@@ -226,7 +228,8 @@ export default function Portal() {
                 {attendance.counts.Absent} | Late: {attendance.counts.Late} | Half
                 Day: {attendance.counts["Half Day"]}
               </div>
-              <table className="records-table">
+              <div className="table-wrapper">
+              <table className="classic-table">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -251,6 +254,7 @@ export default function Portal() {
                   )}
                 </tbody>
               </table>
+              </div>
             </>
           )}
 
@@ -262,7 +266,8 @@ export default function Portal() {
                     {exam.exam_name} ({exam.academic_year || "-"}) —{" "}
                     {exam.percentage != null ? `${exam.percentage}%` : "-"}
                   </h4>
-                  <table className="records-table">
+                  <div className="table-wrapper">
+                  <table className="classic-table">
                     <thead>
                       <tr>
                         <th>Subject</th>
@@ -282,6 +287,7 @@ export default function Portal() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               ))}
               {!marks.exams.length && <p>No marks recorded yet.</p>}
@@ -294,7 +300,8 @@ export default function Portal() {
                 Total: {fees.totals.total_amount} | Paid: {fees.totals.total_paid} |{" "}
                 <strong>Due: {fees.totals.total_due}</strong>
               </div>
-              <table className="records-table">
+              <div className="table-wrapper">
+              <table className="classic-table">
                 <thead>
                   <tr>
                     <th>Fee Type</th>
@@ -325,11 +332,13 @@ export default function Portal() {
                   )}
                 </tbody>
               </table>
+              </div>
             </>
           )}
 
           {!loading && activeTab === "history" && (
-            <table className="records-table">
+            <div className="table-wrapper">
+            <table className="classic-table">
               <thead>
                 <tr>
                   <th>Academic Year</th>
@@ -359,6 +368,7 @@ export default function Portal() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </section>
       )}

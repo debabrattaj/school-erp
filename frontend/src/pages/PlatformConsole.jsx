@@ -177,7 +177,7 @@ export default function PlatformConsole() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--saas-bg)" }}>
       {/* Top bar */}
-      <div style={{ background: "var(--saas-primary)", color: "#fff", padding: "0.9rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: "var(--saas-primary)", color: "#fff", padding: "0.9rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <Building2 size={22} />
           <div>
@@ -237,7 +237,7 @@ export default function PlatformConsole() {
               <section className="form-panel">
                 <div className="panel-header"><div><h3>All Schools ({schools.length})</h3></div></div>
                 {loading ? <p>Loading...</p> : (
-                  <table className="records-table">
+                  <div className="table-wrapper"><table className="classic-table">
                     <thead>
                       <tr><th>School</th><th>Code</th><th>Plan</th><th>Expiry</th><th>Status</th><th>Students</th><th>Modules</th><th>Actions</th></tr>
                     </thead>
@@ -267,7 +267,7 @@ export default function PlatformConsole() {
                         );
                       })}
                     </tbody>
-                  </table>
+                  </table></div>
                 )}
               </section>
 
@@ -321,20 +321,20 @@ export default function PlatformConsole() {
               {billingSummary?.expiring_soon?.length > 0 && (
                 <section className="form-panel" style={{ marginBottom: "1rem" }}>
                   <div className="panel-header"><div><h3>Expiring Soon</h3></div></div>
-                  <table className="records-table"><thead><tr><th>School</th><th>Plan</th><th>Expires</th><th>Days Left</th></tr></thead>
+                  <div className="table-wrapper"><table className="classic-table"><thead><tr><th>School</th><th>Plan</th><th>Expires</th><th>Days Left</th></tr></thead>
                     <tbody>{billingSummary.expiring_soon.map((s, i) => (
                       <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td>{s.expiry_date?.slice(0, 10)}</td><td style={{ color: "#d97706", fontWeight: 600 }}>{s.days_left}</td></tr>
-                    ))}</tbody></table>
+                    ))}</tbody></table></div>
                 </section>
               )}
 
               {billingSummary?.expired?.length > 0 && (
                 <section className="form-panel" style={{ marginBottom: "1rem" }}>
                   <div className="panel-header"><div><h3>Expired</h3></div></div>
-                  <table className="records-table"><thead><tr><th>School</th><th>Plan</th><th>Overdue By</th></tr></thead>
+                  <div className="table-wrapper"><table className="classic-table"><thead><tr><th>School</th><th>Plan</th><th>Overdue By</th></tr></thead>
                     <tbody>{billingSummary.expired.map((s, i) => (
                       <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td style={{ color: "#be123c", fontWeight: 600 }}>{s.days_overdue} days</td></tr>
-                    ))}</tbody></table>
+                    ))}</tbody></table></div>
                 </section>
               )}
 
@@ -366,7 +366,7 @@ export default function PlatformConsole() {
 
               <section className="form-panel">
                 <div className="panel-header"><div><h3>Payment History ({subs.length})</h3></div></div>
-                <table className="records-table">
+                <div className="table-wrapper"><table className="classic-table">
                   <thead><tr><th>School</th><th>Plan</th><th>Amount</th><th>Start</th><th>Expiry</th><th>Days Left</th><th>Ref</th><th>Status</th></tr></thead>
                   <tbody>
                     {subs.map((s) => (
@@ -381,7 +381,7 @@ export default function PlatformConsole() {
                     ))}
                     {!subs.length && <tr><td colSpan={8}>No subscriptions yet.</td></tr>}
                   </tbody>
-                </table>
+                </table></div>
               </section>
             </>
           )}
@@ -391,7 +391,7 @@ export default function PlatformConsole() {
             <>
               <section className="page-heading"><div><p className="eyebrow">Product Catalog</p><h2>Subscription Plans</h2><p>Define the plans schools can purchase.</p></div></section>
               <section className="form-panel">
-                <table className="records-table">
+                <div className="table-wrapper"><table className="classic-table">
                   <thead><tr><th>Plan</th><th>Monthly</th><th>Yearly</th><th>Max Students</th><th>Max Users</th><th>Description</th><th>Active</th></tr></thead>
                   <tbody>
                     {plans.map((p) => (
@@ -402,7 +402,7 @@ export default function PlatformConsole() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </section>
             </>
           )}
@@ -436,7 +436,7 @@ export default function PlatformConsole() {
 
               <section className="form-panel">
                 <div className="panel-header"><div><h3>Sent ({notifications.length})</h3></div></div>
-                <table className="records-table">
+                <div className="table-wrapper"><table className="classic-table">
                   <thead><tr><th>Date</th><th>To</th><th>Type</th><th>Title</th><th>Message</th></tr></thead>
                   <tbody>
                     {notifications.map((n) => (
@@ -449,7 +449,7 @@ export default function PlatformConsole() {
                     ))}
                     {!notifications.length && <tr><td colSpan={5}>No notifications sent yet.</td></tr>}
                   </tbody>
-                </table>
+                </table></div>
               </section>
             </>
           )}

@@ -156,7 +156,7 @@ export default function PortalAccess() {
           </div>
         </div>
 
-        <table className="records-table">
+        <div className="table-wrapper"><table className="classic-table">
           <thead>
             <tr>
               <th>Portal User</th>
@@ -197,7 +197,7 @@ export default function PortalAccess() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </section>
     </div>
   );
