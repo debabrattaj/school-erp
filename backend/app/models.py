@@ -78,6 +78,7 @@ class Student(Base):
     house = Column(String, nullable=True)
     admission_date = Column(Date, nullable=True)
     student_status = Column(String, nullable=True, default="Active")
+    residential_type = Column(String, nullable=True, default="Day Scholar")  # Day Scholar, Hosteller
 
     # Personal
     first_name = Column(String, nullable=False)
@@ -215,6 +216,7 @@ class FeeStructure(Base):
 
     academic_year = Column(String, nullable=False, index=True)
     class_name = Column(String, nullable=True, index=True)  # null = applies to every class
+    residential_type = Column(String, nullable=True, index=True)  # Day Scholar, Hosteller; null = applies to both
     fee_type = Column(String, nullable=False, index=True)
 
     amount = Column(Float, nullable=False)
@@ -229,8 +231,9 @@ class FeeStructure(Base):
         UniqueConstraint(
             "academic_year",
             "class_name",
+            "residential_type",
             "fee_type",
-            name="uq_fee_structure_year_class_type",
+            name="uq_fee_structure_year_class_res_type",
         ),
     )
 

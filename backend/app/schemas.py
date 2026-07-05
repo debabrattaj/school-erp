@@ -107,6 +107,7 @@ class StudentBase(BaseModel):
     house: Optional[str] = None
     admission_date: Optional[date] = None
     student_status: Optional[str] = "Active"
+    residential_type: Optional[str] = "Day Scholar"
     class_id: Optional[int] = None
     first_name: str
     last_name: Optional[str] = None
@@ -145,6 +146,7 @@ class StudentUpdate(BaseModel):
     house: Optional[str] = None
     admission_date: Optional[date] = None
     student_status: Optional[str] = None
+    residential_type: Optional[str] = None
     class_id: Optional[int] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -358,6 +360,7 @@ class FeeResponse(FeeBase):
 class FeeStructureBase(BaseModel):
     academic_year: str
     class_name: Optional[str] = None
+    residential_type: Optional[str] = None
     fee_type: str
     amount: float
     due_date: Optional[date] = None
@@ -371,6 +374,7 @@ class FeeStructureCreate(FeeStructureBase):
 class FeeStructureUpdate(BaseModel):
     academic_year: Optional[str] = None
     class_name: Optional[str] = None
+    residential_type: Optional[str] = None
     fee_type: Optional[str] = None
     amount: Optional[float] = None
     due_date: Optional[date] = None

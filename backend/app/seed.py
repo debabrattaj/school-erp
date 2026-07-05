@@ -212,6 +212,10 @@ def seed_master_data():
                 "Suspended",
                 "Alumni",
             ],
+            "ResidentialType": [
+                "Day Scholar",
+                "Hosteller",
+            ],
             "AcademicYear": [
                 "2024-25",
                 "2025-26",

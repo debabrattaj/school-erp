@@ -347,6 +347,84 @@ def ensure_dev_schema():
                 """
             )
 
+        student_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(students)")
+        }
+
+        if student_columns and "residential_type" not in student_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE students ADD COLUMN residential_type VARCHAR DEFAULT 'Day Scholar'"
+            )
+            connection.exec_driver_sql(
+                "UPDATE students SET residential_type = 'Day Scholar' WHERE residential_type IS NULL"
+            )
+
+        fee_structure_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(fee_structures)")
+        }
+
+        if fee_structure_columns and "residential_type" not in fee_structure_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE fee_structures ADD COLUMN residential_type VARCHAR"
+            )
+
+        fee_structure_sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='fee_structures'"
+        ).scalar()
+
+        if fee_structure_sql and "uq_fee_structure_year_class_type" in fee_structure_sql:
+            connection.exec_driver_sql("ALTER TABLE fee_structures RENAME TO fee_structures_old")
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE fee_structures (
+                    id INTEGER NOT NULL,
+                    academic_year VARCHAR NOT NULL,
+                    class_name VARCHAR,
+                    residential_type VARCHAR,
+                    fee_type VARCHAR NOT NULL,
+                    amount FLOAT NOT NULL,
+                    due_date DATE,
+                    remarks VARCHAR,
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    PRIMARY KEY (id),
+                    CONSTRAINT uq_fee_structure_year_class_res_type UNIQUE (
+                        academic_year, class_name, residential_type, fee_type
+                    )
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO fee_structures (
+                    id, academic_year, class_name, residential_type, fee_type,
+                    amount, due_date, remarks, created_at, updated_at
+                )
+                SELECT
+                    id, academic_year, class_name, residential_type, fee_type,
+                    amount, due_date, remarks, created_at, updated_at
+                FROM fee_structures_old
+                """
+            )
+            connection.exec_driver_sql("DROP TABLE fee_structures_old")
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_fee_structures_academic_year ON fee_structures (academic_year)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_fee_structures_class_name ON fee_structures (class_name)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_fee_structures_residential_type ON fee_structures (residential_type)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_fee_structures_fee_type ON fee_structures (fee_type)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_fee_structures_id ON fee_structures (id)"
+            )
+
         connection.execute(
             text(
                 """

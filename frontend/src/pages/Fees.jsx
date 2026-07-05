@@ -31,11 +31,14 @@ const emptyFeeForm = {
 const emptyStructureForm = {
   academic_year: "",
   class_name: "",
+  residential_type: "",
   fee_type: "",
   amount: "",
   due_date: "",
   remarks: "",
 };
+
+const residentialTypeOptions = ["Day Scholar", "Hosteller"];
 
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) =>
@@ -305,6 +308,7 @@ export default function Fees() {
         academic_year: formData.academic_year,
         fee_type: formData.fee_type,
         class_name: student?.class_name || undefined,
+        residential_type: student?.residential_type || undefined,
       },
     })
       .then((response) => {
@@ -323,6 +327,8 @@ export default function Fees() {
           setStructureLookupMessage(
             `No fee structure configured yet for ${formData.fee_type}${
               student?.class_name ? ` / Class ${student.class_name}` : ""
+            }${
+              student?.residential_type ? ` / ${student.residential_type}` : ""
             } in ${formData.academic_year}. Enter the amount manually, or add one under "Fee Structure".`
           );
         }
@@ -511,6 +517,7 @@ export default function Fees() {
     setStructureForm({
       academic_year: structure.academic_year || "",
       class_name: structure.class_name || "",
+      residential_type: structure.residential_type || "",
       fee_type: structure.fee_type || "",
       amount: structure.amount ?? "",
       due_date: normalizeDateInput(structure.due_date),
@@ -531,6 +538,7 @@ export default function Fees() {
     const payload = {
       academic_year: structureForm.academic_year,
       class_name: structureForm.class_name || null,
+      residential_type: structureForm.residential_type || null,
       fee_type: structureForm.fee_type,
       amount: Number(structureForm.amount),
       due_date: structureForm.due_date || null,
@@ -855,7 +863,10 @@ export default function Fees() {
                 <p>
                   Define the amount and due date per academic year, class, and fee type.
                   Leave Class as "All Classes" for fee types that don't vary by grade
-                  (e.g. Transport, Library).
+                  (e.g. Transport, Library). Leave Residential Type as "Both" unless
+                  Day Scholars and Hostellers pay different amounts (e.g. Tuition Fee
+                  is usually higher for boarders) &mdash; a specific match always wins
+                  over a "Both"/"All Classes" entry.
                 </p>
               </div>
             </div>
@@ -887,6 +898,20 @@ export default function Fees() {
                     <option value="">All Classes</option>
                     {classOptionsMaster.map((className) => (
                       <option key={className} value={className}>{className}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Residential Type</label>
+                  <select
+                    name="residential_type"
+                    value={structureForm.residential_type}
+                    onChange={handleStructureFormChange}
+                  >
+                    <option value="">Both (Day Scholar &amp; Hosteller)</option>
+                    {residentialTypeOptions.map((item) => (
+                      <option key={item} value={item}>{item}</option>
                     ))}
                   </select>
                 </div>
@@ -974,6 +999,7 @@ export default function Fees() {
                   <tr>
                     <th>Academic Year</th>
                     <th>Class</th>
+                    <th>Residential Type</th>
                     <th>Fee Type</th>
                     <th>Amount</th>
                     <th>Due Date</th>
@@ -986,6 +1012,7 @@ export default function Fees() {
                     <tr key={structure.id}>
                       <td>{structure.academic_year}</td>
                       <td>{structure.class_name || "All Classes"}</td>
+                      <td>{structure.residential_type || "Both"}</td>
                       <td>{structure.fee_type}</td>
                       <td>Rs {Number(structure.amount).toLocaleString("en-IN")}</td>
                       <td>{normalizeDateInput(structure.due_date) || "-"}</td>
@@ -1014,7 +1041,7 @@ export default function Fees() {
                   ))}
                   {!feeStructures.length && (
                     <tr>
-                      <td colSpan={7}>No fee structures configured yet.</td>
+                      <td colSpan={8}>No fee structures configured yet.</td>
                     </tr>
                   )}
                 </tbody>
