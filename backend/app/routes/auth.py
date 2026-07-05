@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,6 +6,12 @@ from app.models import User
 from app.schemas import LoginRequest, TokenResponse, UserResponse
 from app.security import verify_password, create_access_token, get_current_user
 from app.tenant import get_account, get_feature_map, get_school_session_factory
+from app.rate_limit import (
+    login_keys,
+    check_login_allowed,
+    record_login_failure,
+    clear_login_failures,
+)
 
 router = APIRouter(
     prefix="/auth",
@@ -14,7 +20,19 @@ router = APIRouter(
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(login_data: LoginRequest):
+def login(login_data: LoginRequest, request: Request):
+    keys = login_keys(
+        request.client.host if request.client else None,
+        login_data.email,
+    )
+    retry_after = check_login_allowed(keys)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     account = get_account(login_data.account_code)
     session_factory = get_school_session_factory(account["database_url"])
     db = session_factory()
@@ -23,16 +41,20 @@ def login(login_data: LoginRequest):
         user = db.query(User).filter(User.email == login_data.email).first()
 
         if not user:
+            record_login_failure(keys)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid email or password"
             )
 
         if not verify_password(login_data.password, user.password_hash):
+            record_login_failure(keys)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid email or password"
             )
+
+        clear_login_failures(keys)
 
         access_token = create_access_token(
             data={

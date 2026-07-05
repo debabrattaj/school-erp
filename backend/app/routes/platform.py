@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -27,6 +27,12 @@ from app.tenant_models import (
     SchoolFeature,
     SchoolSubscription,
     SubscriptionPlan,
+)
+from app.rate_limit import (
+    login_keys,
+    check_login_allowed,
+    record_login_failure,
+    clear_login_failures,
 )
 
 router = APIRouter(prefix="/platform", tags=["Platform Owner Console"])
@@ -106,7 +112,19 @@ class PlatformLoginRequest(BaseModel):
 
 
 @router.post("/auth/login")
-def platform_login(payload: PlatformLoginRequest):
+def platform_login(payload: PlatformLoginRequest, request: Request):
+    keys = login_keys(
+        request.client.host if request.client else None,
+        payload.email,
+    )
+    retry_after = check_login_allowed(keys)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     db = CentralSessionLocal()
     try:
         admin = (
@@ -117,7 +135,10 @@ def platform_login(payload: PlatformLoginRequest):
         if not admin or not admin.is_active or not verify_password(
             payload.password, admin.password_hash
         ):
+            record_login_failure(keys)
             raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        clear_login_failures(keys)
 
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=PLATFORM_TOKEN_MINUTES
