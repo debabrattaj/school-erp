@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus, CheckCircle2, Lock, RefreshCcw, Send, Star } from "lucide-react";
 
 import API from "../api";
+import { getMasterValues } from "../services/masterDataService";
 
 const emptyYearForm = {
   name: "",
@@ -23,6 +24,7 @@ export default function AcademicYears() {
   const [years, setYears] = useState([]);
   const [classes, setClasses] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
+  const [yearNameOptions, setYearNameOptions] = useState([]);
   const [message, setMessage] = useState("");
   const [yearForm, setYearForm] = useState(emptyYearForm);
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,13 @@ export default function AcademicYears() {
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to load academic years."));
     }
+
+    try {
+      const values = await getMasterValues("AcademicYear");
+      setYearNameOptions(values || []);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   useEffect(() => {
@@ -69,6 +78,11 @@ export default function AcademicYears() {
     () => years.filter((year) => year.status !== "Closed"),
     [years]
   );
+
+  const availableYearNameOptions = useMemo(() => {
+    const existingNames = years.map((year) => year.name);
+    return yearNameOptions.filter((name) => !existingNames.includes(name));
+  }, [yearNameOptions, years]);
 
   function handleYearFormChange(event) {
     const { name, value } = event.target;
@@ -267,13 +281,25 @@ export default function AcademicYears() {
           <div className="form-grid">
             <div className="form-field">
               <label>Name *</label>
-              <input
+              <select
                 name="name"
                 value={yearForm.name}
                 onChange={handleYearFormChange}
-                placeholder="2027-28"
                 required
-              />
+              >
+                <option value="">Select academic year</option>
+                {availableYearNameOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              {yearNameOptions.length === 0 && (
+                <small>
+                  No Academic Year values found in Master Data. Add them under
+                  Master Data → Academic Year first.
+                </small>
+              )}
             </div>
 
             <div className="form-field">
@@ -321,7 +347,7 @@ export default function AcademicYears() {
           </div>
         </div>
 
-        <table className="records-table">
+        <div className="table-wrapper"><table className="classic-table">
           <thead>
             <tr>
               <th>Year</th>
@@ -372,7 +398,7 @@ export default function AcademicYears() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </section>
 
       <section className="form-panel">
@@ -472,7 +498,7 @@ export default function AcademicYears() {
                 </div>
               </div>
 
-              <table className="records-table">
+              <div className="table-wrapper"><table className="classic-table">
                 <thead>
                   <tr>
                     <th>Student</th>
@@ -544,7 +570,7 @@ export default function AcademicYears() {
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
             </>
           )}
 

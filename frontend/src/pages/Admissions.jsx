@@ -101,6 +101,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 
 export default function Admissions() {
   const [inquiries, setInquiries] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [formData, setFormData] = useState(emptyAdmissionForm);
   const [editingId, setEditingId] = useState(null);
   const [selectedInquiry, setSelectedInquiry] = useState(null);
@@ -127,9 +128,27 @@ export default function Admissions() {
     }
   }
 
+  async function loadAcademicYears() {
+    try {
+      const response = await API.get("/academic-years/");
+      setAcademicYears(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadInquiries();
+    loadAcademicYears();
   }, []);
+
+  const academicYearOptions = useMemo(() => {
+    const names = academicYears.map((year) => year.name);
+    if (formData.academic_year && !names.includes(formData.academic_year)) {
+      return [formData.academic_year, ...names];
+    }
+    return names;
+  }, [academicYears, formData.academic_year]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -464,13 +483,19 @@ export default function Admissions() {
 
           <div className="form-field">
             <label>Academic Year *</label>
-            <input
-              type="text"
+            <select
               name="academic_year"
               value={formData.academic_year}
               onChange={handleChange}
               required
-            />
+            >
+              <option value="">Select academic year</option>
+              {academicYearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-field">
