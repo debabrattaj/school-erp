@@ -99,7 +99,14 @@ export default function Settings() {
   const [account, setAccount] = useState(user?.account || null);
   const [features, setFeatures] = useState(user?.features || {});
   const [message, setMessage] = useState("");
+  const [featureToast, setFeatureToast] = useState("");
   const { loadSettings: reloadGlobalSettings } = useSchoolSettings();
+
+  useEffect(() => {
+    if (!featureToast) return;
+    const timer = setTimeout(() => setFeatureToast(""), 2000);
+    return () => clearTimeout(timer);
+  }, [featureToast]);
 
   async function loadAccountFeatures() {
     const response = await API.get("/accounts/me");
@@ -170,7 +177,7 @@ export default function Settings() {
   }
 
   function handleFeatureChange(featureKey) {
-    setMessage(
+    setFeatureToast(
       "Module access is controlled by your platform administrator from the Owner Console. Contact them to enable or disable a module for your school."
     );
   }
@@ -207,6 +214,8 @@ export default function Settings() {
 
   return (
     <div className="management-page">
+      {featureToast && <div className="toast-notification">{featureToast}</div>}
+
       <section className="page-heading">
         <div>
           <p className="eyebrow">System Configuration</p>
