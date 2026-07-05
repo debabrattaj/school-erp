@@ -338,41 +338,45 @@ export default function ManagedRecordsTable({
                     <th key={header}>
                       <div className="records-column-head">
                         <span>{header}</span>
-                        <button
-                          type="button"
-                          className="records-column-menu-button"
-                          onClick={() =>
-                            setActiveColumnMenu((current) => (current === index ? null : index))
-                          }
-                        >
-                          <Menu size={15} />
-                        </button>
-                        {activeColumnMenu === index && (
-                          <div className="records-column-menu">
-                            <button type="button" onClick={() => setSortConfig({ index, direction: "asc" })}>
-                              <ArrowUp size={16} /> Asc
-                            </button>
-                            <button type="button" onClick={() => setSortConfig({ index, direction: "desc" })}>
-                              <ArrowDown size={16} /> Desc
-                            </button>
+                        {header !== "Actions" && (
+                          <>
                             <button
                               type="button"
-                              onClick={() => {
-                                setShowFilters(true);
-                                toggleFilterField(index, true);
-                                setActiveColumnMenu(null);
-                              }}
+                              className="records-column-menu-button"
+                              onClick={() =>
+                                setActiveColumnMenu((current) => (current === index ? null : index))
+                              }
                             >
-                              <Filter size={16} />
-                              Filter by
+                              <Menu size={15} />
                             </button>
-                            <button type="button" onClick={() => togglePinnedColumn(index)}>
-                              <Pin size={16} /> {pinnedIndexes.includes(index) ? "Unpin Column" : "Pin Column"}
-                            </button>
-                            <button type="button" onClick={() => toggleColumn(index)}>
-                              <EyeOff size={16} /> Hide Column
-                            </button>
-                          </div>
+                            {activeColumnMenu === index && (
+                              <div className="records-column-menu">
+                                <button type="button" onClick={() => setSortConfig({ index, direction: "asc" })}>
+                                  <ArrowUp size={16} /> Asc
+                                </button>
+                                <button type="button" onClick={() => setSortConfig({ index, direction: "desc" })}>
+                                  <ArrowDown size={16} /> Desc
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFilters(true);
+                                    toggleFilterField(index, true);
+                                    setActiveColumnMenu(null);
+                                  }}
+                                >
+                                  <Filter size={16} />
+                                  Filter by
+                                </button>
+                                <button type="button" onClick={() => togglePinnedColumn(index)}>
+                                  <Pin size={16} /> {pinnedIndexes.includes(index) ? "Unpin Column" : "Pin Column"}
+                                </button>
+                                <button type="button" onClick={() => toggleColumn(index)}>
+                                  <EyeOff size={16} /> Hide Column
+                                </button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </th>
