@@ -8,6 +8,7 @@ import {
   Eye,
   X,
   Wallet,
+  Settings2,
 } from "lucide-react";
 
 import API from "../api";
@@ -22,9 +23,25 @@ const emptyFeeForm = {
   total_amount: "",
   paid_amount: "",
   payment_date: "",
+  due_date: "",
   receipt_no: "",
   remarks: "",
 };
+
+const emptyStructureForm = {
+  academic_year: "",
+  class_name: "",
+  fee_type: "",
+  amount: "",
+  due_date: "",
+  remarks: "",
+};
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) =>
+    String(a).localeCompare(String(b), undefined, { numeric: true })
+  );
+}
 
 const fallbackFeeTypes = [
   "Tuition Fee",
@@ -112,19 +129,38 @@ export default function Fees() {
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
   const [feeTypes, setFeeTypes] = useState(fallbackFeeTypes);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [classOptionsMaster, setClassOptionsMaster] = useState([]);
+  const [feeStructures, setFeeStructures] = useState([]);
 
   const [formData, setFormData] = useState(emptyFeeForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
   const [selectedFee, setSelectedFee] = useState(null);
+  const [structureLookupMessage, setStructureLookupMessage] = useState("");
+
+  const [structureForm, setStructureForm] = useState(emptyStructureForm);
+  const [editingStructureId, setEditingStructureId] = useState(null);
 
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [academicYearFilter, setAcademicYearFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
 
   async function loadFees() {
     const response = await API.get("/fees/");
@@ -146,12 +182,46 @@ export default function Fees() {
     }
   }
 
+  async function loadAcademicYears() {
+    try {
+      const response = await API.get("/academic-years/");
+      setAcademicYears(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadClassOptionsMaster() {
+    try {
+      const values = await getMasterValues("Class");
+      setClassOptionsMaster(values || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadFeeStructures() {
+    try {
+      const response = await API.get("/fee-structures/");
+      setFeeStructures(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
       setMessage("");
 
-      await Promise.all([loadFees(), loadStudents(), loadFeeTypes()]);
+      await Promise.all([
+        loadFees(),
+        loadStudents(),
+        loadFeeTypes(),
+        loadAcademicYears(),
+        loadClassOptionsMaster(),
+        loadFeeStructures(),
+      ]);
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load fees."));
@@ -207,6 +277,62 @@ export default function Fees() {
     return Array.from(new Set(fees.map((fee) => fee.academic_year).filter(Boolean)));
   }, [fees]);
 
+  const classFilterOptions = useMemo(
+    () => uniqueSorted(students.map((student) => student.class_name)),
+    [students]
+  );
+
+  const sectionFilterOptions = useMemo(() => {
+    return uniqueSorted(
+      students
+        .filter((student) => !classFilter || student.class_name === classFilter)
+        .map((student) => student.section)
+    );
+  }, [students, classFilter]);
+
+  useEffect(() => {
+    if (editingId) return undefined;
+    if (!formData.fee_type || !formData.academic_year) {
+      setStructureLookupMessage("");
+      return undefined;
+    }
+
+    const student = studentMap[formData.student_id];
+    let cancelled = false;
+
+    API.get("/fee-structures/lookup", {
+      params: {
+        academic_year: formData.academic_year,
+        fee_type: formData.fee_type,
+        class_name: student?.class_name || undefined,
+      },
+    })
+      .then((response) => {
+        if (cancelled) return;
+        const structure = response.data;
+        setFormData((prev) => ({
+          ...prev,
+          total_amount: String(structure.amount),
+          due_date: structure.due_date || prev.due_date,
+        }));
+        setStructureLookupMessage("");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        if (error.response?.status === 404) {
+          setStructureLookupMessage(
+            `No fee structure configured yet for ${formData.fee_type}${
+              student?.class_name ? ` / Class ${student.class_name}` : ""
+            } in ${formData.academic_year}. Enter the amount manually, or add one under "Fee Structure".`
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.fee_type, formData.academic_year, formData.student_id, editingId, studentMap]);
+
   function handleInputChange(e) {
     const { name, value } = e.target;
 
@@ -241,6 +367,7 @@ export default function Fees() {
       total_amount: totalAmount,
       paid_amount: paidAmount,
       payment_date: formData.payment_date || null,
+      due_date: formData.due_date || null,
       receipt_no: formData.receipt_no || null,
       remarks: formData.remarks || null,
     };
@@ -321,6 +448,7 @@ export default function Fees() {
       total_amount: totalAmount || "",
       paid_amount: paidAmount || "",
       payment_date: normalizeDateInput(fee.payment_date),
+      due_date: normalizeDateInput(fee.due_date),
       receipt_no: fee.receipt_no || "",
       remarks: fee.remarks || "",
     });
@@ -350,15 +478,96 @@ export default function Fees() {
     setEditingId(null);
     setFormData(emptyFeeForm);
     setMessage("");
+    setStructureLookupMessage("");
     setPageMode("list");
   }
 
   function handleAddFee() {
     setEditingId(null);
-    setFormData(emptyFeeForm);
+    const currentYear = academicYears.find((year) => year.is_current);
+    setFormData({
+      ...emptyFeeForm,
+      academic_year: currentYear ? currentYear.name : "",
+    });
     setMessage("");
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleStructureFormChange(e) {
+    const { name, value } = e.target;
+    setStructureForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleAddStructure() {
+    setEditingStructureId(null);
+    setStructureForm(emptyStructureForm);
+    setMessage("");
+    setPageMode("structure");
+  }
+
+  function handleEditStructure(structure) {
+    setEditingStructureId(structure.id);
+    setStructureForm({
+      academic_year: structure.academic_year || "",
+      class_name: structure.class_name || "",
+      fee_type: structure.fee_type || "",
+      amount: structure.amount ?? "",
+      due_date: normalizeDateInput(structure.due_date),
+      remarks: structure.remarks || "",
+    });
+    setPageMode("structure");
+  }
+
+  async function handleStructureSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!structureForm.academic_year || !structureForm.fee_type || !structureForm.amount) {
+      setMessage("Academic Year, Fee Type and Amount are required.");
+      return;
+    }
+
+    const payload = {
+      academic_year: structureForm.academic_year,
+      class_name: structureForm.class_name || null,
+      fee_type: structureForm.fee_type,
+      amount: Number(structureForm.amount),
+      due_date: structureForm.due_date || null,
+      remarks: structureForm.remarks || null,
+    };
+
+    try {
+      if (editingStructureId) {
+        await API.put(`/fee-structures/${editingStructureId}`, payload);
+        setMessage("Fee structure updated successfully.");
+      } else {
+        await API.post("/fee-structures/", payload);
+        setMessage("Fee structure added successfully.");
+      }
+      setStructureForm(emptyStructureForm);
+      setEditingStructureId(null);
+      await loadFeeStructures();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save fee structure."));
+    }
+  }
+
+  async function handleDeleteStructure(structureId) {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this fee structure entry?"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/fee-structures/${structureId}`);
+      setMessage("Fee structure deleted successfully.");
+      await loadFeeStructures();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete fee structure."));
+    }
   }
 
   const filteredFees = fees.filter((fee) => {
@@ -373,10 +582,15 @@ export default function Fees() {
       ${fee.academic_year}
       ${getClassLabel(fee)}
       ${fee.payment_date}
+      ${fee.due_date}
       ${fee.payment_status}
       ${fee.receipt_no}
       ${fee.remarks}
     `.toLowerCase();
+
+    const student = studentMap[fee.student_id];
+    const feeClassName = fee.class_name_snapshot || student?.class_name || "";
+    const feeSection = fee.section_snapshot || student?.section || "";
 
     const matchSearch = searchableText.includes(searchText.toLowerCase());
     const matchFeeType = feeTypeFilter ? fee.fee_type === feeTypeFilter : true;
@@ -384,8 +598,17 @@ export default function Fees() {
     const matchAcademicYear = academicYearFilter
       ? fee.academic_year === academicYearFilter
       : true;
+    const matchClass = classFilter ? feeClassName === classFilter : true;
+    const matchSection = sectionFilter ? feeSection === sectionFilter : true;
 
-    return matchSearch && matchFeeType && matchStatus && matchAcademicYear;
+    return (
+      matchSearch &&
+      matchFeeType &&
+      matchStatus &&
+      matchAcademicYear &&
+      matchClass &&
+      matchSection
+    );
   });
 
   const totalAmount = fees.reduce((sum, fee) => sum + getFeeAmount(fee), 0);
@@ -409,6 +632,11 @@ export default function Fees() {
           >
             <RefreshCcw size={17} />
             Refresh
+          </button>
+
+          <button type="button" className="secondary-button" onClick={handleAddStructure}>
+            <Settings2 size={17} />
+            Fee Structure
           </button>
 
           <button type="button" className="primary-button" onClick={handleAddFee}>
@@ -452,7 +680,7 @@ export default function Fees() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {pageMode === "form" && (
       <section className="form-panel">
@@ -501,17 +729,46 @@ export default function Fees() {
                 step="0.01"
                 required
               />
+              <small>
+                {structureLookupMessage ||
+                  "Auto-filled from Fee Structure once Fee Type and Academic Year are set."}
+                {" "}
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setPageMode("structure")}
+                  style={{ padding: 0, border: "none", background: "none", color: "var(--saas-primary)", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
+                >
+                  Manage Fee Structures
+                </button>
+              </small>
             </div>
 
             <div className="form-field">
               <label>Academic Year</label>
-              <input
-                type="text"
+              <select
                 name="academic_year"
                 value={formData.academic_year}
                 onChange={handleInputChange}
-                placeholder="2026-27"
+              >
+                <option value="">Select academic year</option>
+                {academicYears.map((year) => (
+                  <option key={year.id} value={year.name}>
+                    {year.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label>Due Date</label>
+              <input
+                type="date"
+                name="due_date"
+                value={formData.due_date}
+                onChange={handleInputChange}
               />
+              <small>Auto-filled from Fee Structure when configured.</small>
             </div>
 
             <div className="form-field">
@@ -589,6 +846,184 @@ export default function Fees() {
       </section>
       )}
 
+      {pageMode === "structure" && (
+        <>
+          <section className="form-panel">
+            <div className="panel-header">
+              <div>
+                <h3>{editingStructureId ? "Edit Fee Structure" : "Add Fee Structure"}</h3>
+                <p>
+                  Define the amount and due date per academic year, class, and fee type.
+                  Leave Class as "All Classes" for fee types that don't vary by grade
+                  (e.g. Transport, Library).
+                </p>
+              </div>
+            </div>
+
+            <form className="classic-form" onSubmit={handleStructureSubmit}>
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Academic Year *</label>
+                  <select
+                    name="academic_year"
+                    value={structureForm.academic_year}
+                    onChange={handleStructureFormChange}
+                    required
+                  >
+                    <option value="">Select academic year</option>
+                    {academicYears.map((year) => (
+                      <option key={year.id} value={year.name}>{year.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Class</label>
+                  <select
+                    name="class_name"
+                    value={structureForm.class_name}
+                    onChange={handleStructureFormChange}
+                  >
+                    <option value="">All Classes</option>
+                    {classOptionsMaster.map((className) => (
+                      <option key={className} value={className}>{className}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Fee Type *</label>
+                  <select
+                    name="fee_type"
+                    value={structureForm.fee_type}
+                    onChange={handleStructureFormChange}
+                    required
+                  >
+                    <option value="">Select Fee Type</option>
+                    {feeTypes.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Amount *</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={structureForm.amount}
+                    onChange={handleStructureFormChange}
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Due Date</label>
+                  <input
+                    type="date"
+                    name="due_date"
+                    value={structureForm.due_date}
+                    onChange={handleStructureFormChange}
+                  />
+                </div>
+
+                <div className="form-field full-width">
+                  <label>Remarks</label>
+                  <textarea
+                    name="remarks"
+                    rows="2"
+                    value={structureForm.remarks}
+                    onChange={handleStructureFormChange}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  <PlusCircle size={18} />
+                  {editingStructureId ? "Update Structure" : "Add Structure"}
+                </button>
+
+                <button
+                  type="button"
+                  className="light-button"
+                  onClick={() => {
+                    setEditingStructureId(null);
+                    setStructureForm(emptyStructureForm);
+                    setPageMode("list");
+                  }}
+                >
+                  Back to Fees
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="table-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Configured Fee Structures ({feeStructures.length})</h3>
+              </div>
+            </div>
+
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Academic Year</th>
+                    <th>Class</th>
+                    <th>Fee Type</th>
+                    <th>Amount</th>
+                    <th>Due Date</th>
+                    <th>Remarks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feeStructures.map((structure) => (
+                    <tr key={structure.id}>
+                      <td>{structure.academic_year}</td>
+                      <td>{structure.class_name || "All Classes"}</td>
+                      <td>{structure.fee_type}</td>
+                      <td>Rs {Number(structure.amount).toLocaleString("en-IN")}</td>
+                      <td>{normalizeDateInput(structure.due_date) || "-"}</td>
+                      <td>{structure.remarks || "-"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            type="button"
+                            className="edit-button"
+                            onClick={() => handleEditStructure(structure)}
+                            title="Edit"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() => handleDeleteStructure(structure.id)}
+                            title="Delete"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!feeStructures.length && (
+                    <tr>
+                      <td colSpan={7}>No fee structures configured yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
       {pageMode === "list" && (
         <>
           <section className="table-panel module-filter-panel">
@@ -626,6 +1061,32 @@ export default function Fees() {
                 </select>
               </div>
 
+              <div className="form-field">
+                <label>Class</label>
+                <select
+                  value={classFilter}
+                  onChange={(e) => {
+                    setClassFilter(e.target.value);
+                    setSectionFilter("");
+                  }}
+                >
+                  <option value="">All Classes</option>
+                  {classFilterOptions.map((className) => (
+                    <option key={className} value={className}>{className}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Section</label>
+                <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+                  <option value="">All Sections</option>
+                  {sectionFilterOptions.map((section) => (
+                    <option key={section} value={section}>{section}</option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="button"
                 className="light-button"
@@ -633,6 +1094,8 @@ export default function Fees() {
                   setFeeTypeFilter("");
                   setStatusFilter("");
                   setAcademicYearFilter("");
+                  setClassFilter("");
+                  setSectionFilter("");
                   setSearchText("");
                 }}
               >
@@ -644,7 +1107,7 @@ export default function Fees() {
           <ManagedRecordsTable
             count={filteredFees.length}
             emptyText="No fee records found."
-            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Balance", "Payment Date", "Status", "Actions"]}
+            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Balance", "Due Date", "Payment Date", "Status", "Actions"]}
             loading={loading}
             loadingText="Loading fees..."
             searchPlaceholder="Search student, class, year, fee type, status..."
@@ -660,6 +1123,7 @@ export default function Fees() {
                       <td>Rs {getFeeAmount(fee).toLocaleString("en-IN")}</td>
                       <td>Rs {getPaidAmount(fee).toLocaleString("en-IN")}</td>
                       <td>Rs {getBalanceAmount(fee).toLocaleString("en-IN")}</td>
+                      <td>{normalizeDateInput(fee.due_date) || "-"}</td>
                       <td>{normalizeDateInput(fee.payment_date) || "-"}</td>
                       <td>
                         <span className={getStatusClass(fee.payment_status)}>
@@ -731,6 +1195,7 @@ export default function Fees() {
               <p>Total Amount: Rs {getFeeAmount(selectedFee).toLocaleString("en-IN")}</p>
               <p>Paid Amount: Rs {getPaidAmount(selectedFee).toLocaleString("en-IN")}</p>
               <p>Balance: Rs {getBalanceAmount(selectedFee).toLocaleString("en-IN")}</p>
+              <p>Due Date: {normalizeDateInput(selectedFee.due_date) || "-"}</p>
               <p>Payment Date: {normalizeDateInput(selectedFee.payment_date) || "-"}</p>
               <p>Receipt No: {selectedFee.receipt_no || "-"}</p>
               <p>Status: {selectedFee.payment_status || "Unpaid"}</p>

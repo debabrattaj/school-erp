@@ -202,9 +202,37 @@ class Fee(Base):
 
     payment_status = Column(String, default="Unpaid")  # Paid, Partial, Unpaid
     payment_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
     receipt_no = Column(String, nullable=True)
 
     remarks = Column(String, nullable=True)
+
+
+class FeeStructure(Base):
+    __tablename__ = "fee_structures"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    academic_year = Column(String, nullable=False, index=True)
+    class_name = Column(String, nullable=True, index=True)  # null = applies to every class
+    fee_type = Column(String, nullable=False, index=True)
+
+    amount = Column(Float, nullable=False)
+    due_date = Column(Date, nullable=True)
+
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "academic_year",
+            "class_name",
+            "fee_type",
+            name="uq_fee_structure_year_class_type",
+        ),
+    )
 
 
 class Exam(Base):

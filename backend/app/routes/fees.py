@@ -132,6 +132,7 @@ def create_fee(
         due_amount=due_amount,
         payment_status=payment_status,
         payment_date=fee.payment_date,
+        due_date=fee.due_date,
         receipt_no=receipt_no,
         remarks=fee.remarks
     )

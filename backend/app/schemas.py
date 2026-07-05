@@ -319,6 +319,7 @@ class FeeBase(BaseModel):
     total_amount: float
     paid_amount: float = 0
     payment_date: Optional[date] = None
+    due_date: Optional[date] = None
     receipt_no: Optional[str] = None
     remarks: Optional[str] = None
 
@@ -336,6 +337,7 @@ class FeeUpdate(BaseModel):
     total_amount: Optional[float] = None
     paid_amount: Optional[float] = None
     payment_date: Optional[date] = None
+    due_date: Optional[date] = None
     receipt_no: Optional[str] = None
     remarks: Optional[str] = None
 
@@ -344,6 +346,39 @@ class FeeResponse(FeeBase):
     id: int
     due_amount: float
     payment_status: str
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# Fee Structure
+# =========================
+
+class FeeStructureBase(BaseModel):
+    academic_year: str
+    class_name: Optional[str] = None
+    fee_type: str
+    amount: float
+    due_date: Optional[date] = None
+    remarks: Optional[str] = None
+
+
+class FeeStructureCreate(FeeStructureBase):
+    pass
+
+
+class FeeStructureUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    fee_type: Optional[str] = None
+    amount: Optional[float] = None
+    due_date: Optional[date] = None
+    remarks: Optional[str] = None
+
+
+class FeeStructureResponse(FeeStructureBase):
+    id: int
 
     class Config:
         from_attributes = True

@@ -28,6 +28,7 @@ from app.routes import enrichment
 from app.routes import compliance
 from app.routes import exam_components
 from app.routes import academic_years
+from app.routes import fee_structures
 from app.routes import portal
 from app.routes import chatbot
 from app.routes import platform
@@ -287,6 +288,7 @@ def ensure_dev_schema():
             "class_id": "INTEGER",
             "class_name_snapshot": "VARCHAR",
             "section_snapshot": "VARCHAR",
+            "due_date": "DATE",
         }.items():
             if fee_columns and column_name not in fee_columns:
                 connection.exec_driver_sql(
@@ -971,6 +973,7 @@ app.include_router(teachers.router)
 app.include_router(classes.router)
 app.include_router(attendance.router)
 app.include_router(fees.router)
+app.include_router(fee_structures.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)
