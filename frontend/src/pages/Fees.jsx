@@ -521,6 +521,7 @@ export default function Fees() {
     setFormData({
       ...emptyFeeForm,
       academic_year: currentYear ? currentYear.name : "",
+      payment_date: getTodayDateString(),
     });
     setMessage("");
     setStructureFound(false);
