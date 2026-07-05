@@ -2,7 +2,10 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import text
+
+from app.audit import should_audit, actor_from_token, record_audit
 from app.routes import master_data
 from app.routes import student_custom_fields
 from app.routes import module_layouts
@@ -1058,6 +1061,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def audit_middleware(request, call_next):
+    """Record mutating requests to the central audit trail (best-effort)."""
+    response = await call_next(request)
+    try:
+        method = request.method
+        path = request.url.path
+        if should_audit(method, path):
+            actor = actor_from_token(request.headers.get("authorization"))
+            client_ip = request.client.host if request.client else None
+            await run_in_threadpool(
+                record_audit,
+                method=method,
+                path=path,
+                status_code=response.status_code,
+                client_ip=client_ip,
+                actor=actor,
+            )
+    except Exception:
+        pass
+    return response
 
 app.include_router(auth.router)
 app.include_router(academic_years.router)

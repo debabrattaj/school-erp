@@ -21,6 +21,7 @@ from app.tenant import (
     get_school_session_factory,
 )
 from app.tenant_models import (
+    AuditLog,
     PlatformAdmin,
     PlatformNotification,
     SchoolAccount,
@@ -290,6 +291,45 @@ def feature_catalog(owner: PlatformAdmin = Depends(require_platform_owner)):
         }
         for key, enabled in DEFAULT_FEATURES.items()
     ]
+
+
+# ---------------- Audit log ----------------
+
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    account_code: str | None = None,
+    actor_email: str | None = None,
+    limit: int = 100,
+    owner: PlatformAdmin = Depends(require_platform_owner),
+):
+    """Most recent audit entries, newest first. Owner-only."""
+    limit = max(1, min(limit, 500))
+    db = CentralSessionLocal()
+    try:
+        query = db.query(AuditLog)
+        if account_code:
+            query = query.filter(AuditLog.account_code == account_code)
+        if actor_email:
+            query = query.filter(AuditLog.actor_email == actor_email)
+        rows = query.order_by(AuditLog.id.desc()).limit(limit).all()
+        return [
+            {
+                "id": row.id,
+                "created_at": row.created_at,
+                "account_code": row.account_code,
+                "actor_email": row.actor_email,
+                "actor_role": row.actor_role,
+                "method": row.method,
+                "path": row.path,
+                "status_code": row.status_code,
+                "client_ip": row.client_ip,
+                "detail": row.detail,
+            }
+            for row in rows
+        ]
+    finally:
+        db.close()
 
 
 # ---------------- Schools ----------------

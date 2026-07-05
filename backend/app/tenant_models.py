@@ -1,10 +1,31 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 
 
 TenantBase = declarative_base()
+
+
+class AuditLog(TenantBase):
+    """Append-only record of who performed a mutating action, and when.
+
+    Stored centrally (school_accounts.db) with account_code so actions across
+    all tenant schools are queryable in one place.
+    """
+
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    account_code = Column(String, nullable=True, index=True)
+    actor_email = Column(String, nullable=True, index=True)
+    actor_role = Column(String, nullable=True)
+    method = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    status_code = Column(Integer, nullable=True)
+    client_ip = Column(String, nullable=True)
+    detail = Column(Text, nullable=True)
 
 
 class SchoolAccount(TenantBase):
