@@ -3,7 +3,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import Base
 from app.models import User
-from app.security import get_current_user, hash_password, require_roles
+from app.security import get_current_user, hash_password
+from app.routes.platform import require_platform_owner
 from app.tenant import (
     CentralSessionLocal,
     DEFAULT_FEATURES,
@@ -57,7 +58,7 @@ def get_current_account(
 
 
 @router.get("/", response_model=list[SchoolAccountResponse])
-def list_accounts(current_user=Depends(require_roles(["Admin"]))):
+def list_accounts(owner=Depends(require_platform_owner)):
     db = CentralSessionLocal()
     try:
         accounts = db.query(SchoolAccount).order_by(SchoolAccount.id.desc()).all()
@@ -69,7 +70,7 @@ def list_accounts(current_user=Depends(require_roles(["Admin"]))):
 @router.post("/", response_model=SchoolAccountResponse)
 def create_account(
     payload: SchoolAccountCreate,
-    current_user=Depends(require_roles(["Admin"])),
+    owner=Depends(require_platform_owner),
 ):
     db = CentralSessionLocal()
     try:
@@ -149,7 +150,7 @@ def create_account(
 def update_account_features(
     account_code: str,
     payload: SchoolFeatureUpdate,
-    current_user=Depends(require_roles(["Admin"])),
+    owner=Depends(require_platform_owner),
 ):
     db = CentralSessionLocal()
     try:

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Award,
   CalendarDays,
-  CheckCircle,
   RefreshCcw,
   Save,
   School,
@@ -97,7 +96,6 @@ export default function Settings() {
   const [formData, setFormData] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [featureSaving, setFeatureSaving] = useState(false);
   const [account, setAccount] = useState(user?.account || null);
   const [features, setFeatures] = useState(user?.features || {});
   const [message, setMessage] = useState("");
@@ -172,48 +170,9 @@ export default function Settings() {
   }
 
   function handleFeatureChange(featureKey) {
-    setFeatures((prev) => ({
-      ...prev,
-      [featureKey]: !prev[featureKey],
-    }));
-  }
-
-  async function handleSaveFeatures() {
-    if (user?.role !== "Admin") {
-      setMessage("Only Admin can update feature access.");
-      return;
-    }
-
-    if (!account?.account_code) {
-      setMessage("School account not found.");
-      return;
-    }
-
-    try {
-      setFeatureSaving(true);
-      setMessage("");
-
-      const response = await API.put(`/accounts/${account.account_code}/features`, {
-        features,
-      });
-
-      const nextFeatures = response.data.features || features;
-      setFeatures(nextFeatures);
-
-      saveAuth(localStorage.getItem("school_erp_token"), {
-        ...user,
-        account,
-        features: nextFeatures,
-      });
-      setUser(getUser());
-
-      setMessage("Feature access saved successfully. Sidebar updated for this account.");
-    } catch (error) {
-      console.error(error);
-      setMessage(error.response?.data?.detail || "Unable to save feature access.");
-    } finally {
-      setFeatureSaving(false);
-    }
+    setMessage(
+      "Module access is controlled by your platform administrator from the Owner Console. Contact them to enable or disable a module for your school."
+    );
   }
 
   async function handleSubmit(e) {
@@ -483,8 +442,9 @@ export default function Settings() {
                   <Settings2 size={20} /> Feature Access
                 </h3>
                 <p>
-                  Enable only the modules needed for this school account.
-                  Disabled modules are hidden from the sidebar.
+                  Module access is controlled by your platform administrator
+                  from the Owner Console. Disabled modules are hidden from
+                  the sidebar and cannot be turned on here.
                 </p>
               </div>
 
@@ -520,7 +480,7 @@ export default function Settings() {
                             type="checkbox"
                             checked={enabled}
                             onChange={() => handleFeatureChange(featureKey)}
-                            disabled={user?.role !== "Admin"}
+                            title="Module access is controlled by your platform administrator"
                           />
                         </label>
                       );
@@ -530,19 +490,6 @@ export default function Settings() {
               ))}
             </div>
 
-            {user?.role === "Admin" && (
-              <div className="feature-actions">
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={handleSaveFeatures}
-                  disabled={featureSaving}
-                >
-                  <CheckCircle size={18} />
-                  {featureSaving ? "Saving Features..." : "Save Feature Access"}
-                </button>
-              </div>
-            )}
           </section>
 
           {user?.role === "Admin" && (
