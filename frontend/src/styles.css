@@ -1666,10 +1666,23 @@ button {
   border: 1px solid #ddd6c9;
   border-radius: 14px;
   padding: 16px;
+  padding-right: 190px;
   display: flex;
   justify-content: flex-end;
   box-shadow: 0 10px 30px rgba(31, 41, 51, 0.12);
   z-index: 20;
+}
+
+@media (max-width: 700px) {
+  .settings-save-bar {
+    padding-right: 16px;
+    margin-bottom: 4.5rem;
+  }
+
+  .settings-save-bar button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* International School Dashboard */
@@ -5075,13 +5088,18 @@ textarea {
   gap: 0.5rem;
   border-radius: 999px;
   border: none;
-  background: var(--saas-primary);
-  color: #fff;
-  font-weight: 600;
+  background: linear-gradient(135deg, #f0cc42, var(--saas-accent));
+  color: #172033;
+  font-weight: 700;
   font-size: 0.95rem;
-  box-shadow: var(--saas-shadow-lg);
-  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(217, 183, 47, 0.45);
+  cursor: grab;
+  touch-action: none;
   z-index: 1001;
+}
+
+.floating-assistant-toggle:active {
+  cursor: grabbing;
 }
 
 .floating-assistant-panel {
