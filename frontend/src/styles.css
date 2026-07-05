@@ -1579,6 +1579,25 @@ button {
   background: #1b263b;
 }
 
+.login-forgot-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: #25324b;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-forgot-link:hover {
+  color: #b8860b;
+}
+
 
 
 .demo-users {

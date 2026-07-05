@@ -45,6 +45,25 @@ class SchoolAccount(TenantBase):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class PasswordResetToken(TenantBase):
+    """Single-use, expiring password-reset tokens.
+
+    Stored centrally so the raw token from a reset link is enough to locate the
+    tenant (account_code) and user (email) without knowing them up front. Only
+    the SHA-256 hash of the token is persisted, so a DB leak can't be replayed.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_hash = Column(String, nullable=False, unique=True, index=True)
+    account_code = Column(String, nullable=False, index=True)
+    email = Column(String, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class SchoolFeature(TenantBase):
     __tablename__ = "school_features"
 

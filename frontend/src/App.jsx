@@ -6,6 +6,8 @@ import Topbar from "./components/Topbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MasterData from "./pages/MasterData";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
@@ -121,6 +123,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/platform-login" element={<PlatformLogin />} />
         <Route
           path="/platform"

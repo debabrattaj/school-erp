@@ -36,6 +36,16 @@ class PasswordResetRequest(BaseModel):
     new_password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+    account_code: Optional[str] = "default"
+
+
+class ResetPasswordConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
 class UserResponse(BaseModel):
     id: int
     name: str
