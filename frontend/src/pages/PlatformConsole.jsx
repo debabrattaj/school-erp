@@ -8,6 +8,7 @@ import {
   LogOut,
   Plus,
   RefreshCcw,
+  ScrollText,
   Send,
   Settings2,
 } from "lucide-react";
@@ -38,6 +39,7 @@ const TABS = [
   ["billing", "Billing"],
   ["plans", "Plans"],
   ["notifications", "Notifications"],
+  ["audit", "Audit Log"],
 ];
 
 export default function PlatformConsole() {
@@ -79,6 +81,10 @@ export default function PlatformConsole() {
   // notification form
   const [notifForm, setNotifForm] = useState({ account_id: "", title: "", message: "", notification_type: "info" });
 
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditFilters, setAuditFilters] = useState({ account_code: "", actor_email: "" });
+  const [auditLoading, setAuditLoading] = useState(false);
+
   const managedSchool = useMemo(
     () => schools.find((s) => s.id === managedId) || null,
     [schools, managedId]
@@ -114,6 +120,31 @@ export default function PlatformConsole() {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  async function loadAuditLogs() {
+    setAuditLoading(true);
+    try {
+      const params = { limit: 200 };
+      if (auditFilters.account_code.trim()) params.account_code = auditFilters.account_code.trim();
+      if (auditFilters.actor_email.trim()) params.actor_email = auditFilters.actor_email.trim();
+      const res = await PlatformAPI.get("/platform/audit-logs", { params });
+      setAuditLogs(res.data || []);
+    } catch (error) {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        platformLogout();
+        navigate("/platform-login");
+        return;
+      }
+      setMessage(getErr(error, "Unable to load audit logs."));
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab === "audit") loadAuditLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   // ---- school mgmt ----
   function openManage(school) { setManagedId(school.id); setFeatureDraft({ ...school.features }); setResetForm({ admin_email: "", new_password: "" }); setMessage(""); }
@@ -459,6 +490,58 @@ export default function PlatformConsole() {
                       </tr>
                     ))}
                     {!notifications.length && <tr><td colSpan={5}>No notifications sent yet.</td></tr>}
+                  </tbody>
+                </table></div>
+              </section>
+            </>
+          )}
+
+          {/* =================== AUDIT LOG TAB =================== */}
+          {tab === "audit" && (
+            <>
+              <section className="page-heading">
+                <div>
+                  <p className="eyebrow">Security</p>
+                  <h2>Audit Log</h2>
+                  <p>Every create, update and delete across all schools — who did it, when, and from where.</p>
+                </div>
+                <button type="button" className="secondary-button" onClick={loadAuditLogs}><ScrollText size={16} /> Reload</button>
+              </section>
+
+              <section className="form-panel">
+                <div className="panel-header"><div><h3>Filters</h3></div></div>
+                <form className="classic-form" onSubmit={(e) => { e.preventDefault(); loadAuditLogs(); }}>
+                  <div className="form-grid">
+                    <div className="form-field"><label>School Account Code</label>
+                      <select value={auditFilters.account_code} onChange={(e) => setAuditFilters({ ...auditFilters, account_code: e.target.value })}>
+                        <option value="">All Schools</option>
+                        {schools.map((s) => <option key={s.id} value={s.account_code}>{s.school_name} ({s.account_code})</option>)}
+                      </select></div>
+                    <div className="form-field"><label>Actor Email</label>
+                      <input value={auditFilters.actor_email} onChange={(e) => setAuditFilters({ ...auditFilters, actor_email: e.target.value })} placeholder="e.g. admin@school.com" /></div>
+                  </div>
+                  <button type="submit" className="primary-button"><RefreshCcw size={16} /> Apply Filters</button>{" "}
+                  <button type="button" className="light-button" onClick={() => { setAuditFilters({ account_code: "", actor_email: "" }); }}>Clear</button>
+                </form>
+              </section>
+
+              <section className="form-panel">
+                <div className="panel-header"><div><h3>{auditLoading ? "Loading..." : `Entries (${auditLogs.length})`}</h3></div></div>
+                <div className="table-wrapper"><table className="classic-table">
+                  <thead><tr><th>When (UTC)</th><th>Actor</th><th>Role</th><th>School</th><th>Action</th><th>Status</th><th>IP</th></tr></thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>{log.created_at?.replace("T", " ").slice(0, 19) || "-"}</td>
+                        <td>{log.actor_email || <span style={{ color: "#94a3b8" }}>anonymous</span>}</td>
+                        <td>{log.actor_role || "-"}</td>
+                        <td>{log.account_code || "-"}</td>
+                        <td><code style={{ fontSize: "0.8rem" }}>{log.method} {log.path}</code></td>
+                        <td><span style={{ color: log.status_code >= 400 ? "#be123c" : "#15803d", fontWeight: 600 }}>{log.status_code ?? "-"}</span></td>
+                        <td>{log.client_ip || "-"}</td>
+                      </tr>
+                    ))}
+                    {!auditLoading && !auditLogs.length && <tr><td colSpan={7}>No audit entries match.</td></tr>}
                   </tbody>
                 </table></div>
               </section>
