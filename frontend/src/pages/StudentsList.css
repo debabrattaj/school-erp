@@ -750,9 +750,12 @@
 }
 
 .students-list-page .student-filter-panel {
+  align-self: start;
   box-sizing: border-box;
   flex: 0 0 auto;
   width: auto;
+  height: auto;
+  max-height: none;
 }
 
 .students-list-page .student-list-main,
@@ -834,7 +837,6 @@
 .students-list-page .student-list-table th:last-child,
 .students-list-page .student-list-table td:last-child {
   box-shadow: none;
-  position: static !important;
 }
 
 .students-list-page .student-list-table td:last-child,
