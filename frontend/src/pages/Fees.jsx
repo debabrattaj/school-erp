@@ -141,6 +141,7 @@ export default function Fees() {
   const [pageMode, setPageMode] = useState("list");
   const [selectedFee, setSelectedFee] = useState(null);
   const [structureLookupMessage, setStructureLookupMessage] = useState("");
+  const [structureFound, setStructureFound] = useState(false);
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
   const [editingStructureId, setEditingStructureId] = useState(null);
@@ -297,6 +298,7 @@ export default function Fees() {
     if (editingId) return undefined;
     if (!formData.fee_type || !formData.academic_year) {
       setStructureLookupMessage("");
+      setStructureFound(false);
       return undefined;
     }
 
@@ -317,12 +319,14 @@ export default function Fees() {
         setFormData((prev) => ({
           ...prev,
           total_amount: String(structure.amount),
-          due_date: structure.due_date || prev.due_date,
+          due_date: structure.due_date || "",
         }));
+        setStructureFound(true);
         setStructureLookupMessage("");
       })
       .catch((error) => {
         if (cancelled) return;
+        setStructureFound(false);
         if (error.response?.status === 404) {
           setStructureLookupMessage(
             `No fee structure configured yet for ${formData.fee_type}${
@@ -342,11 +346,21 @@ export default function Fees() {
   function handleInputChange(e) {
     const { name, value } = e.target;
 
+    if (["fee_type", "academic_year", "student_id"].includes(name)) {
+      setStructureFound(false);
+      setStructureLookupMessage("");
+    }
+
     setFormData((prev) => {
       const updated = {
         ...prev,
         [name]: value,
       };
+
+      if (["fee_type", "academic_year", "student_id"].includes(name)) {
+        updated.total_amount = "";
+        updated.due_date = "";
+      }
 
       if (
         name === "total_amount" ||
@@ -443,6 +457,8 @@ export default function Fees() {
   function handleEdit(fee) {
     setEditingId(fee.id);
     setPageMode("form");
+    setStructureFound(false);
+    setStructureLookupMessage("");
 
     const totalAmount = getFeeAmount(fee);
     const paidAmount = getPaidAmount(fee);
@@ -485,6 +501,7 @@ export default function Fees() {
     setFormData(emptyFeeForm);
     setMessage("");
     setStructureLookupMessage("");
+    setStructureFound(false);
     setPageMode("list");
   }
 
@@ -496,6 +513,7 @@ export default function Fees() {
       academic_year: currentYear ? currentYear.name : "",
     });
     setMessage("");
+    setStructureFound(false);
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -736,6 +754,7 @@ export default function Fees() {
                 min="0"
                 step="0.01"
                 required
+                disabled={structureFound}
               />
               <small>
                 {structureLookupMessage ||
@@ -775,6 +794,7 @@ export default function Fees() {
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleInputChange}
+                disabled={structureFound}
               />
               <small>Auto-filled from Fee Structure when configured.</small>
             </div>
