@@ -85,6 +85,16 @@ export default function StudentServices() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadTickets() {
     try {
       setLoading(true);
@@ -366,7 +376,7 @@ export default function StudentServices() {
           </div>
           <button type="button" className="light-button" onClick={handleCancel}>Back to Service Tickets</button>
         </section>
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
         {ticketForm}
       </div>
     );
@@ -393,7 +403,7 @@ export default function StudentServices() {
         <div className="summary-card"><CheckCircle size={22} /><div><span>Resolved</span><strong>{resolvedCount}</strong></div></div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

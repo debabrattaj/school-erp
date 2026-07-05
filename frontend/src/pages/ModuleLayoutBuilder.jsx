@@ -236,6 +236,17 @@ export default function ModuleLayoutBuilder() {
   const [draggedExistingField, setDraggedExistingField] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [saving, setSaving] = useState(false);
 
   const requiredFieldNames = REQUIRED_SYSTEM_FIELDS[moduleName] || [];
@@ -791,7 +802,7 @@ export default function ModuleLayoutBuilder() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

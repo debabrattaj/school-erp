@@ -53,6 +53,16 @@ export default function Inventory() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -234,7 +244,7 @@ export default function Inventory() {
         <SummaryCard icon={Boxes} label="Low Stock" value={lowStock} warning />
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel">
         <div className="student-profile-tabs">

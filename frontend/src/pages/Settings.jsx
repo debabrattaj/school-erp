@@ -99,6 +99,17 @@ export default function Settings() {
   const [account, setAccount] = useState(user?.account || null);
   const [features, setFeatures] = useState(user?.features || {});
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [featureToast, setFeatureToast] = useState("");
   const { loadSettings: reloadGlobalSettings } = useSchoolSettings();
 
@@ -231,7 +242,7 @@ export default function Settings() {
         </button>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {loading ? (
         <div className="loading-box">Loading settings...</div>

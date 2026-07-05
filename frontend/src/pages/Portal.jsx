@@ -20,6 +20,17 @@ export default function Portal() {
   const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("summary");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [loading, setLoading] = useState(false);
 
   const [summary, setSummary] = useState(null);
@@ -105,7 +116,7 @@ export default function Portal() {
         </button>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {children.length > 1 && (
         <section className="form-panel">

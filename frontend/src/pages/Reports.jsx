@@ -399,6 +399,16 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   function moduleSupportsAcademicYear(moduleName) {
     return ["StudentEnrollments", "Fees", "Attendance", "Marks"].includes(moduleName);
   }
@@ -756,7 +766,7 @@ export default function Reports() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

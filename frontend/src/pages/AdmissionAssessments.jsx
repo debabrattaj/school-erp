@@ -77,6 +77,16 @@ export default function AdmissionAssessments() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadAssessments() {
     try {
       setLoading(true);
@@ -430,7 +440,7 @@ export default function AdmissionAssessments() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
         {assessmentForm}
       </div>
     );
@@ -488,7 +498,7 @@ export default function AdmissionAssessments() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

@@ -171,6 +171,16 @@ export default function Marks() {
   const [subjectLoading, setSubjectLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadMarks() {
     const response = await API.get("/marks/");
     setMarks(response.data || []);
@@ -941,7 +951,7 @@ export default function Marks() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {pageMode === "form" && (
       <section className="form-panel">

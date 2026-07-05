@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, School } from "lucide-react";
 import API from "../api";
@@ -15,6 +15,16 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -79,7 +89,7 @@ export default function Login() {
             Login with your assigned school role.
           </p>
 
-          {message && <div className="message-box">{message}</div>}
+          {message && <div className="toast-notification">{message}</div>}
 
           <div className="login-field">
             <label>School Account Code</label>

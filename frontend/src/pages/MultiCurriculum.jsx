@@ -76,6 +76,16 @@ export default function MultiCurriculum() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadPlans() {
     try {
       setLoading(true);
@@ -393,7 +403,7 @@ export default function MultiCurriculum() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
         {curriculumForm}
       </div>
     );
@@ -451,7 +461,7 @@ export default function MultiCurriculum() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

@@ -360,6 +360,17 @@ export default function StudentLayoutBuilder() {
 
   const [layout, setLayout] = useState(defaultLayout);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [previewMode, setPreviewMode] = useState(false);
   const [loadingLayout, setLoadingLayout] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
@@ -1078,7 +1089,7 @@ export default function StudentLayoutBuilder() {
 
       {loadingLayout && <div className="message-box">Loading backend layout...</div>}
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="layout-builder-shell">
         {!previewMode && (

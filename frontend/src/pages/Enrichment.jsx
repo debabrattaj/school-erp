@@ -44,6 +44,16 @@ export default function Enrichment() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadActivities() {
     try {
       setLoading(true);
@@ -201,14 +211,14 @@ export default function Enrichment() {
   );
 
   if (pageMode === "form") {
-    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Student Life</p><h2>{editingId ? "Edit Activity" : "Add Activity"}</h2><p>Plan enrichment programs, trips, clubs, competitions, and service learning.</p></div><button type="button" className="light-button" onClick={handleCancel}>Back to Activities</button></section>{message && <div className="message-box">{message}</div>}{form}</div>;
+    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Student Life</p><h2>{editingId ? "Edit Activity" : "Add Activity"}</h2><p>Plan enrichment programs, trips, clubs, competitions, and service learning.</p></div><button type="button" className="light-button" onClick={handleCancel}>Back to Activities</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
   }
 
   return (
     <div className="management-page">
       <section className="page-heading"><div><p className="eyebrow">Student Life</p><h2>Activities & Enrichment</h2><p>Manage clubs, sports, competitions, trips, CAS, and service learning.</p></div><div className="module-header-actions"><button type="button" className="secondary-button" onClick={loadActivities}><RefreshCcw size={17} />Refresh</button><button type="button" className="primary-button" onClick={handleAddActivity}><PlusCircle size={18} />Add Activity</button></div></section>
       <section className="summary-strip report-summary-grid"><div className="summary-card"><Award size={22} /><div><span>Total Activities</span><strong>{activities.length}</strong></div></div><div className="summary-card warning"><Award size={22} /><div><span>Open / Planned</span><strong>{openCount}</strong></div></div><div className="summary-card"><CheckCircle size={22} /><div><span>Completed</span><strong>{completedCount}</strong></div></div><div className="summary-card"><Users size={22} /><div><span>Participants</span><strong>{participantCount}</strong></div></div></section>
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
       <section className="table-panel module-filter-panel"><div className="filter-row sis-filter-row"><div className="form-field"><label>Type</label><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">All Types</option>{activityTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div><div className="form-field"><label>Status</label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All Status</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><button type="button" className="light-button" onClick={() => { setSearchText(""); setTypeFilter(""); setStatusFilter(""); }}>Clear Filters</button></div></section>
       <EnhancedRecordsTable
         data={filteredActivities}

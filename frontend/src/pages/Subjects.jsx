@@ -63,6 +63,16 @@ export default function Subjects() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadSubjects() {
     try {
       setLoading(true);
@@ -325,7 +335,7 @@ export default function Subjects() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         {subjectForm}
       </div>
@@ -394,7 +404,7 @@ export default function Subjects() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

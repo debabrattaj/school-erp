@@ -69,6 +69,16 @@ export default function StudentDetails() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadLegacyStudentCustomFields(recordId) {
     try {
       const response = await API.get(`/students/${recordId}/custom-fields`);
@@ -364,7 +374,7 @@ export default function StudentDetails() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="student-profile-tabs">
         {tabs.map(([tab, label]) => (

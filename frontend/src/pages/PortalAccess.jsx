@@ -13,6 +13,17 @@ export default function PortalAccess() {
   const [users, setUsers] = useState([]);
   const [students, setStudents] = useState([]);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [form, setForm] = useState({
     user_id: "",
     student_id: "",
@@ -97,7 +108,7 @@ export default function PortalAccess() {
         </button>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="form-panel">
         <div className="panel-header">

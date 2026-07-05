@@ -26,6 +26,17 @@ export default function AcademicYears() {
   const [enrollments, setEnrollments] = useState([]);
   const [yearNameOptions, setYearNameOptions] = useState([]);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [yearForm, setYearForm] = useState(emptyYearForm);
   const [saving, setSaving] = useState(false);
 
@@ -267,7 +278,7 @@ export default function AcademicYears() {
         </button>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="form-panel">
         <div className="panel-header">

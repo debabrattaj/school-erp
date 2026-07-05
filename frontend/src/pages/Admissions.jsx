@@ -114,6 +114,16 @@ export default function Admissions() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadInquiries() {
     try {
       setLoading(true);
@@ -613,7 +623,7 @@ export default function Admissions() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
         {admissionForm}
       </div>
     );
@@ -645,7 +655,7 @@ export default function Admissions() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <section className="form-panel">
           <div className="panel-header">
@@ -827,7 +837,7 @@ export default function Admissions() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <section className="form-panel">
           <div className="panel-header">
@@ -990,7 +1000,7 @@ export default function Admissions() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

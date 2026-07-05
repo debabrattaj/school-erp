@@ -68,6 +68,16 @@ export default function AlumniWithdrawals() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadRecords() {
     try {
       setLoading(true);
@@ -278,7 +288,7 @@ export default function AlumniWithdrawals() {
           <div><p className="eyebrow">Student Lifecycle</p><h2>{editingId ? "Edit Alumni / Withdrawal" : "Add Alumni / Withdrawal"}</h2><p>Track transfers, leaving certificates, alumni contacts, and exit approvals.</p></div>
           <button type="button" className="light-button" onClick={handleCancel}>Back to Records</button>
         </section>
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
         {form}
       </div>
     );
@@ -296,7 +306,7 @@ export default function AlumniWithdrawals() {
         <div className="summary-card"><UserRoundCheck size={22} /><div><span>Alumni</span><strong>{alumniCount}</strong></div></div>
         <div className="summary-card warning"><CheckCircle size={22} /><div><span>Certificates Due</span><strong>{certificatePendingCount}</strong></div></div>
       </section>
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">
           <div className="form-field"><label>Type</label><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">All Types</option>{recordTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>

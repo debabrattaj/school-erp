@@ -52,6 +52,17 @@ export default function PlatformConsole() {
   const [billingSummary, setBillingSummary] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [loading, setLoading] = useState(true);
 
   // school management
@@ -203,7 +214,7 @@ export default function PlatformConsole() {
             <button type="button" className="secondary-button" onClick={loadData}><RefreshCcw size={16} /> Refresh</button>
           </div>
 
-          {message && <div className="message-box">{message}</div>}
+          {message && <div className="toast-notification">{message}</div>}
 
           {/* =================== SCHOOLS TAB =================== */}
           {tab === "schools" && (

@@ -61,6 +61,16 @@ export default function HealthInfirmary() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -239,7 +249,7 @@ export default function HealthInfirmary() {
         <SummaryCard icon={RefreshCcw} label="Follow Ups" value={followUps} />
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {pageMode === "form" && (
       <section className="form-panel">

@@ -31,6 +31,16 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadUsers() {
     try {
       setLoading(true);
@@ -309,7 +319,7 @@ export default function Users() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         {userForm}
       </div>
@@ -376,7 +386,7 @@ export default function Users() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {resetUserId && (
         <section className="form-panel password-reset-panel">

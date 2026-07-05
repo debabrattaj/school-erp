@@ -26,6 +26,16 @@ export default function MasterData() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadCategories() {
     const response = await API.get("/master-data/categories");
     setCategories(response.data.categories || []);
@@ -213,7 +223,7 @@ export default function MasterData() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="master-data-layout">
         <aside className="master-category-panel">

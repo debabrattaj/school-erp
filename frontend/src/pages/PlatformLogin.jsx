@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, LogIn } from "lucide-react";
 
@@ -8,6 +8,17 @@ export default function PlatformLogin() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   const [loading, setLoading] = useState(false);
 
   function handleChange(event) {
@@ -53,7 +64,7 @@ export default function PlatformLogin() {
           </p>
         </div>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <form className="classic-form" onSubmit={handleSubmit}>
           <div className="form-field">

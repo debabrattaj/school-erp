@@ -75,6 +75,16 @@ export default function Communications() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadTemplates() {
     try {
       setLoading(true);
@@ -310,7 +320,7 @@ export default function Communications() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <section className="form-panel">
           <form className="classic-form" onSubmit={handleTemplateSubmit}>
@@ -386,7 +396,7 @@ export default function Communications() {
           </button>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <section className="form-panel">
           <form className="classic-form" onSubmit={handleMessageSubmit}>
@@ -475,7 +485,7 @@ export default function Communications() {
         <div className="summary-card warning"><MessageCircle size={22} /><div><span>Queued</span><strong>{queuedCount}</strong></div></div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">

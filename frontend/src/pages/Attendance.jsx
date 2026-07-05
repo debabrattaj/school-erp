@@ -68,6 +68,16 @@ export default function Attendance() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function getActiveLayout() {
     try {
       const backendLayout = await getModuleLayout(MODULE_NAME);
@@ -671,7 +681,7 @@ export default function Attendance() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       {pageMode === "form" && (
       <section className="form-panel">

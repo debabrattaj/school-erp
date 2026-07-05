@@ -1100,7 +1100,7 @@ export default function Students() {
     const valueMap = {
       admission_no: student.admission_no || "-",
       student: `${student.first_name || ""} ${student.last_name || ""}`.trim() || "-",
-      class: `${student.class_name || "-"} ${student.section || ""}`,
+      class: student.class_name || "-",
       section: student.section || "-",
       house: student.house || "-",
       guardian: student.guardian_name || "-",
@@ -1270,7 +1270,7 @@ export default function Students() {
           </div>
         </section>
 
-        {message && <div className="message-box">{message}</div>}
+        {message && <div className="toast-notification">{message}</div>}
 
         <section className="form-panel">
           <div className="panel-header">
@@ -1373,7 +1373,7 @@ export default function Students() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className={showFilters ? "student-list-shell" : "student-list-shell filters-hidden"}>
         {showFilters && (
@@ -1761,7 +1761,7 @@ export default function Students() {
         </div>
       </section>
 
-      {message && <div className="message-box">{message}</div>}
+      {message && <div className="toast-notification">{message}</div>}
 
       <section className="form-panel">
         <div className="panel-header">

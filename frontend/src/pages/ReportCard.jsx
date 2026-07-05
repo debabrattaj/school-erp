@@ -88,6 +88,16 @@ export default function ReportCard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   async function loadInitialData() {
     try {
       setLoading(true);
@@ -271,7 +281,7 @@ export default function ReportCard() {
         </div>
       </section>
 
-      {message && <div className="message-box no-print">{message}</div>}
+      {message && <div className="toast-notification no-print">{message}</div>}
 
       <section className="table-panel module-filter-panel no-print">
         <div className="filter-row sis-filter-row">
