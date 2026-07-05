@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -1033,9 +1035,25 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS origins are read from the CORS_ALLOWED_ORIGINS env var as a
+# comma-separated list. Defaults to the local Vite dev servers only.
+# A wildcard "*" cannot be combined with credentials, so it is rejected.
+_default_cors_origins = "http://localhost:5173,http://127.0.0.1:5173"
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", _default_cors_origins).split(",")
+    if origin.strip()
+]
+
+if "*" in allowed_origins:
+    raise RuntimeError(
+        "CORS_ALLOWED_ORIGINS must not contain '*': a wildcard origin cannot be "
+        "combined with credentialed requests. List explicit origins instead."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
