@@ -216,12 +216,23 @@ export default function Communications() {
         return;
       }
 
-      await API.post("/communications/logs/", payload);
-      setMessage(
-        payload.status === "Sent"
-          ? "Message marked as sent successfully."
-          : "Message queued successfully."
-      );
+      const response = await API.post("/communications/logs/", payload);
+      const saved = response?.data;
+
+      if (payload.channel === "Email") {
+        setMessage(
+          saved?.status === "Sent"
+            ? `Email sent to ${saved.recipient_email || "recipient"}.`
+            : `Email could not be sent: ${saved?.error_message || "delivery failed"}.`
+        );
+      } else {
+        setMessage(
+          payload.status === "Sent"
+            ? "Message marked as sent successfully."
+            : "Message queued successfully."
+        );
+      }
+
       setMessageForm(emptyMessageForm);
       setPageMode("list");
       setActiveView("logs");
@@ -243,6 +254,23 @@ export default function Communications() {
     setMessageForm(emptyMessageForm);
     setMessage("");
     setPageMode("message-form");
+  }
+
+  async function handleSendLog(log) {
+    setMessage("");
+    try {
+      const response = await API.post(`/communications/logs/${log.id}/send`);
+      const saved = response?.data;
+      setMessage(
+        saved?.status === "Sent"
+          ? `Email sent to ${saved.recipient_email || "recipient"}.`
+          : `Email could not be sent: ${saved?.error_message || "delivery failed"}.`
+      );
+      await loadLogs();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to send message."));
+    }
   }
 
   function handleEditTemplate(template) {
@@ -563,6 +591,28 @@ export default function Communications() {
             value: (log) => log.status || "Queued",
           },
           { key: "sent_at", label: "Sent At", render: (log) => log.sent_at || "-" },
+          {
+            key: "actions",
+            label: "Actions",
+            hideable: false,
+            actions: false,
+            render: (log) =>
+              log.channel === "Email" ? (
+                <div className="action-buttons">
+                  <button
+                    type="button"
+                    className="edit-button"
+                    onClick={() => handleSendLog(log)}
+                    title={log.status === "Sent" ? "Resend email" : "Send email"}
+                  >
+                    <Send size={15} />
+                  </button>
+                </div>
+              ) : (
+                "-"
+              ),
+            value: () => "",
+          },
         ]}
       />
     </div>

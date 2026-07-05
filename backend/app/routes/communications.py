@@ -13,6 +13,7 @@ from app.schemas import (
     CommunicationTemplateResponse,
 )
 from app.security import require_roles
+from app.mailer import send_email
 
 router = APIRouter(prefix="/communications", tags=["Communications"])
 
@@ -73,6 +74,45 @@ def validate_log(payload: CommunicationLogCreate, db: Session):
 
     if payload.status and payload.status not in VALID_LOG_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid message status")
+
+
+def email_subject_for(log: CommunicationLog, db: Session) -> str:
+    """Pick a subject line for an Email-channel message: the linked template's
+    subject if set, else the message category, else a generic fallback."""
+    if log.template_id:
+        template = (
+            db.query(CommunicationTemplate)
+            .filter(CommunicationTemplate.id == log.template_id)
+            .first()
+        )
+        if template and template.subject and template.subject.strip():
+            return template.subject.strip()
+    if log.category and log.category.strip():
+        return log.category.strip()
+    return "Message from your school"
+
+
+def deliver_email(log: CommunicationLog, db: Session) -> None:
+    """Attempt to send an Email-channel log, updating its status in place.
+    The caller is responsible for committing.
+    """
+    if not log.recipient_email or not log.recipient_email.strip():
+        log.status = "Failed"
+        log.error_message = "No recipient email address"
+        log.sent_at = None
+        return
+
+    subject = email_subject_for(log, db)
+    sent = send_email(log.recipient_email.strip(), subject, log.message_body)
+
+    if sent:
+        log.status = "Sent"
+        log.sent_at = datetime.utcnow()
+        log.error_message = None
+    else:
+        log.status = "Failed"
+        log.error_message = "Email delivery failed"
+        log.sent_at = None
 
 
 def serialize_log(log: CommunicationLog, db: Session):
@@ -201,6 +241,35 @@ def create_log(
 
     log = CommunicationLog(**data)
     db.add(log)
+    db.flush()
+
+    # For the Email channel we actually deliver the message and let the result
+    # drive the status. Other channels (WhatsApp/SMS/In App) have no transport
+    # yet, so their status is recorded as provided.
+    if log.channel == "Email":
+        deliver_email(log, db)
+
+    db.commit()
+    db.refresh(log)
+    return serialize_log(log, db)
+
+
+@router.post("/logs/{log_id}/send", response_model=CommunicationLogResponse)
+def send_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher", "Accounts"])),
+):
+    """Send (or retry) an Email-channel message."""
+    log = get_or_404(db, CommunicationLog, log_id, "Communication log")
+
+    if log.channel != "Email":
+        raise HTTPException(
+            status_code=400,
+            detail="Only Email messages can be sent from here.",
+        )
+
+    deliver_email(log, db)
     db.commit()
     db.refresh(log)
     return serialize_log(log, db)
