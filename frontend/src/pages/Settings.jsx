@@ -104,7 +104,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (!featureToast) return;
-    const timer = setTimeout(() => setFeatureToast(""), 2000);
+    const timer = setTimeout(() => setFeatureToast(""), 5000);
     return () => clearTimeout(timer);
   }, [featureToast]);
 
