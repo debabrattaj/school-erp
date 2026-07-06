@@ -7,3 +7,6 @@ python-jose
 argon2-cffi
 python-dotenv
 alembic>=1.13
+
+# Optional: enable Postgres (set DEFAULT_SCHOOL_DATABASE_URL/CENTRAL_DATABASE_URL to postgresql+psycopg://...)
+psycopg[binary]>=3.1

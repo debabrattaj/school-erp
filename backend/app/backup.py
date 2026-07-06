@@ -19,6 +19,7 @@ import shutil
 import sqlite3
 import logging
 import threading
+import subprocess
 from datetime import datetime
 
 from app.tenant import CentralSessionLocal
@@ -41,22 +42,17 @@ def _sqlite_path(url: str):
     return None  # non-SQLite (e.g. Postgres) backends are handled elsewhere
 
 
-def _discover_db_paths() -> dict:
-    """Map a label -> on-disk path for the central DB and every tenant DB."""
-    paths = {}
-    central = _sqlite_path(CENTRAL_DATABASE_URL)
-    if central:
-        paths["central"] = central
-
+def _discover_databases() -> dict:
+    """Map a label -> database URL for the central DB and every tenant DB."""
+    databases = {"central": CENTRAL_DATABASE_URL}
     db = CentralSessionLocal()
     try:
         for account in db.query(SchoolAccount).all():
-            path = _sqlite_path(account.database_url)
-            if path:
-                paths[account.account_code] = path
+            if account.database_url:
+                databases[account.account_code] = account.database_url
     finally:
         db.close()
-    return paths
+    return databases
 
 
 def _online_backup(src_path: str, dst_path: str) -> None:
@@ -72,6 +68,30 @@ def _online_backup(src_path: str, dst_path: str) -> None:
         src.close()
 
 
+def _backup_one(name: str, url: str, target_dir: str) -> dict:
+    """Back up a single database according to its dialect."""
+    if url.startswith("sqlite"):
+        path = _sqlite_path(url)
+        if not path or not os.path.exists(path):
+            return {"name": name, "ok": False, "error": "source file missing"}
+        dst = os.path.join(target_dir, f"{name}.db")
+        _online_backup(path, dst)
+        return {"name": name, "ok": True, "bytes": os.path.getsize(dst)}
+
+    if url.startswith("postgresql"):
+        # Requires pg_dump on PATH; connection details are taken from the URL.
+        dst = os.path.join(target_dir, f"{name}.sql")
+        with open(dst, "wb") as out:
+            proc = subprocess.run(
+                ["pg_dump", "--dbname", url], stdout=out, stderr=subprocess.PIPE
+            )
+        if proc.returncode != 0:
+            return {"name": name, "ok": False, "error": proc.stderr.decode(errors="replace")[:500]}
+        return {"name": name, "ok": True, "bytes": os.path.getsize(dst)}
+
+    return {"name": name, "ok": False, "error": f"unsupported backend for backup: {url.split(':', 1)[0]}"}
+
+
 def _prune() -> None:
     if BACKUP_KEEP <= 0 or not os.path.isdir(BACKUP_DIR):
         return
@@ -84,20 +104,16 @@ def _prune() -> None:
 
 
 def backup_all() -> dict:
-    """Back up every SQLite database into a fresh timestamped folder."""
+    """Back up every database (SQLite via online backup, Postgres via pg_dump)
+    into a fresh timestamped folder."""
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     target_dir = os.path.join(BACKUP_DIR, timestamp)
     os.makedirs(target_dir, exist_ok=True)
 
     results = []
-    for name, path in _discover_db_paths().items():
-        if not os.path.exists(path):
-            results.append({"name": name, "ok": False, "error": "source file missing"})
-            continue
-        dst = os.path.join(target_dir, f"{name}.db")
+    for name, url in _discover_databases().items():
         try:
-            _online_backup(path, dst)
-            results.append({"name": name, "ok": True, "bytes": os.path.getsize(dst)})
+            results.append(_backup_one(name, url, target_dir))
         except Exception as exc:
             results.append({"name": name, "ok": False, "error": str(exc)})
 
@@ -114,7 +130,7 @@ def list_backups() -> list:
         full = os.path.join(BACKUP_DIR, name)
         if not os.path.isdir(full):
             continue
-        db_files = [f for f in os.listdir(full) if f.endswith(".db")]
+        db_files = [f for f in os.listdir(full) if f.endswith((".db", ".sql"))]
         total = sum(os.path.getsize(os.path.join(full, f)) for f in db_files)
         out.append({"timestamp": name, "databases": len(db_files), "total_bytes": total})
     return out

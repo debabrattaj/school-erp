@@ -44,20 +44,24 @@ def _resolve_url() -> str:
 
 
 def run_migrations_offline() -> None:
+    url = _resolve_url()
     context.configure(
-        url=_resolve_url(),
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
+        # Batch mode is only needed for SQLite (which can't ALTER in place);
+        # Postgres alters natively.
+        render_as_batch=url.startswith("sqlite"),
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
+    url = _resolve_url()
     section = config.get_section(config.config_ini_section, {})
-    section["sqlalchemy.url"] = _resolve_url()
+    section["sqlalchemy.url"] = url
     connectable = engine_from_config(
         section,
         prefix="sqlalchemy.",
@@ -67,7 +71,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True,
+            render_as_batch=url.startswith("sqlite"),
         )
         with context.begin_transaction():
             context.run_migrations()

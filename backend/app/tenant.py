@@ -3,10 +3,9 @@ from functools import lru_cache
 
 from fastapi import HTTPException, Request
 from jose import jwt
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.database import Base
+from app.database import Base, make_engine, ensure_database_exists
 from app.tenant_models import SchoolAccount, SchoolFeature, TenantBase
 
 
@@ -57,12 +56,8 @@ DEFAULT_FEATURES = {
     "parent_portal": True,
 }
 
-central_engine = create_engine(
-    CENTRAL_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-    if CENTRAL_DATABASE_URL.startswith("sqlite")
-    else {},
-)
+ensure_database_exists(CENTRAL_DATABASE_URL)
+central_engine = make_engine(CENTRAL_DATABASE_URL)
 
 CentralSessionLocal = sessionmaker(
     autocommit=False,
@@ -73,12 +68,10 @@ CentralSessionLocal = sessionmaker(
 
 @lru_cache(maxsize=128)
 def get_school_session_factory(database_url: str):
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False}
-        if database_url.startswith("sqlite")
-        else {},
-    )
+    # On Postgres a new tenant database must be created before we can connect;
+    # SQLite files are created automatically.
+    ensure_database_exists(database_url)
+    engine = make_engine(database_url)
     Base.metadata.create_all(bind=engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

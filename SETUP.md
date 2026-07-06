@@ -69,7 +69,28 @@ Newly-created schools are automatically stamped at the latest revision. The
 central registry DB (`school_accounts.db`) is not under Alembic — it's small and
 additive and handled by `create_all` at startup.
 
-## 5. Known rough edges (see full analysis)
+## 5. Using Postgres instead of SQLite
+
+The app is dialect-aware. To run on Postgres, install the driver and point the
+database URLs at your server:
+
+```bash
+pip install "psycopg[binary]"   # already in requirements.txt
+# in backend/.env
+CENTRAL_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/school_accounts
+DEFAULT_SCHOOL_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/school_erp
+```
+
+Notes:
+- Engine settings switch automatically (SQLite `check_same_thread` vs Postgres
+  `pool_pre_ping`); Alembic batch mode is used only for SQLite.
+- New tenant databases are auto-created (`CREATE DATABASE`) when the connecting
+  role has permission; otherwise create them first.
+- Apply migrations across all tenant DBs: `python manage_migrations.py upgrade head`.
+- Backups use `pg_dump` for Postgres (`.sql` files) and the SQLite online backup
+  API for SQLite (`.db` files) — see the Owner Console → Backups tab.
+
+## 6. Known rough edges (see full analysis)
 
 - `.db` files are committed to git — consider gitignoring them and adding a
   seed/reset script instead, especially before this goes anywhere near production.
