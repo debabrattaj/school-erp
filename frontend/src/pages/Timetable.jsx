@@ -5,14 +5,23 @@ import API from "../api";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MIN_ROWS = 1;
 
+function toMin(hhmm) {
+  if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function toHHMM(mins) {
+  const t = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
 const emptyForm = {
   day_of_week: "Monday",
   period_no: 1,
   subject: "",
   teacher_id: "",
   room: "",
-  start_time: "",
-  end_time: "",
+  duration_min: "",
   label: "",
 };
 
@@ -24,6 +33,8 @@ export default function Timetable() {
 
   const [classId, setClassId] = useState(() => localStorage.getItem("timetable_class_id") || "");
   const [academicYear, setAcademicYear] = useState(() => localStorage.getItem("timetable_year") || "");
+  const [dayStart, setDayStart] = useState(() => localStorage.getItem("timetable_start") || "09:00");
+  const [periodDuration, setPeriodDuration] = useState(() => Number(localStorage.getItem("timetable_duration")) || 40);
   const [rowCount, setRowCount] = useState(MIN_ROWS);
 
   const [showForm, setShowForm] = useState(false);
@@ -60,6 +71,29 @@ export default function Timetable() {
   function selectYear(year) {
     setAcademicYear(year);
     localStorage.setItem("timetable_year", year);
+  }
+  function setStart(v) {
+    setDayStart(v);
+    localStorage.setItem("timetable_start", v);
+  }
+  function setDuration(v) {
+    setPeriodDuration(Number(v));
+    localStorage.setItem("timetable_duration", String(v));
+  }
+
+  // Auto-compute each row's time window from the day start, period duration and
+  // any break durations before it — so periods never need times entered.
+  function computeSlots() {
+    const map = {};
+    let clock = toMin(dayStart);
+    if (clock === null) clock = 540; // 09:00
+    for (let p = 1; p <= rowCount; p += 1) {
+      const brk = breakByRow[p];
+      const dur = brk ? (Number(brk.duration_min) || 15) : periodDuration;
+      map[p] = { start: toHHMM(clock), end: toHHMM(clock + dur) };
+      clock += dur;
+    }
+    return map;
   }
 
   async function loadEntries() {
@@ -140,8 +174,7 @@ export default function Timetable() {
       ...emptyForm,
       period_no: entry.period_no,
       label: entry.label || "",
-      start_time: entry.start_time || "",
-      end_time: entry.end_time || "",
+      duration_min: entry.duration_min || (entry.entry_type === "break" ? 30 : 15),
     });
     setShowForm(true);
     setMessage("");
@@ -165,6 +198,7 @@ export default function Timetable() {
         period_no: nextRow,
         entry_type: type,
         label: type === "recess" ? "Recess" : "Lunch Break",
+        duration_min: type === "recess" ? 15 : 30,
       });
       setRowCount(nextRow);
       setMessage(`${type === "recess" ? "Recess" : "Break"} added.`);
@@ -182,22 +216,31 @@ export default function Timetable() {
       return;
     }
     const isBreak = formType !== "period";
+    const pno = Number(form.period_no);
     const body = {
       academic_year: academicYear || null,
       class_id: Number(classId),
-      period_no: Number(form.period_no),
-      start_time: form.start_time || null,
-      end_time: form.end_time || null,
+      period_no: pno,
     };
     if (isBreak) {
-      Object.assign(body, { entry_type: formType, day_of_week: "*", label: form.label || null });
+      Object.assign(body, {
+        entry_type: formType,
+        day_of_week: "*",
+        label: form.label || null,
+        duration_min: Number(form.duration_min) || (formType === "recess" ? 15 : 30),
+      });
     } else {
+      // Stamp the auto-computed times so they persist for exports/printing.
+      const slots = computeSlots();
+      const slot = slots[pno] || {};
       Object.assign(body, {
         entry_type: "period",
         day_of_week: form.day_of_week,
         subject: form.subject || null,
         teacher_id: form.teacher_id ? Number(form.teacher_id) : null,
         room: form.room || null,
+        start_time: slot.start || null,
+        end_time: slot.end || null,
       });
     }
     try {
@@ -230,6 +273,7 @@ export default function Timetable() {
   }
 
   // Build ordered rows; teaching-period rows get a running "P{n}" label.
+  const slots = computeSlots();
   const rows = [];
   let periodCounter = 0;
   for (let p = 1; p <= rowCount; p += 1) {
@@ -279,6 +323,18 @@ export default function Timetable() {
               ))}
             </select>
           </div>
+          <div className="form-field">
+            <label>Day Start Time</label>
+            <input type="time" value={dayStart} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Period Duration</label>
+            <select value={periodDuration} onChange={(e) => setDuration(e.target.value)}>
+              {[30, 35, 40, 45, 50, 55, 60].map((m) => (
+                <option key={m} value={m}>{m} min</option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 
@@ -319,19 +375,17 @@ export default function Timetable() {
                   </div>
                 </>
               ) : (
-                <div className="form-field">
-                  <label>Label</label>
-                  <input type="text" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={formType === "recess" ? "Recess" : "Lunch Break"} />
-                </div>
+                <>
+                  <div className="form-field">
+                    <label>Label</label>
+                    <input type="text" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={formType === "recess" ? "Recess" : "Lunch Break"} />
+                  </div>
+                  <div className="form-field">
+                    <label>Duration (minutes)</label>
+                    <input type="number" min="1" value={form.duration_min} onChange={(e) => setForm({ ...form, duration_min: e.target.value })} placeholder={formType === "recess" ? "15" : "30"} />
+                  </div>
+                </>
               )}
-              <div className="form-field">
-                <label>Start Time</label>
-                <input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
-              </div>
-              <div className="form-field">
-                <label>End Time</label>
-                <input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
-              </div>
             </div>
             <div className="form-actions">
               <button type="submit" className="primary-button"><PlusCircle size={16} /> {editingId ? "Update" : "Save"}</button>
@@ -377,9 +431,10 @@ export default function Timetable() {
                         style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700, color: "#b45309" }}
                       >
                         {row.entry.label || (row.entry.entry_type === "recess" ? "Recess" : "Break")}
-                        {(row.entry.start_time || row.entry.end_time) && (
+                        {slots[row.period_no] && (
                           <span style={{ fontWeight: 400, color: "#92400e" }}>
-                            {" "}· {row.entry.start_time}{row.entry.end_time ? `–${row.entry.end_time}` : ""}
+                            {" "}· {slots[row.period_no].start}–{slots[row.period_no].end}
+                            {row.entry.duration_min ? ` (${row.entry.duration_min}m)` : ""}
                           </span>
                         )}
                       </button>
@@ -395,7 +450,14 @@ export default function Timetable() {
                   </tr>
                 ) : (
                   <tr key={`p-${row.period_no}`}>
-                    <td style={{ fontWeight: 700 }}>{row.label}</td>
+                    <td style={{ fontWeight: 700 }}>
+                      <div>{row.label}</div>
+                      {slots[row.period_no] && (
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                          {slots[row.period_no].start}–{slots[row.period_no].end}
+                        </div>
+                      )}
+                    </td>
                     {DAYS.map((day) => {
                       const entry = periodBySlot[`${day}-${row.period_no}`];
                       return (
@@ -407,11 +469,6 @@ export default function Timetable() {
                                 {entry.teacher_name_snapshot || teacherName(entry.teacher_id) || "—"}
                                 {entry.room ? ` · ${entry.room}` : ""}
                               </div>
-                              {(entry.start_time || entry.end_time) && (
-                                <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
-                                  {entry.start_time}{entry.end_time ? `–${entry.end_time}` : ""}
-                                </div>
-                              )}
                               <button
                                 type="button"
                                 onClick={(ev) => { ev.stopPropagation(); handleDelete(entry.id); }}

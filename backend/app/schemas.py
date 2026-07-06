@@ -1635,6 +1635,7 @@ class TimetableEntryBase(BaseModel):
     period_no: int
     entry_type: Optional[str] = "period"
     label: Optional[str] = None
+    duration_min: Optional[int] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     subject: Optional[str] = None
@@ -1654,6 +1655,7 @@ class TimetableEntryUpdate(BaseModel):
     period_no: Optional[int] = None
     entry_type: Optional[str] = None
     label: Optional[str] = None
+    duration_min: Optional[int] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     subject: Optional[str] = None

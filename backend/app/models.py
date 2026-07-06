@@ -171,6 +171,7 @@ class TimetableEntry(Base):
     period_no = Column(Integer, nullable=False)  # row order (shared by periods and breaks)
     entry_type = Column(String, nullable=False, default="period")  # period | recess | break
     label = Column(String, nullable=True)  # label for a recess/break row
+    duration_min = Column(Integer, nullable=True)  # length in minutes (used by breaks/recess)
     start_time = Column(String, nullable=True)  # e.g. "09:00"
     end_time = Column(String, nullable=True)
     subject = Column(String, nullable=True)
