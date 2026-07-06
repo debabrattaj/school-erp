@@ -1129,6 +1129,15 @@ app.include_router(enrichment.router)
 app.include_router(compliance.router)
 app.include_router(exam_components.router)
 
+from app.routes import uploads
+app.include_router(uploads.router)
+
+# Serve uploaded files (student photos, documents) as static assets.
+from fastapi.staticfiles import StaticFiles
+_upload_dir = os.getenv("UPLOAD_DIR", "./uploads")
+os.makedirs(_upload_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
+
 
 @app.get("/")
 def home():

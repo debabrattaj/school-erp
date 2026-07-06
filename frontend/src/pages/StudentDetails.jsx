@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { resolveFileUrl } from "../utils/files";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
 
 function getMoney(value) {
@@ -337,7 +338,7 @@ export default function StudentDetails() {
         <div className="student360-profile">
           <div className="student360-avatar">
             {student.photo_url ? (
-              <img src={student.photo_url} alt={studentName} />
+              <img src={resolveFileUrl(student.photo_url)} alt={studentName} />
             ) : (
               <span>{getInitials(studentName)}</span>
             )}

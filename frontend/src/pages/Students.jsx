@@ -22,6 +22,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import API from "../api";
+import PhotoUploadField from "../components/PhotoUploadField";
+import { resolveFileUrl } from "../utils/files";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
 
@@ -836,6 +838,15 @@ export default function Students() {
       required: Boolean(field.required),
       placeholder: field.placeholder || "",
     };
+
+    if (field.name === "photo_url") {
+      return (
+        <PhotoUploadField
+          value={value}
+          onChange={(url) => updateFieldValue(field, url)}
+        />
+      );
+    }
 
     if (field.name === "class_name" || field.name === "class_id") {
       return (
@@ -2028,7 +2039,7 @@ export default function Students() {
             <div className="student-profile-head">
               <div className="student-avatar">
                 {selectedStudent.photo_url ? (
-                  <img src={selectedStudent.photo_url} alt="Student" />
+                  <img src={resolveFileUrl(selectedStudent.photo_url)} alt="Student" />
                 ) : (
                   <UserRound size={42} />
                 )}

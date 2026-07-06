@@ -34,3 +34,6 @@ backend/backups/
 
 # Locally-installed libs (deploys install from requirements.txt)
 backend/.pylibs/
+
+# Uploaded files
+backend/uploads/
