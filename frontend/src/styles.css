@@ -86,6 +86,24 @@ input {
   cursor: pointer;
 }
 
+.timetable-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.timetable-actions .icon-button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timetable-actions .icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .user-profile {
   display: flex;
   align-items: center;

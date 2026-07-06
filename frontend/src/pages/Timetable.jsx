@@ -343,11 +343,19 @@ export default function Timetable() {
 
       <section className="form-panel">
         <div className="panel-header">
-          <div><h3><CalendarDays size={18} /> Weekly Schedule</h3></div>
-          <div className="module-header-actions">
-            <button type="button" className="secondary-button" onClick={addRow} disabled={!classId}><Plus size={15} /> Add Row</button>
-            <button type="button" className="secondary-button" onClick={() => addBreak("recess")} disabled={!classId}><Coffee size={15} /> Add Recess</button>
-            <button type="button" className="secondary-button" onClick={() => addBreak("break")} disabled={!classId}><Utensils size={15} /> Add Break</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="timetable-actions">
+              <button type="button" className="icon-button" onClick={addRow} disabled={!classId} title="Add a period row">
+                <Plus size={16} />
+              </button>
+              <button type="button" className="icon-button" onClick={() => addBreak("recess")} disabled={!classId} title="Add a recess row">
+                <Coffee size={16} />
+              </button>
+              <button type="button" className="icon-button" onClick={() => addBreak("break")} disabled={!classId} title="Add a break/lunch row">
+                <Utensils size={16} />
+              </button>
+            </div>
+            <h3 style={{ margin: 0 }}><CalendarDays size={18} /> Weekly Schedule</h3>
           </div>
         </div>
         {!classId ? (
