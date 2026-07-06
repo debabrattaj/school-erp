@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Lock, Mail, School } from "lucide-react";
 import API from "../api";
 import { saveAuth } from "../auth";
+import { useI18n } from "../i18n";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [formData, setFormData] = useState({
     account_code: "default",
@@ -93,15 +95,15 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          <h2>Sign in</h2>
+          <h2>{t("Sign in")}</h2>
           <p className="login-subtitle">
-            Login with your assigned school role.
+            {t("Login with your assigned school role.")}
           </p>
 
           {message && <div className="toast-notification">{message}</div>}
 
           <div className="login-field">
-            <label>School Account Code</label>
+            <label>{t("School Account Code")}</label>
             <div className="login-input">
               <School size={18} />
               <input
@@ -116,7 +118,7 @@ export default function Login() {
           </div>
 
           <div className="login-field">
-            <label>Email Address</label>
+            <label>{t("Email Address")}</label>
             <div className="login-input">
               <Mail size={18} />
               <input
@@ -130,7 +132,7 @@ export default function Login() {
           </div>
 
           <div className="login-field">
-            <label>Password</label>
+            <label>{t("Password")}</label>
             <div className="login-input">
               <Lock size={18} />
               <input
@@ -164,7 +166,7 @@ export default function Login() {
           )}
 
           <button className="login-button" type="submit" disabled={loading}>
-            {loading ? "Signing in..." : mfaRequired ? "Verify & Sign in" : "Login"}
+            {loading ? "…" : mfaRequired ? "Verify & Sign in" : t("Login")}
           </button>
 
           <button
@@ -172,7 +174,7 @@ export default function Login() {
             className="login-forgot-link"
             onClick={() => navigate("/forgot-password")}
           >
-            Forgot password?
+            {t("Forgot password?")}
           </button>
         </form>
 

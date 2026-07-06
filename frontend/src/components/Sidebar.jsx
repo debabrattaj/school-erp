@@ -28,10 +28,13 @@ import {
   Award,
   ClipboardList,
   Search,
+  Globe,
   LogOut
 } from "lucide-react";
 import { getUser, logout } from "../auth";
 import API from "../api";
+import { useI18n } from "../i18n";
+import { LANGUAGES } from "../i18n/translations";
 
 
 function studentSearchLabel(s) {
@@ -45,6 +48,7 @@ function studentSearchLabel(s) {
 
 export default function Sidebar({ onNavigate }) {
   const navigate = useNavigate();
+  const { t, lang, setLang } = useI18n();
   const [user, setUser] = useState(getUser());
   const [studentQuery, setStudentQuery] = useState("");
   const [studentCache, setStudentCache] = useState(null);
@@ -355,7 +359,7 @@ export default function Sidebar({ onNavigate }) {
             <Search size={16} />
             <input
               type="text"
-              placeholder="Find a student…"
+              placeholder={t("Find a student…")}
               value={studentQuery}
               onFocus={ensureStudentCache}
               onChange={(e) => { ensureStudentCache(); setStudentQuery(e.target.value); }}
@@ -394,7 +398,7 @@ export default function Sidebar({ onNavigate }) {
               }
             >
               <Icon size={18} />
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </NavLink>
           );
         })}
@@ -402,14 +406,23 @@ export default function Sidebar({ onNavigate }) {
 
       <div className="sidebar-footer">
         <div>
-          <p>Logged in as</p>
+          <p>{t("Logged in as")}</p>
           <strong>{user?.name || "User"}</strong>
           <span>{user?.role || "User"}</span>
         </div>
 
+        <div className="sidebar-lang">
+          <Globe size={14} />
+          <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label={t("Language")}>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+        </div>
+
         <button type="button" onClick={handleLogout}>
           <LogOut size={15} />
-          Logout
+          {t("Logout")}
         </button>
       </div>
     </aside>

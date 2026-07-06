@@ -4161,6 +4161,28 @@ textarea {
   font-size: 0.85rem;
 }
 
+.sidebar-lang {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sidebar-lang select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #ffffff;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+}
+
+.sidebar-lang select option {
+  color: #25324b;
+}
+
 .sidebar {
   color: #ffffff;
   display: flex;
