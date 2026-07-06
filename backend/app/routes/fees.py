@@ -1,12 +1,15 @@
+import io
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Fee, Student, SchoolSettings, User
 from app.schemas import FeeCreate, FeeUpdate, FeeResponse
 from app.security import require_roles
+from app.pdf import fee_receipt_pdf
 
 router = APIRouter(
     prefix="/fees",
@@ -312,6 +315,57 @@ def update_fee(
     db.refresh(fee)
 
     return fee
+
+
+@router.get("/{fee_id}/receipt")
+def fee_receipt(
+    fee_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
+):
+    """Download a PDF fee receipt."""
+    fee = db.query(Fee).filter(Fee.id == fee_id).first()
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+
+    student = db.query(Student).filter(Student.id == fee.student_id).first()
+    settings = get_settings(db)
+
+    student_name = "-"
+    class_label = fee.class_name_snapshot or ""
+    if student:
+        student_name = (
+            f"{student.first_name or ''} {student.last_name or ''}".strip()
+            or student.admission_no
+            or "-"
+        )
+        class_label = class_label or student.class_name or ""
+        if student.admission_no:
+            student_name = f"{student.admission_no} - {student_name}"
+
+    total = fee.total_amount or 0
+    paid = fee.paid_amount or 0
+    pdf_bytes = fee_receipt_pdf({
+        "school_name": settings.school_name,
+        "currency": settings.currency,
+        "receipt_no": fee.receipt_no,
+        "student_name": student_name,
+        "class_label": class_label or "-",
+        "fee_type": fee.fee_type,
+        "academic_year": fee.academic_year,
+        "total": total,
+        "paid": paid,
+        "balance": max(total - paid, 0),
+        "status": fee.payment_status,
+        "payment_date": str(fee.payment_date) if fee.payment_date else "-",
+    })
+
+    filename = f"receipt_{fee.receipt_no or fee.id}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 @router.delete("/{fee_id}")

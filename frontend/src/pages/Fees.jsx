@@ -11,6 +11,7 @@ import {
   X,
   Wallet,
   Settings2,
+  Download,
 } from "lucide-react";
 
 import API from "../api";
@@ -489,6 +490,27 @@ export default function Fees() {
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function downloadReceipt(fee) {
+    try {
+      const response = await API.get(`/fees/${fee.id}/receipt`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `receipt_${fee.receipt_no || fee.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to download receipt."));
+    }
   }
 
   async function handleDelete(feeId) {
@@ -1228,6 +1250,17 @@ export default function Fees() {
                           >
                             <Edit size={15} />
                           </button>
+
+                          {getPaidAmount(fee) > 0 && (
+                            <button
+                              type="button"
+                              className="edit-button"
+                              onClick={() => downloadReceipt(fee)}
+                              title="Download receipt (PDF)"
+                            >
+                              <Download size={15} />
+                            </button>
+                          )}
 
                           <button
                             type="button"
