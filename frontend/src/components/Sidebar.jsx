@@ -27,14 +27,27 @@ import {
   Archive,
   Award,
   ClipboardList,
+  Search,
   LogOut
 } from "lucide-react";
 import { getUser, logout } from "../auth";
+import API from "../api";
 
+
+function studentSearchLabel(s) {
+  const name =
+    s.student_name ||
+    s.name ||
+    `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
+    "Unknown";
+  return s.admission_no ? `${s.admission_no} — ${name}` : name;
+}
 
 export default function Sidebar({ onNavigate }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(getUser());
+  const [studentQuery, setStudentQuery] = useState("");
+  const [studentCache, setStudentCache] = useState(null);
 
   useEffect(() => {
     function refreshUser() {
@@ -309,8 +322,64 @@ export default function Sidebar({ onNavigate }) {
     navigate("/login");
   }
 
+  const canSearchStudents = ["Admin", "Principal"].includes(user?.role);
+  const studentMatches = (() => {
+    const q = studentQuery.trim().toLowerCase();
+    if (!q || !studentCache) return [];
+    return studentCache
+      .filter((s) => studentSearchLabel(s).toLowerCase().includes(q))
+      .slice(0, 8);
+  })();
+
+  async function ensureStudentCache() {
+    if (studentCache !== null) return;
+    try {
+      const res = await API.get("/students/");
+      setStudentCache(res.data || []);
+    } catch {
+      setStudentCache([]);
+    }
+  }
+
+  function openStudent(id) {
+    setStudentQuery("");
+    navigate(`/students/${id}`);
+    onNavigate?.();
+  }
+
   return (
     <aside className="sidebar">
+      {canSearchStudents && (
+        <div className="sidebar-search">
+          <div className="sidebar-search-box">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Find a student…"
+              value={studentQuery}
+              onFocus={ensureStudentCache}
+              onChange={(e) => { ensureStudentCache(); setStudentQuery(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && studentMatches[0]) openStudent(studentMatches[0].id); }}
+            />
+          </div>
+          {studentQuery.trim() && (
+            <div className="sidebar-search-results">
+              {studentMatches.length === 0 ? (
+                <div className="sidebar-search-empty">
+                  {studentCache === null ? "Searching…" : "No matches"}
+                </div>
+              ) : (
+                studentMatches.map((s) => (
+                  <button key={s.id} type="button" onClick={() => openStudent(s.id)}>
+                    {studentSearchLabel(s)}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <nav className="sidebar-menu">
         {allowedMenuItems.map((item) => {
           const Icon = item.icon;
