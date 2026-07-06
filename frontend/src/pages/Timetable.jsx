@@ -21,8 +21,10 @@ export default function Timetable() {
   const [academicYears, setAcademicYears] = useState([]);
   const [entries, setEntries] = useState([]);
 
-  const [classId, setClassId] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  // Remember the last-viewed class/year so the grid doesn't reset to empty on
+  // reload or when navigating back to this page.
+  const [classId, setClassId] = useState(() => localStorage.getItem("timetable_class_id") || "");
+  const [academicYear, setAcademicYear] = useState(() => localStorage.getItem("timetable_year") || "");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
@@ -40,11 +42,24 @@ export default function Timetable() {
       .then((r) => {
         const years = r.data || [];
         setAcademicYears(years);
-        const current = years.find((y) => y.is_current) || years[0];
-        if (current) setAcademicYear(current.name);
+        // Only default the year if the user hasn't already got one restored.
+        if (!localStorage.getItem("timetable_year")) {
+          const current = years.find((y) => y.is_current) || years[0];
+          if (current) setAcademicYear(current.name);
+        }
       })
       .catch(() => {});
   }, []);
+
+  function selectClass(id) {
+    setClassId(id);
+    localStorage.setItem("timetable_class_id", id);
+  }
+
+  function selectYear(year) {
+    setAcademicYear(year);
+    localStorage.setItem("timetable_year", year);
+  }
 
   async function loadEntries() {
     if (!classId) {
@@ -153,7 +168,7 @@ export default function Timetable() {
         <div className="form-grid" style={{ padding: "1rem" }}>
           <div className="form-field">
             <label>Class</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <select value={classId} onChange={(e) => selectClass(e.target.value)}>
               <option value="">Select a class</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -164,7 +179,7 @@ export default function Timetable() {
           </div>
           <div className="form-field">
             <label>Academic Year</label>
-            <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+            <select value={academicYear} onChange={(e) => selectYear(e.target.value)}>
               <option value="">All</option>
               {academicYears.map((y) => (
                 <option key={y.id} value={y.name}>{y.name}</option>
