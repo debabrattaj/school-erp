@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { todayLocalDate } from "../utils/date";
 import {
   CheckCircle,
   ClipboardList,
@@ -29,7 +30,7 @@ const emptyAdmissionForm = {
 };
 
 const emptyFollowUpForm = {
-  activity_date: new Date().toISOString().split("T")[0],
+  activity_date: todayLocalDate(),
   activity_type: "Call",
   notes: "",
   next_action: "",
@@ -44,7 +45,7 @@ const emptyConvertForm = {
   last_name: "",
   class_name: "",
   section: "",
-  admission_date: new Date().toISOString().split("T")[0],
+  admission_date: todayLocalDate(),
   student_status: "Active",
   guardian_name: "",
   guardian_phone: "",

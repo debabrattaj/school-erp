@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { todayLocalDate } from "../utils/date";
 import {
   Activity,
   Edit,
@@ -15,7 +16,7 @@ import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptyVisitForm = {
   student_id: "",
-  visit_date: new Date().toISOString().slice(0, 10),
+  visit_date: todayLocalDate(),
   visit_time: "",
   symptoms: "",
   diagnosis: "",

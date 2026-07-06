@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { todayLocalDate } from "../utils/date";
 import {
   Edit,
   Trash2,
@@ -86,7 +87,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 }
 
 function getTodayDateString() {
-  return new Date().toISOString().split("T")[0];
+  return todayLocalDate();
 }
 
 function normalizeDateInput(value) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { todayLocalDate } from "../utils/date";
 import { BookOpen, Edit, PlusCircle, RefreshCcw, Trash2, Undo2 } from "lucide-react";
 
 import API from "../api";
@@ -6,7 +7,7 @@ import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayLocalDate();
 
 const emptyBookForm = {
   accession_no: "",

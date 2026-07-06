@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { todayLocalDate } from "../utils/date";
 import {
   CalendarDays,
   ClipboardCheck,
@@ -14,7 +15,7 @@ import API from "../api";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayLocalDate();
 
 const emptyMenuForm = {
   menu_date: today,
