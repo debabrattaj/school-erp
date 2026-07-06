@@ -145,6 +145,37 @@ class Teacher(Base):
     )
 
 
+class TimetableEntry(Base):
+    __tablename__ = "timetable_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_id = Column(
+        Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    class_name_snapshot = Column(String, nullable=True)
+    section_snapshot = Column(String, nullable=True)
+    day_of_week = Column(String, nullable=False, index=True)  # Monday..Sunday
+    period_no = Column(Integer, nullable=False)
+    start_time = Column(String, nullable=True)  # e.g. "09:00"
+    end_time = Column(String, nullable=True)
+    subject = Column(String, nullable=True)
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+    room = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "academic_year", "class_id", "day_of_week", "period_no",
+            name="uq_timetable_slot",
+        ),
+    )
+
+
 class SchoolClass(Base):
     __tablename__ = "classes"
 

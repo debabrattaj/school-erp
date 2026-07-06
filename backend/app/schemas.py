@@ -1624,3 +1624,41 @@ class PortalLinkResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TimetableEntryBase(BaseModel):
+    academic_year: Optional[str] = None
+    class_id: Optional[int] = None
+    class_name_snapshot: Optional[str] = None
+    section_snapshot: Optional[str] = None
+    day_of_week: str
+    period_no: int
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    subject: Optional[str] = None
+    teacher_id: Optional[int] = None
+    teacher_name_snapshot: Optional[str] = None
+    room: Optional[str] = None
+
+
+class TimetableEntryCreate(TimetableEntryBase):
+    pass
+
+
+class TimetableEntryUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    class_id: Optional[int] = None
+    day_of_week: Optional[str] = None
+    period_no: Optional[int] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    subject: Optional[str] = None
+    teacher_id: Optional[int] = None
+    room: Optional[str] = None
+
+
+class TimetableEntryResponse(TimetableEntryBase):
+    id: int
+
+    class Config:
+        from_attributes = True

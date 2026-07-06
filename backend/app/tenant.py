@@ -54,6 +54,7 @@ DEFAULT_FEATURES = {
     "multi_curriculum": True,
     "academic_years": True,
     "parent_portal": True,
+    "timetable": True,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

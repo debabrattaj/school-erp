@@ -118,6 +118,13 @@ export default function Sidebar({ onNavigate }) {
       feature: "exams",
     },
     {
+      label: "Timetable",
+      icon: CalendarCheck,
+      path: "/timetable",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "timetable",
+    },
+    {
     label: "Marks",
     path: "/marks",
     icon: FileText,

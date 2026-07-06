@@ -1132,6 +1132,9 @@ app.include_router(exam_components.router)
 from app.routes import uploads
 app.include_router(uploads.router)
 
+from app.routes import timetable
+app.include_router(timetable.router)
+
 # Serve uploaded files (student photos, documents) as static assets.
 from fastapi.staticfiles import StaticFiles
 _upload_dir = os.getenv("UPLOAD_DIR", "./uploads")

@@ -80,6 +80,7 @@ FEATURE_LABELS = {
     "academic_years": "Academic Years",
     "parent_portal": "Parent/Student Portal",
     "ai_chatbot": "AI Assistant",
+    "timetable": "Timetable",
 }
 
 
