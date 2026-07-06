@@ -11,6 +11,7 @@ import {
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import FileUploadField from "../components/FileUploadField";
 
 const emptyDocumentForm = {
   student_id: "",
@@ -367,13 +368,10 @@ export default function InternationalDocuments() {
           </div>
 
           <div className="form-field">
-            <label>File URL</label>
-            <input
-              type="url"
-              name="file_url"
+            <label>Document File</label>
+            <FileUploadField
               value={formData.file_url}
-              onChange={handleChange}
-              placeholder="https://..."
+              onChange={(url) => setFormData((current) => ({ ...current, file_url: url }))}
             />
           </div>
 

@@ -12,9 +12,11 @@ import API from "../api";
 import { getUser, saveAuth } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
 import MfaCard from "../components/MfaCard";
+import PhotoUploadField from "../components/PhotoUploadField";
 
 const emptyForm = {
   school_name: "",
+  logo_url: "",
   address: "",
   phone: "",
   email: "",
@@ -146,6 +148,7 @@ export default function Settings() {
       ]);
       setFormData({
         school_name: settingsResponse.data.school_name || "",
+        logo_url: settingsResponse.data.logo_url || "",
         address: settingsResponse.data.address || "",
         phone: settingsResponse.data.phone || "",
         email: settingsResponse.data.email || "",
@@ -262,6 +265,14 @@ export default function Settings() {
             </div>
 
             <div className="form-grid">
+              <div className="form-field">
+                <label>School Logo</label>
+                <PhotoUploadField
+                  value={formData.logo_url}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, logo_url: url }))}
+                />
+              </div>
+
               <div className="form-field">
                 <label>School Name *</label>
                 <input
