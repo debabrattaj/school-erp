@@ -260,6 +260,32 @@ export default function ReportCard() {
     window.print();
   }
 
+  async function handleDownloadPdf() {
+    if (!selectedStudentId || !selectedExamId) {
+      setMessage("Select a student and exam first.");
+      return;
+    }
+    try {
+      const response = await API.get("/marks/report-card", {
+        params: { student_id: selectedStudentId, exam_id: selectedExamId },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `report_card_${selectedStudent?.admission_no || selectedStudentId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      setMessage(typeof detail === "string" ? detail : "Unable to download report card.");
+    }
+  }
+
   return (
     <div className="management-page report-card-page">
       <section className="page-heading no-print">
@@ -273,6 +299,10 @@ export default function ReportCard() {
           <button type="button" className="secondary-button" onClick={loadInitialData}>
             <RefreshCcw size={17} />
             Refresh
+          </button>
+          <button type="button" className="secondary-button" onClick={handleDownloadPdf}>
+            <Download size={18} />
+            Download PDF
           </button>
           <button type="button" className="primary-button" onClick={handlePrint}>
             <Printer size={18} />

@@ -1,7 +1,11 @@
+import io
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.pdf import report_card_pdf
 from app.models import (
     ClassExamMapping,
     ClassSubject,
@@ -383,6 +387,81 @@ def create_mark(
     db.refresh(new_mark)
 
     return attach_component_scores(db, new_mark)
+
+
+@router.get("/report-card")
+def report_card(
+    student_id: int,
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
+):
+    """Download a PDF report card for a student's exam."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+
+    marks = (
+        db.query(Mark)
+        .filter(Mark.student_id == student_id, Mark.exam_id == exam_id)
+        .order_by(Mark.subject_name)
+        .all()
+    )
+    if not marks:
+        raise HTTPException(status_code=404, detail="No marks found for this student and exam.")
+
+    rows = []
+    total_obtained = 0.0
+    total_max = 0.0
+    for mark in marks:
+        obtained = float(mark.marks_obtained or 0)
+        maximum = float(mark.max_marks or mark.total_marks or 0)
+        total_obtained += obtained
+        total_max += maximum
+        rows.append({
+            "subject": mark.subject_name or mark.subject or "-",
+            "obtained": obtained,
+            "max": maximum,
+            "grade": mark.grade or "-",
+        })
+
+    percentage = (total_obtained / total_max * 100) if total_max else 0.0
+    settings = get_school_settings(db)
+    overall_grade = (
+        calculate_grade(total_obtained, total_max, db) if total_max else "-"
+    )
+
+    student_name = (
+        f"{student.first_name or ''} {student.last_name or ''}".strip()
+        or student.admission_no
+        or "-"
+    )
+    class_label = marks[0].class_name_snapshot or student.class_name or "-"
+    section = marks[0].section_snapshot or student.section
+    if section:
+        class_label = f"{class_label} - {section}"
+
+    pdf_bytes = report_card_pdf({
+        "school_name": settings.school_name,
+        "student_name": student_name,
+        "admission_no": student.admission_no,
+        "class_label": class_label,
+        "exam_name": (exam.exam_name if exam else marks[0].exam_name_snapshot) or "-",
+        "academic_year": marks[0].academic_year or "-",
+        "rows": rows,
+        "total_obtained": total_obtained,
+        "total_max": total_max,
+        "percentage": percentage,
+        "overall_grade": overall_grade,
+    })
+
+    filename = f"report_card_{student.admission_no or student.id}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 @router.get("/", response_model=list[MarkResponse])
