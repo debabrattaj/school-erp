@@ -39,6 +39,13 @@ export const translations = {
     "Logout": "Déconnexion",
     "Language": "Langue",
     "Find a student…": "Rechercher un élève…",
+    // Page headings
+    "Student Management": "Gestion des élèves",
+    "Teacher Management": "Gestion des enseignants",
+    "Attendance Management": "Gestion des présences",
+    "Exam Management": "Gestion des examens",
+    "Fees Management": "Gestion des frais",
+    "Reports Center": "Centre de rapports",
   },
 
   ar: {
@@ -64,5 +71,11 @@ export const translations = {
     "Logout": "تسجيل الخروج",
     "Language": "اللغة",
     "Find a student…": "ابحث عن طالب…",
+    "Student Management": "إدارة الطلاب",
+    "Teacher Management": "إدارة المعلمين",
+    "Attendance Management": "إدارة الحضور",
+    "Exam Management": "إدارة الامتحانات",
+    "Fees Management": "إدارة الرسوم",
+    "Reports Center": "مركز التقارير",
   },
 };

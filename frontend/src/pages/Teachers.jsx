@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { useT } from "../i18n";
 import { getMasterValues } from "../services/masterDataService";
 import {
   getModuleLayout,
@@ -258,6 +259,7 @@ function getTeacherName(teacher) {
 }
 
 export default function Teachers() {
+  const t = useT();
   const navigate = useNavigate();
 
   const [teachers, setTeachers] = useState([]);
@@ -945,8 +947,8 @@ export default function Teachers() {
     <div className="management-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Teacher Management</p>
-          <h2>Teacher Management</h2>
+          <p className="eyebrow">{t("Teacher Management")}</p>
+          <h2>{t("Teacher Management")}</h2>
           <p>Manage teachers, class teacher assignment and custom fields.</p>
         </div>
 

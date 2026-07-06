@@ -24,6 +24,7 @@ import {
 import API from "../api";
 import PhotoUploadField from "../components/PhotoUploadField";
 import { resolveFileUrl } from "../utils/files";
+import { useT } from "../i18n";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
 
@@ -371,6 +372,7 @@ const studentFilterFields = [
 ];
 
 export default function Students() {
+  const t = useT();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editStudentId = searchParams.get("edit");
@@ -1363,8 +1365,8 @@ export default function Students() {
     <div className="management-page students-list-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Student Management</p>
-          <h2>Students</h2>
+          <p className="eyebrow">{t("Student Management")}</p>
+          <h2>{t("Students")}</h2>
           <p>All student records in one place.</p>
         </div>
 

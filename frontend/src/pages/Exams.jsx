@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { useT } from "../i18n";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import ClassExamMappings from "./ClassExamMappings";
 import { getMasterValues } from "../services/masterDataService";
@@ -89,6 +90,7 @@ const fallbackExamTypes = [
 ];
 
 export default function Exams() {
+  const t = useT();
   const navigate = useNavigate();
 
   const defaultLayout = fallbackExamLayout;
@@ -748,8 +750,8 @@ export default function Exams() {
     <div className="management-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Exam Management</p>
-          <h2>Exam Management</h2>
+          <p className="eyebrow">{t("Exam Management")}</p>
+          <h2>{t("Exam Management")}</h2>
           <p>
             Manage reusable exam names here. Map dates and academic years from Class Details.
           </p>

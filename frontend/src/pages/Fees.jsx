@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { todayLocalDate } from "../utils/date";
 import { useMoney } from "../utils/money";
+import { useT } from "../i18n";
 import {
   Edit,
   Trash2,
@@ -137,6 +138,7 @@ function getStatusClass(status) {
 export default function Fees() {
   const navigate = useNavigate();
   const money = useMoney();
+  const t = useT();
 
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
@@ -737,7 +739,7 @@ export default function Fees() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Fees Management</p>
-          <h2>Fees Management</h2>
+          <h2>{t("Fees Management")}</h2>
           <p>Manage total amount, paid amount, balance and payment status.</p>
         </div>
 

@@ -10,6 +10,7 @@ import {
 import API from "../api";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { useSchoolSettings } from "../SettingsContext";
+import { useT } from "../i18n";
 import { formatMoney } from "../utils/money";
 import { getModuleLayout } from "../services/moduleLayoutService";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
@@ -395,6 +396,7 @@ function mergeColumns(baseColumns, layoutFields, customColumns) {
 
 export default function Reports() {
   const { settings } = useSchoolSettings() || {};
+  const t = useT();
   setReportCurrency(settings?.currency);
 
   const [selectedModule, setSelectedModule] = useState("Students");
@@ -750,7 +752,7 @@ export default function Reports() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2>Reports Center</h2>
+          <h2>{t("Reports Center")}</h2>
           <p>
             View module-wise reports with layout fields, lookup values and
             custom fields.

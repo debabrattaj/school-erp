@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { useT } from "../i18n";
 import StudentPicker from "../components/StudentPicker";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
@@ -42,6 +43,7 @@ const fallbackStatusOptions = [
 ];
 
 export default function Attendance() {
+  const t = useT();
   const navigate = useNavigate();
 
   const defaultLayout = MODULE_CONFIGS.Attendance.defaultLayout;
@@ -604,8 +606,8 @@ export default function Attendance() {
     <div className="management-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Attendance Management</p>
-          <h2>Attendance Management</h2>
+          <p className="eyebrow">{t("Attendance Management")}</p>
+          <h2>{t("Attendance Management")}</h2>
           <p>
             Manage attendance records using the Attendance module layout saved
             in backend.
