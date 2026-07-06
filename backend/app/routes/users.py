@@ -9,7 +9,7 @@ from app.schemas import (
     UserResponse,
     PasswordResetRequest
 )
-from app.security import hash_password, require_roles
+from app.security import hash_password, require_roles, validate_password
 
 router = APIRouter(
     prefix="/users",
@@ -35,6 +35,7 @@ def create_user(
     current_user: User = Depends(require_roles(["Admin"]))
 ):
     validate_role(user_data.role)
+    validate_password(user_data.password)
 
     existing_user = db.query(User).filter(
         User.email == user_data.email
@@ -142,11 +143,7 @@ def reset_password(
             detail="User not found"
         )
 
-    if len(password_data.new_password) < 6:
-        raise HTTPException(
-            status_code=400,
-            detail="Password must be at least 6 characters"
-        )
+    validate_password(password_data.new_password)
 
     user.password_hash = hash_password(password_data.new_password)
 

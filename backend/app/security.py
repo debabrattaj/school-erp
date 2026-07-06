@@ -35,6 +35,18 @@ password_hasher = PasswordHasher(
 
 security = HTTPBearer()
 
+# Minimum length for any password set anywhere in the system.
+MIN_PASSWORD_LENGTH = int(os.getenv("MIN_PASSWORD_LENGTH", "8"))
+
+
+def validate_password(password: str) -> None:
+    """Enforce the password policy. Raises HTTP 400 if too weak."""
+    if len(password or "") < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
+        )
+
 
 def hash_password(password: str) -> str:
     return password_hasher.hash(password)

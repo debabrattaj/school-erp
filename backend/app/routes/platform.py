@@ -14,6 +14,7 @@ from app.security import (
     ALGORITHM,
     hash_password,
     verify_password,
+    validate_password,
 )
 from app.tenant import (
     CentralSessionLocal,
@@ -408,6 +409,8 @@ def create_school(
             detail="Account code must be alphanumeric (dashes/underscores allowed)",
         )
 
+    validate_password(payload.admin_password)
+
     db = CentralSessionLocal()
     try:
         safe_code = "".join(
@@ -573,6 +576,8 @@ def reset_school_admin(
     owner: PlatformAdmin = Depends(require_platform_owner),
 ):
     """Owner support tool: reset (or create) an Admin login inside a school."""
+    validate_password(payload.new_password)
+
     db = CentralSessionLocal()
     try:
         account = get_account_or_404(db, account_id)

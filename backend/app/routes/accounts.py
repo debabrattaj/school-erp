@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import Base
 from app.models import User
-from app.security import get_current_user, hash_password
+from app.security import get_current_user, hash_password, validate_password
 from app.routes.platform import require_platform_owner
 from app.tenant import (
     CentralSessionLocal,
@@ -72,6 +72,8 @@ def create_account(
     payload: SchoolAccountCreate,
     owner=Depends(require_platform_owner),
 ):
+    validate_password(payload.admin_password)
+
     db = CentralSessionLocal()
     try:
         database_url = payload.database_url

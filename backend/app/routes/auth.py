@@ -20,6 +20,7 @@ from app.security import (
     create_access_token,
     get_current_user,
     hash_password,
+    validate_password,
 )
 from app.tenant import (
     get_account,
@@ -43,8 +44,6 @@ router = APIRouter(
 
 # Reset links are valid for this long.
 RESET_TOKEN_TTL_MINUTES = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "30"))
-# Minimum acceptable length for a new password chosen via reset.
-MIN_PASSWORD_LENGTH = int(os.getenv("MIN_PASSWORD_LENGTH", "8"))
 # Base URL of the frontend, used to build the reset link in the (logged) email.
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
 # When true, the reset token is returned in the API response. DEV ONLY — there
@@ -224,11 +223,7 @@ def forgot_password(payload: ForgotPasswordRequest, request: Request):
 @router.post("/reset-password")
 def reset_password_with_token(payload: ResetPasswordConfirm):
     """Complete a password reset using the token from the reset link."""
-    if len(payload.new_password) < MIN_PASSWORD_LENGTH:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
-        )
+    validate_password(payload.new_password)
 
     central = CentralSessionLocal()
     try:
