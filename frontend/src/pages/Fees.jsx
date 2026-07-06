@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { todayLocalDate } from "../utils/date";
+import { useMoney } from "../utils/money";
 import {
   Edit,
   Trash2,
@@ -133,6 +134,7 @@ function getStatusClass(status) {
 
 export default function Fees() {
   const navigate = useNavigate();
+  const money = useMoney();
 
   const [fees, setFees] = useState([]);
   const [students, setStudents] = useState([]);
@@ -697,7 +699,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Total Amount</span>
-            <strong>Rs {totalAmount.toLocaleString("en-IN")}</strong>
+            <strong>{money(totalAmount)}</strong>
           </div>
         </div>
 
@@ -705,7 +707,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Paid Amount</span>
-            <strong>Rs {paidAmount.toLocaleString("en-IN")}</strong>
+            <strong>{money(paidAmount)}</strong>
           </div>
         </div>
 
@@ -713,7 +715,7 @@ export default function Fees() {
           <Wallet size={22} />
           <div>
             <span>Balance Amount</span>
-            <strong>Rs {balanceAmount.toLocaleString("en-IN")}</strong>
+            <strong>{money(balanceAmount)}</strong>
           </div>
         </div>
       </section>
@@ -846,11 +848,13 @@ export default function Fees() {
               <label>Balance Amount</label>
               <input
                 type="text"
-                value={`Rs ${Math.max(
-                  Number(formData.total_amount || 0) -
-                    Number(formData.paid_amount || 0),
-                  0
-                ).toLocaleString("en-IN")}`}
+                value={money(
+                  Math.max(
+                    Number(formData.total_amount || 0) -
+                      Number(formData.paid_amount || 0),
+                    0
+                  )
+                )}
                 disabled
               />
             </div>
@@ -1057,7 +1061,7 @@ export default function Fees() {
                       <td>{structure.class_name || "All Classes"}</td>
                       <td>{structure.residential_type || "Both"}</td>
                       <td>{structure.fee_type}</td>
-                      <td>Rs {Number(structure.amount).toLocaleString("en-IN")}</td>
+                      <td>{money(Number(structure.amount))}</td>
                       <td>{normalizeDateInput(structure.due_date) || "-"}</td>
                       <td>{structure.remarks || "-"}</td>
                       <td>
@@ -1190,9 +1194,9 @@ export default function Fees() {
                       <td>{getClassLabel(fee)}</td>
                       <td>{fee.academic_year || "-"}</td>
                       <td>{fee.fee_type || "-"}</td>
-                      <td>Rs {getFeeAmount(fee).toLocaleString("en-IN")}</td>
-                      <td>Rs {getPaidAmount(fee).toLocaleString("en-IN")}</td>
-                      <td>Rs {getBalanceAmount(fee).toLocaleString("en-IN")}</td>
+                      <td>{money(getFeeAmount(fee))}</td>
+                      <td>{money(getPaidAmount(fee))}</td>
+                      <td>{money(getBalanceAmount(fee))}</td>
                       <td>{normalizeDateInput(fee.due_date) || "-"}</td>
                       <td>{normalizeDateInput(fee.payment_date) || "-"}</td>
                       <td>
@@ -1267,9 +1271,9 @@ export default function Fees() {
               <p>Class: {getClassLabel(selectedFee)}</p>
               <p>Academic Year: {selectedFee.academic_year || "-"}</p>
               <p>Fee Type: {selectedFee.fee_type || "-"}</p>
-              <p>Total Amount: Rs {getFeeAmount(selectedFee).toLocaleString("en-IN")}</p>
-              <p>Paid Amount: Rs {getPaidAmount(selectedFee).toLocaleString("en-IN")}</p>
-              <p>Balance: Rs {getBalanceAmount(selectedFee).toLocaleString("en-IN")}</p>
+              <p>Total Amount: {money(getFeeAmount(selectedFee))}</p>
+              <p>Paid Amount: {money(getPaidAmount(selectedFee))}</p>
+              <p>Balance: {money(getBalanceAmount(selectedFee))}</p>
               <p>Due Date: {normalizeDateInput(selectedFee.due_date) || "-"}</p>
               <p>Payment Date: {normalizeDateInput(selectedFee.payment_date) || "-"}</p>
               <p>Receipt No: {selectedFee.receipt_no || "-"}</p>

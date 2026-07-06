@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import API from "../api";
 import { useSchoolSettings } from "../SettingsContext";
+import { formatMoney as formatMoneyUtil } from "../utils/money";
 
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
@@ -23,11 +24,8 @@ export default function Dashboard() {
   const [marks, setMarks] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const currencySymbol =
-    settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "₹";
-
   function formatMoney(value) {
-    return `${currencySymbol}${Number(value || 0).toLocaleString("en-IN")}`;
+    return formatMoneyUtil(value, settings?.currency);
   }
 
   async function loadDashboard() {

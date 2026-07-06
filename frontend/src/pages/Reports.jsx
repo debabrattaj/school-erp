@@ -9,6 +9,8 @@ import {
 
 import API from "../api";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import { useSchoolSettings } from "../SettingsContext";
+import { formatMoney } from "../utils/money";
 import { getModuleLayout } from "../services/moduleLayoutService";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
 
@@ -181,8 +183,15 @@ function normalizeDate(value) {
   return String(value).split("T")[0];
 }
 
+// Set from the component once settings load, so the module-level table config
+// formats amounts in the school's currency.
+let reportCurrency = "INR";
+export function setReportCurrency(code) {
+  reportCurrency = code || "INR";
+}
+
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return formatMoney(value, reportCurrency);
 }
 
 function formatValue(key, value) {
@@ -385,6 +394,9 @@ function mergeColumns(baseColumns, layoutFields, customColumns) {
 }
 
 export default function Reports() {
+  const { settings } = useSchoolSettings() || {};
+  setReportCurrency(settings?.currency);
+
   const [selectedModule, setSelectedModule] = useState("Students");
   const [records, setRecords] = useState([]);
   const [columns, setColumns] = useState(MODULES.Students.columns);

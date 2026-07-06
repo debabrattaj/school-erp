@@ -11,11 +11,8 @@ import {
 
 import API from "../api";
 import { resolveFileUrl } from "../utils/files";
+import { useMoney } from "../utils/money";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
-
-function getMoney(value) {
-  return Number(value || 0).toLocaleString("en-IN");
-}
 
 function getFeeAmount(fee) {
   return Number(fee.total_amount ?? fee.amount ?? 0);
@@ -48,6 +45,7 @@ function getInitials(name) {
 
 export default function StudentDetails() {
   const { studentId } = useParams();
+  const money = useMoney();
   const navigate = useNavigate();
 
   const [student, setStudent] = useState(null);
@@ -464,9 +462,9 @@ export default function StudentDetails() {
       {activeTab === "fees" && (
         <>
           <section className="student360-metrics">
-            <SummaryCard icon={Wallet} label="Total Fees" value={`Rs ${getMoney(feeSummary.total)}`} />
-            <SummaryCard icon={Wallet} label="Paid" value={`Rs ${getMoney(feeSummary.paid)}`} />
-            <SummaryCard icon={Wallet} label="Pending" value={`Rs ${getMoney(feeSummary.pending)}`} warning />
+            <SummaryCard icon={Wallet} label="Total Fees" value={money(feeSummary.total)} />
+            <SummaryCard icon={Wallet} label="Paid" value={money(feeSummary.paid)} />
+            <SummaryCard icon={Wallet} label="Pending" value={money(feeSummary.pending)} warning />
           </section>
           <RecordsTable title="Fees History" count={feeRecords.length} headers={["Academic Year", "Class", "Fee Type", "Total", "Paid", "Balance", "Payment Date", "Status"]}>
             {feeRecords.map((item) => (
@@ -478,9 +476,9 @@ export default function StudentDetails() {
                     .join(" - ") || "-"}
                 </td>
                 <td>{item.fee_type || "-"}</td>
-                <td>Rs {getMoney(getFeeAmount(item))}</td>
-                <td>Rs {getMoney(getPaidAmount(item))}</td>
-                <td>Rs {getMoney(item.due_amount ?? Math.max(getFeeAmount(item) - getPaidAmount(item), 0))}</td>
+                <td>{money(getFeeAmount(item))}</td>
+                <td>{money(getPaidAmount(item))}</td>
+                <td>{money(item.due_amount ?? Math.max(getFeeAmount(item) - getPaidAmount(item), 0))}</td>
                 <td>{item.payment_date || "-"}</td>
                 <td><span className={getStatusClass(item.payment_status)}>{item.payment_status || "Unpaid"}</span></td>
               </tr>
@@ -579,7 +577,7 @@ export default function StudentDetails() {
               <td>{item.due_date || "-"}</td>
               <td>{item.return_date || "-"}</td>
               <td><span className={getStatusClass(item.status)}>{item.status}</span></td>
-              <td>Rs {getMoney(item.fine_amount)}</td>
+              <td>{money(item.fine_amount)}</td>
             </tr>
           ))}
         </RecordsTable>
