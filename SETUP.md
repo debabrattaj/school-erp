@@ -90,7 +90,21 @@ Notes:
 - Backups use `pg_dump` for Postgres (`.sql` files) and the SQLite online backup
   API for SQLite (`.db` files) — see the Owner Console → Backups tab.
 
-## 6. Known rough edges (see full analysis)
+## 6. Running the tests
+
+The backend has a pytest suite covering the security-critical and core logic
+(TOTP/MFA, login rate limiting, password policy, payment-signature
+verification, WhatsApp number normalization, email log-mode, audit helpers,
+PDF receipts, and SQLite backups):
+
+```bash
+cd backend
+./run_tests.sh            # or: PYTHONPATH=.pylibs python -m pytest
+```
+
+In CI/production just `pip install pytest` and run `python -m pytest`.
+
+## 7. Known rough edges (see full analysis)
 
 - `.db` files are committed to git — consider gitignoring them and adding a
   seed/reset script instead, especially before this goes anywhere near production.
