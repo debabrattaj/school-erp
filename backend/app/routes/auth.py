@@ -14,7 +14,9 @@ from app.schemas import (
     UserResponse,
     ForgotPasswordRequest,
     ResetPasswordConfirm,
+    MfaCodeRequest,
 )
+from app.totp import generate_secret, verify_totp, provisioning_uri
 from app.security import (
     verify_password,
     create_access_token,
@@ -91,6 +93,16 @@ def login(login_data: LoginRequest, request: Request):
                 detail="Invalid email or password"
             )
 
+        # Second factor: if the user has MFA enabled, a valid TOTP code is
+        # required. A distinct 401 detail ("MFA_REQUIRED") tells the frontend to
+        # prompt for the code without treating it as a wrong password.
+        if user.mfa_enabled:
+            if not login_data.mfa_code:
+                raise HTTPException(status_code=401, detail="MFA_REQUIRED")
+            if not verify_totp(user.mfa_secret, login_data.mfa_code):
+                record_login_failure(keys)
+                raise HTTPException(status_code=401, detail="Invalid authentication code.")
+
         clear_login_failures(keys)
 
         access_token = create_access_token(
@@ -114,6 +126,7 @@ def login(login_data: LoginRequest, request: Request):
             "name": user.name,
             "email": user.email,
             "role": user.role,
+            "mfa_enabled": user.mfa_enabled,
             "account": {
                 "id": account["id"],
                 "school_name": account["school_name"],
@@ -131,6 +144,69 @@ def login(login_data: LoginRequest, request: Request):
 @router.get("/me", response_model=UserResponse)
 def get_logged_in_user(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/mfa/status")
+def mfa_status(current_user: User = Depends(get_current_user)):
+    return {"mfa_enabled": bool(current_user.mfa_enabled)}
+
+
+@router.post("/mfa/setup")
+def mfa_setup(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Begin MFA enrollment: generate a secret and return it plus the otpauth
+    URI. MFA is not active until the code is verified.
+    """
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is already enabled.")
+
+    secret = generate_secret()
+    current_user.mfa_secret = secret
+    db.commit()
+
+    return {
+        "secret": secret,
+        "otpauth_uri": provisioning_uri(secret, current_user.email),
+    }
+
+
+@router.post("/mfa/verify")
+def mfa_verify(
+    payload: MfaCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Confirm enrollment by verifying the first code, which activates MFA."""
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is already enabled.")
+    if not current_user.mfa_secret:
+        raise HTTPException(status_code=400, detail="Start MFA setup first.")
+    if not verify_totp(current_user.mfa_secret, payload.code):
+        raise HTTPException(status_code=400, detail="Invalid authentication code.")
+
+    current_user.mfa_enabled = True
+    db.commit()
+    return {"message": "Multi-factor authentication is now enabled."}
+
+
+@router.post("/mfa/disable")
+def mfa_disable(
+    payload: MfaCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Disable MFA. Requires a current code to prove possession of the device."""
+    if not current_user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="MFA is not enabled.")
+    if not verify_totp(current_user.mfa_secret, payload.code):
+        raise HTTPException(status_code=400, detail="Invalid authentication code.")
+
+    current_user.mfa_enabled = False
+    current_user.mfa_secret = None
+    db.commit()
+    return {"message": "Multi-factor authentication has been disabled."}
 
 
 @router.post("/forgot-password")

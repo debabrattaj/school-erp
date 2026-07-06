@@ -11,6 +11,11 @@ class LoginRequest(BaseModel):
     email: str
     password: str
     account_code: Optional[str] = "default"
+    mfa_code: Optional[str] = None
+
+
+class MfaCodeRequest(BaseModel):
+    code: str
 
 
 class TokenResponse(BaseModel):

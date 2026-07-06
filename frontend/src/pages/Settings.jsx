@@ -11,6 +11,7 @@ import {
 import API from "../api";
 import { getUser, saveAuth } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
+import MfaCard from "../components/MfaCard";
 
 const emptyForm = {
   school_name: "",
@@ -243,6 +244,8 @@ export default function Settings() {
       </section>
 
       {message && <div className="toast-notification">{message}</div>}
+
+      <MfaCard />
 
       {loading ? (
         <div className="loading-box">Loading settings...</div>

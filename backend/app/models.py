@@ -11,6 +11,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)  # Admin, Principal, Accounts, Teacher
+    mfa_enabled = Column(Boolean, nullable=False, default=False)
+    mfa_secret = Column(String, nullable=True)  # base32 TOTP secret (set during setup)
 
 
 class SchoolSettings(Base):

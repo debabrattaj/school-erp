@@ -15,6 +15,8 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
     if (!message) return undefined;
@@ -42,7 +44,10 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const response = await API.post("/auth/login", formData);
+      const payload = { ...formData };
+      if (mfaRequired && mfaCode) payload.mfa_code = mfaCode;
+
+      const response = await API.post("/auth/login", payload);
 
       saveAuth(response.data.access_token, response.data.user);
 
@@ -51,8 +56,12 @@ export default function Login() {
     } catch (error) {
       console.error(error);
 
-      if (error.response?.data?.detail) {
-        setMessage(error.response.data.detail);
+      const detail = error.response?.data?.detail;
+      if (detail === "MFA_REQUIRED") {
+        setMfaRequired(true);
+        setMessage("Enter the 6-digit code from your authenticator app.");
+      } else if (detail) {
+        setMessage(detail);
       } else {
         setMessage("Unable to login.");
       }
@@ -134,8 +143,28 @@ export default function Login() {
             </div>
           </div>
 
+          {mfaRequired && (
+            <div className="login-field">
+              <label>Authentication Code</label>
+              <div className="login-input">
+                <Lock size={18} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="6-digit code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                  autoFocus
+                  required
+                />
+              </div>
+            </div>
+          )}
+
           <button className="login-button" type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Login"}
+            {loading ? "Signing in..." : mfaRequired ? "Verify & Sign in" : "Login"}
           </button>
 
           <button
