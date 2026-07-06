@@ -10,6 +10,8 @@ from app.models import Fee, Student, SchoolSettings, User
 from app.schemas import FeeCreate, FeeUpdate, FeeResponse
 from app.security import require_roles
 from app.pdf import fee_receipt_pdf
+from app import payments
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/fees",
@@ -314,6 +316,88 @@ def update_fee(
     db.commit()
     db.refresh(fee)
 
+    return fee
+
+
+class PaymentVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@router.get("/payment/config")
+def payment_config(
+    current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
+):
+    """Whether online payment is available, and the public key for checkout."""
+    return {"enabled": payments.is_configured(), "key_id": payments.key_id()}
+
+
+@router.post("/{fee_id}/payment/order")
+def create_payment_order(
+    fee_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
+):
+    """Create a gateway order for a fee's outstanding balance."""
+    if not payments.is_configured():
+        raise HTTPException(status_code=400, detail="Online payment is not configured.")
+
+    fee = db.query(Fee).filter(Fee.id == fee_id).first()
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+
+    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
+
+    settings = get_settings(db)
+    amount_minor = int(round(balance * 100))
+    try:
+        order = payments.create_order(
+            amount_minor, settings.currency, receipt=f"fee_{fee.id}"
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not create payment order: {exc}")
+
+    return {
+        "order_id": order.get("id"),
+        "amount": amount_minor,
+        "currency": (settings.currency or "INR").upper(),
+        "key_id": payments.key_id(),
+    }
+
+
+@router.post("/{fee_id}/payment/verify", response_model=FeeResponse)
+def verify_payment(
+    fee_id: int,
+    payload: PaymentVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
+):
+    """Verify a gateway payment signature and mark the fee's balance paid."""
+    fee = db.query(Fee).filter(Fee.id == fee_id).first()
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+
+    if not payments.verify_signature(
+        payload.razorpay_order_id,
+        payload.razorpay_payment_id,
+        payload.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Payment verification failed.")
+
+    # Payment authorized: settle the balance.
+    fee.paid_amount = fee.total_amount
+    fee.payment_date = datetime.now().date()
+    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+    fee.due_amount = due_amount
+    fee.payment_status = payment_status
+    if not fee.receipt_no:
+        fee.receipt_no = generate_receipt_no(db)
+
+    db.commit()
+    db.refresh(fee)
     return fee
 
 

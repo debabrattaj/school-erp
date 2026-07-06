@@ -12,6 +12,7 @@ import {
   Wallet,
   Settings2,
   Download,
+  CreditCard,
 } from "lucide-react";
 
 import API from "../api";
@@ -163,6 +164,13 @@ export default function Fees() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+
+  useEffect(() => {
+    API.get("/fees/payment/config")
+      .then((r) => setPaymentEnabled(Boolean(r.data?.enabled)))
+      .catch(() => setPaymentEnabled(false));
+  }, []);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -490,6 +498,53 @@ export default function Fees() {
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function loadRazorpayScript() {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  }
+
+  async function payOnline(fee) {
+    setMessage("");
+    try {
+      const { data: order } = await API.post(`/fees/${fee.id}/payment/order`);
+      const ready = await loadRazorpayScript();
+      if (!ready) {
+        setMessage("Could not load the payment gateway.");
+        return;
+      }
+      const rzp = new window.Razorpay({
+        key: order.key_id,
+        order_id: order.order_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "School Fee Payment",
+        description: `${fee.fee_type || "Fee"} — ${getStudentName(fee.student_id)}`,
+        handler: async (resp) => {
+          try {
+            await API.post(`/fees/${fee.id}/payment/verify`, {
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            });
+            setMessage("Payment successful.");
+            await loadFees();
+          } catch (error) {
+            setMessage(getApiErrorMessage(error, "Payment verification failed."));
+          }
+        },
+      });
+      rzp.open();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to start online payment."));
+    }
   }
 
   async function downloadReceipt(fee) {
@@ -1250,6 +1305,17 @@ export default function Fees() {
                           >
                             <Edit size={15} />
                           </button>
+
+                          {paymentEnabled && getBalanceAmount(fee) > 0 && (
+                            <button
+                              type="button"
+                              className="edit-button"
+                              onClick={() => payOnline(fee)}
+                              title="Pay online"
+                            >
+                              <CreditCard size={15} />
+                            </button>
+                          )}
 
                           {getPaidAmount(fee) > 0 && (
                             <button
