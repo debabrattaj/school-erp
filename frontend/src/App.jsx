@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Fees from "./pages/Fees";
@@ -143,6 +144,17 @@ export default function App() {
             >
               <ProtectedLayout>
                 <Dashboard />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <Profile />
               </ProtectedLayout>
             </ProtectedRoute>
           }

@@ -154,7 +154,15 @@ export default function Topbar() {
           )}
         </div>
 
-        <div className="user-profile">
+        <div
+          className="user-profile"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate("/profile")}
+          onKeyDown={(e) => { if (e.key === "Enter") navigate("/profile"); }}
+          style={{ cursor: "pointer" }}
+          title="Profile & security"
+        >
           <UserCircle size={32} />
           <div>
             <strong>{user?.name || "User"}</strong>
