@@ -14,6 +14,7 @@ from app.schemas import (
 )
 from app.security import require_roles
 from app.mailer import send_email
+from app.whatsapp import send_whatsapp
 
 router = APIRouter(prefix="/communications", tags=["Communications"])
 
@@ -92,27 +93,52 @@ def email_subject_for(log: CommunicationLog, db: Session) -> str:
     return "Message from your school"
 
 
+def _mark_sent(log: CommunicationLog) -> None:
+    log.status = "Sent"
+    log.sent_at = datetime.utcnow()
+    log.error_message = None
+
+
+def _mark_failed(log: CommunicationLog, reason: str) -> None:
+    log.status = "Failed"
+    log.error_message = reason
+    log.sent_at = None
+
+
 def deliver_email(log: CommunicationLog, db: Session) -> None:
-    """Attempt to send an Email-channel log, updating its status in place.
-    The caller is responsible for committing.
-    """
     if not log.recipient_email or not log.recipient_email.strip():
-        log.status = "Failed"
-        log.error_message = "No recipient email address"
-        log.sent_at = None
+        _mark_failed(log, "No recipient email address")
         return
 
     subject = email_subject_for(log, db)
-    sent = send_email(log.recipient_email.strip(), subject, log.message_body)
-
-    if sent:
-        log.status = "Sent"
-        log.sent_at = datetime.utcnow()
-        log.error_message = None
+    if send_email(log.recipient_email.strip(), subject, log.message_body):
+        _mark_sent(log)
     else:
-        log.status = "Failed"
-        log.error_message = "Email delivery failed"
-        log.sent_at = None
+        _mark_failed(log, "Email delivery failed")
+
+
+def deliver_whatsapp(log: CommunicationLog) -> None:
+    """Deliver a WhatsApp/SMS-channel message via WhatsApp."""
+    if not log.recipient_phone or not log.recipient_phone.strip():
+        _mark_failed(log, "No recipient phone number")
+        return
+
+    if send_whatsapp(log.recipient_phone.strip(), log.message_body):
+        _mark_sent(log)
+    else:
+        _mark_failed(log, "WhatsApp delivery failed")
+
+
+def deliver_message(log: CommunicationLog, db: Session) -> None:
+    """Route a message to its channel's transport, updating status in place.
+    The caller commits. SMS is sent over WhatsApp; In App needs no transport.
+    """
+    if log.channel == "Email":
+        deliver_email(log, db)
+    elif log.channel in ("WhatsApp", "SMS"):
+        deliver_whatsapp(log)
+    else:  # In App
+        _mark_sent(log)
 
 
 def serialize_log(log: CommunicationLog, db: Session):
@@ -243,11 +269,9 @@ def create_log(
     db.add(log)
     db.flush()
 
-    # For the Email channel we actually deliver the message and let the result
-    # drive the status. Other channels (WhatsApp/SMS/In App) have no transport
-    # yet, so their status is recorded as provided.
-    if log.channel == "Email":
-        deliver_email(log, db)
+    # Actually deliver the message and let the result drive the status.
+    # Email -> SMTP, WhatsApp/SMS -> WhatsApp, In App -> recorded as sent.
+    deliver_message(log, db)
 
     db.commit()
     db.refresh(log)
@@ -260,16 +284,9 @@ def send_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher", "Accounts"])),
 ):
-    """Send (or retry) an Email-channel message."""
+    """Send (or retry) a message through its channel's transport."""
     log = get_or_404(db, CommunicationLog, log_id, "Communication log")
-
-    if log.channel != "Email":
-        raise HTTPException(
-            status_code=400,
-            detail="Only Email messages can be sent from here.",
-        )
-
-    deliver_email(log, db)
+    deliver_message(log, db)
     db.commit()
     db.refresh(log)
     return serialize_log(log, db)
