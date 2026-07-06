@@ -155,8 +155,10 @@ class TimetableEntry(Base):
     )
     class_name_snapshot = Column(String, nullable=True)
     section_snapshot = Column(String, nullable=True)
-    day_of_week = Column(String, nullable=False, index=True)  # Monday..Sunday
-    period_no = Column(Integer, nullable=False)
+    day_of_week = Column(String, nullable=False, index=True)  # Monday..Sunday, or "*" for a full-row break
+    period_no = Column(Integer, nullable=False)  # row order (shared by periods and breaks)
+    entry_type = Column(String, nullable=False, default="period")  # period | recess | break
+    label = Column(String, nullable=True)  # label for a recess/break row
     start_time = Column(String, nullable=True)  # e.g. "09:00"
     end_time = Column(String, nullable=True)
     subject = Column(String, nullable=True)

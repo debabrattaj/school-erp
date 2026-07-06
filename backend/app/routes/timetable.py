@@ -34,7 +34,7 @@ def _fill_snapshots(db: Session, entry: TimetableEntry) -> None:
 def _check_teacher_clash(db: Session, entry_data: dict, exclude_id: int | None = None) -> None:
     """A teacher cannot be in two places in the same year/day/period."""
     teacher_id = entry_data.get("teacher_id")
-    if not teacher_id:
+    if not teacher_id or entry_data.get("entry_type", "period") != "period":
         return
     query = db.query(TimetableEntry).filter(
         TimetableEntry.teacher_id == teacher_id,
@@ -84,12 +84,17 @@ def create_timetable_entry(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal"])),
 ):
-    if payload.day_of_week not in VALID_DAYS:
+    is_break = (payload.entry_type or "period") != "period"
+    # Break/recess rows span all days (day_of_week "*"); only real periods
+    # are tied to a specific weekday.
+    if not is_break and payload.day_of_week not in VALID_DAYS:
         raise HTTPException(status_code=400, detail=f"Invalid day. Allowed: {', '.join(VALID_DAYS)}")
     if payload.period_no < 1:
         raise HTTPException(status_code=400, detail="Period number must be 1 or greater.")
 
     data = payload.model_dump()
+    if is_break:
+        data["day_of_week"] = "*"
     _check_teacher_clash(db, data)
 
     entry = TimetableEntry(**data)
@@ -119,7 +124,11 @@ def update_timetable_entry(
         raise HTTPException(status_code=404, detail="Timetable entry not found")
 
     updates = payload.model_dump(exclude_unset=True)
-    if "day_of_week" in updates and updates["day_of_week"] not in VALID_DAYS:
+    if (
+        "day_of_week" in updates
+        and updates["day_of_week"] not in VALID_DAYS
+        and updates["day_of_week"] != "*"
+    ):
         raise HTTPException(status_code=400, detail=f"Invalid day. Allowed: {', '.join(VALID_DAYS)}")
 
     for key, value in updates.items():

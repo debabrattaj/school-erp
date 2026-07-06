@@ -1633,6 +1633,8 @@ class TimetableEntryBase(BaseModel):
     section_snapshot: Optional[str] = None
     day_of_week: str
     period_no: int
+    entry_type: Optional[str] = "period"
+    label: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     subject: Optional[str] = None
@@ -1650,6 +1652,8 @@ class TimetableEntryUpdate(BaseModel):
     class_id: Optional[int] = None
     day_of_week: Optional[str] = None
     period_no: Optional[int] = None
+    entry_type: Optional[str] = None
+    label: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     subject: Optional[str] = None
