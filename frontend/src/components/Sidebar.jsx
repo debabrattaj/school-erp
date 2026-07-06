@@ -29,6 +29,7 @@ import {
   ClipboardList,
   Search,
   Globe,
+  ShieldCheck,
   LogOut
 } from "lucide-react";
 import { getUser, logout } from "../auth";
@@ -142,6 +143,13 @@ export default function Sidebar({ onNavigate }) {
       label: "User Management",
       icon: UserCog,
       path: "/users",
+      roles: ["Admin"],
+      feature: "users",
+    },
+    {
+      label: "Roles & Permissions",
+      icon: ShieldCheck,
+      path: "/roles",
       roles: ["Admin"],
       feature: "users",
     },
@@ -322,11 +330,15 @@ export default function Sidebar({ onNavigate }) {
     },
   ];
 
-  const allowedMenuItems = menuItems.filter(
-    (item) =>
-      item.roles.includes(user?.role) &&
-      (!item.feature || user?.features?.[item.feature] !== false)
-  );
+  const perms = user?.permissions || {};
+  const allowedMenuItems = menuItems.filter((item) => {
+    const featureEnabled = !item.feature || user?.features?.[item.feature] !== false;
+    // Built-in roles: keep role-list gating. Custom roles: gate by the role's
+    // permission map (or "*" for full access).
+    const byRole = item.roles.includes(user?.role);
+    const byPerm = perms["*"] || (item.feature && perms[item.feature]);
+    return featureEnabled && (byRole || byPerm);
+  });
 
   function handleLogout() {
     logout();

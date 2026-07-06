@@ -2,7 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
-from fastapi import Depends, HTTPException, status
+import json
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -10,7 +12,13 @@ import os
 from dotenv import load_dotenv
 
 from app.database import get_db
-from app.models import User
+from app.models import User, Role
+from app.permissions import (
+    feature_for_path,
+    action_for_method,
+    permission_grants,
+    SYSTEM_ROLE_PERMISSIONS,
+)
 
 load_dotenv()
 
@@ -113,14 +121,50 @@ def get_current_user(
     return user
 
 
-def require_roles(allowed_roles: list[str]):
-    def role_checker(current_user: User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource"
-            )
+def _forbidden():
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You do not have permission to access this resource",
+    )
 
-        return current_user
+
+def require_roles(allowed_roles: list[str]):
+    """Authorize a request.
+
+    Built-in roles keep their exact legacy behaviour (name membership check).
+    Custom roles are authorized by their permission map, resolving the feature
+    from the request path and the action from the HTTP method.
+    """
+    def role_checker(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):
+        role_name = current_user.role
+
+        # System roles: unchanged name-based check.
+        if role_name in SYSTEM_ROLE_PERMISSIONS:
+            if role_name in allowed_roles:
+                return current_user
+            _forbidden()
+
+        # Custom role: permission-map driven.
+        role = db.query(Role).filter(Role.name == role_name).first()
+        if role is not None and not role.is_system:
+            try:
+                perms = json.loads(role.permissions) if role.permissions else {}
+            except Exception:
+                perms = {}
+            feature = feature_for_path(request.url.path)
+            if feature and permission_grants(
+                perms, feature, action_for_method(request.method)
+            ):
+                return current_user
+            _forbidden()
+
+        # Fallback (unknown role): legacy name check.
+        if role_name in allowed_roles:
+            return current_user
+        _forbidden()
 
     return role_checker

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.models import User, Role
 from app.schemas import (
     UserCreate,
     UserUpdate,
@@ -20,12 +20,16 @@ router = APIRouter(
 ALLOWED_ROLES = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"]
 
 
-def validate_role(role: str):
-    if role not in ALLOWED_ROLES:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid role. Use Admin, Principal, Accounts, Teacher, Parent, or Student"
-        )
+def validate_role(role: str, db: Session = None):
+    if role in ALLOWED_ROLES:
+        return
+    # Accept any custom role defined for this school.
+    if db is not None and db.query(Role).filter(Role.name == role).first():
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid role. Use a built-in role or an existing custom role.",
+    )
 
 
 @router.post("/", response_model=UserResponse)
@@ -34,7 +38,7 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin"]))
 ):
-    validate_role(user_data.role)
+    validate_role(user_data.role, db)
     validate_password(user_data.password)
 
     existing_user = db.query(User).filter(
@@ -105,7 +109,7 @@ def update_user(
     update_data = user_data.model_dump(exclude_unset=True)
 
     if "role" in update_data and update_data["role"]:
-        validate_role(update_data["role"])
+        validate_role(update_data["role"], db)
 
     if "email" in update_data and update_data["email"]:
         existing_email = db.query(User).filter(

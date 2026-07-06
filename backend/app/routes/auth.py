@@ -58,6 +58,23 @@ def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
+def _resolve_permissions(db, role_name: str) -> dict:
+    """Effective permission map for a user's role (system default or custom)."""
+    import json
+    from app.models import Role
+    from app.permissions import SYSTEM_ROLE_PERMISSIONS
+
+    if role_name in SYSTEM_ROLE_PERMISSIONS:
+        return SYSTEM_ROLE_PERMISSIONS[role_name]
+    role = db.query(Role).filter(Role.name == role_name).first()
+    if role and role.permissions:
+        try:
+            return json.loads(role.permissions)
+        except Exception:
+            return {}
+    return {}
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(login_data: LoginRequest, request: Request):
     keys = login_keys(
@@ -113,6 +130,8 @@ def login(login_data: LoginRequest, request: Request):
                 "account_id": account["id"],
             }
         )
+
+        user_permissions = _resolve_permissions(db, user.role)
     finally:
         db.close()
 
@@ -127,6 +146,7 @@ def login(login_data: LoginRequest, request: Request):
             "email": user.email,
             "role": user.role,
             "mfa_enabled": user.mfa_enabled,
+            "permissions": user_permissions,
             "account": {
                 "id": account["id"],
                 "school_name": account["school_name"],

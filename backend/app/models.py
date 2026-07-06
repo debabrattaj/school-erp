@@ -10,9 +10,21 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # Admin, Principal, Accounts, Teacher
+    role = Column(String, nullable=False)  # role name (system or custom)
     mfa_enabled = Column(Boolean, nullable=False, default=False)
     mfa_secret = Column(String, nullable=True)  # base32 TOTP secret (set during setup)
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True, index=True)
+    permissions = Column(Text, nullable=True)  # JSON: {feature_key: "view"|"manage"}
+    is_system = Column(Boolean, nullable=False, default=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class SchoolSettings(Base):

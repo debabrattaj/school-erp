@@ -22,6 +22,7 @@ export default function Users() {
   const loggedInUser = getUser();
 
   const [users, setUsers] = useState([]);
+  const [roleOptions, setRoleOptions] = useState(["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"]);
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
@@ -40,6 +41,15 @@ export default function Users() {
 
     return () => window.clearTimeout(timeoutId);
   }, [message]);
+
+  useEffect(() => {
+    API.get("/roles/")
+      .then((r) => {
+        const names = (r.data || []).map((role) => role.name);
+        if (names.length) setRoleOptions(names);
+      })
+      .catch(() => {});
+  }, []);
 
   async function loadUsers() {
     try {
@@ -268,12 +278,9 @@ export default function Users() {
               required
             >
               <option value="">Select Role</option>
-              <option value="Admin">Admin</option>
-              <option value="Principal">Principal</option>
-              <option value="Accounts">Accounts</option>
-              <option value="Teacher">Teacher</option>
-              <option value="Parent">Parent</option>
-              <option value="Student">Student</option>
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
           </div>
         </div>

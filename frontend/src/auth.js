@@ -32,6 +32,13 @@ export function isLoggedIn() {
   return !!getToken();
 }
 
+const BUILT_IN_ROLES = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"];
+
+export function isCustomRole() {
+  const user = getUser();
+  return !!user && !BUILT_IN_ROLES.includes(user.role);
+}
+
 export function hasAccess(allowedRoles) {
   const user = getUser();
 
@@ -39,7 +46,12 @@ export function hasAccess(allowedRoles) {
 
   if (!allowedRoles || allowedRoles.length === 0) return true;
 
-  return allowedRoles.includes(user.role);
+  if (allowedRoles.includes(user.role)) return true;
+
+  // Custom roles aren't in any route's allowedRoles list. Let them through the
+  // route guard — the sidebar hides pages they lack, and the backend enforces
+  // every request by permission (returns 403 if not granted).
+  return isCustomRole();
 }
 
 export function isFeatureEnabled(featureKey) {

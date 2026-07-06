@@ -5,6 +5,32 @@ import API from "../api";
 import { saveAuth } from "../auth";
 import { useI18n } from "../i18n";
 
+const BUILT_IN = ["Admin", "Principal", "Accounts", "Teacher"];
+const FEATURE_PATHS = {
+  dashboard: "/", students: "/students", teachers: "/teachers", classes: "/classes",
+  attendance: "/attendance", fees: "/fees", exams: "/exams", marks: "/marks",
+  timetable: "/timetable", admissions: "/admissions", parent_communication: "/communications",
+  student_services: "/student-services", counseling: "/counseling", enrichment: "/enrichment",
+  compliance: "/compliance", international_documents: "/international-documents",
+  multi_curriculum: "/multi-curriculum", academic_years: "/academic-years", hostel: "/hostel",
+  transport: "/transport", health_infirmary: "/health-infirmary", mess_management: "/mess",
+  library: "/library", inventory: "/inventory", alumni_withdrawals: "/alumni-withdrawals",
+  reports: "/reports", master_data: "/master-data", users: "/users", settings: "/settings",
+};
+
+// Where to send the user after login.
+function landingPath(role, permissions) {
+  if (["Parent", "Student"].includes(role)) return "/portal";
+  if (BUILT_IN.includes(role)) return "/";
+  // Custom role: land on the first module they can access.
+  const perms = permissions || {};
+  if (perms["*"] || perms.dashboard) return "/";
+  for (const key of Object.keys(perms)) {
+    if (FEATURE_PATHS[key]) return FEATURE_PATHS[key];
+  }
+  return "/";
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -53,8 +79,9 @@ export default function Login() {
 
       saveAuth(response.data.access_token, response.data.user);
 
-      const role = response?.data?.user?.role;
-      navigate(["Parent", "Student"].includes(role) ? "/portal" : "/");
+      const loggedInUser = response?.data?.user;
+      const role = loggedInUser?.role;
+      navigate(landingPath(role, loggedInUser?.permissions));
     } catch (error) {
       console.error(error);
 

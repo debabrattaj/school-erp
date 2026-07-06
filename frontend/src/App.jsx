@@ -11,6 +11,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Timetable from "./pages/Timetable";
+import Roles from "./pages/Roles";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Fees from "./pages/Fees";
@@ -274,6 +275,16 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin"]}>
               <ProtectedLayout>
                 <Users />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roles"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedLayout>
+                <Roles />
               </ProtectedLayout>
             </ProtectedRoute>
           }
