@@ -29,4 +29,5 @@ desktop.ini
 
 # Local database backups (created before destructive DB operations)
 db_backups/
+backend/backups/
 

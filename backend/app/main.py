@@ -58,6 +58,9 @@ init_tenant_registry()
 platform.ensure_platform_owner()
 platform.ensure_default_plans()
 
+from app.backup import start_scheduler
+start_scheduler()
+
 
 def ensure_dev_schema():
     with engine.begin() as connection:

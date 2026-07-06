@@ -294,6 +294,26 @@ def feature_catalog(owner: PlatformAdmin = Depends(require_platform_owner)):
     ]
 
 
+# ---------------- Backups ----------------
+
+
+@router.get("/backups")
+def list_db_backups(owner: PlatformAdmin = Depends(require_platform_owner)):
+    """List existing database backups, newest first."""
+    from app.backup import list_backups
+    return list_backups()
+
+
+@router.post("/backups")
+def create_db_backup(owner: PlatformAdmin = Depends(require_platform_owner)):
+    """Trigger an on-demand backup of the central + all tenant databases."""
+    from app.backup import backup_all
+    result = backup_all()
+    if not result["ok"]:
+        raise HTTPException(status_code=500, detail=result)
+    return result
+
+
 # ---------------- Audit log ----------------
 
 
