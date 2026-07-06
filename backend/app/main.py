@@ -1138,6 +1138,9 @@ app.include_router(timetable.router)
 from app.routes import roles
 app.include_router(roles.router)
 
+from app.routes import certificates
+app.include_router(certificates.router)
+
 # Serve uploaded files (student photos, documents) as static assets.
 from fastapi.staticfiles import StaticFiles
 _upload_dir = os.getenv("UPLOAD_DIR", "./uploads")

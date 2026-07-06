@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarCheck,
+  Download,
   Edit,
   FileText,
   RefreshCcw,
@@ -330,6 +331,28 @@ export default function StudentDetails() {
     ? `${classRecord.class_name} - ${classRecord.section}`
     : `${student.class_name || "-"} ${student.section || ""}`.trim();
   const studentStatus = student.student_status || student.status || "Active";
+
+  async function downloadDoc(endpoint, filePrefix) {
+    try {
+      const response = await API.get(`/students/${student.id}/${endpoint}`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${filePrefix}_${student.admission_no || student.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      setMessage(typeof detail === "string" ? detail : "Unable to download document.");
+    }
+  }
+
   return (
     <div className="management-page student360-page">
       <section className="student360-hero">
@@ -369,6 +392,15 @@ export default function StudentDetails() {
           <button type="button" className="secondary-button" onClick={loadStudentDetails}>
             <RefreshCcw size={17} />
             Refresh
+          </button>
+          <button type="button" className="secondary-button" onClick={() => downloadDoc("id-card", "id_card")}>
+            <Download size={17} /> ID Card
+          </button>
+          <button type="button" className="secondary-button" onClick={() => downloadDoc("bonafide", "bonafide")}>
+            <Download size={17} /> Bonafide
+          </button>
+          <button type="button" className="secondary-button" onClick={() => downloadDoc("transfer-certificate", "transfer_certificate")}>
+            <Download size={17} /> Transfer Cert.
           </button>
         </div>
       </section>

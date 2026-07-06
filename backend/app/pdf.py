@@ -16,8 +16,35 @@ if os.path.isdir(_PYLIBS) and _PYLIBS not in sys.path:
 from reportlab.lib.pagesizes import A4  # noqa: E402
 from reportlab.lib.units import mm  # noqa: E402
 from reportlab.lib import colors  # noqa: E402
+from reportlab.lib.utils import ImageReader  # noqa: E402
 from reportlab.pdfgen import canvas  # noqa: E402
 from reportlab.platypus import Table, TableStyle  # noqa: E402
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
+
+
+def _resolve_upload_path(url):
+    """Map a stored '/uploads/...' URL to its on-disk path (or None)."""
+    if not url or not isinstance(url, str):
+        return None
+    if url.startswith("/uploads/"):
+        rel = url[len("/uploads/"):]
+        path = os.path.join(UPLOAD_DIR, rel)
+        return path if os.path.exists(path) else None
+    return None
+
+
+def _draw_image_safe(c, url, x, y, w, h):
+    """Draw an image from an uploaded URL; ignore if missing/unreadable."""
+    path = _resolve_upload_path(url)
+    if not path:
+        return False
+    try:
+        c.drawImage(ImageReader(path), x, y, width=w, height=h,
+                    preserveAspectRatio=True, mask="auto")
+        return True
+    except Exception:
+        return False
 
 CURRENCY_SYMBOLS = {
     "INR": "Rs ", "USD": "$", "EUR": "EUR ", "GBP": "GBP ",
@@ -156,6 +183,188 @@ def report_card_pdf(data: dict) -> bytes:
 
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(left, 20 * mm, "This is a computer-generated report card.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def _cert_header(c, width, y, data):
+    """Common certificate header: optional logo + school name + issue line."""
+    left = 25 * mm
+    logo = data.get("logo_url")
+    if _draw_image_safe(c, logo, left, y - 4 * mm, 20 * mm, 20 * mm):
+        text_x = left + 24 * mm
+    else:
+        text_x = left
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(text_x, y + 8 * mm, data.get("school_name") or "School")
+    c.setFont("Helvetica", 9)
+    if data.get("school_address"):
+        c.drawString(text_x, y + 2 * mm, str(data["school_address"]))
+    return y - 14 * mm
+
+
+def bonafide_certificate_pdf(data: dict) -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 25 * mm
+    right = width - 25 * mm
+    y = height - 30 * mm
+
+    y = _cert_header(c, width, y, data)
+    c.line(left, y, right, y)
+    y -= 14 * mm
+
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(width / 2, y, "BONAFIDE CERTIFICATE")
+    y -= 16 * mm
+
+    name = data.get("student_name") or "-"
+    father = data.get("father_name") or data.get("guardian_name") or "-"
+    klass = data.get("class_label") or "-"
+    year = data.get("academic_year") or "-"
+    adm = data.get("admission_no") or "-"
+    dob = data.get("dob") or "-"
+
+    body = (
+        f"This is to certify that {name}, {('son/daughter of ' + father) if father != '-' else ''} "
+        f"bearing Admission No. {adm}, is a bonafide student of this institution. "
+        f"He/She is currently studying in Class {klass} during the academic year {year}. "
+        f"His/Her date of birth as per our records is {dob}."
+    )
+
+    c.setFont("Helvetica", 11)
+    # simple word-wrap
+    words = body.split()
+    line = ""
+    text_y = y
+    for w in words:
+        trial = (line + " " + w).strip()
+        if c.stringWidth(trial, "Helvetica", 11) > (right - left):
+            c.drawString(left, text_y, line)
+            text_y -= 8 * mm
+            line = w
+        else:
+            line = trial
+    if line:
+        c.drawString(left, text_y, line)
+    text_y -= 16 * mm
+
+    c.drawString(left, text_y, f"Date of Issue: {data.get('issue_date') or '-'}")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(right, 40 * mm, "Principal / Authorised Signatory")
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(left, 22 * mm, "This is a computer-generated certificate.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def transfer_certificate_pdf(data: dict) -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 25 * mm
+    right = width - 25 * mm
+    y = height - 30 * mm
+
+    y = _cert_header(c, width, y, data)
+    c.line(left, y, right, y)
+    y -= 12 * mm
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(width / 2, y, "TRANSFER CERTIFICATE")
+    y -= 6 * mm
+    c.setFont("Helvetica", 9)
+    c.drawRightString(right, y, f"TC No: {data.get('tc_no') or '-'}")
+    y -= 12 * mm
+
+    rows = [
+        ("Student Name", data.get("student_name") or "-"),
+        ("Admission No", data.get("admission_no") or "-"),
+        ("Father's Name", data.get("father_name") or "-"),
+        ("Mother's Name", data.get("mother_name") or "-"),
+        ("Date of Birth", data.get("dob") or "-"),
+        ("Nationality", data.get("nationality") or "-"),
+        ("Class", data.get("class_label") or "-"),
+        ("Academic Year", data.get("academic_year") or "-"),
+        ("Date of Admission", data.get("admission_date") or "-"),
+        ("Date of Leaving", data.get("leaving_date") or "-"),
+        ("Reason for Leaving", data.get("reason") or "-"),
+        ("Conduct", data.get("conduct") or "Good"),
+    ]
+    for label, value in rows:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left, y, f"{label}:")
+        c.setFont("Helvetica", 10)
+        c.drawString(left + 50 * mm, y, str(value))
+        y -= 8.5 * mm
+
+    c.setFont("Helvetica", 10)
+    c.drawString(left, 40 * mm, f"Date of Issue: {data.get('issue_date') or '-'}")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(right, 40 * mm, "Principal / Authorised Signatory")
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(left, 22 * mm, "This is a computer-generated certificate.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def student_id_card_pdf(data: dict) -> bytes:
+    """A portrait CR80-ish ID card (single card-sized page)."""
+    card_w, card_h = 54 * mm, 86 * mm
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(card_w, card_h))
+
+    # Header band
+    c.setFillColor(colors.HexColor("#25324b"))
+    c.rect(0, card_h - 16 * mm, card_w, 16 * mm, fill=1, stroke=0)
+    logo_drawn = _draw_image_safe(c, data.get("logo_url"), 2 * mm, card_h - 14 * mm, 12 * mm, 12 * mm)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 7.5)
+    school = (data.get("school_name") or "School")[:26]
+    c.drawString((15 * mm) if logo_drawn else (3 * mm), card_h - 9 * mm, school)
+    c.setFont("Helvetica", 5.5)
+    c.drawString((15 * mm) if logo_drawn else (3 * mm), card_h - 12.5 * mm, "STUDENT IDENTITY CARD")
+
+    # Photo
+    photo_w, photo_h = 24 * mm, 28 * mm
+    px = (card_w - photo_w) / 2
+    py = card_h - 16 * mm - photo_h - 3 * mm
+    c.setFillColor(colors.HexColor("#e2e8f0"))
+    c.rect(px, py, photo_w, photo_h, fill=1, stroke=0)
+    if not _draw_image_safe(c, data.get("photo_url"), px, py, photo_w, photo_h):
+        c.setFillColor(colors.HexColor("#94a3b8"))
+        c.setFont("Helvetica", 6)
+        c.drawCentredString(card_w / 2, py + photo_h / 2, "No Photo")
+
+    # Name
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(card_w / 2, py - 5 * mm, (data.get("student_name") or "-")[:28])
+
+    # Details
+    details = [
+        ("Adm No", data.get("admission_no") or "-"),
+        ("Class", data.get("class_label") or "-"),
+        ("DOB", data.get("dob") or "-"),
+        ("Blood", data.get("blood_group") or "-"),
+        ("Guardian", data.get("guardian_name") or "-"),
+        ("Phone", data.get("guardian_phone") or "-"),
+    ]
+    dy = py - 10 * mm
+    for label, value in details:
+        c.setFont("Helvetica-Bold", 6)
+        c.setFillColor(colors.HexColor("#475569"))
+        c.drawString(4 * mm, dy, f"{label}:")
+        c.setFont("Helvetica", 6)
+        c.setFillColor(colors.HexColor("#0f172a"))
+        c.drawString(18 * mm, dy, str(value)[:22])
+        dy -= 5 * mm
 
     c.showPage()
     c.save()
