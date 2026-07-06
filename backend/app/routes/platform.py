@@ -36,6 +36,7 @@ from app.rate_limit import (
     record_login_failure,
     clear_login_failures,
 )
+from app.db_migrations import stamp_tenant_db
 
 router = APIRouter(prefix="/platform", tags=["Platform Owner Console"])
 
@@ -481,6 +482,10 @@ def create_school(
             school_db.commit()
         finally:
             school_db.close()
+
+        # Mark the fresh DB at the latest migration so future upgrades apply
+        # only new migrations (best-effort).
+        stamp_tenant_db(database_url)
 
         return account_summary(db, account)
     except IntegrityError:

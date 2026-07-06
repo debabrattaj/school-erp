@@ -31,3 +31,6 @@ desktop.ini
 db_backups/
 backend/backups/
 
+
+# Locally-installed libs (deploys install from requirements.txt)
+backend/.pylibs/

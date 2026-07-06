@@ -43,7 +43,33 @@ Nothing extra is required to get a working dataset locally — the app will use
 these as-is. If you want a clean slate, delete the `.db` files before first run
 and let `Base.metadata.create_all()` / `seed.py` recreate them.
 
-## 4. Known rough edges (see full analysis)
+## 4. Database migrations (Alembic)
+
+The tenant school schema (`app/models.py`) is managed by Alembic. Because each
+school has its own database, migrations are applied to every tenant DB via a
+wrapper script:
+
+```bash
+cd backend
+# apply any new migrations to the default + all registered tenant schools
+python manage_migrations.py upgrade head
+# see each database's current revision
+python manage_migrations.py current
+```
+
+To change the schema: edit the models, then autogenerate a migration against a
+throwaway empty DB and apply it everywhere:
+
+```bash
+python -m alembic -x db_url=sqlite:////tmp/scratch.db revision --autogenerate -m "add X"
+python manage_migrations.py upgrade head
+```
+
+Newly-created schools are automatically stamped at the latest revision. The
+central registry DB (`school_accounts.db`) is not under Alembic — it's small and
+additive and handled by `create_all` at startup.
+
+## 5. Known rough edges (see full analysis)
 
 - `.db` files are committed to git — consider gitignoring them and adding a
   seed/reset script instead, especially before this goes anywhere near production.

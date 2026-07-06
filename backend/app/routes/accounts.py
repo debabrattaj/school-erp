@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.database import Base
 from app.models import User
 from app.security import get_current_user, hash_password, validate_password
+from app.db_migrations import stamp_tenant_db
 from app.routes.platform import require_platform_owner
 from app.tenant import (
     CentralSessionLocal,
@@ -136,6 +137,8 @@ def create_account(
                 school_db.commit()
         finally:
             school_db.close()
+
+        stamp_tenant_db(database_url)
 
         return account_to_response(account)
     except IntegrityError:

@@ -6,3 +6,4 @@ python-multipart
 python-jose
 argon2-cffi
 python-dotenv
+alembic>=1.13
