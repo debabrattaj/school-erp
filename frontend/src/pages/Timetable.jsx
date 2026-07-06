@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Coffee, Plus, PlusCircle, RefreshCcw, Trash2, Utensils, X } from "lucide-react";
+import { CalendarDays, Coffee, PlusCircle, RefreshCcw, Trash2, Utensils, X } from "lucide-react";
 import API from "../api";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const DEFAULT_PERIODS = 8;
+const MIN_ROWS = 1;
 
 const emptyForm = {
   day_of_week: "Monday",
@@ -24,7 +24,7 @@ export default function Timetable() {
 
   const [classId, setClassId] = useState(() => localStorage.getItem("timetable_class_id") || "");
   const [academicYear, setAcademicYear] = useState(() => localStorage.getItem("timetable_year") || "");
-  const [rowCount, setRowCount] = useState(DEFAULT_PERIODS);
+  const [rowCount, setRowCount] = useState(MIN_ROWS);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -74,7 +74,7 @@ export default function Timetable() {
       const data = r.data || [];
       setEntries(data);
       const maxPeriod = data.reduce((m, e) => Math.max(m, e.period_no), 0);
-      setRowCount(Math.max(maxPeriod, DEFAULT_PERIODS));
+      setRowCount(Math.max(maxPeriod, MIN_ROWS));
     } catch {
       setEntries([]);
     }
@@ -345,9 +345,6 @@ export default function Timetable() {
         <div className="panel-header">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div className="timetable-actions">
-              <button type="button" className="icon-button" onClick={addRow} disabled={!classId} title="Add a period row">
-                <Plus size={16} />
-              </button>
               <button type="button" className="icon-button" onClick={() => addBreak("recess")} disabled={!classId} title="Add a recess row">
                 <Coffee size={16} />
               </button>
@@ -439,6 +436,21 @@ export default function Timetable() {
                   </tr>
                 )
               ))}
+              <tr>
+                <td>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    title="Add a period row"
+                    style={{ border: "1px dashed #cbd5e1", background: "none", borderRadius: 6, color: "#25324b", width: "100%", padding: "6px", cursor: "pointer", fontWeight: 700 }}
+                  >
+                    +
+                  </button>
+                </td>
+                <td colSpan={DAYS.length} style={{ color: "#94a3b8", fontSize: "0.82rem" }}>
+                  Add the next period row
+                </td>
+              </tr>
             </tbody>
           </table></div>
         )}
