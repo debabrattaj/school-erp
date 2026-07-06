@@ -40,6 +40,7 @@ const TABS = [
   ["plans", "Plans"],
   ["notifications", "Notifications"],
   ["audit", "Audit Log"],
+  ["backups", "Backups"],
 ];
 
 export default function PlatformConsole() {
@@ -84,6 +85,9 @@ export default function PlatformConsole() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditFilters, setAuditFilters] = useState({ account_code: "", actor_email: "" });
   const [auditLoading, setAuditLoading] = useState(false);
+
+  const [backups, setBackups] = useState([]);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   const managedSchool = useMemo(
     () => schools.find((s) => s.id === managedId) || null,
@@ -143,8 +147,38 @@ export default function PlatformConsole() {
 
   useEffect(() => {
     if (tab === "audit") loadAuditLogs();
+    if (tab === "backups") loadBackups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  async function loadBackups() {
+    try {
+      const res = await PlatformAPI.get("/platform/backups");
+      setBackups(res.data || []);
+    } catch (error) {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        platformLogout();
+        navigate("/platform-login");
+        return;
+      }
+      setMessage(getErr(error, "Unable to load backups."));
+    }
+  }
+
+  async function handleRunBackup() {
+    setBackupBusy(true);
+    setMessage("");
+    try {
+      const res = await PlatformAPI.post("/platform/backups");
+      const count = res.data?.databases?.length || 0;
+      setMessage(`Backup complete — ${count} database(s) saved.`);
+      await loadBackups();
+    } catch (error) {
+      setMessage(getErr(error, "Backup failed."));
+    } finally {
+      setBackupBusy(false);
+    }
+  }
 
   // ---- school mgmt ----
   function openManage(school) { setManagedId(school.id); setFeatureDraft({ ...school.features }); setResetForm({ admin_email: "", new_password: "" }); setMessage(""); }
@@ -542,6 +576,39 @@ export default function PlatformConsole() {
                       </tr>
                     ))}
                     {!auditLoading && !auditLogs.length && <tr><td colSpan={7}>No audit entries match.</td></tr>}
+                  </tbody>
+                </table></div>
+              </section>
+            </>
+          )}
+
+          {/* =================== BACKUPS TAB =================== */}
+          {tab === "backups" && (
+            <>
+              <section className="page-heading">
+                <div>
+                  <p className="eyebrow">Operations</p>
+                  <h2>Database Backups</h2>
+                  <p>Snapshot the central registry and every school database. Automatic backups run when enabled on the server.</p>
+                </div>
+                <button type="button" className="primary-button" onClick={handleRunBackup} disabled={backupBusy}>
+                  <RefreshCcw size={16} /> {backupBusy ? "Backing up..." : "Back Up Now"}
+                </button>
+              </section>
+
+              <section className="form-panel">
+                <div className="panel-header"><div><h3>Backups ({backups.length})</h3></div></div>
+                <div className="table-wrapper"><table className="classic-table">
+                  <thead><tr><th>Taken (UTC)</th><th>Databases</th><th>Size</th></tr></thead>
+                  <tbody>
+                    {backups.map((b) => (
+                      <tr key={b.timestamp}>
+                        <td>{b.timestamp.replace(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/, "$1-$2-$3 $4:$5:$6")}</td>
+                        <td>{b.databases}</td>
+                        <td>{(b.total_bytes / 1048576).toFixed(2)} MB</td>
+                      </tr>
+                    ))}
+                    {!backups.length && <tr><td colSpan={3}>No backups yet. Click "Back Up Now".</td></tr>}
                   </tbody>
                 </table></div>
               </section>
