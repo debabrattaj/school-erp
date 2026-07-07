@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Student, User
+from app.models import SchoolClass, Student, User
 from app.schemas import StudentCreate, StudentUpdate, StudentResponse
 from app.security import require_roles
 
@@ -144,6 +144,11 @@ def bulk_import_students(
 
     unknown_columns = [c for c in reader.fieldnames if c not in BULK_IMPORT_COLUMNS]
 
+    class_lookup = {
+        (c.class_name.strip().lower(), c.section.strip().lower()): c.id
+        for c in db.query(SchoolClass).all()
+    }
+
     seen_admission_nos = set()
     errors = []
     to_create = []
@@ -175,6 +180,21 @@ def bulk_import_students(
         if cleaned.get("gender") and cleaned["gender"] not in VALID_GENDERS:
             errors.append({"row": row_index, "error": f"Invalid gender: {cleaned['gender']}"})
             continue
+
+        class_name = cleaned.get("class_name")
+        section = cleaned.get("section")
+        if class_name:
+            if not section:
+                errors.append({"row": row_index, "error": "section is required when class_name is provided"})
+                continue
+            class_id = class_lookup.get((class_name.strip().lower(), section.strip().lower()))
+            if class_id is None:
+                errors.append({
+                    "row": row_index,
+                    "error": f"No matching class found for class_name={class_name!r}, section={section!r}",
+                })
+                continue
+            cleaned["class_id"] = class_id
 
         try:
             validated = StudentCreate(**cleaned)
