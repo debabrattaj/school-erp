@@ -20,6 +20,8 @@ import {
   Pin,
   Filter,
   EyeOff,
+  Upload,
+  Download,
 } from "lucide-react";
 import API from "../api";
 import PhotoUploadField from "../components/PhotoUploadField";
@@ -416,6 +418,10 @@ export default function Students() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportFile, setBulkImportFile] = useState(null);
+  const [bulkImportResult, setBulkImportResult] = useState(null);
+  const [bulkImportBusy, setBulkImportBusy] = useState(false);
 
   function getLegacyLocalLayout() {
     const savedLayout = localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -486,6 +492,55 @@ export default function Students() {
   async function loadStudents() {
     const response = await API.get("/students/");
     setStudents(response.data || []);
+  }
+
+  async function downloadImportTemplate() {
+    try {
+      const response = await API.get("/students/bulk-import-template", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "students_import_template.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      setMessage("Unable to download the import template.");
+    }
+  }
+
+  async function submitBulkImport(dryRun) {
+    if (!bulkImportFile) return;
+    setBulkImportBusy(true);
+    setBulkImportResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", bulkImportFile);
+      const response = await API.post(
+        `/students/bulk-import?dry_run=${dryRun}`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      setBulkImportResult(response.data);
+      if (!dryRun && response.data.created > 0) {
+        await loadStudents();
+      }
+    } catch (error) {
+      console.error(error);
+      setBulkImportResult({
+        errors: [{ row: "-", error: error.response?.data?.detail || "Import failed." }],
+      });
+    } finally {
+      setBulkImportBusy(false);
+    }
+  }
+
+  function closeBulkImport() {
+    setShowBulkImport(false);
+    setBulkImportFile(null);
+    setBulkImportResult(null);
   }
 
   async function loadMasterDropdowns(layoutToRead = layout) {
@@ -1393,12 +1448,105 @@ export default function Students() {
             </div>
           )}
 
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload size={17} />
+            Import CSV
+          </button>
           <button type="button" className="primary-button" onClick={handleAddStudent}>
             <PlusCircle size={18} />
             Add Student
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <div className="layout-modal-backdrop" onClick={closeBulkImport}>
+          <div className="layout-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="layout-modal-header">
+              <div>
+                <h3>Bulk Import Students</h3>
+                <p>Upload a CSV file to create multiple students at once.</p>
+              </div>
+              <button type="button" className="light-icon-button" onClick={closeBulkImport}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <button type="button" className="light-button" onClick={downloadImportTemplate}>
+              <Download size={16} />
+              Download CSV Template
+            </button>
+
+            <div style={{ marginTop: 16 }}>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(event) => {
+                  setBulkImportFile(event.target.files?.[0] || null);
+                  setBulkImportResult(null);
+                }}
+              />
+            </div>
+
+            <div className="form-actions" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={!bulkImportFile || bulkImportBusy}
+                onClick={() => submitBulkImport(true)}
+              >
+                Validate Only
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!bulkImportFile || bulkImportBusy}
+                onClick={() => submitBulkImport(false)}
+              >
+                {bulkImportBusy ? "Importing..." : "Import"}
+              </button>
+            </div>
+
+            {bulkImportResult && (
+              <div style={{ marginTop: 18 }}>
+                {"total_rows" in bulkImportResult && (
+                  <p>
+                    {bulkImportResult.dry_run ? "Validated" : "Imported"}{" "}
+                    <strong>{bulkImportResult.created ?? bulkImportResult.valid_rows}</strong> of{" "}
+                    {bulkImportResult.total_rows} row(s).
+                    {bulkImportResult.errors?.length > 0 &&
+                      ` ${bulkImportResult.errors.length} row(s) had errors.`}
+                  </p>
+                )}
+                {bulkImportResult.errors?.length > 0 && (
+                  <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Row</th>
+                          <th>Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkImportResult.errors.map((err, idx) => (
+                          <tr key={idx}>
+                            <td>{err.row}</td>
+                            <td>{err.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {message && <div className="toast-notification">{message}</div>}
 

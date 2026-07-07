@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
 from app import models
-from app.database import Base
+from app.database import Base, build_tenant_database_url, ensure_database_exists
 from app.security import (
     SECRET_KEY,
     ALGORITHM,
@@ -438,7 +438,8 @@ def create_school(
         safe_code = "".join(
             c.lower() if c.isalnum() else "_" for c in account_code
         ).strip("_")
-        database_url = f"sqlite:///./school_erp_{safe_code}.db"
+        database_url = build_tenant_database_url(safe_code)
+        ensure_database_exists(database_url)
 
         account = SchoolAccount(
             school_name=payload.school_name.strip(),

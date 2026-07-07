@@ -9,6 +9,9 @@ import {
   Trash2,
   UserPlus,
   MessageCircle,
+  Settings,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import API from "../api";
@@ -52,7 +55,7 @@ const emptyConvertForm = {
   guardian_email: "",
 };
 
-const stageOptions = [
+const fallbackStageOptions = [
   "Inquiry",
   "Contacted",
   "Visit Scheduled",
@@ -114,6 +117,12 @@ export default function Admissions() {
   const [stageFilter, setStageFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [stages, setStages] = useState([]);
+  const [showStageManager, setShowStageManager] = useState(false);
+  const [newStageName, setNewStageName] = useState("");
+  const [stageEdits, setStageEdits] = useState({});
+
+  const stageOptions = stages.length ? stages.map((stage) => stage.name) : fallbackStageOptions;
 
   useEffect(() => {
     if (!message) return undefined;
@@ -148,10 +157,73 @@ export default function Admissions() {
     }
   }
 
+  async function loadStages() {
+    try {
+      const response = await API.get("/admission-workflow-stages/");
+      setStages(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadInquiries();
     loadAcademicYears();
+    loadStages();
   }, []);
+
+  async function addStage() {
+    const name = newStageName.trim();
+    if (!name) return;
+    try {
+      await API.post("/admission-workflow-stages/", { name, sort_order: stages.length + 1 });
+      setNewStageName("");
+      await loadStages();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to add stage."));
+    }
+  }
+
+  async function renameStage(stage) {
+    const nextName = (stageEdits[stage.id] ?? stage.name).trim();
+    if (!nextName || nextName === stage.name) return;
+    try {
+      await API.put(`/admission-workflow-stages/${stage.id}`, { name: nextName });
+      await Promise.all([loadStages(), loadInquiries()]);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to rename stage."));
+    }
+  }
+
+  async function moveStage(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= stages.length) return;
+    const a = stages[index];
+    const b = stages[target];
+    try {
+      await Promise.all([
+        API.put(`/admission-workflow-stages/${a.id}`, { sort_order: b.sort_order }),
+        API.put(`/admission-workflow-stages/${b.id}`, { sort_order: a.sort_order }),
+      ]);
+      await loadStages();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to reorder stages."));
+    }
+  }
+
+  async function deleteStage(stage) {
+    if (!window.confirm(`Delete stage "${stage.name}"?`)) return;
+    try {
+      await API.delete(`/admission-workflow-stages/${stage.id}`);
+      await loadStages();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete stage."));
+    }
+  }
 
   const academicYearOptions = useMemo(() => {
     const names = academicYears.map((year) => year.name);
@@ -963,12 +1035,82 @@ export default function Admissions() {
             <RefreshCcw size={17} />
             Refresh
           </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowStageManager((prev) => !prev)}
+          >
+            <Settings size={17} />
+            Manage Stages
+          </button>
           <button type="button" className="primary-button" onClick={handleAddInquiry}>
             <UserPlus size={18} />
             Add Inquiry
           </button>
         </div>
       </section>
+
+      {showStageManager && (
+        <section className="table-panel">
+          <h4 style={{ marginTop: 0 }}>Admission Workflow Stages</h4>
+          <p style={{ color: "#667085", marginTop: -6 }}>
+            Configure the stages inquiries move through. Renaming a stage updates all inquiries currently in it.
+          </p>
+          <div className="stage-manager-list">
+            {stages.map((stage, index) => (
+              <div key={stage.id} className="stage-manager-row">
+                <div className="stage-manager-order">
+                  <button
+                    type="button"
+                    className="light-icon-button"
+                    disabled={index === 0}
+                    onClick={() => moveStage(index, -1)}
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="light-icon-button"
+                    disabled={index === stages.length - 1}
+                    onClick={() => moveStage(index, 1)}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={stageEdits[stage.id] ?? stage.name}
+                  onChange={(event) =>
+                    setStageEdits((current) => ({ ...current, [stage.id]: event.target.value }))
+                  }
+                  onBlur={() => renameStage(stage)}
+                />
+                {stage.is_terminal && <span className="status active">Final</span>}
+                <button
+                  type="button"
+                  className="light-icon-button"
+                  title="Delete stage"
+                  onClick={() => deleteStage(stage)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="stage-manager-add">
+            <input
+              type="text"
+              placeholder="New stage name"
+              value={newStageName}
+              onChange={(event) => setNewStageName(event.target.value)}
+            />
+            <button type="button" className="secondary-button" onClick={addStage}>
+              <PlusCircle size={16} />
+              Add Stage
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Coffee, PlusCircle, RefreshCcw, Trash2, Utensils, X } from "lucide-react";
+import { CalendarDays, Coffee, Download, PlusCircle, RefreshCcw, Trash2, Utensils, X } from "lucide-react";
 import API from "../api";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -38,6 +38,10 @@ export default function Timetable() {
   const [periodDuration, setPeriodDuration] = useState(() => Number(localStorage.getItem("timetable_duration")) || 40);
   const [rowCount, setRowCount] = useState(MIN_ROWS);
 
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem("timetable_view_mode") || "class");
+  const [teacherViewId, setTeacherViewId] = useState(() => localStorage.getItem("timetable_teacher_view_id") || "");
+  const [teacherEntries, setTeacherEntries] = useState([]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formType, setFormType] = useState("period"); // period | recess | break
@@ -72,6 +76,64 @@ export default function Timetable() {
   function selectYear(year) {
     setAcademicYear(year);
     localStorage.setItem("timetable_year", year);
+  }
+  function selectViewMode(mode) {
+    setViewMode(mode);
+    localStorage.setItem("timetable_view_mode", mode);
+  }
+  function selectTeacherView(id) {
+    setTeacherViewId(id);
+    localStorage.setItem("timetable_teacher_view_id", id);
+  }
+
+  async function loadTeacherEntries() {
+    if (!teacherViewId) {
+      setTeacherEntries([]);
+      return;
+    }
+    try {
+      const params = { teacher_id: teacherViewId };
+      if (academicYear) params.academic_year = academicYear;
+      const r = await API.get("/timetable/", { params });
+      setTeacherEntries(r.data || []);
+    } catch {
+      setTeacherEntries([]);
+    }
+  }
+
+  useEffect(() => {
+    if (viewMode === "teacher") loadTeacherEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, teacherViewId, academicYear]);
+
+  async function downloadTimetablePdf() {
+    const params = { academic_year: academicYear || undefined };
+    if (viewMode === "teacher") {
+      if (!teacherViewId) {
+        setMessage("Select a teacher first.");
+        return;
+      }
+      params.teacher_id = teacherViewId;
+    } else {
+      if (!classId) {
+        setMessage("Select a class first.");
+        return;
+      }
+      params.class_id = classId;
+    }
+    try {
+      const response = await API.get("/timetable/pdf", { params, responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "timetable.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      setMessage(error.response?.status === 404 ? "No timetable entries to export." : "Unable to generate PDF.");
+    }
   }
   function setStart(v) {
     setDayStart(v);
@@ -154,6 +216,16 @@ export default function Timetable() {
     });
     return map;
   }, [entries]);
+
+  const teacherRows = useMemo(() => {
+    const byPeriod = {};
+    teacherEntries.forEach((e) => {
+      if (e.entry_type && e.entry_type !== "period") return;
+      if (!byPeriod[e.period_no]) byPeriod[e.period_no] = { period_no: e.period_no, cells: {}, start_time: e.start_time, end_time: e.end_time };
+      byPeriod[e.period_no].cells[e.day_of_week] = e;
+    });
+    return Object.values(byPeriod).sort((a, b) => a.period_no - b.period_no);
+  }, [teacherEntries]);
 
   const teacherName = (id) => {
     const t = teachers.find((x) => String(x.id) === String(id));
@@ -325,7 +397,26 @@ export default function Timetable() {
           <p>Build a weekly period schedule per class. Click a cell to edit; teacher clashes are prevented automatically.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadEntries}>
+          <div className="timetable-actions">
+            <button
+              type="button"
+              className={viewMode === "class" ? "primary-button small" : "secondary-button small"}
+              onClick={() => selectViewMode("class")}
+            >
+              By Class
+            </button>
+            <button
+              type="button"
+              className={viewMode === "teacher" ? "primary-button small" : "secondary-button small"}
+              onClick={() => selectViewMode("teacher")}
+            >
+              By Teacher
+            </button>
+          </div>
+          <button type="button" className="secondary-button" onClick={downloadTimetablePdf}>
+            <Download size={16} /> Download PDF
+          </button>
+          <button type="button" className="secondary-button" onClick={viewMode === "teacher" ? loadTeacherEntries : loadEntries}>
             <RefreshCcw size={16} /> Refresh
           </button>
         </div>
@@ -335,15 +426,27 @@ export default function Timetable() {
 
       <section className="form-panel">
         <div className="form-grid" style={{ padding: "1rem" }}>
-          <div className="form-field">
-            <label>Class</label>
-            <select value={classId} onChange={(e) => selectClass(e.target.value)}>
-              <option value="">Select a class</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.class_name} - {c.section}</option>
-              ))}
-            </select>
-          </div>
+          {viewMode === "teacher" ? (
+            <div className="form-field">
+              <label>Teacher</label>
+              <select value={teacherViewId} onChange={(e) => selectTeacherView(e.target.value)}>
+                <option value="">Select a teacher</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="form-field">
+              <label>Class</label>
+              <select value={classId} onChange={(e) => selectClass(e.target.value)}>
+                <option value="">Select a class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.class_name} - {c.section}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-field">
             <label>Academic Year</label>
             <select value={academicYear} onChange={(e) => selectYear(e.target.value)}>
@@ -353,22 +456,26 @@ export default function Timetable() {
               ))}
             </select>
           </div>
-          <div className="form-field">
-            <label>Day Start Time</label>
-            <input type="time" value={dayStart} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div className="form-field">
-            <label>Period Duration</label>
-            <select value={periodDuration} onChange={(e) => setDuration(e.target.value)}>
-              {[30, 35, 40, 45, 50, 55, 60].map((m) => (
-                <option key={m} value={m}>{m} min</option>
-              ))}
-            </select>
-          </div>
+          {viewMode === "class" && (
+            <>
+              <div className="form-field">
+                <label>Day Start Time</label>
+                <input type="time" value={dayStart} onChange={(e) => setStart(e.target.value)} />
+              </div>
+              <div className="form-field">
+                <label>Period Duration</label>
+                <select value={periodDuration} onChange={(e) => setDuration(e.target.value)}>
+                  {[30, 35, 40, 45, 50, 55, 60].map((m) => (
+                    <option key={m} value={m}>{m} min</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
-      {showForm && (
+      {viewMode === "class" && showForm && (
         <section className="form-panel">
           <div className="panel-header">
             <div><h3>{editingId ? "Edit" : "Add"} {formType === "period" ? "Period" : formType === "recess" ? "Recess" : "Break"}</h3></div>
@@ -440,6 +547,7 @@ export default function Timetable() {
         </section>
       )}
 
+      {viewMode === "class" && (
       <section className="form-panel">
         <div className="panel-header">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -557,6 +665,64 @@ export default function Timetable() {
           </table></div>
         )}
       </section>
+      )}
+
+      {viewMode === "teacher" && (
+        <section className="form-panel">
+          <div className="panel-header">
+            <h3 style={{ margin: 0 }}><CalendarDays size={18} /> Teacher Weekly Schedule</h3>
+          </div>
+          {!teacherViewId ? (
+            <div style={{ padding: "1.5rem", color: "#64748b" }}>Select a teacher to view their timetable.</div>
+          ) : teacherRows.length === 0 ? (
+            <div style={{ padding: "1.5rem", color: "#64748b" }}>No periods scheduled for this teacher.</div>
+          ) : (
+            <div className="table-wrapper"><table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  {DAYS.map((d) => <th key={d}>{d}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {teacherRows.map((row) => (
+                  <tr key={`t-${row.period_no}`}>
+                    <td style={{ fontWeight: 700 }}>
+                      <div>P{row.period_no}</div>
+                      {row.start_time && row.end_time && (
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                          {row.start_time}–{row.end_time}
+                        </div>
+                      )}
+                    </td>
+                    {DAYS.map((day) => {
+                      const entry = row.cells[day];
+                      return (
+                        <td key={day} style={{ minWidth: 140 }}>
+                          {entry ? (
+                            <div>
+                              <strong>
+                                {entry.class_name_snapshot || ""}
+                                {entry.section_snapshot ? `-${entry.section_snapshot}` : ""}
+                              </strong>
+                              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                                {entry.subject || "-"}
+                                {entry.room ? ` · ${entry.room}` : ""}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: "#cbd5e1" }}>-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

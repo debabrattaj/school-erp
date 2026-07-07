@@ -22,6 +22,7 @@ from app.routes import mess
 from app.routes import library
 from app.routes import inventory
 from app.routes import admissions
+from app.routes import admission_workflow
 from app.routes import international_documents
 from app.routes import multi_curriculum
 from app.routes import admission_assessments
@@ -1118,6 +1119,7 @@ app.include_router(mess.router)
 app.include_router(library.router)
 app.include_router(inventory.router)
 app.include_router(admissions.router)
+app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)
 app.include_router(multi_curriculum.router)
 app.include_router(admission_assessments.router)

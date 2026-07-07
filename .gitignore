@@ -5,6 +5,8 @@ __pycache__/
 
 # Secrets
 backend/.env
+frontend/.env
+frontend/.env.local
 
 # Databases (per-tenant SQLite files — real data shouldn't ship with source)
 backend/*.db

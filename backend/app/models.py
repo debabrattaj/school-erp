@@ -906,6 +906,16 @@ class AdmissionInquiry(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class AdmissionWorkflowStage(Base):
+    __tablename__ = "admission_workflow_stages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True, index=True)
+    sort_order = Column(Integer, default=0, index=True)
+    is_terminal = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class AdmissionFollowUp(Base):
     __tablename__ = "admission_follow_ups"
 

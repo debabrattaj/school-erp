@@ -28,6 +28,19 @@ def make_engine(url: str):
     return create_engine(url, **engine_kwargs(url))
 
 
+def build_tenant_database_url(safe_code: str) -> str:
+    """Generate a fresh per-tenant connection string for a new school account.
+
+    Mirrors the dialect of DEFAULT_SCHOOL_DATABASE_URL: SQLite gets its own
+    file, Postgres (and other server DBs) get a same-server database named
+    after the school, reusing the configured host/user/password/port.
+    """
+    if is_sqlite(DATABASE_URL):
+        return f"sqlite:///./school_erp_{safe_code}.db"
+    parsed = make_url(DATABASE_URL)
+    return parsed.set(database=f"school_erp_{safe_code}").render_as_string(hide_password=False)
+
+
 def ensure_database_exists(url: str) -> None:
     """For server databases (Postgres), create the target database if it does
     not exist yet. SQLite files are created automatically on first connect, so

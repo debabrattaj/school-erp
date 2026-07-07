@@ -835,6 +835,30 @@ class AdmissionInquiryResponse(AdmissionInquiryBase):
         from_attributes = True
 
 
+class AdmissionWorkflowStageBase(BaseModel):
+    name: str
+    sort_order: Optional[int] = 0
+    is_terminal: Optional[bool] = False
+
+
+class AdmissionWorkflowStageCreate(AdmissionWorkflowStageBase):
+    pass
+
+
+class AdmissionWorkflowStageUpdate(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_terminal: Optional[bool] = None
+
+
+class AdmissionWorkflowStageResponse(AdmissionWorkflowStageBase):
+    id: int
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
 class AdmissionFollowUpBase(BaseModel):
     inquiry_id: int
     activity_date: date

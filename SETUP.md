@@ -106,9 +106,29 @@ In CI/production just `pip install pytest` and run `python -m pytest`.
 
 ## 7. Known rough edges (see full analysis)
 
-- `.db` files are committed to git — consider gitignoring them and adding a
-  seed/reset script instead, especially before this goes anywhere near production.
-- CORS is currently `allow_origins=["*"]` in `main.py` — fine for local dev,
-  tighten before deploying.
 - Stray Windows artifacts (`backend/Command Prompt.lnk`, `backend/desktop.ini`)
   should be removed and gitignored.
+- Self-serve school signup (`POST /platform/schools`) and admin-created accounts
+  (`POST /accounts/`) generate their own tenant database automatically — one
+  Postgres database per school on the same server when `DEFAULT_SCHOOL_DATABASE_URL`
+  is Postgres, or a SQLite file otherwise. There is no schema-per-tenant mode.
+- Uploaded files (`UPLOAD_DIR`) and local backups (`BACKUP_DIR`) live on local
+  disk — fine on a single persistent host, but lost on redeploy on platforms
+  with an ephemeral filesystem unless you attach persistent storage or move to
+  object storage (S3/R2).
+
+## 8. Deploying: Vercel (frontend) + Render (backend) + Postgres
+
+- **Frontend**: set `VITE_API_BASE_URL` to the backend's public URL in the
+  Vercel project's environment variables (see `frontend/.env.example`).
+  `frontend/vercel.json` adds the SPA rewrite `BrowserRouter` needs so deep
+  links don't 404.
+- **Backend**: `render.yaml` (repo root) and `backend/Procfile` define the web
+  service (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Set
+  `CENTRAL_DATABASE_URL` and `DEFAULT_SCHOOL_DATABASE_URL` to your Postgres
+  connection string — **note Render's auto-generated `DATABASE_URL` uses the
+  `postgres://` scheme; rewrite it to `postgresql+psycopg://...` before using
+  it**, since both the app code and the psycopg3 driver expect that prefix.
+  Also set `CORS_ALLOWED_ORIGINS` and `FRONTEND_BASE_URL` to your Vercel domain.
+- After the first deploy, run `python manage_migrations.py upgrade head`
+  against the production registry to bring every tenant DB to the latest schema.

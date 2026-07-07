@@ -402,6 +402,9 @@ export default function StudentDetails() {
           <button type="button" className="secondary-button" onClick={() => downloadDoc("transfer-certificate", "transfer_certificate")}>
             <Download size={17} /> Transfer Cert.
           </button>
+          <button type="button" className="secondary-button" onClick={() => downloadDoc("transcript", "transcript")}>
+            <Download size={17} /> Transcript
+          </button>
         </div>
       </section>
 

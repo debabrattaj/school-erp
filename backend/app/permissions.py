@@ -58,6 +58,7 @@ PATH_FEATURE_MAP = {
     "/timetable": "timetable",
     "/admissions": "admissions",
     "/admission-assessments": "admissions",
+    "/admission-workflow-stages": "admissions",
     "/communications": "parent_communication",
     "/student-services": "student_services",
     "/counseling": "counseling",

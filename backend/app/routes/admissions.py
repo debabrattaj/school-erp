@@ -4,8 +4,20 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.routes.admission_workflow import ensure_default_stages
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
+
+
+def validate_stage(db: Session, stage: str | None):
+    if not stage:
+        return
+    ensure_default_stages(db)
+    exists = db.query(models.AdmissionWorkflowStage).filter(
+        models.AdmissionWorkflowStage.name == stage
+    ).first()
+    if not exists:
+        raise HTTPException(status_code=400, detail=f"Unknown admission stage: {stage}")
 
 
 def get_inquiry_or_404(db: Session, inquiry_id: int):
@@ -84,6 +96,7 @@ def create_admission_inquiry(
 ):
     data = payload.model_dump()
     data["inquiry_no"] = data["inquiry_no"].strip() or next_inquiry_no(db)
+    validate_stage(db, data.get("stage"))
     inquiry = models.AdmissionInquiry(**data)
 
     db.add(inquiry)
@@ -101,6 +114,7 @@ def update_admission_inquiry(
     inquiry = get_inquiry_or_404(db, inquiry_id)
     data = payload.model_dump()
     data["inquiry_no"] = data["inquiry_no"].strip() or inquiry.inquiry_no
+    validate_stage(db, data.get("stage"))
 
     for key, value in data.items():
         setattr(inquiry, key, value)

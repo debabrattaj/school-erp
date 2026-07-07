@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 
-from app.database import Base
+from app.database import Base, build_tenant_database_url, ensure_database_exists
 from app.models import User
 from app.security import get_current_user, hash_password, validate_password
 from app.db_migrations import stamp_tenant_db
@@ -84,7 +84,8 @@ def create_account(
                 char.lower() if char.isalnum() else "_"
                 for char in payload.account_code
             ).strip("_")
-            database_url = f"sqlite:///./school_erp_{safe_code}.db"
+            database_url = build_tenant_database_url(safe_code)
+        ensure_database_exists(database_url)
 
         account = SchoolAccount(
             school_name=payload.school_name,

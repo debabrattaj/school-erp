@@ -13,7 +13,7 @@ _PYLIBS = os.path.join(_BACKEND_DIR, ".pylibs")
 if os.path.isdir(_PYLIBS) and _PYLIBS not in sys.path:
     sys.path.insert(0, _PYLIBS)
 
-from reportlab.lib.pagesizes import A4  # noqa: E402
+from reportlab.lib.pagesizes import A4, landscape  # noqa: E402
 from reportlab.lib.units import mm  # noqa: E402
 from reportlab.lib import colors  # noqa: E402
 from reportlab.lib.utils import ImageReader  # noqa: E402
@@ -183,6 +183,209 @@ def report_card_pdf(data: dict) -> bytes:
 
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(left, 20 * mm, "This is a computer-generated report card.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def transcript_pdf(data: dict) -> bytes:
+    """Render a multi-year academic transcript.
+
+    Expected keys: school_name, student_name, admission_no, dob, issue_date,
+    years (list of {academic_year, class_label, exams: [{exam_name, rows,
+    total_obtained, total_max, percentage, overall_grade}]}).
+    """
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 20 * mm
+    right = width - 20 * mm
+    y = height - 25 * mm
+
+    def footer():
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawString(left, 15 * mm, "This is a computer-generated transcript.")
+
+    def new_page():
+        nonlocal y
+        footer()
+        c.showPage()
+        y = height - 20 * mm
+        c.setFont("Helvetica", 10)
+
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(width / 2, y, data.get("school_name") or "School")
+    y -= 8 * mm
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(width / 2, y, "Academic Transcript")
+    y -= 4 * mm
+    c.line(left, y, right, y)
+    y -= 9 * mm
+
+    c.setFont("Helvetica", 10)
+    c.drawString(left, y, f"Student: {data.get('student_name') or '-'}")
+    c.drawRightString(right, y, f"Admission No: {data.get('admission_no') or '-'}")
+    y -= 6 * mm
+    if data.get("dob"):
+        c.drawString(left, y, f"Date of Birth: {data.get('dob')}")
+        y -= 6 * mm
+    y -= 4 * mm
+
+    years = data.get("years", [])
+    if not years:
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawString(left, y, "No academic records found.")
+        y -= 8 * mm
+
+    for year_block in years:
+        if y < 60 * mm:
+            new_page()
+
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(left, y, f"Academic Year: {year_block.get('academic_year') or '-'}")
+        c.drawRightString(right, y, f"Class: {year_block.get('class_label') or '-'}")
+        y -= 6 * mm
+        c.line(left, y, right, y)
+        y -= 8 * mm
+
+        exams = year_block.get("exams", [])
+        if not exams:
+            c.setFont("Helvetica-Oblique", 9.5)
+            c.drawString(left, y, "No exam records for this academic year.")
+            y -= 10 * mm
+
+        for exam in exams:
+            if y < 55 * mm:
+                new_page()
+
+            c.setFont("Helvetica-Bold", 10.5)
+            c.drawString(left, y, exam.get("exam_name") or "-")
+            y -= 6 * mm
+
+            table_data = [["Subject", "Marks", "Max", "Grade"]]
+            for row in exam.get("rows", []):
+                table_data.append([
+                    str(row.get("subject") or "-"),
+                    f"{float(row.get('obtained') or 0):g}",
+                    f"{float(row.get('max') or 0):g}",
+                    str(row.get("grade") or "-"),
+                ])
+            col_widths = [right - left - 3 * 28 * mm, 28 * mm, 28 * mm, 28 * mm]
+            table = Table(table_data, colWidths=col_widths)
+            table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#25324b")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            _, th = table.wrap(right - left, y)
+            table.drawOn(c, left, y - th)
+            y = y - th - 5 * mm
+
+            c.setFont("Helvetica-Bold", 9.5)
+            c.drawString(left, y, f"Total: {exam.get('total_obtained', 0):g} / {exam.get('total_max', 0):g}")
+            c.drawRightString(
+                right, y,
+                f"Percentage: {exam.get('percentage', 0):.2f}%  |  Grade: {exam.get('overall_grade') or '-'}",
+            )
+            y -= 10 * mm
+
+        y -= 4 * mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(right, max(y, 35 * mm), "Principal / Authorised Signatory")
+    footer()
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def timetable_pdf(data: dict) -> bytes:
+    """Render a timetable grid (by class or by teacher) to PDF bytes, landscape.
+
+    Expected keys: school_name, subtitle, title, academic_year, days (list of
+    day names), rows (list of {period_no, is_break, break_label, start_time,
+    end_time, cells: {day: {"line1": subject, "line2": detail}}}).
+    """
+    buf = io.BytesIO()
+    pagesize = landscape(A4)
+    c = canvas.Canvas(buf, pagesize=pagesize)
+    width, height = pagesize
+    left = 15 * mm
+    right = width - 15 * mm
+    y = height - 15 * mm
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, y, data.get("school_name") or "School")
+    y -= 7 * mm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawCentredString(width / 2, y, data.get("subtitle") or "Timetable")
+    y -= 6 * mm
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(
+        width / 2, y,
+        f"{data.get('title') or '-'}    |    Academic Year: {data.get('academic_year') or '-'}",
+    )
+    y -= 9 * mm
+
+    days = data.get("days", [])
+    rows = data.get("rows", [])
+
+    table_data = [["Period / Time"] + days]
+    for row in rows:
+        time_label = f"P{row.get('period_no')}"
+        if row.get("start_time") and row.get("end_time"):
+            time_label += f" ({row['start_time']}-{row['end_time']})"
+
+        if row.get("is_break"):
+            table_data.append([row.get("break_label") or "Break"] + [""] * len(days))
+            continue
+
+        cells = row.get("cells", {})
+        row_cells = []
+        for day in days:
+            cell = cells.get(day)
+            if cell:
+                line1 = cell.get("line1") or ""
+                line2 = cell.get("line2") or ""
+                row_cells.append(" - ".join([part for part in [line1, line2] if part]) or "-")
+            else:
+                row_cells.append("-")
+        table_data.append([time_label] + row_cells)
+
+    col_widths = [32 * mm] + [(right - left - 32 * mm) / max(len(days), 1)] * len(days)
+    table = Table(table_data, colWidths=col_widths)
+
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#25324b")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]
+    for idx, row in enumerate(rows, start=1):
+        if row.get("is_break"):
+            style_cmds.append(("SPAN", (1, idx), (len(days), idx)))
+            style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#fef3c7")))
+    table.setStyle(TableStyle(style_cmds))
+
+    _, th = table.wrap(right - left, y)
+    table.drawOn(c, left, y - th)
+
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(left, 10 * mm, "This is a computer-generated timetable.")
 
     c.showPage()
     c.save()

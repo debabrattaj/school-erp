@@ -1,15 +1,19 @@
+import io
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import TimetableEntry, SchoolClass, Teacher, User
+from app.models import TimetableEntry, SchoolClass, Teacher, User, SchoolSettings
 from app.schemas import (
     TimetableEntryCreate,
     TimetableEntryUpdate,
     TimetableEntryResponse,
 )
 from app.security import require_roles
+from app.pdf import timetable_pdf
 
 router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
@@ -76,6 +80,99 @@ def list_timetable(
     if day_of_week:
         query = query.filter(TimetableEntry.day_of_week == day_of_week)
     return query.order_by(TimetableEntry.period_no).all()
+
+
+@router.get("/pdf")
+def timetable_pdf_export(
+    class_id: int | None = None,
+    teacher_id: int | None = None,
+    academic_year: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
+):
+    if not class_id and not teacher_id:
+        raise HTTPException(status_code=400, detail="class_id or teacher_id is required")
+
+    query = db.query(TimetableEntry)
+    if class_id:
+        query = query.filter(TimetableEntry.class_id == class_id)
+    if teacher_id:
+        query = query.filter(TimetableEntry.teacher_id == teacher_id)
+    if academic_year:
+        query = query.filter(TimetableEntry.academic_year == academic_year)
+    entries = query.order_by(TimetableEntry.period_no).all()
+    if not entries:
+        raise HTTPException(status_code=404, detail="No timetable entries found")
+
+    settings = db.query(SchoolSettings).first()
+    school_name = settings.school_name if settings else "School"
+
+    period_rows = {}
+    for entry in entries:
+        period_rows.setdefault(entry.period_no, []).append(entry)
+
+    rows = []
+    for period_no in sorted(period_rows.keys()):
+        group = period_rows[period_no]
+        break_entry = next((e for e in group if e.entry_type != "period"), None)
+        if break_entry:
+            rows.append({
+                "period_no": period_no,
+                "is_break": True,
+                "break_label": break_entry.label or break_entry.entry_type.title(),
+                "start_time": break_entry.start_time,
+                "end_time": break_entry.end_time,
+            })
+            continue
+
+        cells = {}
+        sample = group[0]
+        for entry in group:
+            if class_id:
+                line1 = entry.subject or "-"
+                line2 = entry.teacher_name_snapshot
+            else:
+                class_label = entry.class_name_snapshot or ""
+                if entry.section_snapshot:
+                    class_label = f"{class_label}-{entry.section_snapshot}" if class_label else entry.section_snapshot
+                line1 = class_label or "-"
+                line2 = entry.subject
+            cells[entry.day_of_week] = {"line1": line1, "line2": line2}
+
+        rows.append({
+            "period_no": period_no,
+            "is_break": False,
+            "start_time": sample.start_time,
+            "end_time": sample.end_time,
+            "cells": cells,
+        })
+
+    if class_id:
+        cls = db.query(SchoolClass).filter(SchoolClass.id == class_id).first()
+        title = f"{cls.class_name} - {cls.section}" if cls else "Class"
+        subtitle = "Class Timetable"
+        days = VALID_DAYS[:6]
+    else:
+        teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+        title = teacher.name if teacher else "Teacher"
+        subtitle = "Teacher Timetable"
+        days = sorted({e.day_of_week for e in entries if e.day_of_week != "*"}, key=VALID_DAYS.index)
+
+    pdf_bytes = timetable_pdf({
+        "school_name": school_name,
+        "subtitle": subtitle,
+        "title": title,
+        "academic_year": academic_year or (entries[0].academic_year if entries else None),
+        "days": days,
+        "rows": rows,
+    })
+
+    filename = f"timetable_{'class_' + str(class_id) if class_id else 'teacher_' + str(teacher_id)}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 @router.post("/", response_model=TimetableEntryResponse)
