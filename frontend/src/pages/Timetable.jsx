@@ -123,7 +123,10 @@ export default function Timetable() {
       const data = r.data || [];
       setEntries(data);
       const maxPeriod = data.reduce((m, e) => Math.max(m, e.period_no), 0);
-      setRowCount(Math.max(maxPeriod, MIN_ROWS));
+      // Remember how many rows this class's grid had, so empty rows (and the
+      // rows above a break) don't collapse when the highest entry is deleted.
+      const storedRows = Number(localStorage.getItem(`timetable_rows_${classId}`)) || 0;
+      setRowCount(Math.max(maxPeriod, storedRows, MIN_ROWS));
     } catch {
       setEntries([]);
     }
@@ -195,8 +198,16 @@ export default function Timetable() {
     setMessage("");
   }
 
+  function rememberRows(n) {
+    if (classId) localStorage.setItem(`timetable_rows_${classId}`, String(n));
+  }
+
   function addRow() {
-    setRowCount((n) => n + 1);
+    setRowCount((n) => {
+      const next = n + 1;
+      rememberRows(next);
+      return next;
+    });
   }
 
   async function addBreak(type) {
@@ -219,6 +230,7 @@ export default function Timetable() {
         duration_min: type === "recess" ? 15 : 30,
       });
       setRowCount(nextRow);
+      rememberRows(nextRow);
       setMessage(`${type === "recess" ? "Recess" : "Break"} added.`);
       await loadEntries();
     } catch (error) {
