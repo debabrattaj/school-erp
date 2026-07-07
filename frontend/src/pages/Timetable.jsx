@@ -30,6 +30,7 @@ export default function Timetable() {
   const [teachers, setTeachers] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [classSubjects, setClassSubjects] = useState([]);
 
   const [classId, setClassId] = useState(() => localStorage.getItem("timetable_class_id") || "");
   const [academicYear, setAcademicYear] = useState(() => localStorage.getItem("timetable_year") || "");
@@ -96,11 +97,25 @@ export default function Timetable() {
     return map;
   }
 
+  async function loadClassSubjects() {
+    if (!classId) {
+      setClassSubjects([]);
+      return;
+    }
+    try {
+      const r = await API.get("/class-subjects/", { params: { class_id: classId, active_only: true } });
+      setClassSubjects(r.data || []);
+    } catch {
+      setClassSubjects([]);
+    }
+  }
+
   async function loadEntries() {
     if (!classId) {
       setEntries([]);
       return;
     }
+    loadClassSubjects();
     try {
       const params = { class_id: classId };
       if (academicYear) params.academic_year = academicYear;
@@ -189,7 +204,10 @@ export default function Timetable() {
       setMessage("Select a class first.");
       return;
     }
-    const nextRow = rowCount + 1;
+    // Always place a break on a fresh row beyond every existing entry so it can
+    // never share a slot with a period (which would hide that period).
+    const maxPeriodNo = entries.reduce((m, e) => Math.max(m, e.period_no), 0);
+    const nextRow = Math.max(rowCount, maxPeriodNo) + 1;
     try {
       await API.post("/timetable/", {
         academic_year: academicYear || null,
@@ -355,12 +373,27 @@ export default function Timetable() {
                     </select>
                   </div>
                   <div className="form-field">
-                    <label>Row (Period No.) *</label>
-                    <input type="number" min="1" value={form.period_no} onChange={(e) => setForm({ ...form, period_no: e.target.value })} required />
-                  </div>
-                  <div className="form-field">
                     <label>Subject</label>
-                    <input type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Mathematics" />
+                    <select
+                      value={form.subject}
+                      onChange={(e) => {
+                        const subj = e.target.value;
+                        const cs = classSubjects.find((x) => x.subject_name === subj);
+                        setForm((f) => ({
+                          ...f,
+                          subject: subj,
+                          // auto-fill the assigned teacher for this subject, if any
+                          teacher_id: cs && cs.teacher_id ? cs.teacher_id : f.teacher_id,
+                        }));
+                      }}
+                    >
+                      <option value="">
+                        {classSubjects.length ? "Select subject" : "No subjects assigned to this class"}
+                      </option>
+                      {classSubjects.map((cs) => (
+                        <option key={cs.id} value={cs.subject_name}>{cs.subject_name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="form-field">
                     <label>Teacher</label>
