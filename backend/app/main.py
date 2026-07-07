@@ -9,7 +9,7 @@ from app.audit import should_audit, actor_from_token, record_audit
 from app.routes import master_data
 from app.routes import student_custom_fields
 from app.routes import module_layouts
-from app.database import Base, engine
+from app.database import Base, engine, is_sqlite, DATABASE_URL
 from app.seed import seed_all
 from app.routes import module_custom_fields
 from app.routes import subjects
@@ -1033,7 +1033,8 @@ def ensure_dev_schema():
             )
 
 
-ensure_dev_schema()
+if is_sqlite(DATABASE_URL):
+    ensure_dev_schema()
 seed_all()
 
 app = FastAPI(
