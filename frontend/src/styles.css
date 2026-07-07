@@ -2579,47 +2579,6 @@ body,
   }
 }
 
-.sidebar-backdrop {
-  display: none;
-}
-
-@media (max-width: 900px) {
-  .app-body {
-    position: relative;
-  }
-
-  .sidebar-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.45);
-    z-index: 200;
-  }
-
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    width: min(84vw, 300px);
-    flex-basis: auto;
-    z-index: 210;
-    animation: sidebar-slide-in 0.22s ease;
-  }
-
-  .main-area {
-    width: 100%;
-    min-height: 0;
-  }
-
-  .sidebar-toggle-button {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    z-index: 220;
-  }
-}
-
 @keyframes sidebar-slide-in {
   from {
     transform: translateX(-100%);
@@ -4260,6 +4219,47 @@ textarea {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 18px 0 45px rgba(16, 24, 40, 0.14);
   padding: 20px 16px;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-body {
+    position: relative;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 200;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(84vw, 300px);
+    flex-basis: auto;
+    z-index: 210;
+    animation: sidebar-slide-in 0.22s ease;
+  }
+
+  .main-area {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .sidebar-toggle-button {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 220;
+  }
 }
 
 .school-brand {
