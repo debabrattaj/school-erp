@@ -1562,6 +1562,7 @@ class InventoryTransactionBase(BaseModel):
     issued_to_student_id: Optional[int] = None
     issued_to_staff: Optional[str] = None
     reference_no: Optional[str] = None
+    unit_cost: Optional[float] = None
     remarks: Optional[str] = None
     cycle: Optional[str] = None
     academic_year: Optional[str] = None
@@ -1575,6 +1576,7 @@ class InventoryTransactionCreate(InventoryTransactionBase):
 
 class InventoryTransactionResponse(InventoryTransactionBase):
     id: int
+    total_cost: Optional[float] = None
     amount: Optional[float] = None
     item_name: Optional[str] = None
     item_code: Optional[str] = None
@@ -1613,6 +1615,60 @@ class InventoryBulkIssueResult(BaseModel):
 class InventoryBulkIssueResponse(BaseModel):
     results: list[InventoryBulkIssueResult]
     total_issued: int
+
+
+# ---------------- Accounting ----------------
+
+class AccountTransactionBase(BaseModel):
+    entry_date: date
+    entry_type: str  # Income, Expense
+    category: str
+    amount: float
+    payment_mode: Optional[str] = None
+    reference_no: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AccountTransactionCreate(AccountTransactionBase):
+    pass
+
+
+class AccountTransactionUpdate(BaseModel):
+    entry_date: Optional[date] = None
+    entry_type: Optional[str] = None
+    category: Optional[str] = None
+    amount: Optional[float] = None
+    payment_mode: Optional[str] = None
+    reference_no: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AccountTransactionResponse(AccountTransactionBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class LedgerEntry(BaseModel):
+    date: date
+    entry_type: str
+    category: str
+    description: str
+    amount: float
+    source: str
+    reference_no: Optional[str] = None
+
+
+class AccountingSummaryResponse(BaseModel):
+    fee_income: float
+    inventory_expense: float
+    other_income: float
+    other_expense: float
+    total_income: float
+    total_expense: float
+    net_balance: float
+    monthly: list[dict]
 
 
 # ---------------- Academic Years ----------------

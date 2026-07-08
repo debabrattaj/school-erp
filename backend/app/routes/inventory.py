@@ -63,6 +63,8 @@ def serialize_transaction(record: InventoryTransaction, db: Session):
         "issued_to_student_id": record.issued_to_student_id,
         "issued_to_staff": record.issued_to_staff,
         "reference_no": record.reference_no,
+        "unit_cost": record.unit_cost,
+        "total_cost": record.total_cost,
         "remarks": record.remarks,
         "cycle": record.cycle,
         "academic_year": record.academic_year,
@@ -161,9 +163,17 @@ def create_transaction(
         get_or_404(db, Student, payload.issued_to_student_id, "Student")
 
     apply_stock(item, payload.transaction_type, payload.quantity)
+
     data = payload.model_dump()
+    unit_cost = data.get("unit_cost")
+    if unit_cost is None and payload.transaction_type in IN_TYPES:
+        unit_cost = item.unit_price or 0
+    data["unit_cost"] = unit_cost
+    data["total_cost"] = (unit_cost or 0) * payload.quantity if unit_cost else None
+
     if payload.transaction_type == "Purchase" and payload.unit_price:
         data["amount"] = payload.unit_price * payload.quantity
+
     record = InventoryTransaction(**data)
     db.add(record)
     db.commit()
