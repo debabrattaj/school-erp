@@ -1032,6 +1032,43 @@ def ensure_dev_schema():
                 )
             )
 
+        inventory_item_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(inventory_items)")
+        }
+
+        if inventory_item_columns and "unit_price" not in inventory_item_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE inventory_items ADD COLUMN unit_price FLOAT DEFAULT 0"
+            )
+
+        inventory_txn_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(inventory_transactions)")
+        }
+
+        for column_name, column_sql in {
+            "cycle": "VARCHAR",
+            "academic_year": "VARCHAR",
+            "unit_price": "FLOAT",
+            "amount": "FLOAT",
+            "payment_status": "VARCHAR",
+        }.items():
+            if inventory_txn_columns and column_name not in inventory_txn_columns:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE inventory_transactions ADD COLUMN {column_name} {column_sql}"
+                )
+
+        if inventory_txn_columns:
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_inventory_transactions_cycle "
+                "ON inventory_transactions (cycle)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_inventory_transactions_academic_year "
+                "ON inventory_transactions (academic_year)"
+            )
+
 
 if is_sqlite(DATABASE_URL):
     ensure_dev_schema()

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
-import { Boxes, Edit, PackageCheck, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
+import { Boxes, Edit, IndianRupee, PackageCheck, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -9,6 +9,8 @@ import { getMasterValues } from "../services/masterDataService";
 
 const today = todayLocalDate();
 
+const CYCLE_OPTIONS = ["Yearly", "Half-Yearly", "One-time"];
+
 const emptyItemForm = {
   item_name: "",
   item_code: "",
@@ -16,6 +18,7 @@ const emptyItemForm = {
   unit: "pcs",
   quantity_available: 0,
   reorder_level: 0,
+  unit_price: 0,
   location: "",
   status: "Active",
   remarks: "",
@@ -30,7 +33,25 @@ const emptyTransactionForm = {
   issued_to_staff: "",
   reference_no: "",
   remarks: "",
+  unit_price: "",
+  payment_status: "Paid",
 };
+
+const emptyBulkIssueForm = {
+  cycle: "Yearly",
+  academic_year: "",
+  class_name: "",
+  section: "",
+  transaction_date: today,
+  reference_no: "",
+  remarks: "",
+};
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) =>
+    String(a).localeCompare(String(b), undefined, { numeric: true })
+  );
+}
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -46,8 +67,14 @@ export default function Inventory() {
   const [students, setStudents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [itemForm, setItemForm] = useState(emptyItemForm);
   const [transactionForm, setTransactionForm] = useState(emptyTransactionForm);
+  const [bulkIssueForm, setBulkIssueForm] = useState(emptyBulkIssueForm);
+  const [bulkIssueKit, setBulkIssueKit] = useState([]);
+  const [bulkIssueItemId, setBulkIssueItemId] = useState("");
+  const [bulkIssueQuantity, setBulkIssueQuantity] = useState(1);
+  const [bulkIssueSaving, setBulkIssueSaving] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
   const [formMode, setFormMode] = useState("");
   const [searchText, setSearchText] = useState("");
@@ -68,19 +95,21 @@ export default function Inventory() {
     try {
       setLoading(true);
       setMessage("");
-      const [itemResponse, transactionResponse, studentResponse, categoryResponse, unitResponse] =
+      const [itemResponse, transactionResponse, studentResponse, categoryResponse, unitResponse, yearResponse] =
         await Promise.all([
           API.get("/inventory/items/"),
           API.get("/inventory/transactions/"),
           API.get("/students/"),
           getMasterValues("InventoryCategory"),
           getMasterValues("InventoryUnit"),
+          getMasterValues("AcademicYear"),
         ]);
       setItems(itemResponse.data || []);
       setTransactions(transactionResponse.data || []);
       setStudents(studentResponse.data || []);
       setCategories(categoryResponse || []);
       setUnits(unitResponse || []);
+      setAcademicYears(yearResponse || []);
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load inventory data."));
@@ -95,6 +124,29 @@ export default function Inventory() {
 
   const lowStock = items.filter((item) => Number(item.quantity_available || 0) <= Number(item.reorder_level || 0)).length;
   const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity_available || 0), 0);
+  const purchaseRevenue = transactions
+    .filter((record) => record.transaction_type === "Purchase")
+    .reduce((sum, record) => sum + Number(record.amount || 0), 0);
+
+  const classOptions = useMemo(() => uniqueValues(students.map((student) => student.class_name)), [students]);
+  const sectionOptions = useMemo(
+    () =>
+      uniqueValues(
+        students
+          .filter((student) => !bulkIssueForm.class_name || student.class_name === bulkIssueForm.class_name)
+          .map((student) => student.section)
+      ),
+    [students, bulkIssueForm.class_name]
+  );
+  const bulkIssueMatchedStudents = useMemo(
+    () =>
+      students.filter((student) => {
+        const matchClass = bulkIssueForm.class_name ? student.class_name === bulkIssueForm.class_name : true;
+        const matchSection = bulkIssueForm.section ? student.section === bulkIssueForm.section : true;
+        return matchClass && matchSection;
+      }),
+    [students, bulkIssueForm.class_name, bulkIssueForm.section]
+  );
 
   const filteredItems = useMemo(
     () =>
@@ -123,7 +175,43 @@ export default function Inventory() {
 
   function handleTransactionChange(event) {
     const { name, value } = event.target;
-    setTransactionForm((prev) => ({ ...prev, [name]: value }));
+    setTransactionForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "item_id") {
+        const selectedItem = items.find((item) => String(item.id) === String(value));
+        if (selectedItem && !prev.unit_price) {
+          next.unit_price = selectedItem.unit_price || "";
+        }
+      }
+      return next;
+    });
+  }
+
+  function handleBulkIssueFormChange(event) {
+    const { name, value } = event.target;
+    setBulkIssueForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "class_name") next.section = "";
+      return next;
+    });
+  }
+
+  function addItemToKit() {
+    if (!bulkIssueItemId || Number(bulkIssueQuantity) <= 0) return;
+    setBulkIssueKit((prev) => {
+      if (prev.some((entry) => String(entry.item_id) === String(bulkIssueItemId))) return prev;
+      const item = items.find((candidate) => String(candidate.id) === String(bulkIssueItemId));
+      return [
+        ...prev,
+        { item_id: Number(bulkIssueItemId), item_name: item?.item_name || "Item", quantity_per_student: Number(bulkIssueQuantity) },
+      ];
+    });
+    setBulkIssueItemId("");
+    setBulkIssueQuantity(1);
+  }
+
+  function removeItemFromKit(itemId) {
+    setBulkIssueKit((prev) => prev.filter((entry) => entry.item_id !== itemId));
   }
 
   function resetForms() {
@@ -139,6 +227,7 @@ export default function Inventory() {
       ...itemForm,
       quantity_available: Number(itemForm.quantity_available || 0),
       reorder_level: Number(itemForm.reorder_level || 0),
+      unit_price: Number(itemForm.unit_price || 0),
       item_code: itemForm.item_code || null,
       remarks: itemForm.remarks || null,
     };
@@ -161,6 +250,7 @@ export default function Inventory() {
 
   async function saveTransaction(event) {
     event.preventDefault();
+    const isPurchase = transactionForm.transaction_type === "Purchase";
     const payload = {
       ...transactionForm,
       item_id: Number(transactionForm.item_id),
@@ -171,6 +261,8 @@ export default function Inventory() {
       issued_to_staff: transactionForm.issued_to_staff || null,
       reference_no: transactionForm.reference_no || null,
       remarks: transactionForm.remarks || null,
+      unit_price: isPurchase && transactionForm.unit_price ? Number(transactionForm.unit_price) : null,
+      payment_status: isPurchase ? transactionForm.payment_status : null,
     };
 
     try {
@@ -181,6 +273,50 @@ export default function Inventory() {
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to save inventory transaction."));
+    }
+  }
+
+  async function submitBulkIssue(event) {
+    event.preventDefault();
+    if (!bulkIssueKit.length) {
+      setMessage("Add at least one item to the issuance kit.");
+      return;
+    }
+    if (!bulkIssueMatchedStudents.length) {
+      setMessage("No students match the selected class/section.");
+      return;
+    }
+
+    const payload = {
+      items: bulkIssueKit.map((entry) => ({ item_id: entry.item_id, quantity_per_student: entry.quantity_per_student })),
+      student_ids: bulkIssueMatchedStudents.map((student) => student.id),
+      transaction_date: bulkIssueForm.transaction_date,
+      cycle: bulkIssueForm.cycle,
+      academic_year: bulkIssueForm.academic_year,
+      reference_no: bulkIssueForm.reference_no || null,
+      remarks: bulkIssueForm.remarks || null,
+    };
+
+    try {
+      setBulkIssueSaving(true);
+      const response = await API.post("/inventory/bulk-issue", payload);
+      const { results, total_issued: totalIssued } = response.data;
+      const notes = results
+        .map((result) => {
+          if (result.skipped_insufficient_stock) return `${result.item_name}: not enough stock`;
+          if (result.skipped_duplicate_count) return `${result.item_name}: ${result.issued_count} issued, ${result.skipped_duplicate_count} already had this cycle`;
+          return `${result.item_name}: ${result.issued_count} issued`;
+        })
+        .join(" | ");
+      setMessage(`Issued to ${totalIssued} student record(s). ${notes}`);
+      setBulkIssueKit([]);
+      setBulkIssueForm(emptyBulkIssueForm);
+      await loadPageData();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to complete bulk issuance."));
+    } finally {
+      setBulkIssueSaving(false);
     }
   }
 
@@ -232,10 +368,12 @@ export default function Inventory() {
             <RefreshCcw size={17} />
             Refresh
           </button>
-          <button type="button" className="primary-button" onClick={activeTab === "items" ? addItem : addMovement}>
-            <PlusCircle size={18} />
-            {activeTab === "items" ? "Add Item" : "Add Movement"}
-          </button>
+          {activeTab !== "bulkIssue" && (
+            <button type="button" className="primary-button" onClick={activeTab === "items" ? addItem : addMovement}>
+              <PlusCircle size={18} />
+              {activeTab === "items" ? "Add Item" : "Add Movement"}
+            </button>
+          )}
         </div>
       </section>
 
@@ -243,6 +381,7 @@ export default function Inventory() {
         <SummaryCard icon={Boxes} label="Items" value={items.length} />
         <SummaryCard icon={PackageCheck} label="Total Quantity" value={totalQuantity} />
         <SummaryCard icon={Boxes} label="Low Stock" value={lowStock} warning />
+        <SummaryCard icon={IndianRupee} label="Purchase Revenue" value={purchaseRevenue.toFixed(2)} />
       </section>
 
       {message && <div className="toast-notification">{message}</div>}
@@ -251,6 +390,7 @@ export default function Inventory() {
         <div className="student-profile-tabs">
           <button type="button" className={activeTab === "items" ? "active" : ""} onClick={() => { setActiveTab("items"); resetForms(); }}>Items</button>
           <button type="button" className={activeTab === "transactions" ? "active" : ""} onClick={() => { setActiveTab("transactions"); resetForms(); }}>Stock Movement</button>
+          <button type="button" className={activeTab === "bulkIssue" ? "active" : ""} onClick={() => { setActiveTab("bulkIssue"); resetForms(); }}>Issue to Class</button>
         </div>
       </section>
 
@@ -267,6 +407,7 @@ export default function Inventory() {
                 <div className="form-field"><label>Unit</label><input list="inventory-units" name="unit" value={itemForm.unit} onChange={handleItemChange} /></div>
                 <TextField label="Available Quantity" type="number" name="quantity_available" value={itemForm.quantity_available} onChange={handleItemChange} />
                 <TextField label="Reorder Level" type="number" name="reorder_level" value={itemForm.reorder_level} onChange={handleItemChange} />
+                <TextField label="Selling Price" type="number" step="0.01" name="unit_price" value={itemForm.unit_price} onChange={handleItemChange} />
                 <TextField label="Location" name="location" value={itemForm.location} onChange={handleItemChange} />
                 <div className="form-field"><label>Status</label><select name="status" value={itemForm.status} onChange={handleItemChange}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
                 <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="3" value={itemForm.remarks} onChange={handleItemChange}></textarea></div>
@@ -277,10 +418,10 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Inventory Items" count={filteredItems.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Item", "Code", "Category", "Unit", "Available", "Reorder", "Location", "Status", "Actions"]}>
+          <RecordsTable title="Inventory Items" count={filteredItems.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Item", "Code", "Category", "Unit", "Available", "Reorder", "Price", "Location", "Status", "Actions"]}>
             {filteredItems.map((item) => (
               <tr key={item.id}>
-                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.location || "-"}</td>
+                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.unit_price ? Number(item.unit_price).toFixed(2) : "-"}</td><td>{item.location || "-"}</td>
                 <td><span className={item.status === "Active" ? "status active" : "status pending"}>{item.status}</span></td>
                 <td><RowActions onEdit={() => editItem(item)} onDelete={() => deleteRecord("item", item.id)} /></td>
               </tr>
@@ -291,14 +432,23 @@ export default function Inventory() {
         <>
           {formMode === "transaction" && (
           <section className="form-panel">
-            <PanelTitle title="Add Stock Movement" text="Record stock in, stock out, returns, and student issues." />
+            <PanelTitle title="Add Stock Movement" text="Record stock in, stock out, returns, student issues, and student purchases." />
             <form className="classic-form" onSubmit={saveTransaction}>
               <div className="form-grid">
                 <div className="form-field"><label>Item *</label><select name="item_id" value={transactionForm.item_id} onChange={handleTransactionChange} required><option value="">Select Item</option>{items.map((item) => <option key={item.id} value={item.id}>{item.item_name} ({item.quantity_available} {item.unit})</option>)}</select></div>
                 <TextField label="Date *" type="date" name="transaction_date" value={transactionForm.transaction_date} onChange={handleTransactionChange} required />
-                <div className="form-field"><label>Type *</label><select name="transaction_type" value={transactionForm.transaction_type} onChange={handleTransactionChange} required><option value="Stock In">Stock In</option><option value="Stock Out">Stock Out</option><option value="Issue">Issue</option><option value="Return">Return</option><option value="Adjustment">Adjustment</option></select></div>
+                <div className="form-field"><label>Type *</label><select name="transaction_type" value={transactionForm.transaction_type} onChange={handleTransactionChange} required><option value="Stock In">Stock In</option><option value="Stock Out">Stock Out</option><option value="Issue">Issue</option><option value="Purchase">Purchase</option><option value="Return">Return</option><option value="Adjustment">Adjustment</option></select></div>
                 <TextField label="Quantity *" type="number" name="quantity" value={transactionForm.quantity} onChange={handleTransactionChange} required />
-                {transactionForm.transaction_type === "Issue" && <StudentPicker students={students} value={transactionForm.issued_to_student_id} onChange={handleTransactionChange} name="issued_to_student_id" required={false} label="Student" />}
+                {(transactionForm.transaction_type === "Issue" || transactionForm.transaction_type === "Purchase") && (
+                  <StudentPicker students={students} value={transactionForm.issued_to_student_id} onChange={handleTransactionChange} name="issued_to_student_id" required={transactionForm.transaction_type === "Purchase"} label="Student" />
+                )}
+                {transactionForm.transaction_type === "Purchase" && (
+                  <>
+                    <TextField label="Unit Price *" type="number" step="0.01" name="unit_price" value={transactionForm.unit_price} onChange={handleTransactionChange} required />
+                    <div className="form-field"><label>Payment Status</label><select name="payment_status" value={transactionForm.payment_status} onChange={handleTransactionChange}><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select></div>
+                    <div className="form-field"><label>Amount</label><input type="text" value={(Number(transactionForm.unit_price || 0) * Number(transactionForm.quantity || 0)).toFixed(2)} disabled /></div>
+                  </>
+                )}
                 <TextField label="Issued To Staff" name="issued_to_staff" value={transactionForm.issued_to_staff} onChange={handleTransactionChange} />
                 <TextField label="Reference No" name="reference_no" value={transactionForm.reference_no} onChange={handleTransactionChange} />
                 <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="3" value={transactionForm.remarks} onChange={handleTransactionChange}></textarea></div>
@@ -307,15 +457,103 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Student", "Staff", "Reference", "Actions"]}>
+          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Student", "Staff", "Cycle", "Amount", "Payment", "Reference", "Actions"]}>
             {filteredTransactions.map((record) => (
               <tr key={record.id}>
-                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td><td>{record.reference_no || "-"}</td>
+                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td>
+                <td>{record.cycle ? `${record.cycle}${record.academic_year ? ` (${record.academic_year})` : ""}` : "-"}</td>
+                <td>{record.amount ? Number(record.amount).toFixed(2) : "-"}</td>
+                <td>{record.payment_status || "-"}</td>
+                <td>{record.reference_no || "-"}</td>
                 <td><button type="button" className="delete-button" onClick={() => deleteRecord("transaction", record.id)} title="Delete"><Trash2 size={15} /></button></td>
               </tr>
             ))}
           </RecordsTable>
         </>
+      )}
+
+      {activeTab === "bulkIssue" && (
+        <section className="form-panel">
+          <PanelTitle
+            title="Issue to Class"
+            text="Issue a kit of items to every student in a class/section for a Yearly or Half-Yearly cycle. Students who already received this cycle's kit are skipped automatically."
+          />
+          <form className="classic-form" onSubmit={submitBulkIssue}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Cycle *</label>
+                <select name="cycle" value={bulkIssueForm.cycle} onChange={handleBulkIssueFormChange} required>
+                  {CYCLE_OPTIONS.map((cycle) => <option key={cycle} value={cycle}>{cycle}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Academic Year *</label>
+                <select name="academic_year" value={bulkIssueForm.academic_year} onChange={handleBulkIssueFormChange} required>
+                  <option value="">Select Academic Year</option>
+                  {academicYears.map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+              <TextField label="Date *" type="date" name="transaction_date" value={bulkIssueForm.transaction_date} onChange={handleBulkIssueFormChange} required />
+              <div className="form-field">
+                <label>Class</label>
+                <select name="class_name" value={bulkIssueForm.class_name} onChange={handleBulkIssueFormChange}>
+                  <option value="">All Classes</option>
+                  {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Section</label>
+                <select name="section" value={bulkIssueForm.section} onChange={handleBulkIssueFormChange}>
+                  <option value="">All Sections</option>
+                  {sectionOptions.map((section) => <option key={section} value={section}>{section}</option>)}
+                </select>
+              </div>
+              <TextField label="Reference No" name="reference_no" value={bulkIssueForm.reference_no} onChange={handleBulkIssueFormChange} />
+              <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="2" value={bulkIssueForm.remarks} onChange={handleBulkIssueFormChange}></textarea></div>
+            </div>
+
+            <p>{bulkIssueMatchedStudents.length} student(s) match this class/section.</p>
+
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Item</label>
+                <select value={bulkIssueItemId} onChange={(event) => setBulkIssueItemId(event.target.value)}>
+                  <option value="">Select Item</option>
+                  {items.map((item) => <option key={item.id} value={item.id}>{item.item_name} ({item.quantity_available} {item.unit})</option>)}
+                </select>
+              </div>
+              <TextField label="Quantity per Student" type="number" value={bulkIssueQuantity} onChange={(event) => setBulkIssueQuantity(event.target.value)} />
+              <div className="form-field">
+                <label>&nbsp;</label>
+                <button type="button" className="secondary-button" onClick={addItemToKit}>Add to Kit</button>
+              </div>
+            </div>
+
+            {bulkIssueKit.length > 0 && (
+              <div className="table-wrapper">
+                <table className="classic-table">
+                  <thead><tr><th>Item</th><th>Quantity per Student</th><th></th></tr></thead>
+                  <tbody>
+                    {bulkIssueKit.map((entry) => (
+                      <tr key={entry.item_id}>
+                        <td>{entry.item_name}</td>
+                        <td>{entry.quantity_per_student}</td>
+                        <td><button type="button" className="delete-button" onClick={() => removeItemFromKit(entry.item_id)} title="Remove"><Trash2 size={15} /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button type="submit" className="primary-button" disabled={bulkIssueSaving}>
+                <PackageCheck size={18} />
+                {bulkIssueSaving ? "Issuing..." : "Issue to Class"}
+              </button>
+            </div>
+          </form>
+        </section>
       )}
     </div>
   );

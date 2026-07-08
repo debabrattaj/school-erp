@@ -1537,6 +1537,7 @@ class InventoryItemBase(BaseModel):
     unit: Optional[str] = "pcs"
     quantity_available: Optional[float] = 0
     reorder_level: Optional[float] = 0
+    unit_price: Optional[float] = 0
     location: Optional[str] = None
     status: str = "Active"
     remarks: Optional[str] = None
@@ -1562,6 +1563,10 @@ class InventoryTransactionBase(BaseModel):
     issued_to_staff: Optional[str] = None
     reference_no: Optional[str] = None
     remarks: Optional[str] = None
+    cycle: Optional[str] = None
+    academic_year: Optional[str] = None
+    unit_price: Optional[float] = None
+    payment_status: Optional[str] = None
 
 
 class InventoryTransactionCreate(InventoryTransactionBase):
@@ -1570,6 +1575,7 @@ class InventoryTransactionCreate(InventoryTransactionBase):
 
 class InventoryTransactionResponse(InventoryTransactionBase):
     id: int
+    amount: Optional[float] = None
     item_name: Optional[str] = None
     item_code: Optional[str] = None
     student_name: Optional[str] = None
@@ -1579,6 +1585,34 @@ class InventoryTransactionResponse(InventoryTransactionBase):
 
     class Config:
         from_attributes = True
+
+
+class InventoryBulkIssueItem(BaseModel):
+    item_id: int
+    quantity_per_student: float
+
+
+class InventoryBulkIssueRequest(BaseModel):
+    items: list[InventoryBulkIssueItem]
+    student_ids: list[int]
+    transaction_date: date
+    cycle: str
+    academic_year: str
+    reference_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class InventoryBulkIssueResult(BaseModel):
+    item_id: int
+    item_name: str
+    issued_count: int
+    skipped_duplicate_count: int
+    skipped_insufficient_stock: bool
+
+
+class InventoryBulkIssueResponse(BaseModel):
+    results: list[InventoryBulkIssueResult]
+    total_issued: int
 
 
 # ---------------- Academic Years ----------------
