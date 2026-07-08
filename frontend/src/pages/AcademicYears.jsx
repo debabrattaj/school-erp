@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Lock, RefreshCcw, Send, Star } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Lock, Send, Star } from "lucide-react";
 
 import API from "../api";
 import { getMasterValues } from "../services/masterDataService";
@@ -272,10 +272,6 @@ export default function AcademicYears() {
           <p>Create academic years, set the current year, and run year-end promotion.</p>
         </div>
 
-        <button type="button" className="secondary-button" onClick={loadPageData}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}

@@ -1300,15 +1300,6 @@ export default function Classes() {
             Reload Layout
           </button>
 
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
-
           <button type="button" className="primary-button" onClick={handleAddClass}>
             <PlusCircle size={18} />
             Add Class

@@ -5,7 +5,6 @@ import {
   ClipboardCheck,
   Edit,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   Utensils,
   Users,
@@ -277,13 +276,6 @@ export default function MessManagement() {
             Plan daily meals and track student meal attendance for hostel and
             residential operations.
           </p>
-        </div>
-
-        <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
       </section>
 

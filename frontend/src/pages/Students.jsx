@@ -30,7 +30,6 @@ import { useT } from "../i18n";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
 
-
 const MODULE_NAME = "Students";
 const LEGACY_STORAGE_KEY = "student_form_layout_v1";
 
@@ -435,7 +434,6 @@ export default function Students() {
       return null;
     }
   }
-
 
   async function loadClasses() {
     const response = await API.get("/classes/");
@@ -1891,14 +1889,6 @@ export default function Students() {
             Reload Layout
           </button>
 
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
       </section>
 

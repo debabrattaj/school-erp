@@ -5,7 +5,6 @@ import {
   ClipboardCheck,
   Edit,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   UsersRound,
 } from "lucide-react";
@@ -456,10 +455,7 @@ export default function AdmissionAssessments() {
         </div>
 
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadAssessments}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="primary-button" onClick={handleAddAssessment}>
             <PlusCircle size={18} />
             Add Schedule

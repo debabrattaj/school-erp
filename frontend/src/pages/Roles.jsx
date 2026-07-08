@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, PlusCircle, Edit, Trash2, X, RefreshCcw } from "lucide-react";
+import { ShieldCheck, PlusCircle, Edit, Trash2, X } from "lucide-react";
 import API from "../api";
 
 const LEVELS = [
@@ -110,7 +110,7 @@ export default function Roles() {
           <p>Define custom roles and control which modules each role can view or manage.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadAll}><RefreshCcw size={16} /> Refresh</button>
+          
           <button type="button" className="primary-button" onClick={openCreate}><PlusCircle size={16} /> New Role</button>
         </div>
       </section>

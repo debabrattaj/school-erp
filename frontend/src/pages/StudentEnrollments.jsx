@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PlusCircle, RefreshCcw, Send } from "lucide-react";
+import { PlusCircle, Send } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -209,10 +209,6 @@ export default function StudentEnrollments() {
           <p>Manage academic-year enrollment and promotions.</p>
         </div>
 
-        <button type="button" className="secondary-button" onClick={loadPageData}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
-import { BookOpen, Edit, PlusCircle, RefreshCcw, Trash2, Undo2 } from "lucide-react";
+import { BookOpen, Edit, PlusCircle, Trash2, Undo2 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -245,10 +245,7 @@ export default function Library() {
           <p>Manage books, student issues, returns, and library availability.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="primary-button" onClick={activeTab === "books" ? addBook : addIssue}>
             <PlusCircle size={18} />
             {activeTab === "books" ? "Add Book" : "Issue Book"}

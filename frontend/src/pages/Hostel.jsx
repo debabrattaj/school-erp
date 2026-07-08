@@ -4,7 +4,6 @@ import {
   Building2,
   Edit,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   UserCheck,
 } from "lucide-react";
@@ -343,13 +342,6 @@ export default function Hostel() {
             Manage hostel blocks, rooms, bed capacity, and student residential
             allocation.
           </p>
-        </div>
-
-        <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
       </section>
 

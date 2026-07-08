@@ -7,7 +7,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   Eye,
   X,
   Wallet,
@@ -744,14 +743,6 @@ export default function Fees() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
 
           <button type="button" className="secondary-button" onClick={handleAddStructure}>
             <Settings2 size={17} />

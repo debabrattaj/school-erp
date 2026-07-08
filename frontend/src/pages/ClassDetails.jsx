@@ -7,7 +7,6 @@ import {
   GraduationCap,
   PlusCircle,
   Trash2,
-  RefreshCcw,
   Edit,
   X,
 } from "lucide-react";
@@ -205,8 +204,6 @@ export default function ClassDetails() {
 
     return map;
   }, [exams]);
-
-
 
   const classStudents = useMemo(() => {
     if (!classRecord) return [];
@@ -538,14 +535,6 @@ export default function ClassDetails() {
             Back
           </button>
 
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
       </section>
 

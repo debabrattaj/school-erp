@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileText, Printer, RefreshCcw } from "lucide-react";
+import { Download, FileText, Printer } from "lucide-react";
 
 import API from "../api";
 import { useSchoolSettings } from "../SettingsContext";
@@ -296,10 +296,7 @@ export default function ReportCard() {
         </div>
 
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadInitialData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="secondary-button" onClick={handleDownloadPdf}>
             <Download size={18} />
             Download PDF

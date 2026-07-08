@@ -5,7 +5,6 @@ import {
   Edit,
   LifeBuoy,
   PlusCircle,
-  RefreshCcw,
   Trash2,
 } from "lucide-react";
 
@@ -391,7 +390,7 @@ export default function StudentServices() {
           <p>Track student and parent requests, complaints, counseling cases, and escalations.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadTickets}><RefreshCcw size={17} />Refresh</button>
+          
           <button type="button" className="primary-button" onClick={handleAddTicket}><PlusCircle size={18} />Add Ticket</button>
         </div>
       </section>

@@ -4,7 +4,6 @@ import {
   Edit,
   MapPin,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   UserCheck,
 } from "lucide-react";
@@ -446,13 +445,6 @@ export default function Transport() {
             Manage routes, vehicles, pickup points, drivers, and student
             transport assignments.
           </p>
-        </div>
-
-        <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
       </section>
 

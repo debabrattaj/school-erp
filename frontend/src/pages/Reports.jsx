@@ -3,7 +3,6 @@ import {
   BarChart3,
   Download,
   Filter,
-  RefreshCcw,
   X,
 } from "lucide-react";
 
@@ -760,14 +759,6 @@ export default function Reports() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => loadReportData(selectedModule)}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
 
           <button
             type="button"

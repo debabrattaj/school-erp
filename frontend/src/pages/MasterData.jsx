@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   Database,
 } from "lucide-react";
 import API from "../api";
@@ -183,10 +182,6 @@ export default function MasterData() {
           </p>
         </div>
 
-        <button className="secondary-button" onClick={loadPageData}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       <section className="summary-strip report-summary-grid">

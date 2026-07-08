@@ -5,7 +5,6 @@ import {
   Edit,
   FileText,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   UserRoundCheck,
 } from "lucide-react";
@@ -298,7 +297,7 @@ export default function AlumniWithdrawals() {
     <div className="management-page">
       <section className="page-heading">
         <div><p className="eyebrow">Student Lifecycle</p><h2>Alumni & Withdrawals</h2><p>Manage withdrawals, transfers, leaving certificates, and alumni contact records.</p></div>
-        <div className="module-header-actions"><button type="button" className="secondary-button" onClick={loadRecords}><RefreshCcw size={17} />Refresh</button><button type="button" className="primary-button" onClick={handleAddRecord}><PlusCircle size={18} />Add Record</button></div>
+        <div className="module-header-actions"><button type="button" className="primary-button" onClick={handleAddRecord}><PlusCircle size={18} />Add Record</button></div>
       </section>
       <section className="summary-strip report-summary-grid">
         <div className="summary-card"><Archive size={22} /><div><span>Total Records</span><strong>{records.length}</strong></div></div>
