@@ -68,6 +68,20 @@ export default function Sidebar({ onNavigate }) {
     };
   }, []);
 
+  // Order here also controls the order groups render in the sidebar.
+  const GROUP_ORDER = [
+    "Overview",
+    "Academics",
+    "Students",
+    "Admissions",
+    "Student Wellbeing",
+    "People & Access",
+    "Finance & Operations",
+    "Communication & Portal",
+    "Reports & Administration",
+    "Tools",
+  ];
+
   const menuItems = [
     {
       label: "Dashboard",
@@ -75,20 +89,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/",
       roles: ["Admin", "Principal", "Accounts", "Teacher"],
       feature: "dashboard",
-    },
-    {
-      label: "Students",
-      icon: Users,
-      path: "/students",
-      roles: ["Admin", "Principal"],
-      feature: "students",
-    },
-    {
-      label: "Teachers",
-      icon: GraduationCap,
-      path: "/teachers",
-      roles: ["Admin", "Principal"],
-      feature: "teachers",
+      group: "Overview",
     },
     {
       label: "Classes",
@@ -96,6 +97,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/classes",
       roles: ["Admin", "Principal"],
       feature: "classes",
+      group: "Academics",
     },
     {
       label: "Attendance",
@@ -103,20 +105,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/attendance",
       roles: ["Admin", "Teacher"],
       feature: "attendance",
-    },
-    {
-      label: "Fees",
-      icon: Wallet,
-      path: "/fees",
-      roles: ["Admin", "Accounts"],
-      feature: "fees",
-    },
-    {
-      label: "Exams",
-      icon: FileText,
-      path: "/exams",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "exams",
+      group: "Academics",
     },
     {
       label: "Timetable",
@@ -124,76 +113,31 @@ export default function Sidebar({ onNavigate }) {
       path: "/timetable",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "timetable",
+      group: "Academics",
     },
     {
-    label: "Marks",
-    path: "/marks",
-    icon: FileText,
-    roles: ["Admin", "Principal", "Teacher"],
-    feature: "marks",
-  },
-    {
-      label: "Reports",
-      icon: BarChart3,
-      path: "/reports",
-      roles: ["Admin", "Principal", "Accounts"],
-      feature: "reports",
+      label: "Exams",
+      icon: FileText,
+      path: "/exams",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "exams",
+      group: "Academics",
     },
     {
-      label: "User Management",
-      icon: UserCog,
-      path: "/users",
-      roles: ["Admin"],
-      feature: "users",
+      label: "Marks",
+      path: "/marks",
+      icon: FileText,
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "marks",
+      group: "Academics",
     },
     {
-      label: "Roles & Permissions",
-      icon: ShieldCheck,
-      path: "/roles",
-      roles: ["Admin"],
-      feature: "users",
-    },
-    {
-        label: "Institution Settings",
-        icon: Settings,
-        path: "/settings",
-        roles: ["Admin", "Principal"],
-        feature: "settings",
-    },
-    {
-      label: "Master Data",
-      icon: Database,
-      path: "/master-data",
-      roles: ["Admin"],
-      feature: "master_data",
-    },
-    {
-      label: "Student Layout",
-      icon: Layers,
-      path: "/students/layout",
-      roles: ["Admin"],
-      feature: "student_layout",
-    },
-     {
       label: "Report Card",
       icon: Layers,
       path: "/report-card",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "report_card",
-    },
-    {
-      label: "My Portal",
-      icon: Layers,
-      path: "/portal",
-      roles: ["Parent", "Student"],
-      feature: "parent_portal",
-    },
-    {
-      label: "Portal Access",
-      icon: Layers,
-      path: "/portal-access",
-      roles: ["Admin", "Principal"],
-      feature: "parent_portal",
+      group: "Academics",
     },
     {
       label: "Academic Years",
@@ -201,76 +145,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/academic-years",
       roles: ["Admin", "Principal"],
       feature: "academic_years",
-    },
-    {
-      label: "Student Enrollments",
-      icon: Layers,
-      path: "/student-enrollments",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "student_enrollments",
-    },
-    {
-      label: "Admissions CRM",
-      icon: UserPlus,
-      path: "/admissions",
-      roles: ["Admin", "Principal"],
-      feature: "admissions",
-    },
-    {
-      label: "Admission Tests",
-      icon: CalendarCheck,
-      path: "/admission-assessments",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "admission_assessments",
-    },
-    {
-      label: "Communication",
-      icon: MessageCircle,
-      path: "/communications",
-      roles: ["Admin", "Principal", "Teacher", "Accounts"],
-      feature: "parent_communication",
-    },
-    {
-      label: "Student Services",
-      icon: LifeBuoy,
-      path: "/student-services",
-      roles: ["Admin", "Principal", "Teacher", "Accounts"],
-      feature: "student_services",
-    },
-    {
-      label: "Alumni & Exit",
-      icon: Archive,
-      path: "/alumni-withdrawals",
-      roles: ["Admin", "Principal", "Teacher", "Accounts"],
-      feature: "alumni_withdrawals",
-    },
-    {
-      label: "Counseling",
-      icon: HeartPulse,
-      path: "/counseling",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "counseling",
-    },
-    {
-      label: "Enrichment",
-      icon: Award,
-      path: "/enrichment",
-      roles: ["Admin", "Principal", "Teacher", "Accounts"],
-      feature: "enrichment",
-    },
-    {
-      label: "Compliance",
-      icon: ClipboardList,
-      path: "/compliance",
-      roles: ["Admin", "Principal"],
-      feature: "compliance",
-    },
-    {
-      label: "Intl. Documents",
-      icon: FileCheck,
-      path: "/international-documents",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "international_documents",
+      group: "Academics",
     },
     {
       label: "Multi Curriculum",
@@ -278,20 +153,79 @@ export default function Sidebar({ onNavigate }) {
       path: "/multi-curriculum",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "multi_curriculum",
+      group: "Academics",
     },
     {
-      label: "Hostel",
-      icon: Building2,
-      path: "/hostel",
+      label: "Students",
+      icon: Users,
+      path: "/students",
       roles: ["Admin", "Principal"],
-      feature: "hostel",
+      feature: "students",
+      group: "Students",
     },
     {
-      label: "Transport",
-      icon: Bus,
-      path: "/transport",
-      roles: ["Admin", "Principal", "Accounts"],
-      feature: "transport",
+      label: "Student Enrollments",
+      icon: Layers,
+      path: "/student-enrollments",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "student_enrollments",
+      group: "Students",
+    },
+    {
+      label: "Student Layout",
+      icon: Layers,
+      path: "/students/layout",
+      roles: ["Admin"],
+      feature: "student_layout",
+      group: "Students",
+    },
+    {
+      label: "Admissions CRM",
+      icon: UserPlus,
+      path: "/admissions",
+      roles: ["Admin", "Principal"],
+      feature: "admissions",
+      group: "Admissions",
+    },
+    {
+      label: "Admission Tests",
+      icon: CalendarCheck,
+      path: "/admission-assessments",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "admission_assessments",
+      group: "Admissions",
+    },
+    {
+      label: "Alumni & Exit",
+      icon: Archive,
+      path: "/alumni-withdrawals",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "alumni_withdrawals",
+      group: "Admissions",
+    },
+    {
+      label: "Intl. Documents",
+      icon: FileCheck,
+      path: "/international-documents",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "international_documents",
+      group: "Admissions",
+    },
+    {
+      label: "Student Services",
+      icon: LifeBuoy,
+      path: "/student-services",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "student_services",
+      group: "Student Wellbeing",
+    },
+    {
+      label: "Counseling",
+      icon: HeartPulse,
+      path: "/counseling",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "counseling",
+      group: "Student Wellbeing",
     },
     {
       label: "Health Infirmary",
@@ -299,6 +233,71 @@ export default function Sidebar({ onNavigate }) {
       path: "/health-infirmary",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "health_infirmary",
+      group: "Student Wellbeing",
+    },
+    {
+      label: "Enrichment",
+      icon: Award,
+      path: "/enrichment",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "enrichment",
+      group: "Student Wellbeing",
+    },
+    {
+      label: "Compliance",
+      icon: ClipboardList,
+      path: "/compliance",
+      roles: ["Admin", "Principal"],
+      feature: "compliance",
+      group: "Student Wellbeing",
+    },
+    {
+      label: "Teachers",
+      icon: GraduationCap,
+      path: "/teachers",
+      roles: ["Admin", "Principal"],
+      feature: "teachers",
+      group: "People & Access",
+    },
+    {
+      label: "User Management",
+      icon: UserCog,
+      path: "/users",
+      roles: ["Admin"],
+      feature: "users",
+      group: "People & Access",
+    },
+    {
+      label: "Roles & Permissions",
+      icon: ShieldCheck,
+      path: "/roles",
+      roles: ["Admin"],
+      feature: "users",
+      group: "People & Access",
+    },
+    {
+      label: "Fees",
+      icon: Wallet,
+      path: "/fees",
+      roles: ["Admin", "Accounts"],
+      feature: "fees",
+      group: "Finance & Operations",
+    },
+    {
+      label: "Hostel",
+      icon: Building2,
+      path: "/hostel",
+      roles: ["Admin", "Principal"],
+      feature: "hostel",
+      group: "Finance & Operations",
+    },
+    {
+      label: "Transport",
+      icon: Bus,
+      path: "/transport",
+      roles: ["Admin", "Principal", "Accounts"],
+      feature: "transport",
+      group: "Finance & Operations",
     },
     {
       label: "Mess Management",
@@ -306,6 +305,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/mess",
       roles: ["Admin", "Principal", "Accounts", "Teacher"],
       feature: "mess_management",
+      group: "Finance & Operations",
     },
     {
       label: "Library",
@@ -313,6 +313,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/library",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "library",
+      group: "Finance & Operations",
     },
     {
       label: "Inventory",
@@ -320,6 +321,55 @@ export default function Sidebar({ onNavigate }) {
       path: "/inventory",
       roles: ["Admin", "Principal", "Accounts", "Teacher"],
       feature: "inventory",
+      group: "Finance & Operations",
+    },
+    {
+      label: "My Portal",
+      icon: Layers,
+      path: "/portal",
+      roles: ["Parent", "Student"],
+      feature: "parent_portal",
+      group: "Communication & Portal",
+    },
+    {
+      label: "Portal Access",
+      icon: Layers,
+      path: "/portal-access",
+      roles: ["Admin", "Principal"],
+      feature: "parent_portal",
+      group: "Communication & Portal",
+    },
+    {
+      label: "Communication",
+      icon: MessageCircle,
+      path: "/communications",
+      roles: ["Admin", "Principal", "Teacher", "Accounts"],
+      feature: "parent_communication",
+      group: "Communication & Portal",
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      path: "/reports",
+      roles: ["Admin", "Principal", "Accounts"],
+      feature: "reports",
+      group: "Reports & Administration",
+    },
+    {
+      label: "Institution Settings",
+      icon: Settings,
+      path: "/settings",
+      roles: ["Admin", "Principal"],
+      feature: "settings",
+      group: "Reports & Administration",
+    },
+    {
+      label: "Master Data",
+      icon: Database,
+      path: "/master-data",
+      roles: ["Admin"],
+      feature: "master_data",
+      group: "Reports & Administration",
     },
     {
       label: "Assistant",
@@ -327,6 +377,7 @@ export default function Sidebar({ onNavigate }) {
       path: "/assistant",
       roles: ["Admin", "Principal", "Accounts", "Teacher"],
       feature: "assistant",
+      group: "Tools",
     },
   ];
 
@@ -339,6 +390,11 @@ export default function Sidebar({ onNavigate }) {
     const byPerm = perms["*"] || (item.feature && perms[item.feature]);
     return featureEnabled && (byRole || byPerm);
   });
+
+  const menuGroups = GROUP_ORDER.map((group) => ({
+    group,
+    items: allowedMenuItems.filter((item) => item.group === group),
+  })).filter((g) => g.items.length > 0);
 
   function handleLogout() {
     logout();
@@ -404,23 +460,28 @@ export default function Sidebar({ onNavigate }) {
       )}
 
       <nav className="sidebar-menu">
-        {allowedMenuItems.map((item) => {
-          const Icon = item.icon;
+        {menuGroups.map(({ group, items }) => (
+          <div className="menu-group" key={group}>
+            <div className="menu-group-label">{t(group)}</div>
+            {items.map((item) => {
+              const Icon = item.icon;
 
-          return (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                isActive ? "menu-item active" : "menu-item"
-              }
-            >
-              <Icon size={18} />
-              <span>{t(item.label)}</span>
-            </NavLink>
-          );
-        })}
+              return (
+                <NavLink
+                  key={item.label}
+                  to={item.path}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active" : "menu-item"
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{t(item.label)}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar-footer">
