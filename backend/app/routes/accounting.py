@@ -1,7 +1,9 @@
 from collections import defaultdict
 from datetime import date
+from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -123,14 +125,7 @@ def get_summary(
     }
 
 
-@router.get("/ledger", response_model=list[LedgerEntry])
-def get_ledger(
-    start_date: date | None = None,
-    end_date: date | None = None,
-    entry_type: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(VIEW_ROLES)),
-):
+def build_ledger_entries(db: Session, start_date: date | None, end_date: date | None) -> list[dict]:
     entries: list[dict] = []
 
     for fee in fee_income_query(db, start_date, end_date):
@@ -174,12 +169,136 @@ def get_ledger(
             }
         )
 
+    return entries
+
+
+@router.get("/ledger", response_model=list[LedgerEntry])
+def get_ledger(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    entry_type: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(VIEW_ROLES)),
+):
+    entries = build_ledger_entries(db, start_date, end_date)
+
     if entry_type:
         entries = [entry for entry in entries if entry["entry_type"] == entry_type]
 
     entries.sort(key=lambda entry: entry["date"], reverse=True)
 
     return entries
+
+
+# ---------------- Tally export ----------------
+#
+# Tally's import format is double-entry, but these vouchers are generated
+# from the simple cash-book ledger so nobody has to write debits/credits
+# by hand: Income -> Receipt voucher (Dr Cash / Cr category ledger),
+# Expense -> Payment voucher (Dr category ledger / Cr Cash). Sign
+# convention: ISDEEMEDPOSITIVE=Yes marks the debit leg and its AMOUNT is
+# negative; the credit leg is positive.
+
+CASH_LEDGER = "Cash"  # built into every Tally company
+
+
+def _tally_ledger_master(name: str, parent: str) -> str:
+    return (
+        '<TALLYMESSAGE xmlns:UDF="TallyUDF">'
+        f'<LEDGER NAME="{escape(name)}" ACTION="Create">'
+        f"<NAME>{escape(name)}</NAME>"
+        f"<PARENT>{escape(parent)}</PARENT>"
+        "</LEDGER>"
+        "</TALLYMESSAGE>"
+    )
+
+
+def _tally_voucher(entry: dict) -> str:
+    is_income = entry["entry_type"] == "Income"
+    vch_type = "Receipt" if is_income else "Payment"
+    amount = round(float(entry["amount"]), 2)
+    category = entry["category"]
+
+    narration = entry["description"] or category
+    if entry.get("reference_no"):
+        narration = f"{narration} (Ref: {entry['reference_no']})"
+
+    # Receipt: Dr Cash / Cr category. Payment: Dr category / Cr Cash.
+    debit_ledger = CASH_LEDGER if is_income else category
+    credit_ledger = category if is_income else CASH_LEDGER
+
+    return (
+        '<TALLYMESSAGE xmlns:UDF="TallyUDF">'
+        f'<VOUCHER VCHTYPE="{vch_type}" ACTION="Create">'
+        f"<DATE>{entry['date'].strftime('%Y%m%d')}</DATE>"
+        f"<VOUCHERTYPENAME>{vch_type}</VOUCHERTYPENAME>"
+        f"<NARRATION>{escape(narration)}</NARRATION>"
+        "<ALLLEDGERENTRIES.LIST>"
+        f"<LEDGERNAME>{escape(debit_ledger)}</LEDGERNAME>"
+        "<ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>"
+        f"<AMOUNT>-{amount:.2f}</AMOUNT>"
+        "</ALLLEDGERENTRIES.LIST>"
+        "<ALLLEDGERENTRIES.LIST>"
+        f"<LEDGERNAME>{escape(credit_ledger)}</LEDGERNAME>"
+        "<ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>"
+        f"<AMOUNT>{amount:.2f}</AMOUNT>"
+        "</ALLLEDGERENTRIES.LIST>"
+        "</VOUCHER>"
+        "</TALLYMESSAGE>"
+    )
+
+
+@router.get("/export/tally")
+def export_tally_xml(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(VIEW_ROLES)),
+):
+    entries = [
+        entry
+        for entry in build_ledger_entries(db, start_date, end_date)
+        if float(entry["amount"] or 0) > 0
+    ]
+    if not entries:
+        raise HTTPException(status_code=404, detail="No ledger entries in the selected period to export")
+
+    entries.sort(key=lambda entry: entry["date"])
+
+    # Emit each category as a ledger master first so the import never fails
+    # on a missing ledger; Tally skips masters that already exist. Cash is
+    # built-in and needs no master.
+    income_categories = sorted({e["category"] for e in entries if e["entry_type"] == "Income"})
+    expense_categories = sorted({e["category"] for e in entries if e["entry_type"] == "Expense"})
+
+    messages: list[str] = []
+    for name in income_categories:
+        messages.append(_tally_ledger_master(name, "Indirect Incomes"))
+    for name in expense_categories:
+        messages.append(_tally_ledger_master(name, "Indirect Expenses"))
+    for entry in entries:
+        messages.append(_tally_voucher(entry))
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<ENVELOPE>"
+        "<HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>"
+        "<BODY><IMPORTDATA>"
+        "<REQUESTDESC><REPORTNAME>Vouchers</REPORTNAME></REQUESTDESC>"
+        f"<REQUESTDATA>{''.join(messages)}</REQUESTDATA>"
+        "</IMPORTDATA></BODY>"
+        "</ENVELOPE>"
+    )
+
+    first = entries[0]["date"].isoformat()
+    last = entries[-1]["date"].isoformat()
+    filename = f"tally-vouchers-{first}-to-{last}.xml"
+
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/entries/", response_model=list[AccountTransactionResponse])
