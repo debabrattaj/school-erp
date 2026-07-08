@@ -853,6 +853,7 @@ class InventoryItem(Base):
     unit = Column(String, nullable=True, default="pcs")
     quantity_available = Column(Float, default=0)
     reorder_level = Column(Float, default=0)
+    unit_price = Column(Float, nullable=True, default=0)
     location = Column(String, nullable=True)
     status = Column(String, default="Active", index=True)
     remarks = Column(String, nullable=True)
@@ -882,6 +883,18 @@ class InventoryTransaction(Base):
     issued_to_staff = Column(String, nullable=True)
     reference_no = Column(String, nullable=True)
     remarks = Column(String, nullable=True)
+    # Set for recurring student issuance (e.g. "Yearly" / "Half-Yearly" kit
+    # issue) so a repeat run for the same academic year can be skipped
+    # instead of double-issuing. Left blank for ad-hoc stock movements.
+    cycle = Column(String, nullable=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    # Only meaningful for "Purchase" transactions (a student buying an item
+    # outside the free/allotted issuance cycle); amount is stored rather
+    # than recomputed so historical records aren't affected by later price
+    # changes.
+    unit_price = Column(Float, nullable=True)
+    amount = Column(Float, nullable=True)
+    payment_status = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

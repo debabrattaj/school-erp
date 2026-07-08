@@ -461,35 +461,35 @@
 }
 
 /* Shared list/table styling for the rest of the modules. */
-.management-page:not(.student-edit-page):not(.student360-page) {
+.students-list-page {
   gap: 12px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading {
+.students-list-page > .page-heading {
   border-radius: 10px;
   min-height: 112px;
   padding: 16px 28px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading .eyebrow {
+.students-list-page > .page-heading .eyebrow {
   color: #697586;
   font-size: 11px;
   margin-bottom: 5px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading h2 {
+.students-list-page > .page-heading h2 {
   color: #10213f;
   font-size: 26px;
   font-weight: 900;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading p {
+.students-list-page > .page-heading p {
   color: #697586;
   font-size: 13px;
   margin-top: 7px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading .primary-button {
+.students-list-page > .page-heading .primary-button {
   border-radius: 8px;
   font-size: 14px;
   font-weight: 900;
@@ -497,31 +497,31 @@
   padding: 0 18px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .page-heading .module-header-actions > button:not(:last-child) {
+.students-list-page > .page-heading .module-header-actions > button:not(:last-child) {
   display: none;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) > .summary-strip,
-.management-page:not(.student-edit-page):not(.student360-page) .filter-row,
-.management-page:not(.student-edit-page):not(.student360-page) .sis-filter-row {
+.students-list-page > .summary-strip,
+.students-list-page .filter-row,
+.students-list-page .sis-filter-row {
   display: none !important;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .table-panel {
+.students-list-page .table-panel {
   border-radius: 8px;
   padding: 14px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .table-panel .table-toolbar {
+.students-list-page .table-panel .table-toolbar {
   margin-bottom: 10px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .classic-table {
+.students-list-page .classic-table {
   border-collapse: separate;
   border-spacing: 0;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .classic-table th {
+.students-list-page .classic-table th {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   color: #10213f;
@@ -532,7 +532,7 @@
   white-space: nowrap;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .classic-table td {
+.students-list-page .classic-table td {
   border-bottom: 1px solid #e7ebf0;
   color: #344054;
   font-size: 12px;
@@ -542,16 +542,16 @@
   white-space: nowrap;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .classic-table tbody tr:hover {
+.students-list-page .classic-table tbody tr:hover {
   background: #f8fafc;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .action-buttons {
+.students-list-page .action-buttons {
   flex-wrap: nowrap;
   gap: 6px;
 }
 
-.management-page:not(.student-edit-page):not(.student360-page) .action-buttons button {
+.students-list-page .action-buttons button {
   border-radius: 8px;
   height: 42px;
   width: 42px;
