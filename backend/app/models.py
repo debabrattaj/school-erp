@@ -853,6 +853,7 @@ class InventoryItem(Base):
     unit = Column(String, nullable=True, default="pcs")
     quantity_available = Column(Float, default=0)
     reorder_level = Column(Float, default=0)
+    unit_price = Column(Float, default=0)
     location = Column(String, nullable=True)
     status = Column(String, default="Active", index=True)
     remarks = Column(String, nullable=True)
@@ -881,8 +882,25 @@ class InventoryTransaction(Base):
     )
     issued_to_staff = Column(String, nullable=True)
     reference_no = Column(String, nullable=True)
+    unit_cost = Column(Float, nullable=True)
+    total_cost = Column(Float, nullable=True)
     remarks = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AccountTransaction(Base):
+    __tablename__ = "account_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_date = Column(Date, nullable=False, index=True)
+    entry_type = Column(String, nullable=False, index=True)  # Income, Expense
+    category = Column(String, nullable=False, index=True)
+    amount = Column(Float, nullable=False)
+    payment_mode = Column(String, nullable=True)
+    reference_no = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class AdmissionInquiry(Base):

@@ -16,6 +16,7 @@ const emptyItemForm = {
   unit: "pcs",
   quantity_available: 0,
   reorder_level: 0,
+  unit_price: 0,
   location: "",
   status: "Active",
   remarks: "",
@@ -29,6 +30,7 @@ const emptyTransactionForm = {
   issued_to_student_id: "",
   issued_to_staff: "",
   reference_no: "",
+  unit_cost: "",
   remarks: "",
 };
 
@@ -139,6 +141,7 @@ export default function Inventory() {
       ...itemForm,
       quantity_available: Number(itemForm.quantity_available || 0),
       reorder_level: Number(itemForm.reorder_level || 0),
+      unit_price: Number(itemForm.unit_price || 0),
       item_code: itemForm.item_code || null,
       remarks: itemForm.remarks || null,
     };
@@ -170,6 +173,7 @@ export default function Inventory() {
         : null,
       issued_to_staff: transactionForm.issued_to_staff || null,
       reference_no: transactionForm.reference_no || null,
+      unit_cost: transactionForm.unit_cost !== "" ? Number(transactionForm.unit_cost) : null,
       remarks: transactionForm.remarks || null,
     };
 
@@ -267,6 +271,7 @@ export default function Inventory() {
                 <div className="form-field"><label>Unit</label><input list="inventory-units" name="unit" value={itemForm.unit} onChange={handleItemChange} /></div>
                 <TextField label="Available Quantity" type="number" name="quantity_available" value={itemForm.quantity_available} onChange={handleItemChange} />
                 <TextField label="Reorder Level" type="number" name="reorder_level" value={itemForm.reorder_level} onChange={handleItemChange} />
+                <TextField label="Unit Price" type="number" name="unit_price" value={itemForm.unit_price} onChange={handleItemChange} />
                 <TextField label="Location" name="location" value={itemForm.location} onChange={handleItemChange} />
                 <div className="form-field"><label>Status</label><select name="status" value={itemForm.status} onChange={handleItemChange}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
                 <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="3" value={itemForm.remarks} onChange={handleItemChange}></textarea></div>
@@ -277,10 +282,10 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Inventory Items" count={filteredItems.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Item", "Code", "Category", "Unit", "Available", "Reorder", "Location", "Status", "Actions"]}>
+          <RecordsTable title="Inventory Items" count={filteredItems.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Item", "Code", "Category", "Unit", "Available", "Reorder", "Unit Price", "Location", "Status", "Actions"]}>
             {filteredItems.map((item) => (
               <tr key={item.id}>
-                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.location || "-"}</td>
+                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.unit_price || 0}</td><td>{item.location || "-"}</td>
                 <td><span className={item.status === "Active" ? "status active" : "status pending"}>{item.status}</span></td>
                 <td><RowActions onEdit={() => editItem(item)} onDelete={() => deleteRecord("item", item.id)} /></td>
               </tr>
@@ -298,6 +303,7 @@ export default function Inventory() {
                 <TextField label="Date *" type="date" name="transaction_date" value={transactionForm.transaction_date} onChange={handleTransactionChange} required />
                 <div className="form-field"><label>Type *</label><select name="transaction_type" value={transactionForm.transaction_type} onChange={handleTransactionChange} required><option value="Stock In">Stock In</option><option value="Stock Out">Stock Out</option><option value="Issue">Issue</option><option value="Return">Return</option><option value="Adjustment">Adjustment</option></select></div>
                 <TextField label="Quantity *" type="number" name="quantity" value={transactionForm.quantity} onChange={handleTransactionChange} required />
+                {transactionForm.transaction_type === "Stock In" && <TextField label="Unit Cost" type="number" name="unit_cost" value={transactionForm.unit_cost} onChange={handleTransactionChange} />}
                 {transactionForm.transaction_type === "Issue" && <StudentPicker students={students} value={transactionForm.issued_to_student_id} onChange={handleTransactionChange} name="issued_to_student_id" required={false} label="Student" />}
                 <TextField label="Issued To Staff" name="issued_to_staff" value={transactionForm.issued_to_staff} onChange={handleTransactionChange} />
                 <TextField label="Reference No" name="reference_no" value={transactionForm.reference_no} onChange={handleTransactionChange} />
@@ -307,10 +313,10 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Student", "Staff", "Reference", "Actions"]}>
+          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Cost", "Student", "Staff", "Reference", "Actions"]}>
             {filteredTransactions.map((record) => (
               <tr key={record.id}>
-                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td><td>{record.reference_no || "-"}</td>
+                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.total_cost != null ? record.total_cost : "-"}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td><td>{record.reference_no || "-"}</td>
                 <td><button type="button" className="delete-button" onClick={() => deleteRecord("transaction", record.id)} title="Delete"><Trash2 size={15} /></button></td>
               </tr>
             ))}

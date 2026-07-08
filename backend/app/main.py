@@ -21,6 +21,7 @@ from app.routes import health_infirmary
 from app.routes import mess
 from app.routes import library
 from app.routes import inventory
+from app.routes import accounting
 from app.routes import admissions
 from app.routes import admission_workflow
 from app.routes import international_documents
@@ -1032,6 +1033,31 @@ def ensure_dev_schema():
                 )
             )
 
+        inventory_item_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(inventory_items)")
+        }
+
+        if inventory_item_columns and "unit_price" not in inventory_item_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE inventory_items ADD COLUMN unit_price FLOAT DEFAULT 0"
+            )
+
+        inventory_transaction_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(inventory_transactions)")
+        }
+
+        if inventory_transaction_columns and "unit_cost" not in inventory_transaction_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE inventory_transactions ADD COLUMN unit_cost FLOAT"
+            )
+
+        if inventory_transaction_columns and "total_cost" not in inventory_transaction_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE inventory_transactions ADD COLUMN total_cost FLOAT"
+            )
+
 
 if is_sqlite(DATABASE_URL):
     ensure_dev_schema()
@@ -1119,6 +1145,7 @@ app.include_router(health_infirmary.router)
 app.include_router(mess.router)
 app.include_router(library.router)
 app.include_router(inventory.router)
+app.include_router(accounting.router)
 app.include_router(admissions.router)
 app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)

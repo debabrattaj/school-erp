@@ -1201,6 +1201,16 @@ input {
   color: #be123c;
 }
 
+.summary-card.positive svg {
+  background: #e7f5ec;
+  color: #15803d;
+}
+
+.summary-card.negative svg {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
 .status.pending {
   background: #fff7ed;
   color: #c2410c;
@@ -1285,6 +1295,130 @@ input {
 
 .report-table-panel {
   margin-top: 0;
+}
+
+/* Accounts */
+
+.accounts-filter-row {
+  margin-bottom: 18px;
+  background: #f7f4ee;
+  border: 1px solid #ddd6c9;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: end;
+  gap: 16px;
+}
+
+.accounts-filter-row .form-field {
+  width: 240px;
+}
+
+@media (max-width: 700px) {
+  .accounts-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .accounts-filter-row .form-field {
+    width: 100%;
+  }
+}
+
+.accounts-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1200px) {
+  .accounts-summary-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .accounts-summary-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accounts-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  height: 200px;
+  padding: 16px 4px 0;
+  overflow-x: auto;
+}
+
+.accounts-chart-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 56px;
+  height: 100%;
+}
+
+.accounts-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 170px;
+}
+
+.accounts-bar {
+  width: 16px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+.accounts-bar.income {
+  background: #15803d;
+}
+
+.accounts-bar.expense {
+  background: #be123c;
+}
+
+.accounts-chart-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #697586;
+  white-space: nowrap;
+}
+
+.accounts-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd6c9;
+}
+
+.accounts-breakdown div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.accounts-breakdown span {
+  color: #697586;
+  font-size: 13px;
+}
+
+.accounts-breakdown strong {
+  font-size: 18px;
+  color: #25324b;
+}
+
+@media (max-width: 700px) {
+  .accounts-breakdown {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 
