@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
-import { Boxes, Edit, IndianRupee, PackageCheck, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
+import { Boxes, Edit, IndianRupee, PackageCheck, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -364,10 +364,7 @@ export default function Inventory() {
           <p>Track school stock, supplies, issues to students, and reorder levels.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           {activeTab !== "bulkIssue" && (
             <button type="button" className="primary-button" onClick={activeTab === "items" ? addItem : addMovement}>
               <PlusCircle size={18} />

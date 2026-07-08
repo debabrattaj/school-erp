@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { RefreshCcw } from "lucide-react";
 
 import API from "../api";
 
@@ -105,15 +104,6 @@ export default function Portal() {
           <h2>Student Portal</h2>
           <p>View attendance, marks, fees and academic history.</p>
         </div>
-
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => loadStudentData(selectedId)}
-        >
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}

@@ -276,7 +276,7 @@ export default function PlatformConsole() {
               </button>
             ))}
             <div style={{ flex: 1 }} />
-            <button type="button" className="secondary-button" onClick={loadData}><RefreshCcw size={16} /> Refresh</button>
+            
           </div>
 
           {message && <div className="toast-notification">{message}</div>}

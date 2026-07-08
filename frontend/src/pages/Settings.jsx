@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Award,
   CalendarDays,
-  RefreshCcw,
   Save,
   School,
   Settings2,
@@ -240,10 +239,6 @@ export default function Settings() {
           </p>
         </div>
 
-        <button className="secondary-button" onClick={loadSettings}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}

@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   FileText,
   Award,
   XCircle,
@@ -901,14 +900,6 @@ export default function Marks() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
 
           <button type="button" className="primary-button" onClick={handleAddMarks}>
             <PlusCircle size={18} />

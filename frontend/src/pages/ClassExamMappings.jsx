@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
+import { Edit, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
@@ -245,11 +245,6 @@ export default function ClassExamMappings({
           <button type="button" className="light-button" onClick={onBack}>
             Back to Exam Records
           </button>
-
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh Mapping
-          </button>
         </div>
       ) : (
         <section className="page-heading">
@@ -259,10 +254,6 @@ export default function ClassExamMappings({
           <p>Assign exam masters to classes with academic year and exam date.</p>
         </div>
 
-        <button type="button" className="secondary-button" onClick={loadPageData}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
       )}
 

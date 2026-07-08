@@ -4,7 +4,6 @@ import {
   Edit,
   MessageCircle,
   PlusCircle,
-  RefreshCcw,
   Send,
   Trash2,
 } from "lucide-react";
@@ -499,7 +498,7 @@ export default function Communications() {
           <p>Manage message templates and WhatsApp-ready communication logs.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadAll}><RefreshCcw size={17} />Refresh</button>
+          
           <button type="button" className="secondary-button" onClick={handleComposeMessage}><Send size={17} />Compose</button>
           <button type="button" className="primary-button" onClick={handleAddTemplate}><PlusCircle size={18} />Add Template</button>
         </div>

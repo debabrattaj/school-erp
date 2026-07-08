@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, ClipboardCheck, Edit, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, ClipboardCheck, Edit, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
@@ -215,7 +215,7 @@ export default function Compliance() {
 
   return (
     <div className="management-page">
-      <section className="page-heading"><div><p className="eyebrow">Governance</p><h2>Compliance & Accreditation</h2><p>Track standards, owners, evidence, findings, risks, and action plans.</p></div><div className="module-header-actions"><button type="button" className="secondary-button" onClick={loadTasks}><RefreshCcw size={17} />Refresh</button><button type="button" className="primary-button" onClick={handleAddTask}><PlusCircle size={18} />Add Task</button></div></section>
+      <section className="page-heading"><div><p className="eyebrow">Governance</p><h2>Compliance & Accreditation</h2><p>Track standards, owners, evidence, findings, risks, and action plans.</p></div><div className="module-header-actions"><button type="button" className="primary-button" onClick={handleAddTask}><PlusCircle size={18} />Add Task</button></div></section>
       <section className="summary-strip report-summary-grid"><div className="summary-card"><ClipboardCheck size={22} /><div><span>Total Tasks</span><strong>{tasks.length}</strong></div></div><div className="summary-card warning"><AlertTriangle size={22} /><div><span>Open Work</span><strong>{openCount}</strong></div></div><div className="summary-card warning"><AlertTriangle size={22} /><div><span>High Risk</span><strong>{highRiskCount}</strong></div></div><div className="summary-card"><CheckCircle size={22} /><div><span>Completed</span><strong>{completedCount}</strong></div></div></section>
       {message && <div className="toast-notification">{message}</div>}
       <section className="table-panel module-filter-panel"><div className="filter-row sis-filter-row"><div className="form-field"><label>Body</label><select value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="">All Bodies</option>{accreditationBodies.map((body) => <option key={body} value={body}>{body}</option>)}</select></div><div className="form-field"><label>Risk</label><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}><option value="">All Risk</option>{riskLevels.map((risk) => <option key={risk} value={risk}>{risk}</option>)}</select></div><div className="form-field"><label>Status</label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All Status</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><button type="button" className="light-button" onClick={() => { setSearchText(""); setBodyFilter(""); setRiskFilter(""); setStatusFilter(""); }}>Clear Filters</button></div></section>

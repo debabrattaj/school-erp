@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, Edit, HeartPulse, PlusCircle, RefreshCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Edit, HeartPulse, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
@@ -234,7 +234,7 @@ export default function Counseling() {
 
   return (
     <div className="management-page">
-      <section className="page-heading"><div><p className="eyebrow">Wellbeing</p><h2>Counseling & Wellbeing</h2><p>Track student support cases, risk levels, action plans, and follow-ups.</p></div><div className="module-header-actions"><button type="button" className="secondary-button" onClick={loadCases}><RefreshCcw size={17} />Refresh</button><button type="button" className="primary-button" onClick={handleAddCase}><PlusCircle size={18} />Add Case</button></div></section>
+      <section className="page-heading"><div><p className="eyebrow">Wellbeing</p><h2>Counseling & Wellbeing</h2><p>Track student support cases, risk levels, action plans, and follow-ups.</p></div><div className="module-header-actions"><button type="button" className="primary-button" onClick={handleAddCase}><PlusCircle size={18} />Add Case</button></div></section>
       <section className="summary-strip report-summary-grid"><div className="summary-card"><HeartPulse size={22} /><div><span>Total Cases</span><strong>{cases.length}</strong></div></div><div className="summary-card warning"><AlertTriangle size={22} /><div><span>Open Support</span><strong>{openCount}</strong></div></div><div className="summary-card warning"><AlertTriangle size={22} /><div><span>High Risk</span><strong>{highRiskCount}</strong></div></div><div className="summary-card"><CheckCircle size={22} /><div><span>Closed</span><strong>{closedCount}</strong></div></div></section>
       {message && <div className="toast-notification">{message}</div>}
       <section className="table-panel module-filter-panel"><div className="filter-row sis-filter-row"><div className="form-field"><label>Concern</label><select value={concernFilter} onChange={(event) => setConcernFilter(event.target.value)}><option value="">All Concerns</option>{concernTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div><div className="form-field"><label>Risk</label><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}><option value="">All Risk</option>{riskLevels.map((risk) => <option key={risk} value={risk}>{risk}</option>)}</select></div><div className="form-field"><label>Status</label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All Status</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><button type="button" className="light-button" onClick={() => { setSearchText(""); setConcernFilter(""); setRiskFilter(""); setStatusFilter(""); }}>Clear Filters</button></div></section>

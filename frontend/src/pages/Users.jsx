@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   KeyRound,
   Users as UsersIcon,
 } from "lucide-react";
@@ -345,10 +344,6 @@ export default function Users() {
         </div>
 
         <div className="module-header-actions">
-          <button className="secondary-button" onClick={loadUsers}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
 
           <button type="button" className="primary-button" onClick={handleAddUser}>
             <PlusCircle size={18} />

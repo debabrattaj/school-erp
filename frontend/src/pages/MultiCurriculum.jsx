@@ -6,7 +6,6 @@ import {
   Edit,
   Layers,
   PlusCircle,
-  RefreshCcw,
   Trash2,
 } from "lucide-react";
 
@@ -419,10 +418,7 @@ export default function MultiCurriculum() {
         </div>
 
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPlans}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="primary-button" onClick={handleAddPlan}>
             <PlusCircle size={18} />
             Add Plan

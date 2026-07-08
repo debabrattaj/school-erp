@@ -3,7 +3,6 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   BookOpen,
   CheckCircle,
   XCircle,
@@ -354,14 +353,6 @@ export default function Subjects() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadSubjects}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
 
           <button type="button" className="primary-button" onClick={handleAddSubject}>
             <PlusCircle size={18} />

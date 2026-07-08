@@ -6,7 +6,6 @@ import {
   Download,
   Edit,
   FileText,
-  RefreshCcw,
   Wallet,
 } from "lucide-react";
 
@@ -389,10 +388,7 @@ export default function StudentDetails() {
             <Edit size={17} />
             Edit
           </button>
-          <button type="button" className="secondary-button" onClick={loadStudentDetails}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="secondary-button" onClick={() => downloadDoc("id-card", "id_card")}>
             <Download size={17} /> ID Card
           </button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link2, RefreshCcw, Trash2 } from "lucide-react";
+import { Link2, Trash2 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -102,10 +102,6 @@ export default function PortalAccess() {
           </p>
         </div>
 
-        <button type="button" className="secondary-button" onClick={loadPageData}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}

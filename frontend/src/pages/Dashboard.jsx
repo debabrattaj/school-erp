@@ -8,7 +8,6 @@ import {
   TrendingUp,
   CalendarDays,
   Award,
-  RefreshCcw,
   School,
 } from "lucide-react";
 import API from "../api";
@@ -147,10 +146,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <button className="secondary-button dashboard-refresh" onClick={loadDashboard}>
-          <RefreshCcw size={17} />
-          Refresh
-        </button>
       </section>
 
       {loading ? (

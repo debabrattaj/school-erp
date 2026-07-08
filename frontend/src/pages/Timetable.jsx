@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Coffee, Download, PlusCircle, RefreshCcw, Trash2, Utensils, X } from "lucide-react";
+import { CalendarDays, Coffee, Download, PlusCircle, Trash2, Utensils, X } from "lucide-react";
 import API from "../api";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -416,9 +416,7 @@ export default function Timetable() {
           <button type="button" className="secondary-button" onClick={downloadTimetablePdf}>
             <Download size={16} /> Download PDF
           </button>
-          <button type="button" className="secondary-button" onClick={viewMode === "teacher" ? loadTeacherEntries : loadEntries}>
-            <RefreshCcw size={16} /> Refresh
-          </button>
+          
         </div>
       </section>
 

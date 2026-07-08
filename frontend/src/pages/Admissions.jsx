@@ -5,7 +5,6 @@ import {
   ClipboardList,
   Edit,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   UserPlus,
   MessageCircle,
@@ -1031,10 +1030,7 @@ export default function Admissions() {
         </div>
 
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadInquiries}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button
             type="button"
             className="secondary-button"

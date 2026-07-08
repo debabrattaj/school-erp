@@ -5,7 +5,6 @@ import {
   Edit,
   FileCheck,
   PlusCircle,
-  RefreshCcw,
   Trash2,
 } from "lucide-react";
 
@@ -451,10 +450,7 @@ export default function InternationalDocuments() {
         </div>
 
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadDocuments}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
+          
           <button type="button" className="primary-button" onClick={handleAddDocument}>
             <PlusCircle size={18} />
             Add Document

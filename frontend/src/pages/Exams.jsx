@@ -788,15 +788,6 @@ export default function Exams() {
             Reload Layout
           </button>
 
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={loadPageData}
-          >
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
-
           <button type="button" className="primary-button" onClick={handleAddExam}>
             <PlusCircle size={18} />
             Add Exam
