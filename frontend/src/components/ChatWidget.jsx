@@ -24,12 +24,6 @@ export default function ChatWidget({ compact = false }) {
     const message = (text ?? input).trim();
     if (!message || sending) return;
 
-    // Recent turns let the assistant answer follow-ups ("and her fees?").
-    const history = messages.slice(-10).map((msg) => ({
-      role: msg.from === "user" ? "user" : "assistant",
-      text: msg.text,
-    }));
-
     setMessages((prev) => [...prev, { from: "user", text: message }]);
     setInput("");
     setSending(true);
@@ -38,7 +32,6 @@ export default function ChatWidget({ compact = false }) {
       const response = await API.post("/chatbot/ask", {
         message,
         student_id: studentId || null,
-        history,
       });
       const data = response.data;
       if (data.student_id) {
