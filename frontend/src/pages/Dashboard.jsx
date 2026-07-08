@@ -13,6 +13,9 @@ import {
 import API from "../api";
 import { useSchoolSettings } from "../SettingsContext";
 import { formatMoney as formatMoneyUtil } from "../utils/money";
+import { AttendanceStackedBar, CollectionMeter, CategoryBarChart } from "../components/DashboardCharts";
+
+const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
 
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
@@ -72,6 +75,30 @@ export default function Dashboard() {
   function getExamName(examId) {
     return exams.find((exam) => exam.id === Number(examId))?.exam_name || "-";
   }
+
+  const studentsByClass = (() => {
+    const counts = {};
+    students.forEach((student) => {
+      const label = student.class_name || "Unassigned";
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+      .slice(0, 14);
+  })();
+
+  const gradeDistribution = (() => {
+    const counts = {};
+    marks.forEach((mark) => {
+      const grade = mark.grade && mark.grade !== "-" ? mark.grade : "Ungraded";
+      counts[grade] = (counts[grade] || 0) + 1;
+    });
+    const order = [...GRADE_ORDER, "Ungraded"];
+    return order
+      .filter((grade) => counts[grade])
+      .map((grade) => ({ label: grade, value: counts[grade] }));
+  })();
 
   const cards = [
     {
@@ -182,24 +209,12 @@ export default function Dashboard() {
                 <ClipboardCheck size={22} />
               </div>
 
-              <div className="overview-list">
-                <div>
-                  <span>Present</span>
-                  <strong>{summary?.today_present || 0}</strong>
-                </div>
-                <div>
-                  <span>Absent</span>
-                  <strong>{summary?.today_absent || 0}</strong>
-                </div>
-                <div>
-                  <span>Late</span>
-                  <strong>{summary?.today_late || 0}</strong>
-                </div>
-                <div>
-                  <span>Excused</span>
-                  <strong>{summary?.today_excused || 0}</strong>
-                </div>
-              </div>
+              <AttendanceStackedBar
+                present={summary?.today_present || 0}
+                absent={summary?.today_absent || 0}
+                late={summary?.today_late || 0}
+                excused={summary?.today_excused || 0}
+              />
             </div>
 
             <div className="panel">
@@ -211,22 +226,12 @@ export default function Dashboard() {
                 <Wallet size={22} />
               </div>
 
-              <div className="finance-summary">
-                <div>
-                  <span>Total Collection</span>
-                  <strong>{formatMoney(summary?.total_collection)}</strong>
-                </div>
-
-                <div>
-                  <span>Outstanding Due</span>
-                  <strong>{formatMoney(summary?.total_due)}</strong>
-                </div>
-
-                <div>
-                  <span>Collection Rate</span>
-                  <strong>{summary?.collection_percentage || 0}%</strong>
-                </div>
-              </div>
+              <CollectionMeter
+                percentage={summary?.collection_percentage || 0}
+                collected={summary?.total_collection}
+                due={summary?.total_due}
+                formatMoney={formatMoney}
+              />
             </div>
 
             <div className="panel">
@@ -249,6 +254,30 @@ export default function Dashboard() {
                   <strong>{summary?.transport_users || 0}</strong>
                 </div>
               </div>
+            </div>
+
+            <div className="panel large-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Students by Class</h3>
+                  <p>Enrollment across class sections</p>
+                </div>
+                <BookOpen size={22} />
+              </div>
+
+              <CategoryBarChart data={studentsByClass} emptyText="No students recorded yet." />
+            </div>
+
+            <div className="panel large-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Grade Distribution</h3>
+                  <p>Marks recorded across all exams</p>
+                </div>
+                <Award size={22} />
+              </div>
+
+              <CategoryBarChart data={gradeDistribution} emptyText="No marks recorded yet." />
             </div>
 
             <div className="panel large-panel">
