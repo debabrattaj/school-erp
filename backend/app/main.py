@@ -21,6 +21,7 @@ from app.routes import health_infirmary
 from app.routes import mess
 from app.routes import library
 from app.routes import inventory
+from app.routes import accounting
 from app.routes import admissions
 from app.routes import admission_workflow
 from app.routes import international_documents
@@ -1053,6 +1054,8 @@ def ensure_dev_schema():
             "unit_price": "FLOAT",
             "amount": "FLOAT",
             "payment_status": "VARCHAR",
+            "unit_cost": "FLOAT",
+            "total_cost": "FLOAT",
         }.items():
             if inventory_txn_columns and column_name not in inventory_txn_columns:
                 connection.exec_driver_sql(
@@ -1156,6 +1159,7 @@ app.include_router(health_infirmary.router)
 app.include_router(mess.router)
 app.include_router(library.router)
 app.include_router(inventory.router)
+app.include_router(accounting.router)
 app.include_router(admissions.router)
 app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)

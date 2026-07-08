@@ -30,7 +30,8 @@ import {
   Search,
   Globe,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Landmark
 } from "lucide-react";
 import { getUser, logout } from "../auth";
 import API from "../api";
@@ -281,6 +282,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/fees",
       roles: ["Admin", "Accounts"],
       feature: "fees",
+      group: "Finance & Operations",
+    },
+    {
+      label: "Accounts",
+      icon: Landmark,
+      path: "/accounting",
+      roles: ["Admin", "Principal", "Accounts"],
+      feature: "accounting",
       group: "Finance & Operations",
     },
     {

@@ -26,6 +26,7 @@ DEFAULT_FEATURES = {
     "classes": True,
     "attendance": True,
     "fees": True,
+    "accounting": True,
     "exams": True,
     "marks": True,
     "reports": True,

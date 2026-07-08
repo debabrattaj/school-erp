@@ -15,6 +15,7 @@ import Roles from "./pages/Roles";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Fees from "./pages/Fees";
+import Accounts from "./pages/Accounts";
 import Attendance from "./pages/Attendance";
 import Exams from "./pages/Exams";
 import Classes from "./pages/Classes";
@@ -212,6 +213,17 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Accounts"]}>
               <ProtectedLayout>
                 <Fees />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/accounting"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
+              <ProtectedLayout>
+                <Accounts />
               </ProtectedLayout>
             </ProtectedRoute>
           }

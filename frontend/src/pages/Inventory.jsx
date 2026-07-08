@@ -32,6 +32,7 @@ const emptyTransactionForm = {
   issued_to_student_id: "",
   issued_to_staff: "",
   reference_no: "",
+  unit_cost: "",
   remarks: "",
   unit_price: "",
   payment_status: "Paid",
@@ -260,6 +261,7 @@ export default function Inventory() {
         : null,
       issued_to_staff: transactionForm.issued_to_staff || null,
       reference_no: transactionForm.reference_no || null,
+      unit_cost: transactionForm.unit_cost !== "" ? Number(transactionForm.unit_cost) : null,
       remarks: transactionForm.remarks || null,
       unit_price: isPurchase && transactionForm.unit_price ? Number(transactionForm.unit_price) : null,
       payment_status: isPurchase ? transactionForm.payment_status : null,
@@ -439,6 +441,7 @@ export default function Inventory() {
                 <TextField label="Date *" type="date" name="transaction_date" value={transactionForm.transaction_date} onChange={handleTransactionChange} required />
                 <div className="form-field"><label>Type *</label><select name="transaction_type" value={transactionForm.transaction_type} onChange={handleTransactionChange} required><option value="Stock In">Stock In</option><option value="Stock Out">Stock Out</option><option value="Issue">Issue</option><option value="Purchase">Purchase</option><option value="Return">Return</option><option value="Adjustment">Adjustment</option></select></div>
                 <TextField label="Quantity *" type="number" name="quantity" value={transactionForm.quantity} onChange={handleTransactionChange} required />
+                {transactionForm.transaction_type === "Stock In" && <TextField label="Unit Cost" type="number" name="unit_cost" value={transactionForm.unit_cost} onChange={handleTransactionChange} />}
                 {(transactionForm.transaction_type === "Issue" || transactionForm.transaction_type === "Purchase") && (
                   <StudentPicker students={students} value={transactionForm.issued_to_student_id} onChange={handleTransactionChange} name="issued_to_student_id" required={transactionForm.transaction_type === "Purchase"} label="Student" />
                 )}
@@ -457,10 +460,10 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Student", "Staff", "Cycle", "Amount", "Payment", "Reference", "Actions"]}>
+          <RecordsTable title="Stock Movements" count={filteredTransactions.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Date", "Item", "Type", "Quantity", "Cost", "Student", "Staff", "Cycle", "Amount", "Payment", "Reference", "Actions"]}>
             {filteredTransactions.map((record) => (
               <tr key={record.id}>
-                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td>
+                <td>{record.transaction_date}</td><td>{record.item_code ? `${record.item_code} - ${record.item_name}` : record.item_name}</td><td>{record.transaction_type}</td><td>{record.quantity}</td><td>{record.total_cost != null ? record.total_cost : "-"}</td><td>{record.student_name ? `${record.admission_no || ""} ${record.student_name}` : "-"}</td><td>{record.issued_to_staff || "-"}</td>
                 <td>{record.cycle ? `${record.cycle}${record.academic_year ? ` (${record.academic_year})` : ""}` : "-"}</td>
                 <td>{record.amount ? Number(record.amount).toFixed(2) : "-"}</td>
                 <td>{record.payment_status || "-"}</td>
