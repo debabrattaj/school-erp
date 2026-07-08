@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import SchoolClass, Student, User
+from app.notifications import notify_class_teacher_new_student
 from app.schemas import StudentCreate, StudentUpdate, StudentResponse
 from app.security import require_roles
 
@@ -85,6 +86,12 @@ def create_student(
     db.add(new_student)
     db.commit()
     db.refresh(new_student)
+
+    # Email + SMS the class teacher about the new admission. Best-effort:
+    # a delivery problem never fails the admission itself, and the attempt
+    # is recorded on the Communications page either way. Deliberately not
+    # done for bulk imports, which would flood teachers one message per row.
+    notify_class_teacher_new_student(db, new_student)
 
     return new_student
 
