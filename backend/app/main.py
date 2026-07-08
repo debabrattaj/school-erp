@@ -1043,19 +1043,33 @@ def ensure_dev_schema():
                 "ALTER TABLE inventory_items ADD COLUMN unit_price FLOAT DEFAULT 0"
             )
 
-        inventory_transaction_columns = {
+        inventory_txn_columns = {
             row[1]
             for row in connection.exec_driver_sql("PRAGMA table_info(inventory_transactions)")
         }
 
-        if inventory_transaction_columns and "unit_cost" not in inventory_transaction_columns:
-            connection.exec_driver_sql(
-                "ALTER TABLE inventory_transactions ADD COLUMN unit_cost FLOAT"
-            )
+        for column_name, column_sql in {
+            "cycle": "VARCHAR",
+            "academic_year": "VARCHAR",
+            "unit_price": "FLOAT",
+            "amount": "FLOAT",
+            "payment_status": "VARCHAR",
+            "unit_cost": "FLOAT",
+            "total_cost": "FLOAT",
+        }.items():
+            if inventory_txn_columns and column_name not in inventory_txn_columns:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE inventory_transactions ADD COLUMN {column_name} {column_sql}"
+                )
 
-        if inventory_transaction_columns and "total_cost" not in inventory_transaction_columns:
+        if inventory_txn_columns:
             connection.exec_driver_sql(
-                "ALTER TABLE inventory_transactions ADD COLUMN total_cost FLOAT"
+                "CREATE INDEX IF NOT EXISTS ix_inventory_transactions_cycle "
+                "ON inventory_transactions (cycle)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_inventory_transactions_academic_year "
+                "ON inventory_transactions (academic_year)"
             )
 
 
