@@ -18,6 +18,11 @@ const FEATURE_PATHS = {
   reports: "/reports", master_data: "/master-data", users: "/users", settings: "/settings",
 };
 
+// Demo quick-logins and credential prefill are a dev convenience only.
+// import.meta.env.DEV is true under `vite dev` and false in production
+// builds, so deployed sites never expose the seeded demo credentials.
+const SHOW_DEMO_LOGINS = import.meta.env.DEV;
+
 // Where to send the user after login.
 function landingPath(role, permissions) {
   if (["Parent", "Student"].includes(role)) return "/portal";
@@ -37,8 +42,8 @@ export default function Login() {
 
   const [formData, setFormData] = useState({
     account_code: "default",
-    email: "admin@school.com",
-    password: "admin123",
+    email: SHOW_DEMO_LOGINS ? "admin@school.com" : "",
+    password: SHOW_DEMO_LOGINS ? "admin123" : "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -205,31 +210,33 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="demo-users">
-          <h3>Demo Logins</h3>
+        {SHOW_DEMO_LOGINS && (
+          <div className="demo-users">
+            <h3>Demo Logins</h3>
 
-          <button onClick={() => quickLogin("admin@school.com", "admin123")}>
-            Admin
-          </button>
+            <button onClick={() => quickLogin("admin@school.com", "admin123")}>
+              Admin
+            </button>
 
-          <button
-            onClick={() =>
-              quickLogin("principal@school.com", "principal123")
-            }
-          >
-            Principal
-          </button>
+            <button
+              onClick={() =>
+                quickLogin("principal@school.com", "principal123")
+              }
+            >
+              Principal
+            </button>
 
-          <button
-            onClick={() => quickLogin("accounts@school.com", "accounts123")}
-          >
-            Accounts
-          </button>
+            <button
+              onClick={() => quickLogin("accounts@school.com", "accounts123")}
+            >
+              Accounts
+            </button>
 
-          <button onClick={() => quickLogin("teacher@school.com", "teacher123")}>
-            Teacher
-          </button>
-        </div>
+            <button onClick={() => quickLogin("teacher@school.com", "teacher123")}>
+              Teacher
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
