@@ -1105,6 +1105,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Lets the browser read download filenames (e.g. the Tally export)
+    # from cross-origin responses.
+    expose_headers=["Content-Disposition"],
 )
 
 

@@ -1,11 +1,32 @@
+import logging
+import os
+
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import User, MasterData
 from app.security import hash_password
 
+logger = logging.getLogger(__name__)
+
+
+def _demo_users_enabled() -> bool:
+    # Defaults to enabled so dev setups and existing deploys (where the
+    # seeded demo admin is the only way in) keep working. Set
+    # SEED_DEMO_USERS=false once real admin accounts exist — the demo
+    # passwords are public knowledge (they ship in this file).
+    return os.getenv("SEED_DEMO_USERS", "true").strip().lower() in ("1", "true", "yes")
+
 
 def seed_default_users():
+    if not _demo_users_enabled():
+        return
+
+    logger.warning(
+        "Seeding demo users with well-known passwords (admin@school.com etc.). "
+        "Set SEED_DEMO_USERS=false in production once real admin accounts exist."
+    )
+
     db: Session = SessionLocal()
 
     try:

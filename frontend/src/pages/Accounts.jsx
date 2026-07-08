@@ -5,9 +5,9 @@ import {
   TrendingDown,
   Wallet,
   PlusCircle,
-  RefreshCcw,
   Trash2,
   Edit,
+  Download,
 } from "lucide-react";
 
 import API from "../api";
@@ -174,6 +174,40 @@ export default function Accounts() {
     }
   }
 
+  async function exportTally() {
+    try {
+      const params = {};
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+
+      const response = await API.get("/accounting/export/tally", {
+        params,
+        responseType: "blob",
+      });
+
+      const disposition = response.headers["content-disposition"] || "";
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      const filename = match ? match[1] : "tally-vouchers.xml";
+
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage("Tally voucher file downloaded. Import it in Tally via Gateway > Import Data > Vouchers.");
+    } catch (error) {
+      console.error(error);
+      if (error.response?.status === 404) {
+        setMessage("No ledger entries in the selected period to export.");
+      } else {
+        setMessage(getApiErrorMessage(error, "Unable to export Tally file."));
+      }
+    }
+  }
+
   const maxMonthly = Math.max(
     1,
     ...(summary?.monthly || []).map((row) => Math.max(row.income, row.expense))
@@ -188,9 +222,9 @@ export default function Accounts() {
           <p>Track income from fee collections and expenses from inventory purchases, alongside other school finances.</p>
         </div>
         <div className="module-header-actions">
-          <button type="button" className="secondary-button" onClick={loadPageData}>
-            <RefreshCcw size={17} />
-            Refresh
+          <button type="button" className="secondary-button" onClick={exportTally}>
+            <Download size={17} />
+            Export to Tally
           </button>
           <button type="button" className="primary-button" onClick={addEntry}>
             <PlusCircle size={18} />
