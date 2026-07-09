@@ -141,16 +141,35 @@ export default function MultiCurriculum() {
     loadMasterOptions();
   }, []);
 
+  function gradeOfClass(classId) {
+    const schoolClass = classes.find((c) => String(c.id) === String(classId));
+    return schoolClass?.class_name || "";
+  }
+
   function handleChange(event) {
     const { name, value } = event.target;
-    setFormData((current) => ({ ...current, [name]: value }));
+    setFormData((current) => {
+      const next = { ...current, [name]: value };
+      // A class already knows its grade — assigning one auto-fills the
+      // grade so the two fields never have to be filled (or disagree).
+      if (name === "class_id" && value) {
+        const derived = gradeOfClass(value);
+        if (derived) next.grade_level = derived;
+      }
+      return next;
+    });
   }
 
   function buildPayload() {
+    // When a class is assigned it is the source of truth for the grade —
+    // this also self-corrects legacy plans whose stored grade disagrees.
+    const gradeLevel = formData.class_id
+      ? gradeOfClass(formData.class_id) || formData.grade_level.trim()
+      : formData.grade_level.trim();
     return {
       program_name: formData.program_name.trim(),
       curriculum_track: formData.curriculum_track,
-      grade_level: formData.grade_level.trim(),
+      grade_level: gradeLevel,
       academic_year: formData.academic_year.trim(),
       class_id: formData.class_id ? Number(formData.class_id) : null,
       subject_groups: formData.subject_groups.trim() || null,
@@ -316,6 +335,7 @@ export default function MultiCurriculum() {
               name="grade_level"
               value={formData.grade_level}
               onChange={handleChange}
+              disabled={Boolean(formData.class_id)}
               required
             >
               <option value="">Select grade</option>
@@ -325,11 +345,13 @@ export default function MultiCurriculum() {
                 </option>
               ))}
             </select>
-            {gradeOptions.length === 0 && (
+            {formData.class_id ? (
+              <small>Set automatically from the assigned class.</small>
+            ) : gradeOptions.length === 0 ? (
               <small>
                 No Class values found in Master Data. Add them under Master Data → Class first.
               </small>
-            )}
+            ) : null}
           </div>
 
           <div className="form-field">
