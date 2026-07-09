@@ -884,10 +884,6 @@ input {
   background: #fff9df;
 }
 
-.module-filter-panel {
-  display: none;
-}
-
 .feature-account-badge {
   align-items: center;
   background: #f8fafc;
