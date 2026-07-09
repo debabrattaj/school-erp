@@ -27,6 +27,7 @@ const emptyForm = {
 
   currency: "INR",
   receipt_prefix: "REC",
+  upi_id: "",
   late_fee_rule: "",
 
   pass_percentage: 35,
@@ -159,6 +160,7 @@ export default function Settings() {
 
         currency: settingsResponse.data.currency || "INR",
         receipt_prefix: settingsResponse.data.receipt_prefix || "REC",
+        upi_id: settingsResponse.data.upi_id || "",
         late_fee_rule: settingsResponse.data.late_fee_rule || "",
 
         pass_percentage: settingsResponse.data.pass_percentage || 35,
@@ -410,6 +412,22 @@ export default function Settings() {
                   placeholder="REC"
                   disabled={user?.role !== "Admin"}
                 />
+              </div>
+
+              <div className="form-field">
+                <label>School UPI ID</label>
+                <input
+                  type="text"
+                  name="upi_id"
+                  value={formData.upi_id}
+                  onChange={handleChange}
+                  placeholder="schoolname@bank"
+                  disabled={user?.role !== "Admin"}
+                />
+                <small>
+                  Fee payments show a UPI QR for this ID. Leave empty to
+                  disable UPI payment.
+                </small>
               </div>
 
               <div className="form-field full-width">

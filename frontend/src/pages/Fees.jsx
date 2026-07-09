@@ -12,8 +12,9 @@ import {
   Wallet,
   Settings2,
   Download,
-  CreditCard,
+  QrCode,
 } from "lucide-react";
+import QRCode from "qrcode";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
@@ -166,6 +167,9 @@ export default function Fees() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [upiPayment, setUpiPayment] = useState(null);
+  const [upiReference, setUpiReference] = useState("");
+  const [confirmingUpi, setConfirmingUpi] = useState(false);
 
   useEffect(() => {
     API.get("/fees/payment/config")
@@ -501,50 +505,49 @@ export default function Fees() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function loadRazorpayScript() {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  }
-
-  async function payOnline(fee) {
+  async function openUpiPayment(fee) {
     setMessage("");
     try {
-      const { data: order } = await API.post(`/fees/${fee.id}/payment/order`);
-      const ready = await loadRazorpayScript();
-      if (!ready) {
-        setMessage("Could not load the payment gateway.");
-        return;
+      const { data } = await API.get(`/fees/${fee.id}/payment/upi`);
+      let qr = "";
+      try {
+        qr = await QRCode.toDataURL(data.uri, { width: 220, margin: 1 });
+      } catch {
+        qr = "";
       }
-      const rzp = new window.Razorpay({
-        key: order.key_id,
-        order_id: order.order_id,
-        amount: order.amount,
-        currency: order.currency,
-        name: "School Fee Payment",
-        description: `${fee.fee_type || "Fee"} — ${getStudentName(fee.student_id)}`,
-        handler: async (resp) => {
-          try {
-            await API.post(`/fees/${fee.id}/payment/verify`, {
-              razorpay_order_id: resp.razorpay_order_id,
-              razorpay_payment_id: resp.razorpay_payment_id,
-              razorpay_signature: resp.razorpay_signature,
-            });
-            setMessage("Payment successful.");
-            await loadFees();
-          } catch (error) {
-            setMessage(getApiErrorMessage(error, "Payment verification failed."));
-          }
-        },
-      });
-      rzp.open();
+      setUpiReference("");
+      setUpiPayment({ fee, details: data, qr });
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Unable to start online payment."));
+      setMessage(getApiErrorMessage(error, "Unable to start UPI payment."));
+    }
+  }
+
+  function closeUpiPayment() {
+    setUpiPayment(null);
+    setUpiReference("");
+  }
+
+  async function confirmUpiPayment() {
+    if (!upiPayment) return;
+
+    const reference = upiReference.trim();
+    if (!reference) {
+      setMessage("Enter the UPI transaction reference (UTR) to confirm.");
+      return;
+    }
+
+    setConfirmingUpi(true);
+    try {
+      await API.post(`/fees/${upiPayment.fee.id}/payment/upi/confirm`, {
+        reference,
+      });
+      setMessage("UPI payment recorded.");
+      closeUpiPayment();
+      await loadFees();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Could not record the UPI payment."));
+    } finally {
+      setConfirmingUpi(false);
     }
   }
 
@@ -1303,10 +1306,10 @@ export default function Fees() {
                             <button
                               type="button"
                               className="edit-button"
-                              onClick={() => payOnline(fee)}
-                              title="Pay online"
+                              onClick={() => openUpiPayment(fee)}
+                              title="Pay via UPI"
                             >
-                              <CreditCard size={15} />
+                              <QrCode size={15} />
                             </button>
                           )}
 
@@ -1373,6 +1376,104 @@ export default function Fees() {
               <p>Remarks: {selectedFee.remarks || "-"}</p>
             </div>
           </aside>
+        </div>
+      )}
+
+      {upiPayment && (
+        <div className="layout-modal-backdrop" onClick={closeUpiPayment}>
+          <div
+            className="layout-modal"
+            style={{ width: "min(420px, 100%)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="layout-modal-header">
+              <div>
+                <h3>Pay via UPI</h3>
+                <p>
+                  {upiPayment.fee.fee_type || "Fee"} —{" "}
+                  {getStudentName(upiPayment.fee.student_id)}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="light-icon-button"
+                onClick={closeUpiPayment}
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              {upiPayment.qr ? (
+                <img
+                  src={upiPayment.qr}
+                  alt="UPI payment QR code"
+                  style={{ width: 220, height: 220 }}
+                />
+              ) : (
+                <p>Scan unavailable — pay using the UPI ID below.</p>
+              )}
+
+              <p style={{ margin: "10px 0 2px", fontSize: "1.05rem" }}>
+                <strong>{money(upiPayment.details.amount)}</strong>
+              </p>
+              <p style={{ margin: 0, color: "#667085" }}>
+                to <strong>{upiPayment.details.upi_id}</strong>
+                {upiPayment.details.payee_name
+                  ? ` (${upiPayment.details.payee_name})`
+                  : ""}
+              </p>
+
+              <p style={{ margin: "12px 0 0" }}>
+                <a href={upiPayment.details.uri}>Open in UPI app</a>
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <label htmlFor="upi-reference">
+                UPI transaction reference (UTR)
+              </label>
+              <input
+                id="upi-reference"
+                type="text"
+                value={upiReference}
+                placeholder="e.g. 415712345678"
+                onChange={(event) => setUpiReference(event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#667085" }}>
+                After the payment succeeds in the UPI app, enter its reference
+                number here to record the fee as paid.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 16,
+              }}
+            >
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={closeUpiPayment}
+                disabled={confirmingUpi}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={confirmUpiPayment}
+                disabled={confirmingUpi}
+              >
+                {confirmingUpi ? "Recording…" : "Confirm payment"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

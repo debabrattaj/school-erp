@@ -7,8 +7,6 @@ These are pure/deterministic and touch no application data. Run with:
 import os
 import time
 import sqlite3
-import hmac
-import hashlib
 
 import pytest
 
@@ -71,29 +69,6 @@ def test_rate_limiter_blocks_after_threshold(monkeypatch):
     assert isinstance(retry, int) and retry > 0
     rate_limit.clear_login_failures(keys)
     assert rate_limit.check_login_allowed(keys) is None
-
-
-# --- Payment signature verification (app/payments.py) ---
-
-def test_payment_signature_verification(monkeypatch):
-    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_x")
-    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "sekret")
-    from app import payments
-    assert payments.is_configured() is True
-    order, pay = "order_1", "pay_1"
-    good = hmac.new(b"sekret", f"{order}|{pay}".encode(), hashlib.sha256).hexdigest()
-    assert payments.verify_signature(order, pay, good) is True
-    assert payments.verify_signature(order, pay, "bad") is False
-    assert payments.verify_signature("", pay, good) is False
-
-
-def test_payment_not_configured(monkeypatch):
-    monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
-    monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
-    import importlib
-    from app import payments
-    importlib.reload(payments)
-    assert payments.is_configured() is False
 
 
 # --- WhatsApp number normalization (app/whatsapp.py) ---

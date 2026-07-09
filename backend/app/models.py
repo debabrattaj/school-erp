@@ -62,6 +62,7 @@ class SchoolSettings(Base):
     # Finance
     currency = Column(String, nullable=True, default="INR")
     receipt_prefix = Column(String, nullable=True, default="REC")
+    upi_id = Column(String, nullable=True)
     late_fee_rule = Column(String, nullable=True)
 
     # Assessment
