@@ -498,7 +498,12 @@ export default function Communications() {
           <p>Manage message templates and WhatsApp-ready communication logs.</p>
         </div>
         <div className="module-header-actions">
-          
+          <div className="form-field" style={{ minWidth: 180 }}>
+            <select value={activeView} onChange={(event) => { setActiveView(event.target.value); setSearchText(""); setStatusFilter(""); }}>
+              <option value="templates">Templates</option>
+              <option value="logs">Message Logs</option>
+            </select>
+          </div>
           <button type="button" className="secondary-button" onClick={handleComposeMessage}><Send size={17} />Compose</button>
           <button type="button" className="primary-button" onClick={handleAddTemplate}><PlusCircle size={18} />Add Template</button>
         </div>
@@ -515,13 +520,6 @@ export default function Communications() {
 
       <section className="table-panel module-filter-panel">
         <div className="filter-row sis-filter-row">
-          <div className="form-field">
-            <label>View</label>
-            <select value={activeView} onChange={(event) => { setActiveView(event.target.value); setSearchText(""); setStatusFilter(""); }}>
-              <option value="templates">Templates</option>
-              <option value="logs">Message Logs</option>
-            </select>
-          </div>
           <div className="form-field">
             <label>Category</label>
             <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
