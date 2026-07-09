@@ -1118,6 +1118,17 @@ input {
   text-decoration: none;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.form-grid:last-child {
+  margin-bottom: 0;
+}
+
 /* Responsive Management */
 
 @media (max-width: 1100px) {
@@ -1147,11 +1158,11 @@ input {
   }
 
   .form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .full-width {
-    grid-column: span 1;
+    grid-column: span 2;
   }
 }
 
@@ -4724,17 +4735,6 @@ textarea {
 .table-toolbar h3 {
   color: var(--saas-text);
   font-size: 18px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.form-grid:last-child {
-  margin-bottom: 0;
 }
 
 .form-field {
