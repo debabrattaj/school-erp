@@ -91,6 +91,7 @@ class SchoolSettingsBase(BaseModel):
 
     currency: Optional[str] = "INR"
     receipt_prefix: Optional[str] = "REC"
+    upi_id: Optional[str] = None
     late_fee_rule: Optional[str] = None
 
     pass_percentage: Optional[float] = 40

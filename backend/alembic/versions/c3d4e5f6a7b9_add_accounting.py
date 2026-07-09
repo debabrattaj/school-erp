@@ -1,7 +1,7 @@
 """add accounting: account_transactions table and inventory cost columns
 
-Revision ID: b2c3d4e5f6a8
-Revises: a1b2c3d4e5f7
+Revision ID: c3d4e5f6a7b9
+Revises: b2c3d4e5f6a8
 Create Date: 2026-07-08 10:00:00.000000
 """
 from typing import Sequence, Union
@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'b2c3d4e5f6a8'
-down_revision: Union[str, None] = 'a1b2c3d4e5f7'
+revision: str = 'c3d4e5f6a7b9'
+down_revision: Union[str, None] = 'b2c3d4e5f6a8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

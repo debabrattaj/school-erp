@@ -1072,6 +1072,16 @@ def ensure_dev_schema():
                 "ON inventory_transactions (academic_year)"
             )
 
+        settings_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(school_settings)")
+        }
+
+        if settings_columns and "upi_id" not in settings_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE school_settings ADD COLUMN upi_id VARCHAR"
+            )
+
 
 if is_sqlite(DATABASE_URL):
     ensure_dev_schema()

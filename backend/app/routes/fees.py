@@ -1,5 +1,6 @@
 import io
 from datetime import datetime
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,7 +11,6 @@ from app.models import Fee, Student, SchoolSettings, User
 from app.schemas import FeeCreate, FeeUpdate, FeeResponse
 from app.security import require_roles
 from app.pdf import fee_receipt_pdf
-from app import payments
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -319,29 +319,44 @@ def update_fee(
     return fee
 
 
-class PaymentVerifyRequest(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
+class UpiConfirmRequest(BaseModel):
+    reference: str
+
+
+def _school_upi_id(settings) -> str:
+    return (settings.upi_id or "").strip()
 
 
 @router.get("/payment/config")
 def payment_config(
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
 ):
-    """Whether online payment is available, and the public key for checkout."""
-    return {"enabled": payments.is_configured(), "key_id": payments.key_id()}
+    """Whether UPI payment is available, and the school's UPI details."""
+    settings = get_settings(db)
+    upi_id = _school_upi_id(settings)
+    return {
+        "enabled": bool(upi_id),
+        "upi_id": upi_id,
+        "payee_name": settings.school_name or "School",
+        "currency": (settings.currency or "INR").upper(),
+    }
 
 
-@router.post("/{fee_id}/payment/order")
-def create_payment_order(
+@router.get("/{fee_id}/payment/upi")
+def upi_payment_details(
     fee_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
 ):
-    """Create a gateway order for a fee's outstanding balance."""
-    if not payments.is_configured():
-        raise HTTPException(status_code=400, detail="Online payment is not configured.")
+    """UPI deep link (upi://pay) for a fee's outstanding balance."""
+    settings = get_settings(db)
+    upi_id = _school_upi_id(settings)
+    if not upi_id:
+        raise HTTPException(
+            status_code=400,
+            detail="UPI payment is not configured. Set the school's UPI ID in Settings.",
+        )
 
     fee = db.query(Fee).filter(Fee.id == fee_id).first()
     if not fee:
@@ -351,43 +366,53 @@ def create_payment_order(
     if balance <= 0:
         raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
 
-    settings = get_settings(db)
-    amount_minor = int(round(balance * 100))
-    try:
-        order = payments.create_order(
-            amount_minor, settings.currency, receipt=f"fee_{fee.id}"
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Could not create payment order: {exc}")
+    payee_name = settings.school_name or "School"
+    note = f"Fee #{fee.id} {fee.fee_type or ''}".strip()
+    params = urlencode(
+        {
+            "pa": upi_id,
+            "pn": payee_name,
+            "am": f"{balance:.2f}",
+            "cu": "INR",
+            "tn": note[:80],
+        },
+        quote_via=quote,
+    )
 
     return {
-        "order_id": order.get("id"),
-        "amount": amount_minor,
-        "currency": (settings.currency or "INR").upper(),
-        "key_id": payments.key_id(),
+        "upi_id": upi_id,
+        "payee_name": payee_name,
+        "amount": round(balance, 2),
+        "currency": "INR",
+        "note": note[:80],
+        "uri": f"upi://pay?{params}",
     }
 
 
-@router.post("/{fee_id}/payment/verify", response_model=FeeResponse)
-def verify_payment(
+@router.post("/{fee_id}/payment/upi/confirm", response_model=FeeResponse)
+def confirm_upi_payment(
     fee_id: int,
-    payload: PaymentVerifyRequest,
+    payload: UpiConfirmRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Accounts", "Principal"])),
 ):
-    """Verify a gateway payment signature and mark the fee's balance paid."""
+    """Record a completed UPI payment (with its UTR/reference) and settle the balance."""
+    reference = (payload.reference or "").strip()
+    if not reference:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter the UPI transaction reference (UTR) to confirm the payment.",
+        )
+
     fee = db.query(Fee).filter(Fee.id == fee_id).first()
     if not fee:
         raise HTTPException(status_code=404, detail="Fee record not found")
 
-    if not payments.verify_signature(
-        payload.razorpay_order_id,
-        payload.razorpay_payment_id,
-        payload.razorpay_signature,
-    ):
-        raise HTTPException(status_code=400, detail="Payment verification failed.")
+    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
 
-    # Payment authorized: settle the balance.
+    # Payment received: settle the balance.
     fee.paid_amount = fee.total_amount
     fee.payment_date = datetime.now().date()
     due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
@@ -395,6 +420,9 @@ def verify_payment(
     fee.payment_status = payment_status
     if not fee.receipt_no:
         fee.receipt_no = generate_receipt_no(db)
+
+    upi_note = f"UPI Ref: {reference}"
+    fee.remarks = f"{fee.remarks} | {upi_note}" if fee.remarks else upi_note
 
     db.commit()
     db.refresh(fee)
