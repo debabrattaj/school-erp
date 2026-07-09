@@ -11,6 +11,7 @@ import {
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import { getMasterValues } from "../services/masterDataService";
 
 const emptyCurriculumForm = {
   program_name: "",
@@ -63,9 +64,21 @@ function getClassLabel(schoolClass) {
   return [schoolClass.class_name, schoolClass.section].filter(Boolean).join(" ") || "Unnamed Class";
 }
 
+// Ensure the currently stored value (e.g. legacy free-text like
+// "Grade 5 / Year 6") stays selectable when it isn't in the master list,
+// so editing an old plan doesn't silently blank the field.
+function withCurrentValue(options, current) {
+  if (current && !options.includes(current)) {
+    return [current, ...options];
+  }
+  return options;
+}
+
 export default function MultiCurriculum() {
   const [plans, setPlans] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [gradeOptions, setGradeOptions] = useState([]);
+  const [yearOptions, setYearOptions] = useState([]);
   const [formData, setFormData] = useState(emptyCurriculumForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
@@ -109,9 +122,23 @@ export default function MultiCurriculum() {
     }
   }
 
+  async function loadMasterOptions() {
+    try {
+      const [grades, years] = await Promise.all([
+        getMasterValues("Class"),
+        getMasterValues("AcademicYear"),
+      ]);
+      setGradeOptions(grades || []);
+      setYearOptions(years || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadPlans();
     loadClasses();
+    loadMasterOptions();
   }, []);
 
   function handleChange(event) {
@@ -285,25 +312,41 @@ export default function MultiCurriculum() {
 
           <div className="form-field">
             <label>Grade / Year Level *</label>
-            <input
-              type="text"
+            <select
               name="grade_level"
               value={formData.grade_level}
               onChange={handleChange}
-              placeholder="Example: Grade 5 / Year 6"
               required
-            />
+            >
+              <option value="">Select grade</option>
+              {withCurrentValue(gradeOptions, formData.grade_level).map((grade) => (
+                <option key={grade} value={grade}>
+                  {grade}
+                </option>
+              ))}
+            </select>
+            {gradeOptions.length === 0 && (
+              <small>
+                No Class values found in Master Data. Add them under Master Data → Class first.
+              </small>
+            )}
           </div>
 
           <div className="form-field">
             <label>Academic Year *</label>
-            <input
-              type="text"
+            <select
               name="academic_year"
               value={formData.academic_year}
               onChange={handleChange}
               required
-            />
+            >
+              <option value="">Select academic year</option>
+              {withCurrentValue(yearOptions, formData.academic_year).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-field">
