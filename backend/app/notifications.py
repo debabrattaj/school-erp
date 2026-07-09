@@ -14,7 +14,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.models import CommunicationLog, SchoolClass, Student, Teacher
+from app.models import CommunicationLog, Fee, SchoolClass, Student, Teacher
 
 logger = logging.getLogger(__name__)
 
@@ -123,4 +123,49 @@ def notify_class_teacher_new_student(db: Session, student: Student) -> None:
         db.commit()
     except Exception:  # noqa: BLE001 - notification must never break admission
         logger.exception("Failed to notify class teacher about student %s", student.id)
+        db.rollback()
+
+
+def notify_guardian_fee_added(
+    db: Session, fee: Fee, student: Student, school_name: str
+) -> None:
+    """WhatsApp the guardian a UPI payment link when a fee with an
+    outstanding balance is added for their child.
+
+    Silently does nothing if the guardian has no phone number or the fee has
+    no balance due (e.g. it was recorded as already paid); never raises.
+    """
+    try:
+        balance = (fee.total_amount or 0) - (fee.paid_amount or 0)
+        if balance <= 0 or not student.guardian_phone:
+            return
+
+        from app.payment_links import build_payment_link
+
+        link = build_payment_link(fee.id)
+        student_name = f"{student.first_name} {student.last_name or ''}".strip()
+        body = (
+            f"Dear Parent, a fee of Rs.{balance:.2f} ({fee.fee_type}) has been "
+            f"added for {student_name} (Admission No {student.admission_no}) "
+            f"at {school_name}. Pay via UPI: {link}"
+        )
+
+        log = CommunicationLog(
+            channel="WhatsApp",
+            category="Fee Payment",
+            recipient_name=student.guardian_name or "Parent",
+            recipient_phone=student.guardian_phone,
+            recipient_email=student.guardian_email,
+            message_body=body,
+            related_module="fees",
+            related_record_id=fee.id,
+        )
+
+        from app.routes.communications import deliver_message
+
+        db.add(log)
+        deliver_message(log, db)
+        db.commit()
+    except Exception:  # noqa: BLE001 - notification must never break fee creation
+        logger.exception("Failed to notify guardian about fee %s", fee.id)
         db.rollback()

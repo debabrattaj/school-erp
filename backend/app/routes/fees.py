@@ -1,13 +1,17 @@
+import base64
 import io
 from datetime import datetime
 from urllib.parse import quote, urlencode
 
+import qrcode
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Fee, Student, SchoolSettings, User
+from app.notifications import notify_guardian_fee_added
+from app.payment_links import verify_payment_link_token
 from app.schemas import FeeCreate, FeeUpdate, FeeResponse
 from app.security import require_roles
 from app.pdf import fee_receipt_pdf
@@ -145,6 +149,9 @@ def create_fee(
     db.add(new_fee)
     db.commit()
     db.refresh(new_fee)
+
+    settings = get_settings(db)
+    notify_guardian_fee_added(db, new_fee, student, settings.school_name or "School")
 
     return new_fee
 
@@ -427,6 +434,86 @@ def confirm_upi_payment(
     db.commit()
     db.refresh(fee)
     return fee
+
+
+def _payment_page(body: str, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(
+        f"""<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fee Payment</title>
+</head>
+<body style="font-family:system-ui,sans-serif;text-align:center;padding:32px 20px;
+             max-width:420px;margin:0 auto;color:#1e293b;">
+  {body}
+</body>
+</html>""",
+        status_code=status_code,
+    )
+
+
+@router.get("/{fee_id}/pay", response_class=HTMLResponse, include_in_schema=False)
+def public_payment_page(fee_id: int, token: str, db: Session = Depends(get_db)):
+    """Public, no-login payment page a guardian opens from a WhatsApp/SMS link."""
+    if not verify_payment_link_token(fee_id, token):
+        return _payment_page(
+            "<h2>This payment link is invalid or has expired.</h2>"
+            "<p>Please contact the school office for a new link.</p>",
+            status_code=400,
+        )
+
+    fee = db.query(Fee).filter(Fee.id == fee_id).first()
+    if not fee:
+        return _payment_page("<h2>Fee record not found.</h2>", status_code=404)
+
+    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    if balance <= 0:
+        return _payment_page("<h2>This fee is already fully paid.</h2><p>Thank you!</p>")
+
+    settings = get_settings(db)
+    upi_id = _school_upi_id(settings)
+    if not upi_id:
+        return _payment_page(
+            "<h2>Online payment is not available for this school right now.</h2>",
+            status_code=400,
+        )
+
+    student = db.query(Student).filter(Student.id == fee.student_id).first()
+    student_label = "-"
+    if student:
+        student_label = f"{student.first_name} {student.last_name or ''}".strip()
+
+    payee_name = settings.school_name or "School"
+    note = f"Fee #{fee.id} {fee.fee_type or ''}".strip()
+    params = urlencode(
+        {"pa": upi_id, "pn": payee_name, "am": f"{balance:.2f}", "cu": "INR", "tn": note[:80]},
+        quote_via=quote,
+    )
+    uri = f"upi://pay?{params}"
+
+    qr_buf = io.BytesIO()
+    qrcode.make(uri).save(qr_buf, format="PNG")
+    qr_b64 = base64.b64encode(qr_buf.getvalue()).decode()
+
+    return _payment_page(
+        f"""
+        <h2>Pay via UPI</h2>
+        <p>{fee.fee_type or 'Fee'} — {student_label}</p>
+        <img src="data:image/png;base64,{qr_b64}" alt="UPI payment QR code"
+             style="width:220px;height:220px;" />
+        <p style="font-size:1.3rem;margin:10px 0 2px;"><strong>Rs. {balance:.2f}</strong></p>
+        <p style="margin:0;color:#667085;">to <strong>{upi_id}</strong> ({payee_name})</p>
+        <p style="margin-top:16px;">
+          <a href="{uri}" style="display:inline-block;padding:12px 22px;background:#1e293b;
+             color:#fff;border-radius:8px;text-decoration:none;">Open in UPI app</a>
+        </p>
+        <p style="color:#667085;font-size:0.85rem;margin-top:24px;">
+          After paying, please share the transaction reference with the school office
+          to get your receipt.
+        </p>
+        """
+    )
 
 
 @router.get("/{fee_id}/receipt")
