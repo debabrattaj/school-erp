@@ -903,13 +903,27 @@ export default function Students() {
       );
     }
 
+    if (field.name === "roll_no") {
+      return (
+        <input
+          type="text"
+          name="roll_no"
+          value={value}
+          readOnly
+          disabled
+          placeholder={editingId ? "" : "Auto-assigned on save"}
+          title="Roll No is assigned automatically based on class and section"
+        />
+      );
+    }
+
     if (field.name === "class_name" || field.name === "class_id") {
       return (
         <select
           name="class_id"
           value={formData.class_id || ""}
           required={Boolean(field.required)}
-          onChange={(e) => {
+          onChange={async (e) => {
             const selectedClassId = e.target.value;
 
             const selectedClass = classes.find(
@@ -922,6 +936,24 @@ export default function Students() {
               class_name: selectedClass?.class_name || "",
               section: selectedClass?.section || "",
             }));
+
+            if (!editingId) {
+              if (!selectedClassId) {
+                setFormData((prev) => ({ ...prev, roll_no: "" }));
+                return;
+              }
+              try {
+                const response = await API.get("/students/next-roll-no", {
+                  params: { class_id: selectedClassId },
+                });
+                setFormData((prev) => ({
+                  ...prev,
+                  roll_no: response.data?.roll_no || "",
+                }));
+              } catch {
+                setFormData((prev) => ({ ...prev, roll_no: "" }));
+              }
+            }
           }}
         >
           <option value="">Select Class</option>
