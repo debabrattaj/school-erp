@@ -75,6 +75,31 @@ def next_roll_no(db: Session, class_id: int | None, class_name: str | None, sect
     return str(highest + 1)
 
 
+def roll_no_taken(
+    db: Session,
+    class_id: int | None,
+    class_name: str | None,
+    section: str | None,
+    roll_no: str,
+    exclude_student_id: int | None = None,
+) -> bool:
+    """Whether another student in this class/section already has this roll_no."""
+    query = db.query(Student).filter(Student.roll_no == roll_no)
+    if class_id:
+        query = query.filter(Student.class_id == class_id)
+    elif class_name and section:
+        query = query.filter(
+            Student.class_name == class_name, Student.section == section
+        )
+    else:
+        return False
+
+    if exclude_student_id:
+        query = query.filter(Student.id != exclude_student_id)
+
+    return query.first() is not None
+
+
 @router.post("/", response_model=StudentResponse)
 def create_student(
     student: StudentCreate,
@@ -104,11 +129,27 @@ def create_student(
         )
 
     student_data = student.model_dump()
-    # roll_no is server-assigned, not client-editable: always the next
-    # number in this class/section, regardless of what was submitted.
-    student_data["roll_no"] = next_roll_no(
-        db, student.class_id, student.class_name, student.section
-    )
+    student_data.pop("roll_no_mode", None)
+
+    if student.roll_no_mode == "manual":
+        manual_roll = (student.roll_no or "").strip()
+        if not manual_roll:
+            raise HTTPException(
+                status_code=400,
+                detail="Roll No is required when entering it manually."
+            )
+        if roll_no_taken(db, student.class_id, student.class_name, student.section, manual_roll):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Roll No {manual_roll} is already used in this section."
+            )
+        student_data["roll_no"] = manual_roll
+    else:
+        # roll_no is server-assigned in auto mode: always the next number
+        # in this class/section, regardless of what was submitted.
+        student_data["roll_no"] = next_roll_no(
+            db, student.class_id, student.class_name, student.section
+        )
 
     new_student = Student(**student_data)
 
@@ -344,6 +385,35 @@ def update_student(
             raise HTTPException(
                 status_code=400,
                 detail="Invalid gender"
+            )
+
+    roll_no_mode = update_data.pop("roll_no_mode", None)
+    submitted_roll_no = update_data.pop("roll_no", None)
+
+    if roll_no_mode:
+        resolved_class_id = update_data.get("class_id", student.class_id)
+        resolved_class_name = update_data.get("class_name", student.class_name)
+        resolved_section = update_data.get("section", student.section)
+
+        if roll_no_mode == "manual":
+            manual_roll = (submitted_roll_no or student.roll_no or "").strip()
+            if not manual_roll:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Roll No is required when entering it manually."
+                )
+            if roll_no_taken(
+                db, resolved_class_id, resolved_class_name, resolved_section,
+                manual_roll, exclude_student_id=student_id,
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Roll No {manual_roll} is already used in this section."
+                )
+            update_data["roll_no"] = manual_roll
+        else:
+            update_data["roll_no"] = next_roll_no(
+                db, resolved_class_id, resolved_class_name, resolved_section
             )
 
     for key, value in update_data.items():

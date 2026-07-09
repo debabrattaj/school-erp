@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Edit,
@@ -36,6 +36,7 @@ const LEGACY_STORAGE_KEY = "student_form_layout_v1";
 const systemEmptyForm = {
   admission_no: "",
   roll_no: "",
+  roll_no_mode: "auto",
   class_name: "",
   section: "",
   house: "",
@@ -101,15 +102,6 @@ const defaultStudentLayout = [
         placeholder: "ADM001",
       },
       {
-        id: "field_roll_no",
-        name: "roll_no",
-        label: "Roll No",
-        type: "singleline",
-        required: false,
-        source: "system",
-        placeholder: "12",
-      },
-      {
         id: "field_class_name",
         name: "class_name",
         label: "Class",
@@ -125,6 +117,15 @@ const defaultStudentLayout = [
         required: false,
         source: "system",
         masterCategory: "Section",
+      },
+      {
+        id: "field_roll_no",
+        name: "roll_no",
+        label: "Roll No",
+        type: "singleline",
+        required: false,
+        source: "system",
+        placeholder: "12",
       },
       {
         id: "field_house",
@@ -654,12 +655,37 @@ export default function Students() {
     updateFieldValue(field, type === "checkbox" ? checked : value);
   }
 
+  async function handleRollNoModeChange(mode) {
+    if (mode === "auto") {
+      if (!formData.class_id) {
+        setFormData((prev) => ({ ...prev, roll_no_mode: mode, roll_no: "" }));
+        return;
+      }
+      try {
+        const response = await API.get("/students/next-roll-no", {
+          params: { class_id: formData.class_id },
+        });
+        setFormData((prev) => ({
+          ...prev,
+          roll_no_mode: mode,
+          roll_no: response.data?.roll_no || "",
+        }));
+      } catch {
+        setFormData((prev) => ({ ...prev, roll_no_mode: mode, roll_no: "" }));
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, roll_no_mode: mode }));
+    }
+  }
+
   function buildPayload() {
     return {
       ...formData,
       class_id: formData.class_id ? Number(formData.class_id) : null,
       class_name: formData.class_name || "",
       section: formData.section || "",
+      admission_date: formData.admission_date || null,
+      dob: formData.dob || null,
     };
   }
 
@@ -787,10 +813,11 @@ export default function Students() {
       await loadStudents();
     } catch (error) {
       console.error(error);
-      setMessage(
-        error.response?.data?.detail ||
-          "Something went wrong while saving student."
-      );
+      const detail = error.response?.data?.detail;
+      const readable = Array.isArray(detail)
+        ? detail.map((item) => item.msg || JSON.stringify(item)).join(" | ")
+        : detail;
+      setMessage(readable || "Something went wrong while saving student.");
     }
   }
 
@@ -801,6 +828,7 @@ export default function Students() {
     setFormData({
       admission_no: student.admission_no || "",
       roll_no: student.roll_no || "",
+      roll_no_mode: "manual",
       class_id: student.class_id || "",
       class_name: student.class_name || "",
       section: student.section || "",
@@ -883,6 +911,26 @@ export default function Students() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function renderRollNoModeToggle() {
+    const isManual = formData.roll_no_mode === "manual";
+
+    return (
+      <div className="roll-mode-switch">
+        <span className={isManual ? "" : "active"}>Auto</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isManual}
+          className="roll-mode-slider"
+          onClick={() => handleRollNoModeChange(isManual ? "auto" : "manual")}
+        >
+          <span className="roll-mode-slider-knob" />
+        </button>
+        <span className={isManual ? "active" : ""}>Manual</span>
+      </div>
+    );
+  }
+
   function renderField(field) {
     const value = getFieldValue(field);
 
@@ -904,15 +952,22 @@ export default function Students() {
     }
 
     if (field.name === "roll_no") {
+      const isAuto = (formData.roll_no_mode || "auto") === "auto";
+
       return (
         <input
           type="text"
           name="roll_no"
           value={value}
-          readOnly
-          disabled
-          placeholder={editingId ? "" : "Auto-assigned on save"}
-          title="Roll No is assigned automatically based on class and section"
+          readOnly={isAuto}
+          disabled={isAuto}
+          onChange={(e) => handleFieldChange(field, e)}
+          placeholder={isAuto ? "Auto-assigned on save" : "Enter roll no"}
+          title={
+            isAuto
+              ? "Roll No is assigned automatically based on class and section"
+              : ""
+          }
         />
       );
     }
@@ -937,7 +992,7 @@ export default function Students() {
               section: selectedClass?.section || "",
             }));
 
-            if (!editingId) {
+            if ((formData.roll_no_mode || "auto") === "auto") {
               if (!selectedClassId) {
                 setFormData((prev) => ({ ...prev, roll_no: "" }));
                 return;
@@ -1402,24 +1457,31 @@ export default function Students() {
                 ) : (
                   <div className="form-grid">
                     {section.fields.map((field) => (
-                      <div
-                        key={field.id}
-                        className={
-                          field.type === "multiline"
-                            ? "form-field full-width"
-                            : "form-field"
-                        }
-                      >
-                        <label>
-                          {field.label}
-                          {field.required && " *"}
-                          {field.source === "custom" && (
-                            <small className="custom-field-badge"> Custom</small>
-                          )}
-                        </label>
+                      <Fragment key={field.id}>
+                        {field.name === "roll_no" && (
+                          <div className="form-field">
+                            <label>Roll No Assignment</label>
+                            {renderRollNoModeToggle()}
+                          </div>
+                        )}
+                        <div
+                          className={
+                            field.type === "multiline"
+                              ? "form-field full-width"
+                              : "form-field"
+                          }
+                        >
+                          <label>
+                            {field.label}
+                            {field.required && " *"}
+                            {field.source === "custom" && (
+                              <small className="custom-field-badge"> Custom</small>
+                            )}
+                          </label>
 
-                        {renderField(field)}
-                      </div>
+                          {renderField(field)}
+                        </div>
+                      </Fragment>
                     ))}
                   </div>
                 )}
@@ -1980,24 +2042,31 @@ export default function Students() {
               ) : (
                 <div className="form-grid">
                   {section.fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className={
-                        field.type === "multiline"
-                          ? "form-field full-width"
-                          : "form-field"
-                      }
-                    >
-                      <label>
-                        {field.label}
-                        {field.required && " *"}
-                        {field.source === "custom" && (
-                          <small className="custom-field-badge"> Custom</small>
-                        )}
-                      </label>
+                    <Fragment key={field.id}>
+                      {field.name === "roll_no" && (
+                        <div className="form-field">
+                          <label>Roll No Assignment</label>
+                          {renderRollNoModeToggle()}
+                        </div>
+                      )}
+                      <div
+                        className={
+                          field.type === "multiline"
+                            ? "form-field full-width"
+                            : "form-field"
+                        }
+                      >
+                        <label>
+                          {field.label}
+                          {field.required && " *"}
+                          {field.source === "custom" && (
+                            <small className="custom-field-badge"> Custom</small>
+                          )}
+                        </label>
 
-                      {renderField(field)}
-                    </div>
+                        {renderField(field)}
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
               )}

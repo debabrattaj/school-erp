@@ -118,6 +118,10 @@ class SchoolSettingsResponse(SchoolSettingsBase):
 class StudentBase(BaseModel):
     admission_no: str
     roll_no: Optional[str] = None
+    # "auto": server assigns the next roll number for the class/section
+    # (default). "manual": the given roll_no is used as-is, after checking
+    # it isn't already taken in that class/section.
+    roll_no_mode: Optional[str] = "auto"
     class_name: Optional[str] = None
     section: Optional[str] = None
     house: Optional[str] = None
@@ -157,6 +161,9 @@ class StudentCreate(StudentBase):
 class StudentUpdate(BaseModel):
     admission_no: Optional[str] = None
     roll_no: Optional[str] = None
+    # Unset (None) means "don't touch roll_no". "auto"/"manual" behave as
+    # in StudentBase.
+    roll_no_mode: Optional[str] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
     house: Optional[str] = None

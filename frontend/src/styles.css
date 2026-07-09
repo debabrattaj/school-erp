@@ -2157,6 +2157,55 @@ button {
   height: 18px;
 }
 
+.roll-mode-switch {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roll-mode-switch span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #98a2b3;
+}
+
+.roll-mode-switch span.active {
+  color: #25324b;
+}
+
+.roll-mode-slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  background: #d0d5dd;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.roll-mode-slider[aria-checked="true"] {
+  background: #25324b;
+}
+
+.roll-mode-slider-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.3);
+}
+
+.roll-mode-slider[aria-checked="true"] .roll-mode-slider-knob {
+  transform: translateX(18px);
+}
+
 @media (max-width: 1000px) {
   .master-data-layout {
     grid-template-columns: 1fr;
