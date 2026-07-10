@@ -376,6 +376,26 @@ class FeeResponse(FeeBase):
         from_attributes = True
 
 
+class FeeBulkClassCreate(BaseModel):
+    class_name: str
+    section: Optional[str] = None
+    residential_type: Optional[str] = None
+    fee_type: str
+    academic_year: Optional[str] = None
+    total_amount: float
+    paid_amount: float = 0
+    payment_date: Optional[date] = None
+    due_date: Optional[date] = None
+    remarks: Optional[str] = None
+
+
+class FeeBulkClassResponse(BaseModel):
+    created_count: int
+    class_name: str
+    section: Optional[str] = None
+    residential_type: Optional[str] = None
+
+
 # =========================
 # Fee Structure
 # =========================
