@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Menu, PanelLeftClose } from "lucide-react";
 import Sidebar from "./components/Sidebar";
-import Topbar from "./components/Topbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MasterData from "./pages/MasterData";
 import Login from "./pages/Login";
@@ -93,8 +92,6 @@ function ProtectedLayout({ children }) {
   return (
     <SettingsProvider>
       <div className="app-layout">
-        <Topbar />
-
         <div className={sidebarOpen ? "app-body" : "app-body sidebar-hidden"}>
           <button
             type="button"
