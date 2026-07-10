@@ -379,21 +379,28 @@ class FeeResponse(FeeBase):
 class FeeBulkClassCreate(BaseModel):
     class_name: str
     section: Optional[str] = None
-    residential_type: Optional[str] = None
     fee_type: str
     academic_year: Optional[str] = None
-    total_amount: float
+    # Only used as a fallback when no Fee Structure is configured for this
+    # class/fee type; otherwise the resolved structure amount(s) win.
+    total_amount: Optional[float] = None
     paid_amount: float = 0
     payment_date: Optional[date] = None
     due_date: Optional[date] = None
     remarks: Optional[str] = None
 
 
+class FeeBulkClassGroupResult(BaseModel):
+    residential_type: Optional[str] = None  # None = applies to the whole class/section
+    student_count: int
+    amount: float
+
+
 class FeeBulkClassResponse(BaseModel):
     created_count: int
     class_name: str
     section: Optional[str] = None
-    residential_type: Optional[str] = None
+    groups: List["FeeBulkClassGroupResult"] = []
 
 
 # =========================
@@ -429,6 +436,16 @@ class FeeStructureResponse(FeeStructureBase):
 
     class Config:
         from_attributes = True
+
+
+class FeeStructureClassLookupResponse(BaseModel):
+    mode: str  # "single" (one amount for the whole class) | "split" (differs by residential type)
+    amount: Optional[float] = None
+    due_date: Optional[date] = None
+    hosteller_amount: Optional[float] = None
+    hosteller_due_date: Optional[date] = None
+    day_scholar_amount: Optional[float] = None
+    day_scholar_due_date: Optional[date] = None
 
 
 # =========================

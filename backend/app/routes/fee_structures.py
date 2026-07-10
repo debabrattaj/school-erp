@@ -7,6 +7,7 @@ from app.schemas import (
     FeeStructureCreate,
     FeeStructureUpdate,
     FeeStructureResponse,
+    FeeStructureClassLookupResponse,
 )
 from app.security import require_roles
 
@@ -57,6 +58,37 @@ def resolve_structure(
             if structure:
                 return structure
     return None
+
+
+def resolve_class_structures(
+    db: Session,
+    academic_year: str,
+    class_name: str | None,
+    fee_type: str,
+):
+    """Every fee structure row applicable to a whole class, grouped by
+    residential type ("Hosteller" / "Day Scholar" / None for "Both").
+
+    Mirrors resolve_structure's "specific class wins over All Classes" rule
+    on the class axis, but does NOT collapse the residential axis: a class
+    can have separate Hosteller/Day Scholar amounts configured side by side
+    (see the Fee Structure form's own note about boarders often paying more
+    Tuition Fee than day scholars), so bulk class-fee creation needs to see
+    all of them to bill each group correctly.
+    """
+    for cls in ([class_name, None] if class_name else [None]):
+        rows = (
+            db.query(FeeStructure)
+            .filter(
+                FeeStructure.academic_year == academic_year,
+                FeeStructure.fee_type == fee_type,
+                FeeStructure.class_name == cls if cls else FeeStructure.class_name.is_(None),
+            )
+            .all()
+        )
+        if rows:
+            return {row.residential_type: row for row in rows}
+    return {}
 
 
 @router.post("/", response_model=FeeStructureResponse)
@@ -120,6 +152,43 @@ def lookup_fee_structure(
         raise HTTPException(status_code=404, detail="No fee structure configured for this selection")
 
     return structure
+
+
+@router.get("/lookup-class", response_model=FeeStructureClassLookupResponse)
+def lookup_class_fee_structure(
+    academic_year: str,
+    fee_type: str,
+    class_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    """Preview how a class-wide fee will resolve: one amount for everyone
+    ("single"), or split by residential type when Hosteller/Day Scholar
+    have their own structure rows ("split")."""
+    structures = resolve_class_structures(db, academic_year, class_name, fee_type)
+
+    if not structures:
+        raise HTTPException(status_code=404, detail="No fee structure configured for this selection")
+
+    if set(structures.keys()) == {None}:
+        structure = structures[None]
+        return FeeStructureClassLookupResponse(
+            mode="single",
+            amount=structure.amount,
+            due_date=structure.due_date,
+        )
+
+    both = structures.get(None)
+    hosteller = structures.get("Hosteller") or both
+    day_scholar = structures.get("Day Scholar") or both
+
+    return FeeStructureClassLookupResponse(
+        mode="split",
+        hosteller_amount=hosteller.amount if hosteller else None,
+        hosteller_due_date=hosteller.due_date if hosteller else None,
+        day_scholar_amount=day_scholar.amount if day_scholar else None,
+        day_scholar_due_date=day_scholar.due_date if day_scholar else None,
+    )
 
 
 @router.put("/{structure_id}", response_model=FeeStructureResponse)
