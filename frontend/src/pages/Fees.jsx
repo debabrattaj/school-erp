@@ -101,6 +101,25 @@ function normalizeDateInput(value) {
   return String(value).split("T")[0];
 }
 
+function resolveDefaultAcademicYear(years) {
+  if (!years || !years.length) return "";
+
+  const current = years.find((year) => year.is_current);
+  if (current) return current.name;
+
+  // Nobody has explicitly marked a year "current" yet — fall back to
+  // whichever year's date range covers today, if any.
+  const today = new Date();
+  const inRange = years.find((year) => {
+    if (!year.start_date || !year.end_date) return false;
+    return today >= new Date(year.start_date) && today <= new Date(year.end_date);
+  });
+  if (inRange) return inRange.name;
+
+  // Last resort: the most recent year (the list is sorted name-desc).
+  return years[0]?.name || "";
+}
+
 function getFeeAmount(fee) {
   return Number(fee.total_amount ?? fee.amount ?? 0);
 }
@@ -761,10 +780,9 @@ export default function Fees() {
   function handleAddFee() {
     setEditingId(null);
     setFeeMode("student");
-    const currentYear = academicYears.find((year) => year.is_current);
     setFormData({
       ...emptyFeeForm,
-      academic_year: currentYear ? currentYear.name : "",
+      academic_year: resolveDefaultAcademicYear(academicYears),
       payment_date: getTodayDateString(),
     });
     setMessage("");
@@ -1061,7 +1079,8 @@ export default function Fees() {
               <select
                 name="academic_year"
                 value={formData.academic_year}
-                disabled
+                onChange={handleInputChange}
+                disabled={Boolean(formData.academic_year) || Boolean(editingId)}
               >
                 <option value="">Select academic year</option>
                 {academicYears.map((year) => (
@@ -1070,7 +1089,11 @@ export default function Fees() {
                   </option>
                 ))}
               </select>
-              <small>Set automatically to the current academic year.</small>
+              <small>
+                {formData.academic_year
+                  ? "Set automatically to the current academic year."
+                  : "No academic year is marked current — set one under Academic Years, or select one here."}
+              </small>
             </div>
 
             <div className="form-field">
