@@ -23,6 +23,9 @@ import { getMasterValues } from "../services/masterDataService";
 
 const emptyFeeForm = {
   student_id: "",
+  class_name: "",
+  section: "",
+  residential_type: "",
   fee_type: "",
   academic_year: "",
   total_amount: "",
@@ -150,6 +153,7 @@ export default function Fees() {
   const [formData, setFormData] = useState(emptyFeeForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
+  const [feeMode, setFeeMode] = useState("student");
   const [selectedFee, setSelectedFee] = useState(null);
   const [structureLookupMessage, setStructureLookupMessage] = useState("");
   const [structureFound, setStructureFound] = useState(false);
@@ -315,6 +319,26 @@ export default function Fees() {
     );
   }, [students, classFilter]);
 
+  const formClassOptions = classFilterOptions;
+
+  const formSectionOptions = useMemo(() => {
+    return uniqueSorted(
+      students
+        .filter((student) => !formData.class_name || student.class_name === formData.class_name)
+        .map((student) => student.section)
+    );
+  }, [students, formData.class_name]);
+
+  const classStudentCount = useMemo(() => {
+    if (!formData.class_name) return 0;
+    return students.filter(
+      (student) =>
+        student.class_name === formData.class_name &&
+        (!formData.section || student.section === formData.section) &&
+        (!formData.residential_type || student.residential_type === formData.residential_type)
+    ).length;
+  }, [students, formData.class_name, formData.section, formData.residential_type]);
+
   useEffect(() => {
     if (editingId) return undefined;
     if (!formData.fee_type || !formData.academic_year) {
@@ -323,15 +347,25 @@ export default function Fees() {
       return undefined;
     }
 
-    const student = studentMap[formData.student_id];
+    const student = feeMode === "student" ? studentMap[formData.student_id] : null;
+    const lookupClassName = feeMode === "class" ? formData.class_name : student?.class_name;
+    const lookupResidentialType =
+      feeMode === "class" ? formData.residential_type : student?.residential_type;
+
+    if (feeMode === "class" && !lookupClassName) {
+      setStructureLookupMessage("");
+      setStructureFound(false);
+      return undefined;
+    }
+
     let cancelled = false;
 
     API.get("/fee-structures/lookup", {
       params: {
         academic_year: formData.academic_year,
         fee_type: formData.fee_type,
-        class_name: student?.class_name || undefined,
-        residential_type: student?.residential_type || undefined,
+        class_name: lookupClassName || undefined,
+        residential_type: lookupResidentialType || undefined,
       },
     })
       .then((response) => {
@@ -351,9 +385,9 @@ export default function Fees() {
         if (error.response?.status === 404) {
           setStructureLookupMessage(
             `No fee structure configured yet for ${formData.fee_type}${
-              student?.class_name ? ` / Class ${student.class_name}` : ""
+              lookupClassName ? ` / Class ${lookupClassName}` : ""
             }${
-              student?.residential_type ? ` / ${student.residential_type}` : ""
+              lookupResidentialType ? ` / ${lookupResidentialType}` : ""
             } in ${formData.academic_year}. Enter the amount manually, or add one under "Fee Structure".`
           );
         }
@@ -362,12 +396,30 @@ export default function Fees() {
     return () => {
       cancelled = true;
     };
-  }, [formData.fee_type, formData.academic_year, formData.student_id, editingId, studentMap]);
+  }, [
+    formData.fee_type,
+    formData.academic_year,
+    formData.student_id,
+    formData.class_name,
+    formData.residential_type,
+    feeMode,
+    editingId,
+    studentMap,
+  ]);
+
+  const structureLookupFields = [
+    "fee_type",
+    "academic_year",
+    "student_id",
+    "class_name",
+    "section",
+    "residential_type",
+  ];
 
   function handleInputChange(e) {
     const { name, value } = e.target;
 
-    if (["fee_type", "academic_year", "student_id"].includes(name)) {
+    if (structureLookupFields.includes(name)) {
       setStructureFound(false);
       setStructureLookupMessage("");
     }
@@ -378,7 +430,11 @@ export default function Fees() {
         [name]: value,
       };
 
-      if (["fee_type", "academic_year", "student_id"].includes(name) && !editingId) {
+      if (name === "class_name") {
+        updated.section = "";
+      }
+
+      if (structureLookupFields.includes(name) && !editingId) {
         updated.total_amount = "";
         updated.due_date = "";
       }
@@ -394,12 +450,43 @@ export default function Fees() {
     });
   }
 
+  function handleFeeModeChange(nextMode) {
+    if (nextMode === feeMode || editingId) return;
+    setFeeMode(nextMode);
+    setStructureFound(false);
+    setStructureLookupMessage("");
+    setFormData((prev) => ({
+      ...prev,
+      student_id: "",
+      class_name: "",
+      section: "",
+      residential_type: "",
+      total_amount: "",
+      due_date: "",
+    }));
+  }
+
   function buildPayload() {
     const totalAmount =
       formData.total_amount !== "" ? Number(formData.total_amount) : 0;
 
     const paidAmount =
       formData.paid_amount !== "" ? Number(formData.paid_amount) : 0;
+
+    if (feeMode === "class") {
+      return {
+        class_name: formData.class_name || "",
+        section: formData.section || null,
+        residential_type: formData.residential_type || null,
+        fee_type: formData.fee_type || "",
+        academic_year: formData.academic_year || null,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        payment_date: formData.payment_date || null,
+        due_date: formData.due_date || null,
+        remarks: formData.remarks || null,
+      };
+    }
 
     return {
       student_id: formData.student_id ? Number(formData.student_id) : null,
@@ -415,7 +502,11 @@ export default function Fees() {
   }
 
   function validatePayload(payload) {
-    if (!payload.student_id) {
+    if (feeMode === "class") {
+      if (!payload.class_name) {
+        return "Class is required.";
+      }
+    } else if (!payload.student_id) {
       return "Student is required.";
     }
 
@@ -458,6 +549,13 @@ export default function Fees() {
       if (editingId) {
         await API.put(`/fees/${editingId}`, payload);
         setMessage("Fee updated successfully.");
+      } else if (feeMode === "class") {
+        const response = await API.post("/fees/bulk-class", payload);
+        const count = response.data?.created_count || 0;
+        const scope = `${payload.class_name}${payload.section ? ` - Section ${payload.section}` : ""}${
+          payload.residential_type ? ` (${payload.residential_type} only)` : ""
+        }`;
+        setMessage(`Fee added for ${count} student${count === 1 ? "" : "s"} in ${scope}.`);
       } else {
         await API.post("/fees/", payload);
         setMessage("Fee added successfully.");
@@ -465,6 +563,7 @@ export default function Fees() {
 
       setFormData(emptyFeeForm);
       setEditingId(null);
+      setFeeMode("student");
       setPageMode("list");
       await loadFees();
     } catch (error) {
@@ -487,11 +586,15 @@ export default function Fees() {
 
     setEditingId(fee.id);
     setPageMode("form");
+    setFeeMode("student");
     setStructureFound(false);
     setStructureLookupMessage("");
 
     setFormData({
       student_id: fee.student_id || "",
+      class_name: "",
+      section: "",
+      residential_type: "",
       fee_type: fee.fee_type || "",
       academic_year: fee.academic_year || "",
       total_amount: totalAmount || "",
@@ -593,6 +696,7 @@ export default function Fees() {
   function handleCancelEdit() {
     setEditingId(null);
     setFormData(emptyFeeForm);
+    setFeeMode("student");
     setMessage("");
     setStructureLookupMessage("");
     setStructureFound(false);
@@ -601,6 +705,7 @@ export default function Fees() {
 
   function handleAddFee() {
     setEditingId(null);
+    setFeeMode("student");
     const currentYear = academicYears.find((year) => year.is_current);
     setFormData({
       ...emptyFeeForm,
@@ -802,18 +907,94 @@ export default function Fees() {
             <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
             <p>Fee status is calculated automatically from payment amount.</p>
           </div>
+
+          {!editingId && (
+            <div className="fee-mode-toggle" data-active={feeMode}>
+              <button
+                type="button"
+                className={feeMode === "student" ? "active" : ""}
+                onClick={() => handleFeeModeChange("student")}
+              >
+                Student View
+              </button>
+              <button
+                type="button"
+                className={feeMode === "class" ? "active" : ""}
+                onClick={() => handleFeeModeChange("class")}
+              >
+                Class View
+              </button>
+            </div>
+          )}
         </div>
 
         <form className="classic-form" onSubmit={handleSubmit}>
           <div className="sis-section-title">Fee Information</div>
 
           <div className="form-grid">
-            <StudentPicker
-              students={students}
-              value={formData.student_id}
-              onChange={handleInputChange}
-              disabled={Boolean(editingId)}
-            />
+            {feeMode === "class" ? (
+              <>
+                <div className="form-field">
+                  <label>Class *</label>
+                  <select
+                    name="class_name"
+                    value={formData.class_name}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select Class</option>
+                    {formClassOptions.map((className) => (
+                      <option key={className} value={className}>
+                        {className}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Section</label>
+                  <select
+                    name="section"
+                    value={formData.section}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">All Sections</option>
+                    {formSectionOptions.map((section) => (
+                      <option key={section} value={section}>
+                        {section}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Residential Type</label>
+                  <select
+                    name="residential_type"
+                    value={formData.residential_type}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Both (Day Scholar &amp; Hosteller)</option>
+                    {residentialTypeOptions.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                  {formData.class_name && (
+                    <small>
+                      Fee will be added for {classStudentCount} student
+                      {classStudentCount === 1 ? "" : "s"}.
+                    </small>
+                  )}
+                </div>
+              </>
+            ) : (
+              <StudentPicker
+                students={students}
+                value={formData.student_id}
+                onChange={handleInputChange}
+                disabled={Boolean(editingId)}
+              />
+            )}
 
             <div className="form-field">
               <label>Fee Type *</label>
@@ -932,17 +1113,19 @@ export default function Fees() {
               />
             </div>
 
-            <div className="form-field">
-              <label>Receipt No</label>
-              <input
-                type="text"
-                name="receipt_no"
-                value={formData.receipt_no}
-                onChange={handleInputChange}
-                placeholder="Auto generated when paid"
-                disabled={Boolean(editingId)}
-              />
-            </div>
+            {feeMode !== "class" && (
+              <div className="form-field">
+                <label>Receipt No</label>
+                <input
+                  type="text"
+                  name="receipt_no"
+                  value={formData.receipt_no}
+                  onChange={handleInputChange}
+                  placeholder="Auto generated when paid"
+                  disabled={Boolean(editingId)}
+                />
+              </div>
+            )}
 
             <div className="form-field full-width">
               <label>Remarks</label>
@@ -959,7 +1142,7 @@ export default function Fees() {
           <div className="form-actions">
             <button type="submit" className="primary-button">
               <PlusCircle size={18} />
-              {editingId ? "Update Fee" : "Add Fee"}
+              {editingId ? "Update Fee" : feeMode === "class" ? "Add Fee for Class" : "Add Fee"}
             </button>
 
             <button

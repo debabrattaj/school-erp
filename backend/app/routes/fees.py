@@ -12,7 +12,13 @@ from app.database import get_db
 from app.models import Fee, Student, SchoolSettings, User
 from app.notifications import notify_guardian_fee_added
 from app.payment_links import verify_payment_link_token
-from app.schemas import FeeCreate, FeeUpdate, FeeResponse
+from app.schemas import (
+    FeeCreate,
+    FeeUpdate,
+    FeeResponse,
+    FeeBulkClassCreate,
+    FeeBulkClassResponse,
+)
 from app.security import require_roles
 from app.pdf import fee_receipt_pdf
 from pydantic import BaseModel
@@ -66,6 +72,32 @@ def calculate_fee_status(total_amount: float, paid_amount: float):
     return due_amount, "Unpaid"
 
 
+def validate_fee_amounts(fee_type: str, total_amount: float, paid_amount: float):
+    if fee_type not in VALID_FEE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid fee type. Allowed: {', '.join(VALID_FEE_TYPES)}"
+        )
+
+    if total_amount < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Total amount cannot be negative"
+        )
+
+    if paid_amount < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Paid amount cannot be negative"
+        )
+
+    if paid_amount > total_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Paid amount cannot be greater than total amount"
+        )
+
+
 def generate_receipt_no(db: Session):
     settings = get_settings(db)
 
@@ -95,29 +127,7 @@ def create_fee(
             detail="Student not found"
         )
 
-    if fee.fee_type not in VALID_FEE_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid fee type. Allowed: {', '.join(VALID_FEE_TYPES)}"
-        )
-
-    if fee.total_amount < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Total amount cannot be negative"
-        )
-
-    if fee.paid_amount < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Paid amount cannot be negative"
-        )
-
-    if fee.paid_amount > fee.total_amount:
-        raise HTTPException(
-            status_code=400,
-            detail="Paid amount cannot be greater than total amount"
-        )
+    validate_fee_amounts(fee.fee_type, fee.total_amount, fee.paid_amount)
 
     due_amount, payment_status = calculate_fee_status(
         fee.total_amount,
@@ -154,6 +164,83 @@ def create_fee(
     notify_guardian_fee_added(db, new_fee, student, settings.school_name or "School")
 
     return new_fee
+
+
+@router.post("/bulk-class", response_model=FeeBulkClassResponse)
+def create_fee_for_class(
+    payload: FeeBulkClassCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(["Admin", "Accounts"])
+    )
+):
+    query = db.query(Student).filter(Student.class_name == payload.class_name)
+
+    if payload.section:
+        query = query.filter(Student.section == payload.section)
+
+    if payload.residential_type:
+        query = query.filter(Student.residential_type == payload.residential_type)
+
+    students = query.all()
+
+    if not students:
+        raise HTTPException(
+            status_code=404,
+            detail="No students found for the selected class"
+        )
+
+    validate_fee_amounts(payload.fee_type, payload.total_amount, payload.paid_amount)
+
+    due_amount, payment_status = calculate_fee_status(
+        payload.total_amount,
+        payload.paid_amount
+    )
+
+    academic_year = payload.academic_year or get_settings(db).academic_year
+    settings = get_settings(db)
+    created = []
+
+    for student in students:
+        receipt_no = generate_receipt_no(db) if payload.paid_amount > 0 else None
+
+        new_fee = Fee(
+            student_id=student.id,
+            fee_type=payload.fee_type,
+            academic_year=academic_year,
+            class_id=student.class_id,
+            class_name_snapshot=student.class_name,
+            section_snapshot=student.section,
+            total_amount=payload.total_amount,
+            paid_amount=payload.paid_amount,
+            due_amount=due_amount,
+            payment_status=payment_status,
+            payment_date=payload.payment_date,
+            due_date=payload.due_date,
+            receipt_no=receipt_no,
+            remarks=payload.remarks
+        )
+
+        db.add(new_fee)
+        created.append((new_fee, student))
+
+        if payload.paid_amount > 0:
+            # Session has autoflush disabled, so generate_receipt_no()'s count
+            # query won't see this row on the next loop iteration unless flushed.
+            db.flush()
+
+    db.commit()
+
+    for new_fee, student in created:
+        db.refresh(new_fee)
+        notify_guardian_fee_added(db, new_fee, student, settings.school_name or "School")
+
+    return FeeBulkClassResponse(
+        created_count=len(students),
+        class_name=payload.class_name,
+        section=payload.section,
+        residential_type=payload.residential_type
+    )
 
 
 @router.get("/", response_model=list[FeeResponse])
