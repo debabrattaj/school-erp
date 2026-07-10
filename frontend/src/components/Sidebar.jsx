@@ -30,8 +30,10 @@ import {
   Search,
   Globe,
   ShieldCheck,
+  Landmark,
+  Bell,
+  X,
   LogOut,
-  Landmark
 } from "lucide-react";
 import { getUser, logout } from "../auth";
 import API from "../api";
@@ -54,6 +56,8 @@ export default function Sidebar({ onNavigate }) {
   const [user, setUser] = useState(getUser());
   const [studentQuery, setStudentQuery] = useState("");
   const [studentCache, setStudentCache] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     function refreshUser() {
@@ -67,6 +71,21 @@ export default function Sidebar({ onNavigate }) {
       window.removeEventListener("school-erp-auth-updated", refreshUser);
       window.removeEventListener("storage", refreshUser);
     };
+  }, []);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const response = await API.get("/platform/my-notifications");
+        setNotifications(response.data || []);
+      } catch {
+        // silently ignore — endpoint may not exist for older backends
+      }
+    }
+
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 120000);
+    return () => clearInterval(interval);
   }, []);
 
   // Order here also controls the order groups render in the sidebar.
@@ -410,6 +429,8 @@ export default function Sidebar({ onNavigate }) {
     navigate("/login");
   }
 
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
   const canSearchStudents = ["Admin", "Principal"].includes(user?.role);
   const studentMatches = (() => {
     const q = studentQuery.trim().toLowerCase();
@@ -494,10 +515,50 @@ export default function Sidebar({ onNavigate }) {
       </nav>
 
       <div className="sidebar-footer">
-        <div>
-          <p>{t("Logged in as")}</p>
-          <strong>{user?.name || "User"}</strong>
-          <span>{user?.role || "User"}</span>
+        <div className="sidebar-identity">
+          <div>
+            <p>{t("Logged in as")}</p>
+            <strong>{user?.name || "User"}</strong>
+            <span>{user?.role || "User"}</span>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              className="sidebar-notify-button"
+              onClick={() => setShowNotifications((prev) => !prev)}
+              aria-label={t("Notifications")}
+            >
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <div className="sidebar-notify-badge">{unreadCount}</div>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="sidebar-notify-panel">
+                <div className="sidebar-notify-panel-header">
+                  <div className="sidebar-notify-panel-title">{t("Notifications")}</div>
+                  <button type="button" className="sidebar-notify-close" onClick={() => setShowNotifications(false)}>
+                    <X size={16} />
+                  </button>
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="sidebar-notify-empty">{t("No notifications")}</div>
+                ) : (
+                  notifications.slice(0, 20).map((n) => (
+                    <div key={n.id} className={`sidebar-notify-item sidebar-notify-item-${n.notification_type || "info"}`}>
+                      <div className="sidebar-notify-item-top">
+                        <div className="sidebar-notify-item-title">{n.title}</div>
+                        <div className="sidebar-notify-item-date">{n.created_at?.slice(0, 10)}</div>
+                      </div>
+                      <div className="sidebar-notify-item-message">{n.message}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="sidebar-lang">

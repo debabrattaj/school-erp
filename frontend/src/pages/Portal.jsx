@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { QrCode, X } from "lucide-react";
+import QRCode from "qrcode";
 
 import API from "../api";
+import { getUser } from "../auth";
 
 const TABS = [
   ["summary", "Summary"],
@@ -15,10 +18,16 @@ function getApiErrorMessage(error, fallback) {
 }
 
 export default function Portal() {
+  const user = getUser();
+  const isParent = user?.role === "Parent";
   const [children, setChildren] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("summary");
   const [message, setMessage] = useState("");
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [upiPayment, setUpiPayment] = useState(null);
+  const [upiReference, setUpiReference] = useState("");
+  const [confirmingUpi, setConfirmingUpi] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -90,6 +99,62 @@ export default function Portal() {
   useEffect(() => {
     loadStudentData(selectedId);
   }, [selectedId, yearFilter]);
+
+  useEffect(() => {
+    if (!isParent) return;
+    API.get("/portal/payment/config")
+      .then((r) => setPaymentEnabled(Boolean(r.data?.enabled)))
+      .catch(() => setPaymentEnabled(false));
+  }, [isParent]);
+
+  async function openUpiPayment(fee) {
+    setMessage("");
+    try {
+      const { data } = await API.get(
+        `/portal/students/${selectedId}/fees/${fee.id}/payment/upi`
+      );
+      let qr = "";
+      try {
+        qr = await QRCode.toDataURL(data.uri, { width: 220, margin: 1 });
+      } catch {
+        qr = "";
+      }
+      setUpiReference("");
+      setUpiPayment({ fee, details: data, qr });
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to start UPI payment."));
+    }
+  }
+
+  function closeUpiPayment() {
+    setUpiPayment(null);
+    setUpiReference("");
+  }
+
+  async function confirmUpiPayment() {
+    if (!upiPayment) return;
+
+    const reference = upiReference.trim();
+    if (!reference) {
+      setMessage("Enter the UPI transaction reference (UTR) to confirm.");
+      return;
+    }
+
+    setConfirmingUpi(true);
+    try {
+      await API.post(
+        `/portal/students/${selectedId}/fees/${upiPayment.fee.id}/payment/upi/confirm`,
+        { reference }
+      );
+      setMessage("UPI payment recorded.");
+      closeUpiPayment();
+      await loadStudentData(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Could not record the UPI payment."));
+    } finally {
+      setConfirmingUpi(false);
+    }
+  }
 
   const selectedChild = children.find((child) => child.id === selectedId);
   const yearOptions = [
@@ -312,6 +377,7 @@ export default function Portal() {
                     <th>Due</th>
                     <th>Status</th>
                     <th>Receipt</th>
+                    {isParent && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -324,11 +390,25 @@ export default function Portal() {
                       <td>{fee.due_amount}</td>
                       <td>{fee.payment_status}</td>
                       <td>{fee.receipt_no || "-"}</td>
+                      {isParent && (
+                        <td>
+                          {paymentEnabled && fee.due_amount > 0 && (
+                            <button
+                              type="button"
+                              className="icon-button"
+                              onClick={() => openUpiPayment(fee)}
+                              title="Pay via UPI"
+                            >
+                              <QrCode size={15} />
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {!fees.fees.length && (
                     <tr>
-                      <td colSpan={7}>No fee records found.</td>
+                      <td colSpan={isParent ? 8 : 7}>No fee records found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -372,6 +452,104 @@ export default function Portal() {
             </div>
           )}
         </section>
+      )}
+
+      {upiPayment && (
+        <div className="layout-modal-backdrop" onClick={closeUpiPayment}>
+          <div
+            className="layout-modal"
+            style={{ width: "min(420px, 100%)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="layout-modal-header">
+              <div>
+                <h3>Pay via UPI</h3>
+                <p>
+                  {upiPayment.fee.fee_type || "Fee"} —{" "}
+                  {selectedChild?.full_name || "-"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="light-icon-button"
+                onClick={closeUpiPayment}
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              {upiPayment.qr ? (
+                <img
+                  src={upiPayment.qr}
+                  alt="UPI payment QR code"
+                  style={{ width: 220, height: 220 }}
+                />
+              ) : (
+                <p>Scan unavailable — pay using the UPI ID below.</p>
+              )}
+
+              <p style={{ margin: "10px 0 2px", fontSize: "1.05rem" }}>
+                <strong>{upiPayment.details.amount}</strong>
+              </p>
+              <p style={{ margin: 0, color: "#667085" }}>
+                to <strong>{upiPayment.details.upi_id}</strong>
+                {upiPayment.details.payee_name
+                  ? ` (${upiPayment.details.payee_name})`
+                  : ""}
+              </p>
+
+              <p style={{ margin: "12px 0 0" }}>
+                <a href={upiPayment.details.uri}>Open in UPI app</a>
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <label htmlFor="upi-reference">
+                UPI transaction reference (UTR)
+              </label>
+              <input
+                id="upi-reference"
+                type="text"
+                value={upiReference}
+                placeholder="e.g. 415712345678"
+                onChange={(event) => setUpiReference(event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#667085" }}>
+                After the payment succeeds in the UPI app, enter its reference
+                number here to record the fee as paid.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 16,
+              }}
+            >
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={closeUpiPayment}
+                disabled={confirmingUpi}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={confirmUpiPayment}
+                disabled={confirmingUpi}
+              >
+                {confirmingUpi ? "Recording…" : "Confirm payment"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
