@@ -1,9 +1,14 @@
+from datetime import datetime
+from urllib.parse import quote, urlencode
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
 from app.models import User
+from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
 
 router = APIRouter(
@@ -278,6 +283,138 @@ def portal_student_fees(
             }
             for fee in fees
         ],
+    }
+
+
+class PortalUpiConfirmRequest(BaseModel):
+    reference: str
+
+
+@router.get("/payment/config")
+def portal_payment_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Whether UPI payment is available, for the portal's own fee-payment UI."""
+    settings = get_settings(db)
+    upi_id = (settings.upi_id or "").strip()
+    return {
+        "enabled": bool(upi_id),
+        "upi_id": upi_id,
+        "payee_name": settings.school_name or "School",
+        "currency": (settings.currency or "INR").upper(),
+    }
+
+
+@router.get("/students/{student_id}/fees/{fee_id}/payment/upi")
+def portal_upi_payment_details(
+    student_id: int,
+    fee_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """UPI deep link (upi://pay) for a fee's outstanding balance. Parents/students
+    may only fetch this for a fee that belongs to a student they are linked to."""
+    ensure_student_access(db, current_user, student_id)
+
+    settings = get_settings(db)
+    upi_id = (settings.upi_id or "").strip()
+    if not upi_id:
+        raise HTTPException(
+            status_code=400,
+            detail="UPI payment is not configured. Please contact the school office.",
+        )
+
+    fee = (
+        db.query(models.Fee)
+        .filter(models.Fee.id == fee_id, models.Fee.student_id == student_id)
+        .first()
+    )
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+
+    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
+
+    payee_name = settings.school_name or "School"
+    note = f"Fee #{fee.id} {fee.fee_type or ''}".strip()
+    params = urlencode(
+        {
+            "pa": upi_id,
+            "pn": payee_name,
+            "am": f"{balance:.2f}",
+            "cu": "INR",
+            "tn": note[:80],
+        },
+        quote_via=quote,
+    )
+
+    return {
+        "upi_id": upi_id,
+        "payee_name": payee_name,
+        "amount": round(balance, 2),
+        "currency": "INR",
+        "note": note[:80],
+        "uri": f"upi://pay?{params}",
+    }
+
+
+@router.post("/students/{student_id}/fees/{fee_id}/payment/upi/confirm")
+def portal_confirm_upi_payment(
+    student_id: int,
+    fee_id: int,
+    payload: PortalUpiConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Record a completed UPI payment (with its UTR/reference) and settle the
+    balance. Ownership-checked the same way as every other portal route."""
+    ensure_student_access(db, current_user, student_id)
+
+    reference = (payload.reference or "").strip()
+    if not reference:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter the UPI transaction reference (UTR) to confirm the payment.",
+        )
+
+    fee = (
+        db.query(models.Fee)
+        .filter(models.Fee.id == fee_id, models.Fee.student_id == student_id)
+        .first()
+    )
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+
+    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
+
+    fee.paid_amount = fee.total_amount
+    fee.payment_date = datetime.now().date()
+    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+    fee.due_amount = due_amount
+    fee.payment_status = payment_status
+    if not fee.receipt_no:
+        fee.receipt_no = generate_receipt_no(db)
+
+    upi_note = f"UPI Ref: {reference}"
+    fee.remarks = f"{fee.remarks} | {upi_note}" if fee.remarks else upi_note
+
+    db.commit()
+    db.refresh(fee)
+    return {
+        "id": fee.id,
+        "fee_type": fee.fee_type,
+        "academic_year": fee.academic_year,
+        "total_amount": fee.total_amount,
+        "paid_amount": fee.paid_amount,
+        "due_amount": fee.due_amount,
+        "payment_status": fee.payment_status,
+        "payment_date": fee.payment_date,
+        "receipt_no": fee.receipt_no,
+        "remarks": fee.remarks,
     }
 
 
