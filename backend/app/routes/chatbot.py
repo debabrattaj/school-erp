@@ -1,7 +1,10 @@
 import difflib
+import json
+import os
 import re
 from datetime import date, timedelta
 
+import anthropic
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -17,6 +20,16 @@ router = APIRouter(
     prefix="/chatbot",
     tags=["Assistant"],
 )
+
+# --- AI fallback (Claude) ---
+# Only used when the keyword matcher below finds no intent at all. Claude is
+# never given student records, tool access, or database access here — this
+# call carries nothing but the user's raw message text, so it can't be used
+# to bypass the per-role/per-parent scoping enforced in resolve_student().
+# Leave ANTHROPIC_API_KEY unset to keep the assistant on keyword-matching
+# only (matches this app's pattern for other optional integrations).
+_ANTHROPIC_API_KEY = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+_anthropic_client = anthropic.Anthropic() if _ANTHROPIC_API_KEY else None
 
 ALL_ROLES = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"]
 STAFF_ROLES = {"Admin", "Principal", "Accounts", "Teacher"}
@@ -556,6 +569,88 @@ STUDENT_INTENTS = {
 }
 
 
+# ---------------- AI fallback (Claude) ----------------
+#
+# Reached only when detect_intent() scores every intent at 0. Claude is asked
+# to do one of two things in a single structured-output call:
+#   1. Recognize the question anyway (rephrasing, typos it can't fuzzy-match,
+#      indirect phrasing) and return one of the existing intent labels — the
+#      caller then routes through the *same* deterministic, access-scoped
+#      handler used for a keyword match. Claude itself never sees or returns
+#      student data.
+#   2. If it's small talk or a general question none of the intents cover,
+#      write a short reply itself instead of the static help menu.
+
+_INTENT_LABELS = [name for name, _keywords, _phrases in INTENTS]
+
+_LLM_FALLBACK_SYSTEM_PROMPT = (
+    "You are the fallback classifier for a school ERP chatbot. A keyword "
+    "matcher already tried and failed to understand the user's message. "
+    "Decide: does it match one of the intents below? If so, return that "
+    "intent and leave reply empty. If not — small talk, a general question, "
+    "or anything these intents don't cover — return intent \"none\" and write "
+    "a short (1-2 sentence), friendly reply yourself.\n\n"
+    "Intents:\n"
+    "- greeting: hello/hi/etc.\n"
+    "- help: asking what the assistant can do\n"
+    "- attendance: attendance percentage or present/absent/late counts\n"
+    "- fees: fee dues, payments, balance\n"
+    "- marks: exam results, grades, percentage\n"
+    "- summary: which class/section/roll number a student is in\n"
+    "- history: past academic years, promotion outcomes\n"
+    "- timetable: today's class schedule\n"
+    "- exams_upcoming: date of the next exam\n"
+    "- class_teacher: who the class teacher is\n"
+    "- transport: bus route or pickup point\n"
+    "- library: books currently issued\n"
+    "- year: the current academic year\n"
+    "- school: the school's name, address, phone, principal\n\n"
+    "You have NOT been given any student records, grades, fees, or other "
+    "personal data in this conversation — never invent or imply specific "
+    "data (names, numbers, dates) in your reply. If the user seems to want "
+    "data you don't have, tell them to rephrase using the words above."
+)
+
+_LLM_OUTPUT_SCHEMA = {
+    "type": "json_schema",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "intent": {"type": "string", "enum": sorted(_INTENT_LABELS + ["none"])},
+            "reply": {"type": "string"},
+        },
+        "required": ["intent", "reply"],
+        "additionalProperties": False,
+    },
+}
+
+
+def llm_classify_or_reply(message: str) -> tuple[str | None, str | None]:
+    """Returns (intent_or_None, reply_or_None). Both None means the caller
+    should fall back to the static help menu (no key configured, or the
+    call failed)."""
+    if _anthropic_client is None:
+        return None, None
+    try:
+        response = _anthropic_client.messages.create(
+            model="claude-opus-4-8",
+            max_tokens=300,
+            system=_LLM_FALLBACK_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": message}],
+            output_config={"format": _LLM_OUTPUT_SCHEMA},
+        )
+        text = next((b.text for b in response.content if b.type == "text"), "")
+        data = json.loads(text)
+    except Exception:
+        return None, None
+
+    intent = data.get("intent")
+    if intent not in _INTENT_LABELS:
+        intent = None
+    reply = (data.get("reply") or "").strip() or None
+    return intent, reply
+
+
 # ---------------- main endpoint ----------------
 
 
@@ -571,6 +666,10 @@ def ask(
 
     intent = detect_intent(message)
 
+    llm_reply = None
+    if intent is None:
+        intent, llm_reply = llm_classify_or_reply(message)
+
     if intent == "greeting":
         return {
             "reply": f"Hello {current_user.name.split()[0]}! How can I help you today?",
@@ -578,7 +677,7 @@ def ask(
         }
 
     if intent == "help" or intent is None:
-        return {"reply": HELP_TEXT, "suggestions": QUICK_SUGGESTIONS}
+        return {"reply": llm_reply or HELP_TEXT, "suggestions": QUICK_SUGGESTIONS}
 
     if intent == "year":
         return {"reply": answer_year(db), "suggestions": QUICK_SUGGESTIONS}
