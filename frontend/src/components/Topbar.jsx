@@ -225,7 +225,7 @@ export default function Topbar() {
 
         <button type="button" className="topbar-logout" onClick={handleLogout}>
           <LogOut size={15} />
-          {t("Logout")}
+          <span>{t("Logout")}</span>
         </button>
       </div>
     </header>
