@@ -4,9 +4,6 @@ import App from "./App";
 import { I18nProvider } from "./i18n";
 import "./App.css";
 import "./styles.css";
-import "./pages/StudentsList.css";
-import "./pages/StudentDetails.css";
-import "./pages/StudentEdit.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

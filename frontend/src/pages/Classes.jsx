@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Edit,
   PlusCircle,
-  RefreshCcw,
   Eye,
   X,
   BookOpen,
-  LayoutTemplate,
   Users,
   GraduationCap,
 } from "lucide-react";
@@ -318,12 +316,6 @@ export default function Classes() {
     );
 
     setDropdownValues(Object.fromEntries(entries));
-  }
-
-  async function loadBackendLayoutOnly() {
-    const activeLayout = await getActiveLayout();
-    setLayout(activeLayout);
-    await loadMasterDropdowns(activeLayout);
   }
 
   async function loadPageData() {
@@ -989,13 +981,15 @@ export default function Classes() {
             <p>This form is generated from the backend Classes layout.</p>
           </div>
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={handleCancelEdit}
-          >
-            Back to Class Records
-          </button>
+          <div className="module-header-actions">
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              Back to Class Records
+            </button>
+          </div>
         </section>
 
         {message && <div className="toast-notification">{message}</div>}
@@ -1282,24 +1276,6 @@ export default function Classes() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate("/classes/layout")}
-          >
-            <LayoutTemplate size={17} />
-            Edit Layout
-          </button>
-
-          <button
-            type="button"
-            className="light-button"
-            onClick={loadBackendLayoutOnly}
-          >
-            <RefreshCcw size={17} />
-            Reload Layout
-          </button>
-
           <button type="button" className="primary-button" onClick={handleAddClass}>
             <PlusCircle size={18} />
             Add Class

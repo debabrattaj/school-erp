@@ -53,6 +53,7 @@ from app.routes import (
     settings,
     dashboard,
     master_data,
+    search,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -1148,6 +1149,7 @@ app.include_router(academic_years.router)
 app.include_router(portal.router)
 app.include_router(chatbot.router)
 app.include_router(platform.router)
+app.include_router(search.router)
 app.include_router(students.router)
 app.include_router(teachers.router)
 app.include_router(classes.router)

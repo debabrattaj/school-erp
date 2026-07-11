@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -27,37 +27,19 @@ import {
   Archive,
   Award,
   ClipboardList,
-  Search,
-  Globe,
   ShieldCheck,
   Landmark,
-  Bell,
-  X,
-  LogOut,
+  ChevronDown,
 } from "lucide-react";
-import { getUser, logout } from "../auth";
-import API from "../api";
+import { getUser } from "../auth";
 import { useI18n } from "../i18n";
-import { LANGUAGES } from "../i18n/translations";
 
-
-function studentSearchLabel(s) {
-  const name =
-    s.student_name ||
-    s.name ||
-    `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
-    "Unknown";
-  return s.admission_no ? `${s.admission_no} — ${name}` : name;
-}
 
 export default function Sidebar({ onNavigate }) {
-  const navigate = useNavigate();
-  const { t, lang, setLang } = useI18n();
+  const location = useLocation();
+  const { t } = useI18n();
   const [user, setUser] = useState(getUser());
-  const [studentQuery, setStudentQuery] = useState("");
-  const [studentCache, setStudentCache] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(null);
 
   useEffect(() => {
     function refreshUser() {
@@ -71,21 +53,6 @@ export default function Sidebar({ onNavigate }) {
       window.removeEventListener("school-erp-auth-updated", refreshUser);
       window.removeEventListener("storage", refreshUser);
     };
-  }, []);
-
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const response = await API.get("/platform/my-notifications");
-        setNotifications(response.data || []);
-      } catch {
-        // silently ignore — endpoint may not exist for older backends
-      }
-    }
-
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 120000);
-    return () => clearInterval(interval);
   }, []);
 
   // Order here also controls the order groups render in the sidebar.
@@ -424,157 +391,81 @@ export default function Sidebar({ onNavigate }) {
     items: allowedMenuItems.filter((item) => item.group === group),
   })).filter((g) => g.items.length > 0);
 
-  function handleLogout() {
-    logout();
-    navigate("/login");
+  function isItemActive(item) {
+    return item.path === "/"
+      ? location.pathname === "/"
+      : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
   }
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  useEffect(() => {
+    const activeGroup = menuGroups.find(({ items }) => items.some(isItemActive));
 
-  const canSearchStudents = ["Admin", "Principal"].includes(user?.role);
-  const studentMatches = (() => {
-    const q = studentQuery.trim().toLowerCase();
-    if (!q || !studentCache) return [];
-    return studentCache
-      .filter((s) => studentSearchLabel(s).toLowerCase().includes(q))
-      .slice(0, 8);
-  })();
-
-  async function ensureStudentCache() {
-    if (studentCache !== null) return;
-    try {
-      const res = await API.get("/students/");
-      setStudentCache(res.data || []);
-    } catch {
-      setStudentCache([]);
+    if (activeGroup) {
+      setExpandedGroups((prev) => new Set(prev).add(activeGroup.group));
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
-  function openStudent(id) {
-    setStudentQuery("");
-    navigate(`/students/${id}`);
-    onNavigate?.();
+  function toggleGroup(group) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
   }
 
   return (
     <aside className="sidebar">
-      {canSearchStudents && (
-        <div className="sidebar-search">
-          <div className="sidebar-search-box">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder={t("Find a student…")}
-              value={studentQuery}
-              onFocus={ensureStudentCache}
-              onChange={(e) => { ensureStudentCache(); setStudentQuery(e.target.value); }}
-              onKeyDown={(e) => { if (e.key === "Enter" && studentMatches[0]) openStudent(studentMatches[0].id); }}
-            />
-          </div>
-          {studentQuery.trim() && (
-            <div className="sidebar-search-results">
-              {studentMatches.length === 0 ? (
-                <div className="sidebar-search-empty">
-                  {studentCache === null ? "Searching…" : "No matches"}
-                </div>
-              ) : (
-                studentMatches.map((s) => (
-                  <button key={s.id} type="button" onClick={() => openStudent(s.id)}>
-                    {studentSearchLabel(s)}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <nav className="sidebar-menu">
-        {menuGroups.map(({ group, items }) => (
-          <div className="menu-group" key={group}>
-            <div className="menu-group-label">{t(group)}</div>
-            {items.map((item) => {
-              const Icon = item.icon;
+        {menuGroups.map(({ group, items }) => {
+          const isExpanded = expandedGroups?.has(group);
+          const hasActiveItem = items.some(isItemActive);
 
-              return (
-                <NavLink
-                  key={item.label}
-                  to={item.path}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    isActive ? "menu-item active" : "menu-item"
-                  }
-                >
-                  <Icon size={18} />
-                  <span>{t(item.label)}</span>
-                </NavLink>
-              );
-            })}
-          </div>
-        ))}
+          return (
+            <div className="menu-group" key={group}>
+              <button
+                type="button"
+                className={
+                  hasActiveItem
+                    ? "menu-group-label menu-group-toggle has-active"
+                    : "menu-group-label menu-group-toggle"
+                }
+                onClick={() => toggleGroup(group)}
+                aria-expanded={isExpanded}
+              >
+                <span>{t(group)}</span>
+                <ChevronDown
+                  size={14}
+                  className={isExpanded ? "menu-group-chevron open" : "menu-group-chevron"}
+                />
+              </button>
+
+              {isExpanded && items.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.path}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active" : "menu-item"
+                    }
+                  >
+                    <Icon size={18} />
+                    <span>{t(item.label)}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="sidebar-identity">
-          <div>
-            <p>{t("Logged in as")}</p>
-            <strong>{user?.name || "User"}</strong>
-            <span>{user?.role || "User"}</span>
-          </div>
-
-          <div>
-            <button
-              type="button"
-              className="sidebar-notify-button"
-              onClick={() => setShowNotifications((prev) => !prev)}
-              aria-label={t("Notifications")}
-            >
-              <Bell size={16} />
-              {unreadCount > 0 && (
-                <div className="sidebar-notify-badge">{unreadCount}</div>
-              )}
-            </button>
-
-            {showNotifications && (
-              <div className="sidebar-notify-panel">
-                <div className="sidebar-notify-panel-header">
-                  <div className="sidebar-notify-panel-title">{t("Notifications")}</div>
-                  <button type="button" className="sidebar-notify-close" onClick={() => setShowNotifications(false)}>
-                    <X size={16} />
-                  </button>
-                </div>
-                {notifications.length === 0 ? (
-                  <div className="sidebar-notify-empty">{t("No notifications")}</div>
-                ) : (
-                  notifications.slice(0, 20).map((n) => (
-                    <div key={n.id} className={`sidebar-notify-item sidebar-notify-item-${n.notification_type || "info"}`}>
-                      <div className="sidebar-notify-item-top">
-                        <div className="sidebar-notify-item-title">{n.title}</div>
-                        <div className="sidebar-notify-item-date">{n.created_at?.slice(0, 10)}</div>
-                      </div>
-                      <div className="sidebar-notify-item-message">{n.message}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="sidebar-lang">
-          <Globe size={14} />
-          <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label={t("Language")}>
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>{l.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <button type="button" onClick={handleLogout}>
-          <LogOut size={15} />
-          {t("Logout")}
-        </button>
-      </div>
     </aside>
   );
 }

@@ -339,10 +339,12 @@ export default function AcademicYears() {
             </div>
           </div>
 
-          <button type="submit" className="primary-button" disabled={saving}>
-            <CalendarPlus size={17} />
-            {saving ? "Saving..." : "Add Year"}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="primary-button" disabled={saving}>
+              <CalendarPlus size={17} />
+              {saving ? "Saving..." : "Add Year"}
+            </button>
+          </div>
         </form>
       </section>
 
@@ -581,10 +583,12 @@ export default function AcademicYears() {
             </>
           )}
 
-          <button type="submit" className="primary-button" disabled={processing || !fromYear}>
-            <Send size={17} />
-            {processing ? "Processing..." : "Run Year-End Processing"}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="primary-button" disabled={processing || !fromYear}>
+              <Send size={17} />
+              {processing ? "Processing..." : "Run Year-End Processing"}
+            </button>
+          </div>
         </form>
 
         {yearEndResult && (
