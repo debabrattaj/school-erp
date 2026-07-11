@@ -4476,6 +4476,8 @@ textarea {
 
 .topbar-actions {
   pointer-events: auto;
+  position: relative;
+  z-index: 16;
 }
 
 .topbar-spacer {
@@ -4490,6 +4492,8 @@ textarea {
 }
 
 .topbar-search {
+  position: relative;
+  z-index: 16;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4513,12 +4517,20 @@ textarea {
   color: var(--saas-muted);
 }
 
+.topbar-search-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.15);
+  z-index: 14;
+  pointer-events: auto;
+}
+
 .topbar-search-panel {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  max-height: 420px;
+  max-height: 340px;
   overflow-y: auto;
   background: #ffffff;
   border: 1px solid var(--saas-border);

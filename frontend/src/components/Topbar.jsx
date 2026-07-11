@@ -137,6 +137,13 @@ export default function Topbar() {
         </div>
 
         {searchOpen && searchQuery.trim().length >= 2 && (
+          <div
+            className="topbar-search-backdrop"
+            onMouseDown={() => setSearchOpen(false)}
+          />
+        )}
+
+        {searchOpen && searchQuery.trim().length >= 2 && (
           <div className="topbar-search-panel">
             {searching ? (
               <div className="topbar-search-empty">{t("Searching…")}</div>
