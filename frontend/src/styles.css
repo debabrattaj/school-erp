@@ -4764,6 +4764,43 @@ textarea {
   background: var(--saas-primary-hover);
 }
 
+@media (max-width: 900px) {
+  .topbar {
+    padding: 0 12px 0 56px;
+    gap: 8px;
+  }
+
+  .topbar-spacer {
+    display: none;
+  }
+
+  .topbar-search-wrap {
+    margin-right: 0;
+  }
+
+  .topbar-lang {
+    display: none;
+  }
+
+  .topbar-logout span {
+    display: none;
+  }
+
+  .topbar-logout {
+    padding: 8px 10px;
+  }
+
+  .topbar-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar-search-wrap {
+    display: none;
+  }
+}
+
 .sidebar {
   color: var(--saas-text);
   display: flex;
@@ -4810,6 +4847,7 @@ textarea {
     width: min(84vw, 300px);
     flex-basis: auto;
     z-index: 210;
+    padding-top: 56px;
     animation: sidebar-slide-in 0.22s ease;
   }
 
@@ -4823,6 +4861,11 @@ textarea {
     top: 14px;
     left: 14px;
     z-index: 220;
+  }
+
+  .app-body.sidebar-hidden .sidebar-toggle-button {
+    top: 14px;
+    left: 14px;
   }
 }
 
