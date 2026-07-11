@@ -4,11 +4,9 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   Eye,
   X,
   ClipboardList,
-  LayoutTemplate,
   ListChecks,
 } from "lucide-react";
 
@@ -212,12 +210,6 @@ export default function Exams() {
     });
 
     return fields;
-  }
-
-  async function loadBackendLayoutOnly() {
-    const activeLayout = await getActiveLayout();
-    setLayout(activeLayout);
-    await loadMasterDropdowns(activeLayout);
   }
 
   async function loadExams() {
@@ -770,28 +762,23 @@ export default function Exams() {
             Map Exam to Class
           </button>
 
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate("/exams/layout")}
-          >
-            <LayoutTemplate size={17} />
-            Edit Layout
-          </button>
+          {pageMode === "form" && (
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              <X size={17} />
+              Back to List
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={loadBackendLayoutOnly}
-          >
-            <RefreshCcw size={17} />
-            Reload Layout
-          </button>
-
-          <button type="button" className="primary-button" onClick={handleAddExam}>
-            <PlusCircle size={18} />
-            Add Exam
-          </button>
+          {pageMode !== "form" && (
+            <button type="button" className="primary-button" onClick={handleAddExam}>
+              <PlusCircle size={18} />
+              Add Exam
+            </button>
+          )}
         </div>
       </section>
 

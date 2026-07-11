@@ -21,3 +21,5 @@ services:
         value: ./uploads
       - key: BACKUP_DIR
         value: ./backups
+      - key: ANTHROPIC_API_KEY
+        sync: false

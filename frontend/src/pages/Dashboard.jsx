@@ -173,6 +173,9 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="institution-hero-badge">
+          <School size={40} />
+        </div>
       </section>
 
       {loading ? (

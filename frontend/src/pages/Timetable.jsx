@@ -397,32 +397,38 @@ export default function Timetable() {
           <p>Build a weekly period schedule per class. Click a cell to edit; teacher clashes are prevented automatically.</p>
         </div>
         <div className="module-header-actions">
-          <div className="timetable-actions">
-            <button
-              type="button"
-              className={viewMode === "class" ? "primary-button small" : "secondary-button small"}
-              onClick={() => selectViewMode("class")}
-            >
-              By Class
-            </button>
-            <button
-              type="button"
-              className={viewMode === "teacher" ? "primary-button small" : "secondary-button small"}
-              onClick={() => selectViewMode("teacher")}
-            >
-              By Teacher
-            </button>
-          </div>
           <button type="button" className="secondary-button" onClick={downloadTimetablePdf}>
             <Download size={16} /> Download PDF
           </button>
-          
         </div>
       </section>
 
       {message && <div className="toast-notification">{message}</div>}
 
       <section className="form-panel">
+        <div className="panel-header">
+          <div>
+            <h3>Add Timetable</h3>
+            <p>Build a weekly period schedule per class.</p>
+          </div>
+
+          <div className="view-toggle" data-active={viewMode}>
+            <button
+              type="button"
+              className={viewMode === "class" ? "view-toggle-option active" : "view-toggle-option"}
+              onClick={() => selectViewMode("class")}
+            >
+              By Class
+            </button>
+            <button
+              type="button"
+              className={viewMode === "teacher" ? "view-toggle-option active" : "view-toggle-option"}
+              onClick={() => selectViewMode("teacher")}
+            >
+              By Teacher
+            </button>
+          </div>
+        </div>
         <div className="form-grid" style={{ padding: "1rem" }}>
           {viewMode === "teacher" ? (
             <div className="form-field">

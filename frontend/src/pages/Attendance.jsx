@@ -4,11 +4,9 @@ import {
   Edit,
   Trash2,
   PlusCircle,
-  RefreshCcw,
   Eye,
   X,
   CalendarCheck,
-  LayoutTemplate,
 } from "lucide-react";
 
 import API from "../api";
@@ -107,12 +105,6 @@ export default function Attendance() {
     });
 
     return fields;
-  }
-
-  async function loadBackendLayoutOnly() {
-    const activeLayout = await getActiveLayout();
-    setLayout(activeLayout);
-    await loadMasterDropdowns(activeLayout);
   }
 
   async function loadAttendance() {
@@ -615,28 +607,23 @@ export default function Attendance() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate("/attendance/layout")}
-          >
-            <LayoutTemplate size={17} />
-            Edit Layout
-          </button>
+          {pageMode === "form" && (
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              <X size={17} />
+              Back to List
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={loadBackendLayoutOnly}
-          >
-            <RefreshCcw size={17} />
-            Reload Layout
-          </button>
-
-          <button type="button" className="primary-button" onClick={handleAddAttendance}>
-            <PlusCircle size={18} />
-            Add Attendance
-          </button>
+          {pageMode !== "form" && (
+            <button type="button" className="primary-button" onClick={handleAddAttendance}>
+              <PlusCircle size={18} />
+              Add Attendance
+            </button>
+          )}
         </div>
       </section>
 

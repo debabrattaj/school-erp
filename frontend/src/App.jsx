@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Menu, PanelLeftClose } from "lucide-react";
 import Sidebar from "./components/Sidebar";
+import Topbar from "./components/Topbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MasterData from "./pages/MasterData";
 import Login from "./pages/Login";
@@ -109,6 +110,7 @@ function ProtectedLayout({ children }) {
           )}
 
           <main className="main-area">
+            <Topbar />
             <div className="page-content">{children}</div>
           </main>
         </div>

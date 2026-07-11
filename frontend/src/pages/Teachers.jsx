@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Edit,
   PlusCircle,
-  RefreshCcw,
   Eye,
   X,
   GraduationCap,
-  LayoutTemplate,
 } from "lucide-react";
 
 import API from "../api";
@@ -353,12 +351,6 @@ export default function Teachers() {
     );
 
     setDropdownValues(Object.fromEntries(entries));
-  }
-
-  async function loadBackendLayoutOnly() {
-    const activeLayout = await getActiveLayout();
-    setLayout(activeLayout);
-    await loadMasterDropdowns(activeLayout);
   }
 
   async function loadPageData() {
@@ -870,13 +862,15 @@ export default function Teachers() {
             <p>This form is generated from the backend Teachers layout.</p>
           </div>
 
-          <button
-            type="button"
-            className="light-button"
-            onClick={handleCancelEdit}
-          >
-            Back to Teacher Records
-          </button>
+          <div className="module-header-actions">
+            <button
+              type="button"
+              className="light-button"
+              onClick={handleCancelEdit}
+            >
+              Back to Teacher Records
+            </button>
+          </div>
         </section>
 
         {message && <div className="toast-notification">{message}</div>}
@@ -953,24 +947,6 @@ export default function Teachers() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate("/teachers/layout")}
-          >
-            <LayoutTemplate size={17} />
-            Edit Layout
-          </button>
-
-          <button
-            type="button"
-            className="light-button"
-            onClick={loadBackendLayoutOnly}
-          >
-            <RefreshCcw size={17} />
-            Reload Layout
-          </button>
-
           <button type="button" className="primary-button" onClick={handleAddTeacher}>
             <PlusCircle size={18} />
             Add Teacher
