@@ -292,15 +292,25 @@ export default function ModuleLayoutBuilder() {
 
       const backendLayout = await getModuleLayout(moduleName);
 
-      const repairedLayout = repairLayoutWithRequiredFields(
-        backendLayout,
-        moduleName,
-        defaultLayout
-      );
+      // Only repair (fill in missing required system fields) when a saved
+      // layout actually exists. When backendLayout is null (nothing saved
+      // yet for this module), leave it alone and just show this module's
+      // own richer defaultLayout in the builder — do NOT write it back to
+      // the backend merely from opening this page. Persisting here used to
+      // silently overwrite "no custom layout saved" with whatever (possibly
+      // incomplete) defaultLayout this builder happened to have, which
+      // permanently dropped fields/sections from the live Add form the
+      // moment anyone so much as viewed the builder.
+      const repairedLayout = backendLayout
+        ? repairLayoutWithRequiredFields(backendLayout, moduleName, defaultLayout)
+        : repairLayoutWithRequiredFields(defaultLayout, moduleName, defaultLayout);
 
       setLayout(repairedLayout);
 
-      if (JSON.stringify(backendLayout || []) !== JSON.stringify(repairedLayout)) {
+      if (
+        backendLayout &&
+        JSON.stringify(backendLayout) !== JSON.stringify(repairedLayout)
+      ) {
         await saveModuleLayout(moduleName, repairedLayout);
       }
     } catch (error) {
