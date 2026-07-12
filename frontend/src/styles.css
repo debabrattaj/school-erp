@@ -7533,3 +7533,70 @@ textarea {
 .management-page:not(.students-list-page):not(.student360-page):has(.form-panel) .form-actions .primary-button {
   min-height: 44px;
 }
+
+/* Inline cell editing on the Students list: hover a supported cell to
+   reveal a small pencil icon; click it to edit the value in place. */
+.editable-cell-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.editable-cell-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editable-cell-edit-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--saas-primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.editable-cell-edit-btn:hover {
+  background: var(--saas-focus);
+}
+
+.editable-cell-wrap:hover .editable-cell-edit-btn,
+.editable-cell-edit-btn:focus-visible {
+  opacity: 1;
+}
+
+.inline-cell-editor {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--saas-primary);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--saas-text);
+  font-size: 13px;
+  box-shadow: 0 0 0 3px var(--saas-focus);
+}
+
+.inline-cell-editor:disabled {
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  /* Hover doesn't exist on touch — always show the icon so it's reachable
+     with a tap, but keep it subtle. */
+  .editable-cell-edit-btn {
+    opacity: 0.55;
+  }
+}
