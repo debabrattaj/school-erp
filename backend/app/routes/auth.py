@@ -192,9 +192,23 @@ def mfa_setup(
     }
 
 
+def _mfa_keys(request: Request, email: str) -> list[str]:
+    """Rate-limit keys for a TOTP-code attempt, fully separate from
+    login_keys() (distinct ip prefix too) so a flood of MFA guesses can't
+    also exhaust the login lockout bucket for that IP — which would let
+    someone guessing one account's MFA code lock everyone else on a shared
+    office/school IP out of logging in."""
+    ip = request.client.host if request.client else None
+    keys = [f"mfa-ip:{ip or 'unknown'}"]
+    if email:
+        keys.append(f"mfa:{email.strip().lower()}")
+    return keys
+
+
 @router.post("/mfa/verify")
 def mfa_verify(
     payload: MfaCodeRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -203,9 +217,21 @@ def mfa_verify(
         raise HTTPException(status_code=400, detail="MFA is already enabled.")
     if not current_user.mfa_secret:
         raise HTTPException(status_code=400, detail="Start MFA setup first.")
+
+    keys = _mfa_keys(request, current_user.email)
+    retry_after = check_login_allowed(keys)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed codes. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     if not verify_totp(current_user.mfa_secret, payload.code):
+        record_login_failure(keys)
         raise HTTPException(status_code=400, detail="Invalid authentication code.")
 
+    clear_login_failures(keys)
     current_user.mfa_enabled = True
     db.commit()
     return {"message": "Multi-factor authentication is now enabled."}
@@ -214,15 +240,28 @@ def mfa_verify(
 @router.post("/mfa/disable")
 def mfa_disable(
     payload: MfaCodeRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Disable MFA. Requires a current code to prove possession of the device."""
     if not current_user.mfa_enabled:
         raise HTTPException(status_code=400, detail="MFA is not enabled.")
+
+    keys = _mfa_keys(request, current_user.email)
+    retry_after = check_login_allowed(keys)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed codes. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     if not verify_totp(current_user.mfa_secret, payload.code):
+        record_login_failure(keys)
         raise HTTPException(status_code=400, detail="Invalid authentication code.")
 
+    clear_login_failures(keys)
     current_user.mfa_enabled = False
     current_user.mfa_secret = None
     db.commit()
