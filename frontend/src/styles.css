@@ -2595,20 +2595,31 @@ button {
 }
 
 .stage-manager-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
   border: 1px solid var(--saas-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: #ffffff;
   box-shadow: var(--saas-shadow-sm);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.stage-manager-row:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--saas-shadow-lg, 0 10px 24px rgba(15, 23, 42, 0.08));
 }
 
 .stage-manager-row:focus-within {
   border-color: var(--saas-primary);
   box-shadow: 0 0 0 4px var(--saas-focus);
+}
+
+.stage-manager-row-terminal {
+  background: linear-gradient(0deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.05)), #ffffff;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .stage-manager-row input[type="text"] {
@@ -2621,6 +2632,7 @@ button {
   background: #ffffff;
   color: var(--saas-text);
   font-size: 14px;
+  font-weight: 600;
 }
 
 .stage-manager-row input[type="text"]:focus {
@@ -2629,17 +2641,54 @@ button {
   box-shadow: 0 0 0 3px var(--saas-focus);
 }
 
-.stage-manager-order {
+.stage-manager-node {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--saas-primary), var(--saas-primary-hover, #4338ca));
+  box-shadow: 0 4px 10px rgba(91, 79, 233, 0.35);
+}
+
+.stage-manager-row-terminal .stage-manager-node {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+}
+
+.stage-manager-connector {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  transform: translateX(-50%);
+  background: var(--saas-border-strong);
+}
+
+.stage-manager-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
 
-.stage-manager-order .light-icon-button {
-  height: 18px;
+.stage-manager-actions .light-icon-button {
+  height: 30px;
   width: 30px;
-  border-radius: 6px;
+  border-radius: 8px;
+}
+
+.stage-manager-delete:hover {
+  border-color: #f04438;
+  color: #f04438;
+  background: #fef3f2;
 }
 
 .stage-manager-add {
