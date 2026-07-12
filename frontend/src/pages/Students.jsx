@@ -381,12 +381,6 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [layout, setLayout] = useState(defaultStudentLayout);
 
-  // Inline cell editing on the list view: hover a supported cell, click the
-  // pencil icon, edit in place, save on blur/Enter (Escape cancels).
-  const [editingCell, setEditingCell] = useState(null); // { studentId, columnKey } | null
-  const [editingValue, setEditingValue] = useState("");
-  const [savingCell, setSavingCell] = useState(false);
-
   const [dropdownValues, setDropdownValues] = useState({});
   const [formData, setFormData] = useState(systemEmptyForm);
   const [customFormData, setCustomFormData] = useState({});
@@ -1261,116 +1255,7 @@ export default function Students() {
     return `${student.first_name || ""} ${student.last_name || ""}`.trim() || "student";
   }
 
-  // Columns editable directly from the list view. admission_no (unique key),
-  // class/section (relational — tied to class_id, roll numbering, fees) and
-  // student (a first_name + last_name composite) are deliberately left out
-  // of this first pass; they need their own dedicated pickers rather than a
-  // plain text/dropdown swap.
-  const INLINE_EDITABLE_COLUMNS = {
-    house: { field: "house", type: "picklist", masterCategory: "House" },
-    residential: {
-      field: "residential_type",
-      type: "picklist",
-      masterCategory: "ResidentialType",
-    },
-    guardian: { field: "guardian_name", type: "text" },
-    phone: { field: "guardian_phone", type: "text" },
-  };
-
-  function startEditingCell(student, columnKey) {
-    const config = INLINE_EDITABLE_COLUMNS[columnKey];
-    if (!config) return;
-    setEditingCell({ studentId: student.id, columnKey });
-    setEditingValue(student[config.field] || "");
-  }
-
-  function cancelEditingCell() {
-    setEditingCell(null);
-    setEditingValue("");
-  }
-
-  async function saveEditingCell(student, columnKey, value) {
-    const config = INLINE_EDITABLE_COLUMNS[columnKey];
-    if (!config) return;
-
-    const previousValue = student[config.field] || "";
-    if (value === previousValue) {
-      cancelEditingCell();
-      return;
-    }
-
-    setSavingCell(true);
-    try {
-      await API.put(`/students/${student.id}`, { [config.field]: value });
-      setStudents((prev) =>
-        prev.map((item) =>
-          item.id === student.id ? { ...item, [config.field]: value } : item
-        )
-      );
-      setEditingCell(null);
-      setEditingValue("");
-    } catch (error) {
-      setMessage(error.response?.data?.detail || "Unable to update value.");
-    } finally {
-      setSavingCell(false);
-    }
-  }
-
   function renderStudentCell(student, columnKey) {
-    const editableConfig = INLINE_EDITABLE_COLUMNS[columnKey];
-    const isEditingThisCell =
-      editingCell &&
-      editingCell.studentId === student.id &&
-      editingCell.columnKey === columnKey;
-
-    if (isEditingThisCell) {
-      if (editableConfig.type === "picklist") {
-        const options = dropdownValues[editableConfig.masterCategory] || [];
-        return (
-          <select
-            autoFocus
-            className="inline-cell-editor"
-            value={editingValue}
-            disabled={savingCell}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setEditingValue(nextValue);
-              saveEditingCell(student, columnKey, nextValue);
-            }}
-            onBlur={cancelEditingCell}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") cancelEditingCell();
-            }}
-          >
-            <option value="">Select</option>
-            {options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        );
-      }
-
-      return (
-        <input
-          type="text"
-          autoFocus
-          className="inline-cell-editor"
-          value={editingValue}
-          disabled={savingCell}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => setEditingValue(event.target.value)}
-          onBlur={() => saveEditingCell(student, columnKey, editingValue)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-            if (event.key === "Escape") cancelEditingCell();
-          }}
-        />
-      );
-    }
-
     const valueMap = {
       admission_no: student.admission_no || "-",
       student: `${student.first_name || ""} ${student.last_name || ""}`.trim() || "-",
@@ -1383,8 +1268,8 @@ export default function Students() {
       transport: student.transport_route || "-",
     };
 
-    const displayValue =
-      columnKey === "status" ? (
+    if (columnKey === "status") {
+      return (
         <span
           className={
             student.student_status === "Active"
@@ -1394,30 +1279,10 @@ export default function Students() {
         >
           {student.student_status || "Active"}
         </span>
-      ) : (
-        valueMap[columnKey] || "-"
       );
-
-    if (!editableConfig) {
-      return displayValue;
     }
 
-    return (
-      <div className="editable-cell-wrap">
-        <span className="editable-cell-value">{displayValue}</span>
-        <button
-          type="button"
-          className="editable-cell-edit-btn"
-          title={`Edit ${studentListColumns.find(([key]) => key === columnKey)?.[1] || ""}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            startEditingCell(student, columnKey);
-          }}
-        >
-          <Edit size={13} />
-        </button>
-      </div>
-    );
+    return valueMap[columnKey] || "-";
   }
 
   const visibleStudentColumns = studentListColumns
