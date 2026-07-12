@@ -116,6 +116,19 @@ input {
   color: #ffffff;
 }
 
+@media (max-width: 640px) {
+  .view-toggle {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .view-toggle-option {
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
 /* Page */
 
 
