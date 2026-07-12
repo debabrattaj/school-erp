@@ -5609,11 +5609,29 @@ textarea {
 }
 
 @media (max-width: 900px) {
+  /* table-layout:auto let the table grow past 100% and spill out past the
+     card's rounded border when several columns were visible. Squeezing
+     every column into table-layout:fixed at 1% width was tried and made
+     most columns unreadably narrow (this table can have 6+ data columns —
+     there just isn't room to letter-fit them all in ~355px).
+     Containing overflow with overflow-x on .table-wrapper (the usual fix)
+     breaks the sticky header, because any non-"visible" overflow value
+     (including "hidden") makes .table-wrapper the nearest scrolling
+     ancestor instead of .main-area, and .table-wrapper never scrolls
+     vertically on its own, so a thead sticky relative to it never "sticks"
+     to the viewport.
+     Fix: give .table-wrapper its own bounded height with overflow:auto on
+     both axes, matching the pattern already used for
+     .student360-table-panel .table-wrapper elsewhere in this file. Because
+     .table-wrapper now genuinely scrolls (both directions) on its own, it's
+     correct for the sticky thead to anchor to it — content is contained,
+     reachable by scrolling within the table box, and the header stays
+     pinned to the top of that box as expected. */
   .student-list-table,
   .students-list-page .student-list-table {
     table-layout: auto;
     min-width: 0;
-    width: 100%;
+    width: max-content;
   }
 
   .student-list-table th:not(.student-filter-toggle-cell):not(.records-header-column-manager):not(.student-column-manager):not(.student-column-actions),
@@ -5621,6 +5639,19 @@ textarea {
     white-space: normal;
     width: auto !important;
     min-width: 0 !important;
+  }
+
+  .student-table-card .table-wrapper {
+    /* !important: several later, more-specific rules in this file
+       (e.g. .students-list-page .student-table-card .table-wrapper)
+       set max-height: none for desktop layouts and would otherwise
+       win by source order on mobile too. */
+    max-height: 60vh !important;
+    overflow: auto !important;
+  }
+
+  .student-list-table thead {
+    top: 0;
   }
 }
 
