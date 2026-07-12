@@ -1080,7 +1080,6 @@ export default function Admissions() {
                   }
                   onBlur={() => renameStage(stage)}
                 />
-                {stage.is_terminal && <span className="status active">Final</span>}
                 <div className="stage-manager-actions">
                   <button
                     type="button"

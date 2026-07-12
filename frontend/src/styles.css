@@ -2600,11 +2600,11 @@ button {
   align-items: center;
   gap: 14px;
   padding: 10px 14px 10px 10px;
-  border: 1px solid var(--saas-border);
+  border: none;
   border-radius: 14px;
   background: #ffffff;
   box-shadow: var(--saas-shadow-sm);
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  transition: box-shadow 150ms ease, transform 150ms ease;
 }
 
 .stage-manager-row:hover {
@@ -2613,13 +2613,11 @@ button {
 }
 
 .stage-manager-row:focus-within {
-  border-color: var(--saas-primary);
   box-shadow: 0 0 0 4px var(--saas-focus);
 }
 
 .stage-manager-row-terminal {
   background: linear-gradient(0deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.05)), #ffffff;
-  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .stage-manager-row input[type="text"] {
