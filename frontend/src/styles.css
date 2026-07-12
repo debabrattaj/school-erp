@@ -2856,6 +2856,47 @@ body,
   padding-top: 6px;
 }
 
+.student360-insights-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student360-timeline {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.student360-timeline li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--saas-border);
+  border-radius: 10px;
+  background: var(--saas-surface-soft, #f8fafc);
+}
+
+.student360-timeline-year {
+  font-weight: 700;
+  color: var(--saas-text);
+  min-width: 64px;
+}
+
+.student360-timeline-class {
+  flex: 1;
+  color: #52514e;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .student360-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chart-empty {
   color: var(--saas-muted, #667085);
   font-size: 13px;
