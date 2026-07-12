@@ -1273,7 +1273,6 @@ export default function Students() {
       type: "picklist",
       masterCategory: "ResidentialType",
     },
-    status: { field: "student_status", type: "picklist", masterCategory: "StudentStatus" },
     guardian: { field: "guardian_name", type: "text" },
     phone: { field: "guardian_phone", type: "text" },
   };
