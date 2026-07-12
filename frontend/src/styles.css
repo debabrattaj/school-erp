@@ -5093,7 +5093,7 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--saas-muted);
+  color: var(--saas-text);
 }
 
 .menu-group-toggle {
