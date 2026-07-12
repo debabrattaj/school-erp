@@ -899,13 +899,14 @@ export default function Marks() {
           </p>
         </div>
 
-        <div className="module-header-actions">
-
-          <button type="button" className="primary-button" onClick={handleAddMarks}>
-            <PlusCircle size={18} />
-            Add Marks
-          </button>
-        </div>
+        {pageMode === "list" && (
+          <div className="module-header-actions">
+            <button type="button" className="primary-button" onClick={handleAddMarks}>
+              <PlusCircle size={18} />
+              Add Marks
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="summary-strip report-summary-grid">
