@@ -3697,14 +3697,6 @@ body,
 
 
 
-.students-list-page > .page-heading .primary-button {
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 900;
-  min-height: 46px;
-  padding: 0 18px;
-}
-
 .student-list-shell {
   display: grid;
   align-items: stretch;
@@ -5333,9 +5325,6 @@ textarea {
 
 .enhanced-records-panel .action-buttons::before {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d6dfef;
-  border-radius: 7px;
   color: #25324b;
   content: "\22EE";
   cursor: pointer;
@@ -5346,8 +5335,6 @@ textarea {
   justify-content: center;
   line-height: 1;
   width: 34px;
-  border-color: var(--saas-border);
-  box-shadow: var(--saas-shadow-sm);
 }
 
 .enhanced-records-panel .action-buttons .edit-button {
@@ -5732,10 +5719,6 @@ textarea {
 
 .students-list-page .student-list-table .action-buttons::before {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid var(--saas-border);
-  border-radius: 7px;
-  box-shadow: var(--saas-shadow-sm);
   color: var(--saas-primary);
   content: "\22EE";
   cursor: pointer;
@@ -6099,14 +6082,6 @@ textarea {
   color: #697586;
   font-size: 13px;
   margin-top: 7px;
-}
-
-.students-list-page > .page-heading .primary-button {
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 900;
-  min-height: 46px;
-  padding: 0 18px;
 }
 
 .student-heading-actions {
@@ -6562,14 +6537,6 @@ textarea {
   color: #697586;
   font-size: 13px;
   margin-top: 7px;
-}
-
-.students-list-page > .page-heading .primary-button {
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 900;
-  min-height: 46px;
-  padding: 0 18px;
 }
 
 .students-list-page > .page-heading .module-header-actions > button:not(:last-child) {
