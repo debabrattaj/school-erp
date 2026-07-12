@@ -7125,6 +7125,16 @@ textarea {
   overflow: auto;
 }
 
+/* .classic-table thead is sticky at top:40px globally, calibrated for the
+   full-page Students list where the scrolling ancestor is .main-area. This
+   panel's .table-wrapper is its own small, locally-scrolling box (bounded by
+   max-height above), so the thead's scrolling ancestor is that box, not the
+   page — top:40px here pushes the header 40px into the box, hiding however
+   much of the first row sits behind it. Pin it flush to the top instead. */
+.student360-table-panel .classic-table thead {
+  top: 0;
+}
+
 .student360-table-panel .classic-table th {
   font-size: 12px;
   padding: 9px;
