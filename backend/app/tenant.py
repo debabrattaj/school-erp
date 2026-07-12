@@ -2,11 +2,17 @@ import os
 from functools import lru_cache
 
 from fastapi import HTTPException, Request
-from jose import jwt
+from jose import jwt, JWTError
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, make_engine, ensure_database_exists
 from app.tenant_models import SchoolAccount, SchoolFeature, TenantBase
+
+# Duplicated from app.security rather than imported, to avoid a circular
+# import (security.py -> database.py -> [deferred] tenant.py). Must stay in
+# sync with security.py's SECRET_KEY/ALGORITHM.
+_JWT_SECRET_KEY = os.getenv("SECRET_KEY")
+_JWT_ALGORITHM = "HS256"
 
 
 CENTRAL_DATABASE_URL = os.getenv(
@@ -169,20 +175,37 @@ def get_feature_map(account_id: int):
 
 
 def get_account_code_from_request(request: Request):
-    header_code = request.headers.get("x-school-code")
+    """Resolve which tenant database a request should use.
 
-    if header_code:
-        return header_code
-
+    Security-critical: a signed, verifiable bearer token's own account_code
+    claim is authoritative and always wins over the client-supplied
+    x-school-code header. Without this, a user could take their own valid
+    token (issued for their real school) and replay it with a different
+    school's header, getting routed to that other tenant's database — and
+    if any user there happened to share their email, get authenticated as
+    that unrelated person with no password check against that account.
+    The header is only trusted when there is no valid token yet, i.e. for
+    pre-auth flows (login, forgot-password) that must pick a tenant before
+    a token exists.
+    """
     auth_header = request.headers.get("authorization") or ""
 
     if auth_header.lower().startswith("bearer "):
         token = auth_header.split(" ", 1)[1]
         try:
-            payload = jwt.get_unverified_claims(token)
-            return payload.get("account_code") or DEFAULT_ACCOUNT_CODE
-        except Exception:
-            return DEFAULT_ACCOUNT_CODE
+            payload = jwt.decode(token, _JWT_SECRET_KEY, algorithms=[_JWT_ALGORITHM])
+            account_code = payload.get("account_code")
+            if account_code:
+                return account_code
+        except JWTError:
+            # Invalid/expired token: fall through to the header. Any
+            # authenticated route will separately reject this request with
+            # 401 when it re-verifies the token in get_current_user.
+            pass
+
+    header_code = request.headers.get("x-school-code")
+    if header_code:
+        return header_code
 
     return DEFAULT_ACCOUNT_CODE
 
