@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   Edit,
   Trash2,
   PlusCircle,
@@ -321,7 +322,8 @@ export default function Users() {
             className="light-button"
             onClick={handleCancelEdit}
           >
-            Back to User Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

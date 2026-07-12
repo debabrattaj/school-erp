@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Edit,
   PlusCircle,
   Eye,
@@ -868,7 +869,8 @@ export default function Teachers() {
               className="light-button"
               onClick={handleCancelEdit}
             >
-              Back to Teacher Records
+              <ArrowLeft size={17} />
+              Back
             </button>
           </div>
         </section>

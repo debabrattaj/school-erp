@@ -318,7 +318,7 @@ export default function StudentDetails() {
 
           <button type="button" className="light-button" onClick={() => navigate("/students")}>
             <ArrowLeft size={17} />
-            Back to Students
+            Back
           </button>
         </section>
       </div>

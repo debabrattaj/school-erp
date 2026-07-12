@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, Edit, HeartPulse, PlusCircle, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle, Edit, HeartPulse, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
@@ -229,7 +229,7 @@ export default function Counseling() {
   );
 
   if (pageMode === "form") {
-    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Wellbeing</p><h2>{editingId ? "Edit Counseling Case" : "Add Counseling Case"}</h2><p>Manage student wellbeing cases, support plans, and follow-up.</p></div><button type="button" className="light-button" onClick={handleCancel}>Back to Cases</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
+    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Wellbeing</p><h2>{editingId ? "Edit Counseling Case" : "Add Counseling Case"}</h2><p>Manage student wellbeing cases, support plans, and follow-up.</p></div><button type="button" className="light-button" onClick={handleCancel}><ArrowLeft size={17} />Back</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
   }
 
   return (

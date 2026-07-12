@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Edit,
   PlusCircle,
   Eye,
@@ -987,7 +988,8 @@ export default function Classes() {
               className="light-button"
               onClick={handleCancelEdit}
             >
-              Back to Class Records
+              <ArrowLeft size={17} />
+              Back
             </button>
           </div>
         </section>
@@ -1073,7 +1075,8 @@ export default function Classes() {
           </div>
 
           <button type="button" className="light-button" onClick={closeSubjectMapping}>
-            Back to Class Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
+  ArrowLeft,
   BookOpenCheck,
   CheckCircle,
   Edit,
@@ -463,7 +464,8 @@ export default function MultiCurriculum() {
           </div>
 
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Curriculum Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

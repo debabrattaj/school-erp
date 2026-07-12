@@ -4,6 +4,7 @@ import { todayLocalDate } from "../utils/date";
 import { useMoney } from "../utils/money";
 import { useT } from "../i18n";
 import {
+  ArrowLeft,
   Edit,
   Trash2,
   PlusCircle,
@@ -1307,7 +1308,8 @@ export default function Fees() {
                     setPageMode("list");
                   }}
                 >
-                  Back to Fees
+                  <ArrowLeft size={17} />
+                  Back
                 </button>
               </div>
             </form>

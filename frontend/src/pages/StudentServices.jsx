@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle,
   Edit,
   LifeBuoy,
@@ -373,7 +374,7 @@ export default function StudentServices() {
             <h2>{editingId ? "Edit Service Ticket" : "Add Service Ticket"}</h2>
             <p>Manage requests, complaints, counseling cases, and service follow-up.</p>
           </div>
-          <button type="button" className="light-button" onClick={handleCancel}>Back to Service Tickets</button>
+          <button type="button" className="light-button" onClick={handleCancel}><ArrowLeft size={17} />Back</button>
         </section>
         {message && <div className="toast-notification">{message}</div>}
         {ticketForm}

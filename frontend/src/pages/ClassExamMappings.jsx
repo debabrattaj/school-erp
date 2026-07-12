@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit, PlusCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
@@ -243,7 +243,8 @@ export default function ClassExamMappings({
       {embedded ? (
         <div className="module-header-actions">
           <button type="button" className="light-button" onClick={onBack}>
-            Back to Exam Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </div>
       ) : (

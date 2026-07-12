@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   CalendarClock,
   CheckCircle,
   ClipboardCheck,
@@ -435,7 +436,8 @@ export default function AdmissionAssessments() {
           </div>
 
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Assessment Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

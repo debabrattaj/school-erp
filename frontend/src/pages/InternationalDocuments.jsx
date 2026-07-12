@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle,
   Edit,
   FileCheck,
@@ -430,7 +431,8 @@ export default function InternationalDocuments() {
           </div>
 
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Document Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 
