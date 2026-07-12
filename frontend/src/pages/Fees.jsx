@@ -13,7 +13,6 @@ import {
   Wallet,
   Settings2,
   Download,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -925,7 +924,6 @@ export default function Fees() {
             <div className="panel-header-title-row">
               <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
               <Link to="/fees/layout" className="panel-header-link">
-                <Layers size={14} />
                 Customize Layout
               </Link>
             </div>

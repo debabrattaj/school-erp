@@ -7,7 +7,6 @@ import {
   Eye,
   X,
   GraduationCap,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -884,7 +883,6 @@ export default function Teachers() {
               <div className="panel-header-title-row">
                 <h3>{editingId ? "Edit Teacher" : "Add Teacher"}</h3>
                 <Link to="/teachers/layout" className="panel-header-link">
-                  <Layers size={14} />
                   Customize Layout
                 </Link>
               </div>

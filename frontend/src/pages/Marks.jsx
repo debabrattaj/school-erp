@@ -8,7 +8,6 @@ import {
   Award,
   XCircle,
   CheckCircle,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -954,7 +953,6 @@ export default function Marks() {
             <div className="panel-header-title-row">
               <h3>{editingId ? "Edit Marks" : "Add Marks"}</h3>
               <Link to="/marks/layout" className="panel-header-link">
-                <Layers size={14} />
                 Customize Layout
               </Link>
             </div>

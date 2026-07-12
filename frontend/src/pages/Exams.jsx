@@ -9,7 +9,6 @@ import {
   X,
   ClipboardList,
   ListChecks,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -827,7 +826,6 @@ export default function Exams() {
             <div className="panel-header-title-row">
               <h3>{editingId ? "Edit Exam" : "Add Exam"}</h3>
               <Link to="/exams/layout" className="panel-header-link">
-                <Layers size={14} />
                 Customize Layout
               </Link>
             </div>

@@ -9,7 +9,6 @@ import {
   BookOpen,
   Users,
   GraduationCap,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -1003,7 +1002,6 @@ export default function Classes() {
               <div className="panel-header-title-row">
                 <h3>{editingId ? "Edit Class" : "Add Class"}</h3>
                 <Link to="/classes/layout" className="panel-header-link">
-                  <Layers size={14} />
                   Customize Layout
                 </Link>
               </div>

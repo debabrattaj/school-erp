@@ -21,7 +21,6 @@ import {
   EyeOff,
   Upload,
   Download,
-  Layers,
 } from "lucide-react";
 import API from "../api";
 import PhotoUploadField from "../components/PhotoUploadField";
@@ -1430,7 +1429,6 @@ export default function Students() {
               <div className="panel-header-title-row">
                 <h3>{editingId ? "Edit Student Profile" : "Add Student Profile"}</h3>
                 <Link to="/students/layout" className="panel-header-link">
-                  <Layers size={14} />
                   Customize Layout
                 </Link>
               </div>

@@ -8,7 +8,6 @@ import {
   Eye,
   X,
   CalendarCheck,
-  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -672,7 +671,6 @@ export default function Attendance() {
             <div className="panel-header-title-row">
               <h3>{editingId ? "Edit Attendance" : "Add Attendance"}</h3>
               <Link to="/attendance/layout" className="panel-header-link">
-                <Layers size={14} />
                 Customize Layout
               </Link>
             </div>
