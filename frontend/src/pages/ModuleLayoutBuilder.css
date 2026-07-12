@@ -122,9 +122,9 @@
 }
 
 .mlb-field-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
 }
 
 .mlb-field-card {
@@ -185,5 +185,9 @@
   .mlb-toolbox {
     max-width: 100%;
     position: static;
+  }
+
+  .mlb-field-list {
+    grid-template-columns: 1fr;
   }
 }
