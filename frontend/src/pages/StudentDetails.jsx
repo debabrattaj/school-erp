@@ -6,6 +6,7 @@ import {
   Download,
   Edit,
   FileText,
+  Layers,
   Wallet,
 } from "lucide-react";
 
@@ -13,6 +14,11 @@ import API from "../api";
 import { resolveFileUrl } from "../utils/files";
 import { useMoney } from "../utils/money";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
+import {
+  AttendanceStackedBar,
+  CollectionMeter,
+  CategoryBarChart,
+} from "../components/DashboardCharts";
 
 function getFeeAmount(fee) {
   return Number(fee.total_amount ?? fee.amount ?? 0);
@@ -246,6 +252,59 @@ export default function StudentDetails() {
     };
   }, [markRecords]);
 
+  function markPercentage(mark) {
+    const obtained = Number(mark.marks_obtained || 0);
+    const max = Number(mark.max_marks || mark.total_marks || 0);
+    return max ? (obtained / max) * 100 : 0;
+  }
+
+  function averageByKey(records, keyFn) {
+    const buckets = new Map();
+
+    records.forEach((record) => {
+      const key = keyFn(record);
+      if (!key) return;
+
+      if (!buckets.has(key)) {
+        buckets.set(key, []);
+      }
+      buckets.get(key).push(markPercentage(record));
+    });
+
+    return Array.from(buckets.entries()).map(([label, values]) => ({
+      label,
+      value: Math.round(
+        values.reduce((sum, value) => sum + value, 0) / values.length
+      ),
+    }));
+  }
+
+  const marksBySubject = useMemo(
+    () => averageByKey(markRecords, (mark) => mark.subject_name || mark.subject),
+    [markRecords]
+  );
+
+  const marksByExam = useMemo(
+    () =>
+      averageByKey(
+        markRecords,
+        (mark) => examMap[mark.exam_id] || mark.academic_year
+      ),
+    [markRecords, examMap]
+  );
+
+  const enrollmentTimeline = useMemo(() => {
+    return [...enrollmentRecords]
+      .sort((a, b) => String(a.academic_year).localeCompare(String(b.academic_year)))
+      .map((item) => ({
+        year: item.academic_year || "-",
+        classLabel:
+          item.class_display ||
+          `${item.class_name_snapshot || "-"} - ${item.section_snapshot || "-"}`,
+        status: item.enrollment_status,
+      }));
+  }, [enrollmentRecords]);
+
   function getCustomValue(field) {
     if (field.field_type === "checkbox") {
       return field.field_value === "true" ? "Yes" : "No";
@@ -285,6 +344,7 @@ export default function StudentDetails() {
 
   const tabs = [
     ["profile", "Profile"],
+    ["insights", "Insights"],
     ["enrollment", "Enrollment"],
     ["attendance", "Attendance"],
     ["fees", "Fees"],
@@ -442,6 +502,101 @@ export default function StudentDetails() {
           </section>
 
         </>
+      )}
+
+      {activeTab === "insights" && (
+        <div className="dashboard-grid student360-insights-grid">
+          <div className="panel large-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Class History</h3>
+                <p>Which class each academic year</p>
+              </div>
+              <Layers size={22} />
+            </div>
+
+            {enrollmentTimeline.length === 0 ? (
+              <p className="chart-empty">No enrollment history recorded yet.</p>
+            ) : (
+              <ul className="student360-timeline">
+                {enrollmentTimeline.map((item, index) => (
+                  <li key={`${item.year}-${index}`}>
+                    <span className="student360-timeline-year">{item.year}</span>
+                    <span className="student360-timeline-class">{item.classLabel}</span>
+                    {item.status && (
+                      <span className={getStatusClass(item.status)}>{item.status}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="panel large-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Attendance</h3>
+                <p>Present / absent / late across all history</p>
+              </div>
+              <CalendarCheck size={22} />
+            </div>
+
+            <AttendanceStackedBar
+              present={attendanceSummary.present}
+              absent={attendanceSummary.absent}
+              late={attendanceSummary.late}
+            />
+          </div>
+
+          <div className="panel large-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Fees Collection</h3>
+                <p>Paid vs outstanding, all history</p>
+              </div>
+              <Wallet size={22} />
+            </div>
+
+            <CollectionMeter
+              percentage={feeSummary.total ? (feeSummary.paid / feeSummary.total) * 100 : 0}
+              collected={feeSummary.paid}
+              due={feeSummary.pending}
+              formatMoney={money}
+            />
+          </div>
+
+          <div className="panel large-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Average % by Subject</h3>
+                <p>Across all exams recorded</p>
+              </div>
+              <FileText size={22} />
+            </div>
+
+            <CategoryBarChart
+              data={marksBySubject}
+              valueFormatter={(value) => `${value}%`}
+              emptyText="No marks recorded yet."
+            />
+          </div>
+
+          <div className="panel large-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Average % by Exam</h3>
+                <p>Performance trend across exams</p>
+              </div>
+              <FileText size={22} />
+            </div>
+
+            <CategoryBarChart
+              data={marksByExam}
+              valueFormatter={(value) => `${value}%`}
+              emptyText="No marks recorded yet."
+            />
+          </div>
+        </div>
       )}
 
       {activeTab === "enrollment" && (

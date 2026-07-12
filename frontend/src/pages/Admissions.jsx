@@ -1051,31 +1051,26 @@ export default function Admissions() {
       </section>
 
       {showStageManager && (
-        <section className="table-panel">
-          <h4 style={{ marginTop: 0 }}>Admission Workflow Stages</h4>
-          <p style={{ color: "#667085", marginTop: -6 }}>
-            Configure the stages inquiries move through. Renaming a stage updates all inquiries currently in it.
-          </p>
+        <section className="table-panel stage-manager-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Admission Workflow Stages</h3>
+              <p>Configure the stages inquiries move through. Renaming a stage updates all inquiries currently in it.</p>
+            </div>
+          </div>
           <div className="stage-manager-list">
             {stages.map((stage, index) => (
-              <div key={stage.id} className="stage-manager-row">
-                <div className="stage-manager-order">
-                  <button
-                    type="button"
-                    className="light-icon-button"
-                    disabled={index === 0}
-                    onClick={() => moveStage(index, -1)}
-                  >
-                    <ArrowUp size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="light-icon-button"
-                    disabled={index === stages.length - 1}
-                    onClick={() => moveStage(index, 1)}
-                  >
-                    <ArrowDown size={14} />
-                  </button>
+              <div
+                key={stage.id}
+                className={
+                  stage.is_terminal
+                    ? "stage-manager-row stage-manager-row-terminal"
+                    : "stage-manager-row"
+                }
+              >
+                <div className="stage-manager-node">
+                  {stage.is_terminal ? <CheckCircle size={16} /> : index + 1}
+                  {index < stages.length - 1 && <span className="stage-manager-connector" />}
                 </div>
                 <input
                   type="text"
@@ -1085,15 +1080,34 @@ export default function Admissions() {
                   }
                   onBlur={() => renameStage(stage)}
                 />
-                {stage.is_terminal && <span className="status active">Final</span>}
-                <button
-                  type="button"
-                  className="light-icon-button"
-                  title="Delete stage"
-                  onClick={() => deleteStage(stage)}
-                >
-                  <Trash2 size={15} />
-                </button>
+                <div className="stage-manager-actions">
+                  <button
+                    type="button"
+                    className="light-icon-button"
+                    disabled={index === 0}
+                    title="Move up"
+                    onClick={() => moveStage(index, -1)}
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="light-icon-button"
+                    disabled={index === stages.length - 1}
+                    title="Move down"
+                    onClick={() => moveStage(index, 1)}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="light-icon-button stage-manager-delete"
+                    title="Delete stage"
+                    onClick={() => deleteStage(stage)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
