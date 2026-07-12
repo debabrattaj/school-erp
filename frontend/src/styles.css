@@ -3826,12 +3826,15 @@ body,
   padding-left: 18px;
 }
 
-.students-list-page .student-list-table th,
-.students-list-page .student-list-table th span,
 .students-list-page .student-total-records,
 .students-list-page .student-page-range,
 .students-list-page .student-list-pagination span {
   font-weight: 400;
+}
+
+.students-list-page .student-list-table th,
+.students-list-page .student-list-table th span {
+  font-weight: 700;
 }
 
 .students-list-page .student-total-records strong {
@@ -5456,6 +5459,15 @@ textarea {
   letter-spacing: 0;
 }
 
+/* Vertical separator between column headers, shared by every module's
+   table (they all render through .classic-table/.enhanced-records-table).
+   Excludes the checkbox/column-manager utility columns and the last
+   column, where a trailing divider would look like a stray line. */
+.classic-table th:not(:last-child):not(.student-filter-toggle-cell):not(.records-header-column-manager):not(.records-select-column),
+.enhanced-records-table th:not(:last-child):not(.records-header-column-manager):not(.records-select-column) {
+  border-right: 1px solid var(--saas-border);
+}
+
 .classic-table td,
 .enhanced-records-table td {
   border-bottom: 1px solid #edf2f7;
@@ -6739,7 +6751,7 @@ textarea {
   border-bottom: 1px solid #e2e8f0;
   color: #10213f;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
   height: 54px;
   padding: 0 9px;
   white-space: nowrap;
