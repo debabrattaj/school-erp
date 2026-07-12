@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Edit,
   Trash2,
@@ -7,6 +8,7 @@ import {
   Award,
   XCircle,
   CheckCircle,
+  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -949,7 +951,13 @@ export default function Marks() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Marks" : "Add Marks"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Marks" : "Add Marks"}</h3>
+              <Link to="/marks/layout" className="panel-header-link">
+                <Layers size={14} />
+                Customize Layout
+              </Link>
+            </div>
             <p>
               Select student first. Subject dropdown will show only subjects
               mapped to that student&apos;s class.

@@ -5102,6 +5102,28 @@ textarea {
   font-size: 18px;
 }
 
+.panel-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--saas-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.panel-header-link:hover {
+  text-decoration: underline;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;

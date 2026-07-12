@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -9,6 +9,7 @@ import {
   X,
   ClipboardList,
   ListChecks,
+  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -823,7 +824,13 @@ export default function Exams() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Exam" : "Add Exam"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Exam" : "Add Exam"}</h3>
+              <Link to="/exams/layout" className="panel-header-link">
+                <Layers size={14} />
+                Customize Layout
+              </Link>
+            </div>
             <p>Create reusable exam masters. Schedule them from Class Exam Mapping.</p>
           </div>
         </div>

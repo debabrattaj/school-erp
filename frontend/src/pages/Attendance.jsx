@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -8,6 +8,7 @@ import {
   Eye,
   X,
   CalendarCheck,
+  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -668,7 +669,13 @@ export default function Attendance() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Attendance" : "Add Attendance"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Attendance" : "Add Attendance"}</h3>
+              <Link to="/attendance/layout" className="panel-header-link">
+                <Layers size={14} />
+                Customize Layout
+              </Link>
+            </div>
             <p>This form is generated from the backend Attendance layout.</p>
           </div>
         </div>

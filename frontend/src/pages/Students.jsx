@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -21,6 +21,7 @@ import {
   EyeOff,
   Upload,
   Download,
+  Layers,
 } from "lucide-react";
 import API from "../api";
 import PhotoUploadField from "../components/PhotoUploadField";
@@ -1426,7 +1427,13 @@ export default function Students() {
         <section className="form-panel">
           <div className="panel-header">
             <div>
-              <h3>{editingId ? "Edit Student Profile" : "Add Student Profile"}</h3>
+              <div className="panel-header-title-row">
+                <h3>{editingId ? "Edit Student Profile" : "Add Student Profile"}</h3>
+                <Link to="/students/layout" className="panel-header-link">
+                  <Layers size={14} />
+                  Customize Layout
+                </Link>
+              </div>
               <p>Use this form to manage student profile details.</p>
             </div>
           </div>

@@ -159,14 +159,6 @@ export default function Sidebar({ onNavigate }) {
       group: "Students",
     },
     {
-      label: "Student Layout",
-      icon: Layers,
-      path: "/students/layout",
-      roles: ["Admin"],
-      feature: "student_layout",
-      group: "Students",
-    },
-    {
       label: "Admissions CRM",
       icon: UserPlus,
       path: "/admissions",

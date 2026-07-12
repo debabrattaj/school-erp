@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { todayLocalDate } from "../utils/date";
 import { useMoney } from "../utils/money";
 import { useT } from "../i18n";
@@ -13,6 +13,7 @@ import {
   Wallet,
   Settings2,
   Download,
+  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -921,7 +922,13 @@ export default function Fees() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
+              <Link to="/fees/layout" className="panel-header-link">
+                <Layers size={14} />
+                Customize Layout
+              </Link>
+            </div>
             <p>Fee status is calculated automatically from payment amount.</p>
           </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -7,6 +7,7 @@ import {
   Eye,
   X,
   GraduationCap,
+  Layers,
 } from "lucide-react";
 
 import API from "../api";
@@ -880,7 +881,13 @@ export default function Teachers() {
         <section className="form-panel">
           <div className="panel-header">
             <div>
-              <h3>{editingId ? "Edit Teacher" : "Add Teacher"}</h3>
+              <div className="panel-header-title-row">
+                <h3>{editingId ? "Edit Teacher" : "Add Teacher"}</h3>
+                <Link to="/teachers/layout" className="panel-header-link">
+                  <Layers size={14} />
+                  Customize Layout
+                </Link>
+              </div>
               <p>This form is generated from the backend Teachers layout.</p>
             </div>
           </div>
