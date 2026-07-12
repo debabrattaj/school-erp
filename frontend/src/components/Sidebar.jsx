@@ -58,15 +58,14 @@ export default function Sidebar({ onNavigate }) {
   // Order here also controls the order groups render in the sidebar.
   const GROUP_ORDER = [
     "Overview",
+    "Finance & Operations",
     "Academics",
     "Students",
     "Admissions",
     "Student Wellbeing",
-    "People & Access",
-    "Finance & Operations",
     "Communication & Portal",
+    "People & Access",
     "Reports & Administration",
-    "Tools",
   ];
 
   const menuItems = [
@@ -357,14 +356,6 @@ export default function Sidebar({ onNavigate }) {
       roles: ["Admin"],
       feature: "master_data",
       group: "Reports & Administration",
-    },
-    {
-      label: "Assistant",
-      icon: Boxes,
-      path: "/assistant",
-      roles: ["Admin", "Principal", "Accounts", "Teacher"],
-      feature: "assistant",
-      group: "Tools",
     },
   ];
 
