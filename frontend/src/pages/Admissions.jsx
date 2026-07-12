@@ -1051,11 +1051,13 @@ export default function Admissions() {
       </section>
 
       {showStageManager && (
-        <section className="table-panel">
-          <h4 style={{ marginTop: 0 }}>Admission Workflow Stages</h4>
-          <p style={{ color: "#667085", marginTop: -6 }}>
-            Configure the stages inquiries move through. Renaming a stage updates all inquiries currently in it.
-          </p>
+        <section className="table-panel stage-manager-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Admission Workflow Stages</h3>
+              <p>Configure the stages inquiries move through. Renaming a stage updates all inquiries currently in it.</p>
+            </div>
+          </div>
           <div className="stage-manager-list">
             {stages.map((stage, index) => (
               <div key={stage.id} className="stage-manager-row">
