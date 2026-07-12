@@ -4939,6 +4939,15 @@ textarea {
   .topbar-search-wrap {
     display: none;
   }
+
+  /* With .topbar-spacer and .topbar-search-wrap both hidden below this
+     width, .topbar-actions becomes the only flex child in .topbar's
+     justify-content:space-between row — with nothing to space between, it
+     sits at its natural left position instead of the right edge. Push it
+     right explicitly so notifications/avatar/logout stay pinned there. */
+  .topbar-actions {
+    margin-left: auto;
+  }
 }
 
 .sidebar {
