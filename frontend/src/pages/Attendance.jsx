@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Edit,
   Trash2,
   PlusCircle,
@@ -613,8 +614,8 @@ export default function Attendance() {
               className="light-button"
               onClick={handleCancelEdit}
             >
-              <X size={17} />
-              Back to List
+              <ArrowLeft size={17} />
+              Back
             </button>
           )}
 
@@ -667,7 +668,12 @@ export default function Attendance() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Attendance" : "Add Attendance"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Attendance" : "Add Attendance"}</h3>
+              <Link to="/attendance/layout" className="panel-header-link">
+                Customize Layout
+              </Link>
+            </div>
             <p>This form is generated from the backend Attendance layout.</p>
           </div>
         </div>

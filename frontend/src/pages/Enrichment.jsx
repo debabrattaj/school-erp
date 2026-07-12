@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Award, CheckCircle, Edit, PlusCircle, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Award, CheckCircle, Edit, PlusCircle, Trash2, Users } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
@@ -211,7 +211,7 @@ export default function Enrichment() {
   );
 
   if (pageMode === "form") {
-    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Student Life</p><h2>{editingId ? "Edit Activity" : "Add Activity"}</h2><p>Plan enrichment programs, trips, clubs, competitions, and service learning.</p></div><button type="button" className="light-button" onClick={handleCancel}>Back to Activities</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
+    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Student Life</p><h2>{editingId ? "Edit Activity" : "Add Activity"}</h2><p>Plan enrichment programs, trips, clubs, competitions, and service learning.</p></div><button type="button" className="light-button" onClick={handleCancel}><ArrowLeft size={17} />Back</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
   }
 
   return (

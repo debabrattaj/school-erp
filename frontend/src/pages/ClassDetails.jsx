@@ -503,7 +503,7 @@ export default function ClassDetails() {
           onClick={() => navigate("/classes")}
         >
           <ArrowLeft size={17} />
-          Back to Classes
+          Back
         </button>
 
         <div className="empty-table">Class not found.</div>

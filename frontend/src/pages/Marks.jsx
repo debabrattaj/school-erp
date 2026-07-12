@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Edit,
   Trash2,
@@ -899,13 +900,14 @@ export default function Marks() {
           </p>
         </div>
 
-        <div className="module-header-actions">
-
-          <button type="button" className="primary-button" onClick={handleAddMarks}>
-            <PlusCircle size={18} />
-            Add Marks
-          </button>
-        </div>
+        {pageMode === "list" && (
+          <div className="module-header-actions">
+            <button type="button" className="primary-button" onClick={handleAddMarks}>
+              <PlusCircle size={18} />
+              Add Marks
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="summary-strip report-summary-grid">
@@ -948,7 +950,12 @@ export default function Marks() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Marks" : "Add Marks"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Marks" : "Add Marks"}</h3>
+              <Link to="/marks/layout" className="panel-header-link">
+                Customize Layout
+              </Link>
+            </div>
             <p>
               Select student first. Subject dropdown will show only subjects
               mapped to that student&apos;s class.

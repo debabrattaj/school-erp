@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Edit,
   PlusCircle,
   Eye,
@@ -987,7 +988,8 @@ export default function Classes() {
               className="light-button"
               onClick={handleCancelEdit}
             >
-              Back to Class Records
+              <ArrowLeft size={17} />
+              Back
             </button>
           </div>
         </section>
@@ -997,7 +999,12 @@ export default function Classes() {
         <section className="form-panel">
           <div className="panel-header">
             <div>
-              <h3>{editingId ? "Edit Class" : "Add Class"}</h3>
+              <div className="panel-header-title-row">
+                <h3>{editingId ? "Edit Class" : "Add Class"}</h3>
+                <Link to="/classes/layout" className="panel-header-link">
+                  Customize Layout
+                </Link>
+              </div>
               <p>This form is generated from the backend Classes layout.</p>
             </div>
           </div>
@@ -1073,7 +1080,8 @@ export default function Classes() {
           </div>
 
           <button type="button" className="light-button" onClick={closeSubjectMapping}>
-            Back to Class Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

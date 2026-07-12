@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
 import {
+  ArrowLeft,
   CheckCircle,
   ClipboardList,
   Edit,
@@ -691,7 +692,8 @@ export default function Admissions() {
           </div>
 
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Admission Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 
@@ -723,7 +725,8 @@ export default function Admissions() {
               setPageMode("list");
             }}
           >
-            Back to Admission Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 
@@ -905,7 +908,8 @@ export default function Admissions() {
               setPageMode("list");
             }}
           >
-            Back to Admission Records
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 

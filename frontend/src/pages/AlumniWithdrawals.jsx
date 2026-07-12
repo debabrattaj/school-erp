@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
+  ArrowLeft,
   CheckCircle,
   Edit,
   FileText,
@@ -285,7 +286,7 @@ export default function AlumniWithdrawals() {
       <div className="management-page">
         <section className="page-heading">
           <div><p className="eyebrow">Student Lifecycle</p><h2>{editingId ? "Edit Alumni / Withdrawal" : "Add Alumni / Withdrawal"}</h2><p>Track transfers, leaving certificates, alumni contacts, and exit approvals.</p></div>
-          <button type="button" className="light-button" onClick={handleCancel}>Back to Records</button>
+          <button type="button" className="light-button" onClick={handleCancel}><ArrowLeft size={17} />Back</button>
         </section>
         {message && <div className="toast-notification">{message}</div>}
         {form}

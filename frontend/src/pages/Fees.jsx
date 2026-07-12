@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { todayLocalDate } from "../utils/date";
 import { useMoney } from "../utils/money";
 import { useT } from "../i18n";
 import {
+  ArrowLeft,
   Edit,
   Trash2,
   PlusCircle,
@@ -920,7 +921,12 @@ export default function Fees() {
       <section className="form-panel">
         <div className="panel-header">
           <div>
-            <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
+            <div className="panel-header-title-row">
+              <h3>{editingId ? "Edit Fee" : "Add Fee"}</h3>
+              <Link to="/fees/layout" className="panel-header-link">
+                Customize Layout
+              </Link>
+            </div>
             <p>Fee status is calculated automatically from payment amount.</p>
           </div>
 
@@ -1307,7 +1313,8 @@ export default function Fees() {
                     setPageMode("list");
                   }}
                 >
-                  Back to Fees
+                  <ArrowLeft size={17} />
+                  Back
                 </button>
               </div>
             </form>

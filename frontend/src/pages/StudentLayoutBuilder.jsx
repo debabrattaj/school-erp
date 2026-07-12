@@ -1015,7 +1015,7 @@ export default function StudentLayoutBuilder() {
             onClick={() => navigate("/students")}
           >
             <ArrowLeft size={17} />
-            Back to Students
+            Back
           </button>
 
           <button

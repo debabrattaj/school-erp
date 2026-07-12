@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, ClipboardCheck, Edit, PlusCircle, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, Edit, PlusCircle, Trash2 } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
@@ -210,7 +210,7 @@ export default function Compliance() {
   );
 
   if (pageMode === "form") {
-    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Governance</p><h2>{editingId ? "Edit Compliance Task" : "Add Compliance Task"}</h2><p>Manage accreditation evidence, audit findings, and inspection readiness.</p></div><button type="button" className="light-button" onClick={handleCancel}>Back to Tasks</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
+    return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">Governance</p><h2>{editingId ? "Edit Compliance Task" : "Add Compliance Task"}</h2><p>Manage accreditation evidence, audit findings, and inspection readiness.</p></div><button type="button" className="light-button" onClick={handleCancel}><ArrowLeft size={17} />Back</button></section>{message && <div className="toast-notification">{message}</div>}{form}</div>;
   }
 
   return (

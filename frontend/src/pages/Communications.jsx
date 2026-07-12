@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   CheckCircle,
   Edit,
   MessageCircle,
@@ -342,7 +343,8 @@ export default function Communications() {
             <p>Create reusable WhatsApp, SMS, email, and in-app message templates.</p>
           </div>
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Communication Center
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 
@@ -418,7 +420,8 @@ export default function Communications() {
             <p>Queue or record parent messages for admissions, fees, attendance, and documents.</p>
           </div>
           <button type="button" className="light-button" onClick={handleCancel}>
-            Back to Communication Center
+            <ArrowLeft size={17} />
+            Back
           </button>
         </section>
 
