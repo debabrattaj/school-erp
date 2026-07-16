@@ -75,9 +75,22 @@ class SessionStore(private val context: Context) {
     }
 
     suspend fun saveBaseUrl(baseUrl: String) {
-        val normalized = baseUrl.trim().let { if (it.endsWith("/")) it else "$it/" }
+        val normalized = normalizeBaseUrl(baseUrl)
         context.dataStore.edit { it[Keys.BASE_URL] = normalized }
         cachedBaseUrl = normalized
+    }
+
+    companion object {
+        /** Add a scheme if the user omitted it, and ensure a trailing slash so
+         *  Retrofit accepts the value (a missing scheme otherwise throws). */
+        fun normalizeBaseUrl(raw: String): String {
+            var url = raw.trim()
+            if (url.isEmpty()) return url
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://$url"
+            }
+            return if (url.endsWith("/")) url else "$url/"
+        }
     }
 
     suspend fun clear() {

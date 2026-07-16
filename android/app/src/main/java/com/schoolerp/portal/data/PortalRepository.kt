@@ -93,6 +93,16 @@ class PortalRepository(
             }
         } catch (e: IOException) {
             throw PortalException("Can't reach the server. Check your connection and the server address.")
+        } catch (e: PortalException) {
+            throw e
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Anything else (e.g. a JSON field that doesn't match the app's model)
+            // is surfaced as a readable message instead of crashing the app.
+            throw PortalException(
+                "Unexpected error: ${e.message ?: e.javaClass.simpleName}",
+            )
         }
     }
 

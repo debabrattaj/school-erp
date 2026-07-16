@@ -61,8 +61,6 @@ class ApiClient(private val session: SessionStore) {
         return service
     }
 
-    private fun normalize(url: String): String {
-        val trimmed = url.trim()
-        return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
-    }
+    private fun normalize(url: String): String =
+        com.schoolerp.portal.data.SessionStore.normalizeBaseUrl(url)
 }
