@@ -1,0 +1,12 @@
+#!/bin/sh
+# Gradle start-up script for POSIX (abridged standard wrapper).
+# NOTE: requires gradle/wrapper/gradle-wrapper.jar. Android Studio generates it
+# on first sync; or run `gradle wrapper --gradle-version 8.11.1` once.
+APP_HOME=$(cd "$(dirname "$0")" && pwd)
+CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+if [ ! -f "$CLASSPATH" ]; then
+  echo "gradle-wrapper.jar missing. Open this project in Android Studio (it will" >&2
+  echo "generate the wrapper), or run: gradle wrapper --gradle-version 8.11.1" >&2
+  exit 1
+fi
+exec "${JAVA_HOME:+$JAVA_HOME/bin/}java" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
