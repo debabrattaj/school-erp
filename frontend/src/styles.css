@@ -5449,6 +5449,26 @@ textarea {
   z-index: 5;
 }
 
+/* Mobile: keep wide record tables (Classes, Marks, Library, etc.) inside their
+   panel instead of stretching the whole page. The wrapper becomes its own
+   bounded scroll box (both axes), so the table pans horizontally AND the header
+   stays pinned — sticky now anchors to the top of this box (top:0) rather than
+   the global top:40px that is calibrated for the .main-area page scroll.
+   Scoped to .enhanced-records-panel so the tuned Students-list / student360
+   table CSS is left untouched. */
+@media (max-width: 900px) {
+  .enhanced-records-panel .table-wrapper {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    max-height: calc(100dvh - 170px);
+  }
+  .enhanced-records-panel .classic-table thead,
+  .enhanced-records-panel .enhanced-records-table thead {
+    top: 0;
+  }
+}
+
 .classic-table th,
 .enhanced-records-table th {
   background: #f8fafc;
