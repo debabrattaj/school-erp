@@ -259,3 +259,152 @@ def dashboard_trends(
     ]
 
     return {"attendance_trend": attendance_trend, "admissions_trend": admissions_trend}
+
+
+# ---------------- Custom dashboard: report engine ----------------
+# A small, whitelisted aggregation engine that powers user-built widgets.
+# Each report = a source (table) + a dimension (group-by) + a measure (agg).
+
+REPORTS = {
+    "students": {
+        "label": "Students",
+        "model": Student,
+        "dimensions": {
+            "class_name": "Class",
+            "section": "Section",
+            "gender": "Gender",
+            "house": "House",
+            "nationality": "Nationality",
+            "student_status": "Status",
+            "residential_type": "Residential Type",
+            "blood_group": "Blood Group",
+        },
+        # measure -> (label, column-or-None-for-count)
+        "measures": {"count": ("Students", None)},
+    },
+    "fees": {
+        "label": "Fees",
+        "model": Fee,
+        "dimensions": {
+            "fee_type": "Fee Type",
+            "payment_status": "Payment Status",
+            "academic_year": "Academic Year",
+            "class_name_snapshot": "Class",
+        },
+        "measures": {
+            "count": ("Fee Records", None),
+            "total_amount": ("Billed", "total_amount"),
+            "paid_amount": ("Collected", "paid_amount"),
+            "due_amount": ("Outstanding", "due_amount"),
+        },
+    },
+    "attendance": {
+        "label": "Attendance",
+        "model": Attendance,
+        "dimensions": {
+            "status": "Status",
+            "class_name_snapshot": "Class",
+            "academic_year": "Academic Year",
+        },
+        "measures": {"count": ("Records", None)},
+    },
+    "marks": {
+        "label": "Marks",
+        "model": Mark,
+        "dimensions": {
+            "grade": "Grade",
+            "subject": "Subject",
+            "academic_year": "Academic Year",
+            "exam_name_snapshot": "Exam",
+        },
+        "measures": {
+            "count": ("Mark Entries", None),
+            "marks_obtained": ("Total Marks", "marks_obtained"),
+        },
+    },
+}
+
+
+@router.get("/report/catalog")
+def report_catalog(
+    current_user: User = Depends(
+        require_roles(["Admin", "Principal", "Accounts", "Teacher"])
+    ),
+):
+    """The set of sources/dimensions/measures the widget builder can offer."""
+    return {
+        source: {
+            "label": cfg["label"],
+            "dimensions": cfg["dimensions"],
+            "measures": {k: v[0] for k, v in cfg["measures"].items()},
+        }
+        for source, cfg in REPORTS.items()
+    }
+
+
+@router.get("/report")
+def dashboard_report(
+    source: str,
+    group_by: str,
+    measure: str = "count",
+    academic_year: str | None = None,
+    status: str | None = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(["Admin", "Principal", "Accounts", "Teacher"])
+    ),
+):
+    """Aggregate one whitelisted source by a dimension and measure, with optional
+    academic-year and status filters. Returns labels + values for a chart."""
+    from fastapi import HTTPException
+
+    cfg = REPORTS.get(source)
+    if not cfg:
+        raise HTTPException(status_code=400, detail="Unknown report source")
+    if group_by not in cfg["dimensions"]:
+        raise HTTPException(status_code=400, detail="Unknown dimension for this source")
+    if measure not in cfg["measures"]:
+        raise HTTPException(status_code=400, detail="Unknown measure for this source")
+
+    model = cfg["model"]
+    dim_col = getattr(model, group_by)
+    measure_label, measure_field = cfg["measures"][measure]
+
+    if measure_field is None:
+        agg = func.count(model.id)
+    else:
+        agg = func.coalesce(func.sum(getattr(model, measure_field)), 0)
+
+    query = db.query(dim_col, agg).group_by(dim_col)
+
+    if academic_year and hasattr(model, "academic_year"):
+        query = query.filter(model.academic_year == academic_year)
+
+    if status:
+        if source == "students":
+            query = query.filter(model.student_status == status)
+        elif source == "fees":
+            query = query.filter(model.payment_status == status)
+        elif hasattr(model, "status"):
+            query = query.filter(model.status == status)
+
+    rows = query.all()
+    data = [
+        {
+            "label": str(label) if label not in (None, "") else "Unspecified",
+            "value": round(float(value or 0), 2),
+        }
+        for label, value in rows
+    ]
+    data.sort(key=lambda d: -d["value"])
+    data = data[: max(1, min(limit, 50))]
+
+    return {
+        "labels": [d["label"] for d in data],
+        "values": [d["value"] for d in data],
+        "measure_label": measure_label,
+        "dimension_label": cfg["dimensions"][group_by],
+        "source_label": cfg["label"],
+        "is_currency": measure in ("total_amount", "paid_amount", "due_amount"),
+    }

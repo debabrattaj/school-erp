@@ -19,12 +19,14 @@ import {
   TrendArea,
   CategoryBarChart,
 } from "../components/DashboardCharts";
+import DashboardBuilder from "../components/DashboardBuilder";
 
 const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
 
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
 
+  const [view, setView] = useState("overview");
   const [summary, setSummary] = useState(null);
   const [trends, setTrends] = useState(null);
   const [students, setStudents] = useState([]);
@@ -209,7 +211,26 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {loading ? (
+      <div className="dashboard-tabs">
+        <button
+          type="button"
+          className={view === "overview" ? "active" : ""}
+          onClick={() => setView("overview")}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          className={view === "builder" ? "active" : ""}
+          onClick={() => setView("builder")}
+        >
+          My Dashboard
+        </button>
+      </div>
+
+      {view === "builder" ? (
+        <DashboardBuilder formatMoney={formatMoney} />
+      ) : loading ? (
         <div className="loading-box">Loading dashboard...</div>
       ) : (
         <>
