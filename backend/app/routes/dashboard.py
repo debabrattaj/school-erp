@@ -1,12 +1,16 @@
+import json
 from datetime import date, timedelta
+from typing import Any, List
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
 from app.models import Student, Teacher, SchoolClass, Fee, Attendance, Exam, Mark, User
-from app.security import require_roles
+from app.dashboard_models import DashboardLayout
+from app.security import require_roles, get_current_user
 
 router = APIRouter(
     prefix="/dashboard",
@@ -408,3 +412,51 @@ def dashboard_report(
         "source_label": cfg["label"],
         "is_currency": measure in ("total_amount", "paid_amount", "due_amount"),
     }
+
+
+# ---------------- Custom dashboard: saved layout (per user) ----------------
+
+
+class LayoutPayload(BaseModel):
+    widgets: List[Any]
+
+
+@router.get("/layout")
+def get_dashboard_layout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The signed-in user's saved widget layout (null if none saved yet)."""
+    row = (
+        db.query(DashboardLayout)
+        .filter(DashboardLayout.user_id == current_user.id)
+        .first()
+    )
+    if not row or not row.widgets:
+        return {"widgets": None}
+    try:
+        return {"widgets": json.loads(row.widgets)}
+    except (ValueError, TypeError):
+        return {"widgets": None}
+
+
+@router.put("/layout")
+def save_dashboard_layout(
+    payload: LayoutPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Persist the signed-in user's widget layout so it follows them anywhere."""
+    text = json.dumps(payload.widgets)
+    row = (
+        db.query(DashboardLayout)
+        .filter(DashboardLayout.user_id == current_user.id)
+        .first()
+    )
+    if row:
+        row.widgets = text
+    else:
+        row = DashboardLayout(user_id=current_user.id, widgets=text)
+        db.add(row)
+    db.commit()
+    return {"ok": True}

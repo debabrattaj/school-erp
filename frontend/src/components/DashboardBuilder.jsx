@@ -73,18 +73,32 @@ export default function DashboardBuilder({ formatMoney }) {
     return STARTER;
   });
   const [editingId, setEditingId] = useState(null);
+  const [loaded, setLoaded] = useState(false);
 
+  // Load the catalog and the user's saved layout from the server. localStorage
+  // seeded the initial state for an instant paint; the server is the source of
+  // truth so the layout follows the user across devices.
   useEffect(() => {
-    API.get("/dashboard/report/catalog")
-      .then((r) => setCatalog(r.data))
-      .catch(() => setCatalog(null));
+    let active = true;
+    Promise.all([
+      API.get("/dashboard/report/catalog").then((r) => { if (active) setCatalog(r.data); }).catch(() => {}),
+      API.get("/dashboard/layout").then((r) => {
+        if (active && Array.isArray(r.data?.widgets)) setWidgets(r.data.widgets);
+      }).catch(() => { /* offline: keep the local copy */ }),
+    ]).finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
   }, []);
 
+  // Persist to the server (debounced) once the initial load has settled, and
+  // mirror to localStorage as an offline cache.
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey(), JSON.stringify(widgets));
-    } catch { /* ignore */ }
-  }, [widgets]);
+    if (!loaded) return;
+    try { localStorage.setItem(storageKey(), JSON.stringify(widgets)); } catch { /* ignore */ }
+    const t = setTimeout(() => {
+      API.put("/dashboard/layout", { widgets }).catch(() => { /* keep local copy */ });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [widgets, loaded]);
 
   function addWidget() {
     const w = defaultWidget();
