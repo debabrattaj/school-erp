@@ -138,6 +138,16 @@ def portal_student_summary(
             "section": enrollment.section_snapshot,
             "roll_no": enrollment.roll_no,
         }
+    elif student.class_name or student.section or student.roll_no:
+        # No enrollment record yet (e.g. enrollments not synced for the year).
+        # Fall back to the student's own current class/section/roll so the portal
+        # shows real data instead of blanks.
+        current_enrollment = {
+            "academic_year": current_year.name if current_year else None,
+            "class_name": student.class_name,
+            "section": student.section,
+            "roll_no": student.roll_no,
+        }
 
     return {
         "student": serialize_student_card(student),
