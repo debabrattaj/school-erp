@@ -15,6 +15,7 @@ import PhotoUploadField from "../components/PhotoUploadField";
 
 const emptyForm = {
   school_name: "",
+  tagline: "",
   logo_url: "",
   address: "",
   phone: "",
@@ -148,6 +149,7 @@ export default function Settings() {
       ]);
       setFormData({
         school_name: settingsResponse.data.school_name || "",
+        tagline: settingsResponse.data.tagline || "",
         logo_url: settingsResponse.data.logo_url || "",
         address: settingsResponse.data.address || "",
         phone: settingsResponse.data.phone || "",
@@ -278,6 +280,18 @@ export default function Settings() {
                   value={formData.school_name}
                   onChange={handleChange}
                   required
+                  disabled={user?.role !== "Admin"}
+                />
+              </div>
+
+              <div className="form-field">
+                <label>Tagline</label>
+                <input
+                  type="text"
+                  name="tagline"
+                  value={formData.tagline}
+                  onChange={handleChange}
+                  placeholder="e.g. Nurturing Global Citizens"
                   disabled={user?.role !== "Admin"}
                 />
               </div>
