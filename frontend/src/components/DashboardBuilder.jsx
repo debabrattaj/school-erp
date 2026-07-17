@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
-  X,
   Pencil,
   Check,
   BarChart3,
@@ -11,10 +10,13 @@ import {
   Table as TableIcon,
   Trash2,
   LayoutGrid,
+  GripVertical,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import API from "../api";
 import { getUser } from "../auth";
-import { CategoryBarChart } from "./DashboardCharts";
+import { CategoryBarChart, compactNumber } from "./DashboardCharts";
 
 /* Cohesive categorical palette (matches the KPI-card accents). Fixed order,
    never cycled; a 9th+ category folds into "Other". */
@@ -74,6 +76,8 @@ export default function DashboardBuilder({ formatMoney }) {
   });
   const [editingId, setEditingId] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [dragFrom, setDragFrom] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
 
   // Load the catalog and the user's saved layout from the server. localStorage
   // seeded the initial state for an instant paint; the server is the source of
@@ -112,6 +116,15 @@ export default function DashboardBuilder({ formatMoney }) {
   function updateWidget(id, patch) {
     setWidgets((prev) => prev.map((w) => (w.id === id ? { ...w, ...patch } : w)));
   }
+  function reorderWidget(from, to) {
+    if (from === to || from == null || to == null) return;
+    setWidgets((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
 
   return (
     <div className="builder">
@@ -132,17 +145,24 @@ export default function DashboardBuilder({ formatMoney }) {
         </div>
       ) : (
         <div className="builder-grid">
-          {widgets.map((w) => (
+          {widgets.map((w, index) => (
             <WidgetCard
               key={w.id}
               widget={w}
+              index={index}
               catalog={catalog}
               formatMoney={formatMoney}
               editing={editingId === w.id}
+              isDragging={dragFrom === index}
+              isDragOver={dragOver === index && dragFrom !== index}
               onEdit={() => setEditingId(w.id)}
               onCloseEdit={() => setEditingId(null)}
               onRemove={() => removeWidget(w.id)}
               onChange={(patch) => updateWidget(w.id, patch)}
+              onDragStart={() => setDragFrom(index)}
+              onDragEnter={() => setDragOver(index)}
+              onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
+              onDrop={() => { reorderWidget(dragFrom, index); setDragFrom(null); setDragOver(null); }}
             />
           ))}
         </div>
@@ -151,12 +171,18 @@ export default function DashboardBuilder({ formatMoney }) {
   );
 }
 
-function WidgetCard({ widget, catalog, formatMoney, editing, onEdit, onCloseEdit, onRemove, onChange }) {
+function WidgetCard({
+  widget, index, catalog, formatMoney, editing,
+  isDragging, isDragOver,
+  onEdit, onCloseEdit, onRemove, onChange,
+  onDragStart, onDragEnter, onDragEnd, onDrop,
+}) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const { source, groupBy, measure, academicYear, status } = widget;
+  const { source, groupBy, measure, academicYear, status, dateFrom, dateTo } = widget;
+  const isFull = widget.size === "full";
 
   useEffect(() => {
     let active = true;
@@ -165,22 +191,46 @@ function WidgetCard({ widget, catalog, formatMoney, editing, onEdit, onCloseEdit
     const params = { source, group_by: groupBy, measure };
     if (academicYear) params.academic_year = academicYear;
     if (status) params.status = status;
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
     API.get("/dashboard/report", { params })
       .then((r) => { if (active) { setReport(r.data); setLoading(false); } })
       .catch((e) => { if (active) { setError(e?.response?.data?.detail || "Could not load report"); setLoading(false); } });
     return () => { active = false; };
-  }, [source, groupBy, measure, academicYear, status]);
+  }, [source, groupBy, measure, academicYear, status, dateFrom, dateTo]);
 
   const fmt = (v) => (report?.is_currency && formatMoney ? formatMoney(v) : v.toLocaleString());
 
+  const cardClass = [
+    "widget-card",
+    editing ? "widget-card-editing" : "",
+    isFull ? "widget-card-full" : "",
+    isDragging ? "widget-card-dragging" : "",
+    isDragOver ? "widget-card-dragover" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className={`widget-card ${editing ? "widget-card-editing" : ""}`}>
+    <div
+      className={cardClass}
+      draggable={!editing}
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      onDrop={onDrop}
+    >
       <div className="widget-head">
         <div className="widget-title">
-          <h3>{widget.title || "Untitled"}</h3>
+          <div className="widget-title-row">
+            <span className="widget-grip" title="Drag to reorder"><GripVertical size={15} /></span>
+            <h3>{widget.title || "Untitled"}</h3>
+          </div>
           {report && <p>{report.measure_label} by {report.dimension_label}</p>}
         </div>
         <div className="widget-actions">
+          <button type="button" title={isFull ? "Half width" : "Full width"} onClick={() => onChange({ size: isFull ? "half" : "full" })}>
+            {isFull ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
           <button type="button" title="Configure" onClick={editing ? onCloseEdit : onEdit}>
             {editing ? <Check size={16} /> : <Pencil size={15} />}
           </button>
@@ -264,13 +314,25 @@ function WidgetConfig({ widget, catalog, onChange }) {
       <div className="widget-config-row">
         <label>
           <span>Academic year (filter)</span>
-          <input type="text" placeholder="e.g. 2026-27" value={widget.academicYear} onChange={(e) => onChange({ academicYear: e.target.value })} />
+          <input type="text" placeholder="e.g. 2026-27" value={widget.academicYear || ""} onChange={(e) => onChange({ academicYear: e.target.value })} />
         </label>
         <label>
           <span>Status (filter)</span>
-          <input type="text" placeholder="e.g. Active / Paid" value={widget.status} onChange={(e) => onChange({ status: e.target.value })} />
+          <input type="text" placeholder="e.g. Active / Paid" value={widget.status || ""} onChange={(e) => onChange({ status: e.target.value })} />
         </label>
       </div>
+      {src.has_date && (
+        <div className="widget-config-row">
+          <label>
+            <span>Date from</span>
+            <input type="date" value={widget.dateFrom || ""} onChange={(e) => onChange({ dateFrom: e.target.value })} />
+          </label>
+          <label>
+            <span>Date to</span>
+            <input type="date" value={widget.dateTo || ""} onChange={(e) => onChange({ dateTo: e.target.value })} />
+          </label>
+        </div>
+      )}
     </div>
   );
 }
@@ -411,7 +473,7 @@ function GenericLine({ labels, values, fmt, area }) {
         {ticks.map((t) => (
           <g key={t}>
             <line x1={padL} y1={y(t)} x2={width - padR} y2={y(t)} stroke="#e4e2da" strokeWidth={1} />
-            <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="#898781">{t.toLocaleString()}</text>
+            <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="#898781">{compactNumber(t)}</text>
           </g>
         ))}
         {area && <path d={areaPath} fill="url(#wline)" />}

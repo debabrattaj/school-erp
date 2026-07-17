@@ -7814,3 +7814,12 @@ textarea {
   .builder-grid { grid-template-columns: 1fr; }
   .widget-config-row { grid-template-columns: 1fr; }
 }
+
+/* Builder: drag-to-reorder + resize */
+.widget-card-full { grid-column: 1 / -1; }
+.widget-card-dragging { opacity: 0.45; }
+.widget-card-dragover { outline: 2px dashed var(--saas-primary); outline-offset: 3px; }
+.widget-title-row { display: flex; align-items: center; gap: 6px; }
+.widget-grip { color: var(--saas-border-strong); cursor: grab; display: inline-flex; align-items: center; }
+.widget-grip:active { cursor: grabbing; }
+.widget-card[draggable="true"] .widget-head { cursor: grab; }

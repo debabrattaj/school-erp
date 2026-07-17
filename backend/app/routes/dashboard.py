@@ -8,7 +8,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Student, Teacher, SchoolClass, Fee, Attendance, Exam, Mark, User
+from app.models import (
+    Student,
+    Teacher,
+    SchoolClass,
+    Fee,
+    Attendance,
+    Exam,
+    Mark,
+    User,
+    HostelAllocation,
+    TransportVehicle,
+    LibraryBook,
+)
 from app.dashboard_models import DashboardLayout
 from app.security import require_roles, get_current_user
 
@@ -269,10 +281,14 @@ def dashboard_trends(
 # A small, whitelisted aggregation engine that powers user-built widgets.
 # Each report = a source (table) + a dimension (group-by) + a measure (agg).
 
+# Measures whose values are money (drives currency formatting on the client).
+CURRENCY_MEASURES = {"total_amount", "paid_amount", "due_amount", "fine_amount"}
+
 REPORTS = {
     "students": {
         "label": "Students",
         "model": Student,
+        "date_col": "admission_date",
         "dimensions": {
             "class_name": "Class",
             "section": "Section",
@@ -289,6 +305,7 @@ REPORTS = {
     "fees": {
         "label": "Fees",
         "model": Fee,
+        "date_col": "payment_date",
         "dimensions": {
             "fee_type": "Fee Type",
             "payment_status": "Payment Status",
@@ -305,6 +322,7 @@ REPORTS = {
     "attendance": {
         "label": "Attendance",
         "model": Attendance,
+        "date_col": "attendance_date",
         "dimensions": {
             "status": "Status",
             "class_name_snapshot": "Class",
@@ -315,6 +333,7 @@ REPORTS = {
     "marks": {
         "label": "Marks",
         "model": Mark,
+        "date_col": None,
         "dimensions": {
             "grade": "Grade",
             "subject": "Subject",
@@ -324,6 +343,52 @@ REPORTS = {
         "measures": {
             "count": ("Mark Entries", None),
             "marks_obtained": ("Total Marks", "marks_obtained"),
+        },
+    },
+    "teachers": {
+        "label": "Teachers",
+        "model": Teacher,
+        "date_col": "joining_date",
+        "dimensions": {
+            "department": "Department",
+            "subject": "Subject",
+            "gender": "Gender",
+            "employment_type": "Employment Type",
+            "salary_grade": "Salary Grade",
+            "assigned_class": "Assigned Class",
+        },
+        "measures": {"count": ("Teachers", None)},
+    },
+    "hostel": {
+        "label": "Hostel Allocations",
+        "model": HostelAllocation,
+        "date_col": "start_date",
+        "dimensions": {"status": "Status"},
+        "measures": {"count": ("Allocations", None)},
+    },
+    "transport": {
+        "label": "Transport Vehicles",
+        "model": TransportVehicle,
+        "date_col": None,
+        "dimensions": {"vehicle_type": "Vehicle Type"},
+        "measures": {
+            "count": ("Vehicles", None),
+            "capacity": ("Total Capacity", "capacity"),
+        },
+    },
+    "library": {
+        "label": "Library Books",
+        "model": LibraryBook,
+        "date_col": None,
+        "dimensions": {
+            "category": "Category",
+            "status": "Status",
+            "author": "Author",
+        },
+        "measures": {
+            "count": ("Titles", None),
+            "total_copies": ("Total Copies", "total_copies"),
+            "available_copies": ("Available Copies", "available_copies"),
         },
     },
 }
@@ -341,6 +406,7 @@ def report_catalog(
             "label": cfg["label"],
             "dimensions": cfg["dimensions"],
             "measures": {k: v[0] for k, v in cfg["measures"].items()},
+            "has_date": bool(cfg.get("date_col")),
         }
         for source, cfg in REPORTS.items()
     }
@@ -353,6 +419,8 @@ def dashboard_report(
     measure: str = "count",
     academic_year: str | None = None,
     status: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     limit: int = 20,
     db: Session = Depends(get_db),
     current_user: User = Depends(
@@ -360,7 +428,7 @@ def dashboard_report(
     ),
 ):
     """Aggregate one whitelisted source by a dimension and measure, with optional
-    academic-year and status filters. Returns labels + values for a chart."""
+    academic-year, status and date-range filters. Returns labels + values."""
     from fastapi import HTTPException
 
     cfg = REPORTS.get(source)
@@ -393,6 +461,14 @@ def dashboard_report(
         elif hasattr(model, "status"):
             query = query.filter(model.status == status)
 
+    date_col_name = cfg.get("date_col")
+    if date_col_name and (date_from or date_to):
+        date_col = getattr(model, date_col_name)
+        if date_from:
+            query = query.filter(date_col >= date_from)
+        if date_to:
+            query = query.filter(date_col <= date_to)
+
     rows = query.all()
     data = [
         {
@@ -410,7 +486,7 @@ def dashboard_report(
         "measure_label": measure_label,
         "dimension_label": cfg["dimensions"][group_by],
         "source_label": cfg["label"],
-        "is_currency": measure in ("total_amount", "paid_amount", "due_amount"),
+        "is_currency": measure in CURRENCY_MEASURES,
     }
 
 

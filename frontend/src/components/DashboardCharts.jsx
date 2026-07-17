@@ -16,6 +16,17 @@ const STATUS = {
 
 const SEQUENTIAL_HUE = "#2a78d6";
 
+/** Compact large numbers for axis ticks & on-mark labels (Indian K/L/Cr, which
+ *  suits the INR default; small numbers pass through unchanged). */
+export function compactNumber(n) {
+  const num = Number(n) || 0;
+  const abs = Math.abs(num);
+  if (abs >= 1e7) return (num / 1e7).toFixed(abs >= 1e8 ? 0 : 1).replace(/\.0$/, "") + "Cr";
+  if (abs >= 1e5) return (num / 1e5).toFixed(abs >= 1e6 ? 0 : 1).replace(/\.0$/, "") + "L";
+  if (abs >= 1e3) return (num / 1e3).toFixed(abs >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "K";
+  return String(Math.round(num));
+}
+
 function Tooltip({ x, y, children }) {
   if (x == null) return null;
   return (
@@ -423,7 +434,7 @@ export function CategoryBarChart({ data, valueFormatter, emptyText = "No data ye
             <g key={i}>
               <line x1={padLeft} y1={y} x2={width - 4} y2={y} stroke={GRIDLINE} strokeWidth={1} />
               <text x={padLeft - 6} y={y + 3} textAnchor="end" fontSize={10} fill={INK_MUTED}>
-                {t.toLocaleString()}
+                {compactNumber(t)}
               </text>
             </g>
           );
@@ -458,7 +469,7 @@ export function CategoryBarChart({ data, valueFormatter, emptyText = "No data ye
                 fontSize={10}
                 fill={INK_SECONDARY}
               >
-                {barH > 14 ? d.value : ""}
+                {barH > 14 ? compactNumber(d.value) : ""}
               </text>
               <text
                 x={x + barWidth / 2}
