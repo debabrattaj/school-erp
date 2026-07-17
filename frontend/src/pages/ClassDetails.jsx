@@ -672,7 +672,14 @@ export default function ClassDetails() {
                   classStudents.map((student) => (
                     <tr key={student.id}>
                       <td>{student.admission_no || "-"}</td>
-                      <td>{student.name || student.student_name || "-"}</td>
+                      <td>
+                        {[student.first_name, student.last_name]
+                          .filter(Boolean)
+                          .join(" ") ||
+                          student.name ||
+                          student.student_name ||
+                          "-"}
+                      </td>
                       <td>{student.gender || "-"}</td>
                       <td>{student.roll_no || "-"}</td>
                       <td>
@@ -683,7 +690,7 @@ export default function ClassDetails() {
                       </td>
                       <td>
                         <span className="status active">
-                          {student.status || "Active"}
+                          {student.student_status || student.status || "Active"}
                         </span>
                       </td>
                     </tr>

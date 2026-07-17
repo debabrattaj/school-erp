@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme. Actual colors are supplied by Compose (Theme.kt).
+         Parented to a NoActionBar system theme so Compose owns the whole window. -->
+    <style name="Theme.SchoolErpPortal" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/brand_primary</item>
+        <item name="android:windowBackground">@color/surface</item>
+    </style>
+</resources>

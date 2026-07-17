@@ -495,9 +495,9 @@ export default function StudentDetails() {
                     : `${student.class_name || "-"} ${student.section || ""}`
                 }
               />
-              <Detail label="Status" value={student.status} />
-              <Detail label="Phone" value={student.phone} />
-              <Detail label="Email" value={student.email} />
+              <Detail label="Status" value={student.student_status} />
+              <Detail label="Phone" value={student.guardian_phone} />
+              <Detail label="Email" value={student.guardian_email} />
             </div>
           </section>
 

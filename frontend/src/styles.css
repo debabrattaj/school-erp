@@ -3826,12 +3826,15 @@ body,
   padding-left: 18px;
 }
 
-.students-list-page .student-list-table th,
-.students-list-page .student-list-table th span,
 .students-list-page .student-total-records,
 .students-list-page .student-page-range,
 .students-list-page .student-list-pagination span {
   font-weight: 400;
+}
+
+.students-list-page .student-list-table th,
+.students-list-page .student-list-table th span {
+  font-weight: 700;
 }
 
 .students-list-page .student-total-records strong {
@@ -5093,7 +5096,7 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--saas-muted);
+  color: var(--saas-text);
 }
 
 .menu-group-toggle {
@@ -5446,6 +5449,26 @@ textarea {
   z-index: 5;
 }
 
+/* Mobile: keep wide record tables (Classes, Marks, Library, etc.) inside their
+   panel instead of stretching the whole page. The wrapper becomes its own
+   bounded scroll box (both axes), so the table pans horizontally AND the header
+   stays pinned — sticky now anchors to the top of this box (top:0) rather than
+   the global top:40px that is calibrated for the .main-area page scroll.
+   Scoped to .enhanced-records-panel so the tuned Students-list / student360
+   table CSS is left untouched. */
+@media (max-width: 900px) {
+  .enhanced-records-panel .table-wrapper {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    max-height: calc(100dvh - 170px);
+  }
+  .enhanced-records-panel .classic-table thead,
+  .enhanced-records-panel .enhanced-records-table thead {
+    top: 0;
+  }
+}
+
 .classic-table th,
 .enhanced-records-table th {
   background: #f8fafc;
@@ -5454,6 +5477,15 @@ textarea {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+/* Vertical separator between column headers, shared by every module's
+   table (they all render through .classic-table/.enhanced-records-table).
+   Excludes the checkbox/column-manager utility columns and the last
+   column, where a trailing divider would look like a stray line. */
+.classic-table th:not(:last-child):not(.student-filter-toggle-cell):not(.records-header-column-manager):not(.records-select-column),
+.enhanced-records-table th:not(:last-child):not(.records-header-column-manager):not(.records-select-column) {
+  border-right: 1px solid var(--saas-border);
 }
 
 .classic-table td,
@@ -6739,7 +6771,7 @@ textarea {
   border-bottom: 1px solid #e2e8f0;
   color: #10213f;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
   height: 54px;
   padding: 0 9px;
   white-space: nowrap;

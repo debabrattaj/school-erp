@@ -32,7 +32,8 @@ ALLOWED_CATEGORIES = [
     "InventoryUnit",
     "SalaryGrade",
     "StudentStatus",
-    "AcademicYear"
+    "AcademicYear",
+    "ResidentialType"
 ]
 
 

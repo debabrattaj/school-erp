@@ -12,6 +12,17 @@ export default function Topbar() {
   const [user, setUser] = useState(getUser());
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  // IDs the user has already opened the panel with. Persisted per-browser so the
+  // unread badge clears on view and stays cleared across polls/reloads (the
+  // notification's is_read column is shared across schools for broadcasts, so we
+  // can't mark it read server-side without affecting everyone).
+  const [seenNotifIds, setSeenNotifIds] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("school_erp_seen_notifs") || "[]"));
+    } catch {
+      return new Set();
+    }
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -114,7 +125,32 @@ export default function Topbar() {
     navigate("/login");
   }
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter(
+    (n) => !n.is_read && !seenNotifIds.has(n.id)
+  ).length;
+
+  function toggleNotifications() {
+    setShowNotifications((prev) => {
+      const opening = !prev;
+      if (opening) {
+        // Mark everything currently shown as seen, so the badge clears on view.
+        setSeenNotifIds((current) => {
+          const next = new Set(current);
+          notifications.forEach((n) => next.add(n.id));
+          try {
+            localStorage.setItem(
+              "school_erp_seen_notifs",
+              JSON.stringify([...next])
+            );
+          } catch {
+            // ignore storage failures (e.g. private mode)
+          }
+          return next;
+        });
+      }
+      return opening;
+    });
+  }
 
   return (
     <header className={scrolled ? "topbar topbar-scrolled" : "topbar"}>
@@ -187,7 +223,7 @@ export default function Topbar() {
           <button
             type="button"
             className="topbar-notify-button"
-            onClick={() => setShowNotifications((prev) => !prev)}
+            onClick={toggleNotifications}
             aria-label={t("Notifications")}
           >
             <Bell size={17} />
