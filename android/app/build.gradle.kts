@@ -23,8 +23,10 @@ android {
 
     buildTypes {
         debug {
-            // Emulator talks to the host machine's localhost via 10.0.2.2.
-            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"http://10.0.2.2:8000\"")
+            // Debug inherits the deployed backend default from defaultConfig
+            // (https://school-erp-api.onrender.com), so the APK works on a real
+            // phone out of the box. For local dev, set the Server address on the
+            // login screen: http://10.0.2.2:8000 (emulator) or your PC's LAN IP.
         }
         release {
             isMinifyEnabled = false
