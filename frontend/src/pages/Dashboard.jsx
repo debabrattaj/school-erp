@@ -106,48 +106,64 @@ export default function Dashboard() {
       value: summary?.total_students || 0,
       note: "Complete student records",
       icon: Users,
+      accent: "#5b4fe9",
+      accent2: "#7b6ff2",
     },
     {
       title: "Active Students",
       value: summary?.active_students || 0,
       note: "Currently enrolled",
       icon: Users,
+      accent: "#0d9488",
+      accent2: "#14b8a6",
     },
     {
       title: "Faculty Strength",
       value: summary?.total_teachers || 0,
       note: "Registered faculty",
       icon: GraduationCap,
+      accent: "#7c3aed",
+      accent2: "#9d5cf5",
     },
     {
       title: "Class Sections",
       value: summary?.total_classes || 0,
       note: "Academic sections",
       icon: BookOpen,
+      accent: "#2563eb",
+      accent2: "#3b82f6",
     },
     {
       title: "Fee Collection",
       value: formatMoney(summary?.total_collection),
       note: `${summary?.collection_percentage || 0}% collected`,
       icon: Wallet,
+      accent: "#16a34a",
+      accent2: "#22c55e",
     },
     {
       title: "Outstanding Due",
       value: formatMoney(summary?.total_due),
       note: "Pending receivables",
       icon: TrendingUp,
+      accent: "#e11d48",
+      accent2: "#f43f5e",
     },
     {
       title: "Today Attendance",
       value: `${summary?.attendance_percentage || 0}%`,
       note: "Present percentage",
       icon: ClipboardCheck,
+      accent: "#0891b2",
+      accent2: "#06b6d4",
     },
     {
       title: "International Students",
       value: summary?.international_students || 0,
       note: "Non-local nationality records",
       icon: School,
+      accent: "#db2777",
+      accent2: "#ec4899",
     },
   ];
 
@@ -187,12 +203,19 @@ export default function Dashboard() {
               const Icon = card.icon;
 
               return (
-                <div className="stat-card premium-card" key={card.title}>
+                <div
+                  className="stat-card premium-card"
+                  key={card.title}
+                  style={{
+                    "--card-accent": card.accent,
+                    "--card-accent-2": card.accent2 || card.accent,
+                  }}
+                >
                   <div className="stat-icon">
                     <Icon size={24} />
                   </div>
 
-                  <div>
+                  <div className="stat-card-body">
                     <p>{card.title}</p>
                     <h3>{card.value}</h3>
                     <span>{card.note}</span>

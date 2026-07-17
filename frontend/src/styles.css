@@ -186,41 +186,86 @@ input {
 }
 
 .stat-card {
+  position: relative;
   background: #ffffff;
   border: 1px solid var(--saas-border);
-  border-radius: 14px;
+  border-radius: 18px;
   padding: 22px;
   display: flex;
   gap: 16px;
+  align-items: center;
   box-shadow: var(--saas-shadow-sm);
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+/* soft accent wash in the top-right corner */
+.stat-card::after {
+  content: "";
+  position: absolute;
+  right: -32px;
+  top: -32px;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: var(--card-accent, var(--saas-primary));
+  opacity: 0.07;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 34px color-mix(in srgb, var(--card-accent, #5b4fe9) 22%, transparent);
+  border-color: color-mix(in srgb, var(--card-accent, #5b4fe9) 42%, var(--saas-border));
+}
+
+.stat-card:hover::after {
+  opacity: 0.13;
+  transform: scale(1.18);
 }
 
 .stat-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background: var(--saas-accent-soft);
-  color: #25324b;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    var(--card-accent, var(--saas-primary)),
+    var(--card-accent-2, var(--saas-accent))
+  );
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--card-accent, #5b4fe9) 38%, transparent);
+}
+
+.stat-card-body {
+  min-width: 0;
 }
 
 .stat-card p {
   margin: 0;
-  color: #697586;
-  font-size: 14px;
+  color: var(--saas-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .stat-card h3 {
-  margin: 6px 0;
-  color: #25324b;
-  font-size: 30px;
+  margin: 4px 0 3px;
+  color: var(--saas-text);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 .stat-card span {
   color: var(--saas-muted);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 /* Panels */
@@ -229,9 +274,14 @@ input {
 .panel {
   background: #ffffff;
   border: 1px solid var(--saas-border);
-  border-radius: 14px;
+  border-radius: 18px;
   padding: 24px;
   box-shadow: var(--saas-shadow-sm);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.panel:hover {
+  box-shadow: var(--saas-shadow-md);
 }
 
 .large-panel {
@@ -2088,7 +2138,29 @@ button {
 }
 
 .premium-card {
-  border-top: 4px solid var(--saas-primary);
+  border-top: 1px solid var(--saas-border);
+}
+
+/* accent bar sweeps in along the top edge on hover */
+.premium-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--card-accent, var(--saas-primary)),
+    var(--card-accent-2, var(--saas-accent))
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s ease;
+}
+
+.premium-card:hover::before {
+  transform: scaleX(1);
 }
 
 .finance-summary {
