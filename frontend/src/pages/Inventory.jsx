@@ -66,6 +66,7 @@ export default function Inventory() {
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
@@ -96,11 +97,12 @@ export default function Inventory() {
     try {
       setLoading(true);
       setMessage("");
-      const [itemResponse, transactionResponse, studentResponse, categoryResponse, unitResponse, yearResponse] =
+      const [itemResponse, transactionResponse, studentResponse, teacherResponse, categoryResponse, unitResponse, yearResponse] =
         await Promise.all([
           API.get("/inventory/items/"),
           API.get("/inventory/transactions/"),
           API.get("/students/"),
+          API.get("/teachers/"),
           getMasterValues("InventoryCategory"),
           getMasterValues("InventoryUnit"),
           getMasterValues("AcademicYear"),
@@ -108,6 +110,7 @@ export default function Inventory() {
       setItems(itemResponse.data || []);
       setTransactions(transactionResponse.data || []);
       setStudents(studentResponse.data || []);
+      setTeachers(teacherResponse.data || []);
       setCategories(categoryResponse || []);
       setUnits(unitResponse || []);
       setAcademicYears(yearResponse || []);
@@ -449,7 +452,22 @@ export default function Inventory() {
                     <div className="form-field"><label>Amount</label><input type="text" value={(Number(transactionForm.unit_price || 0) * Number(transactionForm.quantity || 0)).toFixed(2)} disabled /></div>
                   </>
                 )}
-                <TextField label="Issued To Staff" name="issued_to_staff" value={transactionForm.issued_to_staff} onChange={handleTransactionChange} />
+                <div className="form-field">
+                  <label>Issued To Staff</label>
+                  <select name="issued_to_staff" value={transactionForm.issued_to_staff} onChange={handleTransactionChange}>
+                    <option value="">Select staff</option>
+                    {teachers.map((teacher) => {
+                      const label = [teacher.name, teacher.employee_no ? `(${teacher.employee_no})` : "", teacher.department ? `- ${teacher.department}` : ""]
+                        .filter(Boolean)
+                        .join(" ");
+                      return (
+                        <option key={teacher.id} value={teacher.name}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
                 <TextField label="Reference No" name="reference_no" value={transactionForm.reference_no} onChange={handleTransactionChange} />
                 <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="3" value={transactionForm.remarks} onChange={handleTransactionChange}></textarea></div>
               </div>
