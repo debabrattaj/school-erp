@@ -13,7 +13,12 @@ import {
 import API from "../api";
 import { useSchoolSettings } from "../SettingsContext";
 import { formatMoney as formatMoneyUtil } from "../utils/money";
-import { AttendanceStackedBar, CollectionMeter, CategoryBarChart } from "../components/DashboardCharts";
+import {
+  AttendanceDonut,
+  RadialGauge,
+  TrendArea,
+  CategoryBarChart,
+} from "../components/DashboardCharts";
 
 const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
 
@@ -21,6 +26,7 @@ export default function Dashboard() {
   const { settings } = useSchoolSettings();
 
   const [summary, setSummary] = useState(null);
+  const [trends, setTrends] = useState(null);
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
   const [marks, setMarks] = useState([]);
@@ -45,6 +51,15 @@ export default function Dashboard() {
       setStudents(studentsRes.data);
       setExams(examsRes.data);
       setMarks(marksRes.data);
+
+      // Trends are optional — an older backend may not expose this endpoint, so
+      // fetch separately and never let it fail the rest of the dashboard.
+      try {
+        const trendsRes = await API.get("/dashboard/trends", { params: { days: 14 } });
+        setTrends(trendsRes.data);
+      } catch {
+        setTrends(null);
+      }
     } catch (error) {
       console.error("Dashboard load error:", error);
     } finally {
@@ -225,6 +240,22 @@ export default function Dashboard() {
             })}
           </section>
 
+          <section className="panel trend-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Attendance Trend</h3>
+                <p>Daily present rate over the last 14 days</p>
+              </div>
+              <TrendingUp size={22} />
+            </div>
+            <TrendArea
+              data={trends?.attendance_trend || []}
+              color="#5b4fe9"
+              unit="%"
+              emptyText="No attendance recorded in this window yet."
+            />
+          </section>
+
           <section className="dashboard-grid">
             <div className="panel large-panel">
               <div className="panel-header">
@@ -235,7 +266,7 @@ export default function Dashboard() {
                 <ClipboardCheck size={22} />
               </div>
 
-              <AttendanceStackedBar
+              <AttendanceDonut
                 present={summary?.today_present || 0}
                 absent={summary?.today_absent || 0}
                 late={summary?.today_late || 0}
@@ -252,7 +283,7 @@ export default function Dashboard() {
                 <Wallet size={22} />
               </div>
 
-              <CollectionMeter
+              <RadialGauge
                 percentage={summary?.collection_percentage || 0}
                 collected={summary?.total_collection}
                 due={summary?.total_due}

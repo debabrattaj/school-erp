@@ -3115,6 +3115,39 @@ body,
   color: var(--saas-muted, #667085);
 }
 
+/* Donut: ring beside a compact legend grid */
+.chart-donut-block {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.chart-donut {
+  flex-shrink: 0;
+}
+
+.chart-legend-grid {
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.chart-legend-grid li {
+  font-size: 13.5px;
+}
+
+.chart-gauge {
+  display: flex;
+  justify-content: center;
+}
+
+/* Full-width trend panel above the grid */
+.trend-panel {
+  margin-top: 20px;
+}
+
 .chart-meter-row {
   display: flex;
   align-items: center;

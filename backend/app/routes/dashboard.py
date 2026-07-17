@@ -174,3 +174,88 @@ def dashboard_summary(
             for mark in top_marks
         ]
     }
+
+
+@router.get("/trends")
+def dashboard_trends(
+    days: int = 14,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(["Admin", "Principal", "Accounts", "Teacher"])
+    ),
+):
+    """Time-series for the dashboard: daily attendance % over the last `days`
+    days, and new admissions per month over the last 6 months."""
+    days = max(7, min(days, 60))
+    today = date.today()
+
+    # ---- Daily attendance % ----
+    # Anchor the window to the most recent day that actually has attendance, so
+    # the trend always shows real data (in normal use that latest day is today).
+    latest = db.query(func.max(Attendance.attendance_date)).scalar()
+    anchor = latest if (latest and latest < today) else today
+    start = anchor - timedelta(days=days - 1)
+    records = (
+        db.query(Attendance.attendance_date, Attendance.status)
+        .filter(
+            Attendance.attendance_date >= start,
+            Attendance.attendance_date <= anchor,
+        )
+        .all()
+    )
+    per_day: dict = {}
+    for att_date, status in records:
+        if att_date is None:
+            continue
+        bucket = per_day.setdefault(att_date, {"present": 0.0, "total": 0})
+        bucket["total"] += 1
+        if status in ("Present", "Late"):
+            bucket["present"] += 1
+        elif status == "Half Day":
+            bucket["present"] += 0.5
+
+    attendance_trend = []
+    for i in range(days):
+        day = start + timedelta(days=i)
+        bucket = per_day.get(day)
+        pct = (
+            round((bucket["present"] / bucket["total"]) * 100, 1)
+            if bucket and bucket["total"]
+            else None
+        )
+        attendance_trend.append(
+            {"date": day.isoformat(), "percentage": pct, "total": bucket["total"] if bucket else 0}
+        )
+
+    # ---- New admissions per month (last 6 months) ----
+    def month_key(d: date) -> str:
+        return f"{d.year}-{d.month:02d}"
+
+    months = []
+    cursor = date(today.year, today.month, 1)
+    for _ in range(6):
+        months.append(cursor)
+        # step back one month
+        if cursor.month == 1:
+            cursor = date(cursor.year - 1, 12, 1)
+        else:
+            cursor = date(cursor.year, cursor.month - 1, 1)
+    months.reverse()
+    month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    admission_dates = (
+        db.query(Student.admission_date)
+        .filter(Student.admission_date.isnot(None), Student.admission_date >= months[0])
+        .all()
+    )
+    counts: dict = {}
+    for (adm,) in admission_dates:
+        if adm:
+            counts[month_key(adm)] = counts.get(month_key(adm), 0) + 1
+
+    admissions_trend = [
+        {"month": f"{month_labels[m.month - 1]}", "label": f"{month_labels[m.month - 1]} {m.year}", "count": counts.get(month_key(m), 0)}
+        for m in months
+    ]
+
+    return {"attendance_trend": attendance_trend, "admissions_trend": admissions_trend}
