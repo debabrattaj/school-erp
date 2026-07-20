@@ -61,6 +61,14 @@ SQLite databases:
   payment page, depends on `app/payment_links.py`'s signed-token scheme),
   and the dashboard report engine's hostel/transport/library sources
   (those route modules aren't ported yet either).
+- `/communications` — template CRUD (`/templates/`) and message-log CRUD
+  (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
+  routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported
+  `WhatsAppService` (`app/whatsapp.py`, Twilio API, log-only fallback when
+  unconfigured), In App auto-marked Sent — matches `deliver_message`'s
+  per-channel dispatch in `routes/communications.py` exactly, including
+  `email_subject_for`'s template-subject → category → generic-fallback
+  chain and the log response's joined `template_name` field.
 
 ### Verified manually
 
@@ -79,7 +87,7 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 Everything else in `backend/app/routes/`: accounts, hostel, transport,
 health-infirmary, mess, library, inventory, accounting,
-international-documents, multi-curriculum, communications,
+international-documents, multi-curriculum,
 student-services, alumni-withdrawals, counseling, enrichment, compliance,
 uploads, certificates, portal, chatbot, platform (owner console), search,
 module-custom-fields, module-layouts,
