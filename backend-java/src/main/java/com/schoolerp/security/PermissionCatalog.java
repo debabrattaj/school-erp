@@ -1,6 +1,7 @@
 package com.schoolerp.security;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -21,6 +22,44 @@ public final class PermissionCatalog {
     private PermissionCatalog() {}
 
     public static final Set<String> WRITE_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
+
+    /** Grantable modules (feature keys) shown in the role editor. */
+    public record ModuleEntry(String key, String label) {}
+
+    public static final List<ModuleEntry> MODULES = List.of(
+            new ModuleEntry("dashboard", "Dashboard"),
+            new ModuleEntry("students", "Students"),
+            new ModuleEntry("teachers", "Teachers"),
+            new ModuleEntry("classes", "Classes"),
+            new ModuleEntry("attendance", "Attendance"),
+            new ModuleEntry("fees", "Fees"),
+            new ModuleEntry("accounting", "Accounts"),
+            new ModuleEntry("exams", "Exams"),
+            new ModuleEntry("marks", "Marks"),
+            new ModuleEntry("timetable", "Timetable"),
+            new ModuleEntry("admissions", "Admissions"),
+            new ModuleEntry("parent_communication", "Communication"),
+            new ModuleEntry("student_services", "Student Services"),
+            new ModuleEntry("counseling", "Counseling"),
+            new ModuleEntry("enrichment", "Enrichment"),
+            new ModuleEntry("compliance", "Compliance"),
+            new ModuleEntry("international_documents", "International Documents"),
+            new ModuleEntry("multi_curriculum", "Multi-Curriculum"),
+            new ModuleEntry("academic_years", "Academic Years"),
+            new ModuleEntry("hostel", "Hostel"),
+            new ModuleEntry("transport", "Transport"),
+            new ModuleEntry("health_infirmary", "Health Infirmary"),
+            new ModuleEntry("mess_management", "Mess Management"),
+            new ModuleEntry("library", "Library"),
+            new ModuleEntry("inventory", "Inventory"),
+            new ModuleEntry("alumni_withdrawals", "Alumni & Exit"),
+            new ModuleEntry("reports", "Reports"),
+            new ModuleEntry("master_data", "Master Data"),
+            new ModuleEntry("users", "User Management"),
+            new ModuleEntry("settings", "Settings")
+    );
+
+    public static final Set<String> MODULE_KEYS = MODULES.stream().map(ModuleEntry::key).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     /** Map a request path prefix to a feature key. Longest prefix wins. */
     public static final Map<String, String> PATH_FEATURE_MAP = new LinkedHashMap<>();
