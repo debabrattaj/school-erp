@@ -2,12 +2,9 @@ package com.schoolerp.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-/**
- * Minimal port of models.py's StudentEnrollment: only the fields needed by
- * academic_years.py's enrollment-count guards on close/delete. The full
- * student_enrollments.py CRUD module is not ported yet.
- */
+/** Direct port of models.py's StudentEnrollment. */
 @Entity
 @Table(name = "student_enrollments")
 public class StudentEnrollment {
@@ -33,6 +30,17 @@ public class StudentEnrollment {
     private LocalDate startDate;
     private LocalDate endDate;
     private String remarks;
+
+    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime v) { this.createdAt = v; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime v) { this.updatedAt = v; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

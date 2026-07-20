@@ -45,8 +45,12 @@ SQLite databases:
   (`/summary`, `/trends`, the whitelisted `/report` aggregation engine for
   students/fees/attendance/marks/teachers, and per-user `/layout`),
   `/fees` (billing, bulk class-fee creation resolved against fee
-  structures, UPI payment link + confirmation) and `/fee-structures`
-  (specificity-ordered lookup, class-wide split-by-residential-type lookup).
+  structures, UPI payment link + confirmation), `/fee-structures`
+  (specificity-ordered lookup, class-wide split-by-residential-type lookup),
+  and `/student-enrollments` (create/list/update/delete, sync-from-profile,
+  class promotion, full year-end processing with promote/detain/graduate
+  actions and optional fee carry-forward, and mark-based promotion
+  suggestions).
   Not yet ported: students' CSV bulk-import endpoints, the new-admission/
   new-fee notification side effects, `GET /marks/report-card`,
   `GET /timetable/pdf`, and `GET /fees/{id}/receipt` (all depend on the
@@ -70,16 +74,13 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: student-enrollments, accounts,
-hostel, transport, health-infirmary, mess, library, inventory, accounting,
-admissions (+ workflow/assessments), international-documents,
-multi-curriculum, communications, student-services, alumni-withdrawals,
-counseling, enrichment, compliance, uploads, certificates, portal, chatbot,
-platform (owner console), search, module-custom-fields, module-layouts,
-student-custom-fields. A minimal
-`StudentEnrollment` entity exists only for the enrollment-count guards
-`academic_years.py` needs — the full student-enrollments CRUD module is
-still unported.
+Everything else in `backend/app/routes/`: accounts, hostel, transport,
+health-infirmary, mess, library, inventory, accounting, admissions
+(+ workflow/assessments), international-documents, multi-curriculum,
+communications, student-services, alumni-withdrawals, counseling,
+enrichment, compliance, uploads, certificates, portal, chatbot, platform
+(owner console), search, module-custom-fields, module-layouts,
+student-custom-fields.
 
 ## Pattern for porting a module (and gotchas hit so far)
 
