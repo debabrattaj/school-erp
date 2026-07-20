@@ -113,6 +113,11 @@ public class TenantDataSourceManager {
                 .applySetting(AvailableSettings.DATASOURCE, dataSource)
                 .applySetting(AvailableSettings.DIALECT, DatabaseUrls.dialectFor(url))
                 .applySetting(AvailableSettings.HBM2DDL_AUTO, "update")
+                // See CentralPersistenceConfig for why: SQLite's JDBC driver
+                // trips its own compound-SELECT term limit once there are
+                // enough entities and Hibernate fetches column metadata in
+                // "grouped" (single UNION query) mode.
+                .applySetting("hibernate.hbm2ddl.jdbc_metadata_extraction_strategy", "individually")
                 // Must match TenantPersistenceConfig's naming strategy exactly,
                 // or the DDL generated here (for a fresh tenant DB) won't match
                 // what the runtime multi-tenant EntityManagerFactory expects.

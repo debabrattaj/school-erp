@@ -91,6 +91,23 @@ SQLite databases:
   must match the assignment's route, assigned/available-seat counts on the
   vehicle response). All four follow the same explicit find-before-insert
   uniqueness pattern established for composite constraints.
+- `/library` (book CRUD, issue/return CRUD that decrements/increments
+  `available_copies` exactly like the Python original, including the
+  status-transition edge cases in `update_issue`), `/inventory` (item CRUD,
+  stock-transaction CRUD implementing `apply_stock`'s three-way branch for
+  IN/OUT/Adjustment transaction types, and `/bulk-issue` — the per-item,
+  per-student cycle+academic-year duplicate-skip and insufficient-stock-skip
+  logic, ported field-for-field including the required-quantity check
+  before touching any stock), `/accounting` (`/summary` and `/ledger`
+  aggregating fee payments + inventory purchases + manual entries into a
+  unified income/expense view with a monthly breakdown, `/export/tally`
+  generating the same Tally-import XML voucher format byte-for-byte
+  including the Receipt/Payment debit-credit sign convention, and manual
+  ledger-entry CRUD with a `Map<String,Object>` partial-update endpoint
+  matching `exclude_unset=True`), `/international-documents` (passport/visa
+  document CRUD with student-joined response), and `/multi-curriculum`
+  (curriculum-plan CRUD across IB/Cambridge/CBSE/etc. tracks with an
+  optional class link and computed `class_display` field).
 
 ### Verified manually
 
@@ -107,10 +124,8 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: library, inventory, accounting,
-international-documents, multi-curriculum,
-uploads, certificates, portal, chatbot, search,
-module-custom-fields, module-layouts,
+Everything else in `backend/app/routes/`: uploads, certificates, portal,
+chatbot, search, module-custom-fields, module-layouts,
 student-custom-fields.
 
 `accounts` (school-account CRUD, feature-flag management) is deliberately
@@ -207,6 +222,21 @@ something Just Doesn't Work:**
    safety net, but that net has a generic, non-Python-matching message, so
    treat hitting it as a bug to fix with a proper pre-check, not a working
    feature.
+
+**SQLite's compound-SELECT term limit breaks schema bootstrap once the
+entity count grows large enough — hit at ~49 entities, will recur if more
+are added and this setting is ever lost.** Hibernate's schema migrator
+fetches every table's column metadata in one batch by default ("grouped"
+mode), which on SQLite means the JDBC driver builds a single SQL statement
+that's effectively a UNION across every table. Past a certain entity count
+this exceeds SQLite's `SQLITE_LIMIT_COMPOUND_SELECT`, and the app fails to
+boot with `[SQLITE_ERROR] SQL error or missing database (too many terms in
+compound SELECT)`. Fixed by setting
+`hibernate.hbm2ddl.jdbc_metadata_extraction_strategy=individually` (forces
+one query per table instead of one big grouped query) in both
+`CentralPersistenceConfig` and `TenantDataSourceManager.ensureSchema()` —
+must be set in both places, same as the naming-strategy properties, for
+the same "throwaway bootstrap SessionFactory vs. runtime EMF" reason.
 
 ## Running locally
 

@@ -76,6 +76,12 @@ public class CentralPersistenceConfig {
 
         Map<String, Object> props = new HashMap<>();
         props.put("hibernate.hbm2ddl.auto", "update");
+        // SQLite's JDBC driver builds a single UNION query across every table
+        // when Hibernate's schema migrator fetches column metadata in "grouped"
+        // mode (the default); with enough tables that trips SQLite's compound
+        // SELECT term limit ("too many terms in compound SELECT"). Forcing
+        // per-table ("individually") queries avoids it.
+        props.put("hibernate.hbm2ddl.jdbc_metadata_extraction_strategy", "individually");
         props.put("hibernate.dialect", DatabaseUrls.dialectFor(properties.getTenant().getCentralDatabaseUrl()));
         // See TenantPersistenceConfig for why this is required (Spring Boot's
         // Hibernate auto-configuration is disabled, so its snake_case naming
