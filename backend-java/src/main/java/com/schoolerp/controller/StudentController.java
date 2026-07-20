@@ -3,19 +3,32 @@ package com.schoolerp.controller;
 import com.schoolerp.dto.student.StudentCreate;
 import com.schoolerp.entity.Student;
 import com.schoolerp.exception.ApiException;
+import com.schoolerp.repository.SchoolClassRepository;
 import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
 import com.schoolerp.service.NotificationService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.PushbackReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Direct port of backend/app/routes/students.py.
- *
- * Not yet ported: bulk-import / bulk-import-template (CSV import).
  */
 @RestController
 @RequestMapping("/students")
@@ -24,12 +37,25 @@ public class StudentController {
     private static final List<String> VALID_STATUSES = List.of("Active", "Graduated", "Transferred", "Suspended", "Alumni");
     private static final List<String> VALID_GENDERS = List.of("Male", "Female", "Other");
 
+    private static final List<String> BULK_IMPORT_COLUMNS = List.of(
+            "admission_no", "first_name", "last_name", "gender", "dob", "class_name", "section",
+            "roll_no", "admission_date", "student_status", "father_name", "mother_name",
+            "guardian_name", "guardian_phone", "guardian_email", "nationality", "blood_group"
+    );
+
     private final StudentRepository studentRepository;
+    private final SchoolClassRepository schoolClassRepository;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
 
-    public StudentController(StudentRepository studentRepository, PermissionService permissionService, NotificationService notificationService) {
+    public StudentController(
+            StudentRepository studentRepository,
+            SchoolClassRepository schoolClassRepository,
+            PermissionService permissionService,
+            NotificationService notificationService
+    ) {
         this.studentRepository = studentRepository;
+        this.schoolClassRepository = schoolClassRepository;
         this.permissionService = permissionService;
         this.notificationService = notificationService;
     }
@@ -67,6 +93,272 @@ public class StudentController {
         student = studentRepository.save(student);
         notificationService.notifyClassTeacherNewStudent(student);
         return student;
+    }
+
+    @GetMapping("/bulk-import-template")
+    public ResponseEntity<byte[]> bulkImportTemplate() {
+        permissionService.requireRoles("Admin", "Principal");
+
+        Map<String, String> sample = new LinkedHashMap<>();
+        sample.put("admission_no", "ADM2026101");
+        sample.put("first_name", "Jane");
+        sample.put("last_name", "Doe");
+        sample.put("gender", "Female");
+        sample.put("dob", "2012-05-14");
+        sample.put("class_name", "8");
+        sample.put("section", "A");
+        sample.put("roll_no", "21");
+        sample.put("admission_date", "2026-04-01");
+        sample.put("student_status", "Active");
+        sample.put("father_name", "John Doe");
+        sample.put("mother_name", "Mary Doe");
+        sample.put("guardian_name", "John Doe");
+        sample.put("guardian_phone", "9876543210");
+        sample.put("guardian_email", "john.doe@example.com");
+        sample.put("nationality", "Indian");
+        sample.put("blood_group", "O+");
+
+        StringWriter buf = new StringWriter();
+        buf.write(String.join(",", BULK_IMPORT_COLUMNS));
+        buf.write("\r\n");
+        buf.write(BULK_IMPORT_COLUMNS.stream().map(sample::get).map(this::csvField).reduce((a, b) -> a + "," + b).orElse(""));
+        buf.write("\r\n");
+
+        byte[] body = buf.toString().getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=students_import_template.csv")
+                .body(body);
+    }
+
+    @PostMapping("/bulk-import")
+    public Map<String, Object> bulkImportStudents(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(name = "dry_run", defaultValue = "false") boolean dryRun
+    ) {
+        permissionService.requireRoles("Admin", "Principal");
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+            throw ApiException.badRequest("Please upload a .csv file");
+        }
+
+        String text;
+        try {
+            byte[] raw = file.getBytes();
+            text = new String(raw, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw ApiException.badRequest("File must be UTF-8 encoded");
+        }
+        if (!text.isEmpty() && text.charAt(0) == '﻿') {
+            text = text.substring(1);
+        }
+
+        List<Map<String, String>> rows;
+        List<String> header;
+        try (Reader reader = new java.io.StringReader(text)) {
+            List<List<String>> raw = parseCsv(reader);
+            if (raw.isEmpty()) {
+                throw ApiException.badRequest("CSV file is empty or missing a header row");
+            }
+            header = raw.get(0);
+            rows = new ArrayList<>();
+            for (int i = 1; i < raw.size(); i++) {
+                List<String> line = raw.get(i);
+                Map<String, String> row = new LinkedHashMap<>();
+                for (int c = 0; c < header.size(); c++) {
+                    row.put(header.get(c), c < line.size() ? line.get(c) : null);
+                }
+                rows.add(row);
+            }
+        } catch (IOException e) {
+            throw ApiException.badRequest("CSV file is empty or missing a header row");
+        }
+
+        List<String> unknownColumns = header.stream().filter(c -> !BULK_IMPORT_COLUMNS.contains(c)).toList();
+
+        Map<String, Long> classLookup = new LinkedHashMap<>();
+        for (var schoolClass : schoolClassRepository.findAll()) {
+            classLookup.put(
+                    schoolClass.getClassName().strip().toLowerCase() + " " + schoolClass.getSection().strip().toLowerCase(),
+                    schoolClass.getId()
+            );
+        }
+
+        Set<String> seenAdmissionNos = new java.util.HashSet<>();
+        List<Map<String, Object>> errors = new ArrayList<>();
+        List<StudentCreate> toCreate = new ArrayList<>();
+        int rowIndex = 1;
+
+        for (Map<String, String> rawRow : rows) {
+            rowIndex++;
+
+            Map<String, String> cleaned = new LinkedHashMap<>();
+            for (String col : BULK_IMPORT_COLUMNS) {
+                String v = rawRow.get(col);
+                if (v != null) v = v.strip();
+                cleaned.put(col, (v == null || v.isEmpty()) ? null : v);
+            }
+
+            String admissionNo = cleaned.get("admission_no");
+            if (admissionNo == null) {
+                errors.add(rowError(rowIndex, "admission_no is required"));
+                continue;
+            }
+            if (cleaned.get("first_name") == null) {
+                errors.add(rowError(rowIndex, "first_name is required"));
+                continue;
+            }
+            if (seenAdmissionNos.contains(admissionNo)) {
+                errors.add(rowError(rowIndex, "Duplicate admission_no in file: " + admissionNo));
+                continue;
+            }
+            if (studentRepository.findByAdmissionNo(admissionNo).isPresent()) {
+                errors.add(rowError(rowIndex, "admission_no already exists: " + admissionNo));
+                continue;
+            }
+            if (cleaned.get("student_status") != null && !VALID_STATUSES.contains(cleaned.get("student_status"))) {
+                errors.add(rowError(rowIndex, "Invalid student_status: " + cleaned.get("student_status")));
+                continue;
+            }
+            if (cleaned.get("gender") != null && !VALID_GENDERS.contains(cleaned.get("gender"))) {
+                errors.add(rowError(rowIndex, "Invalid gender: " + cleaned.get("gender")));
+                continue;
+            }
+
+            String className = cleaned.get("class_name");
+            String section = cleaned.get("section");
+            Long classId = null;
+            if (className != null) {
+                if (section == null) {
+                    errors.add(rowError(rowIndex, "section is required when class_name is provided"));
+                    continue;
+                }
+                classId = classLookup.get(className.strip().toLowerCase() + " " + section.strip().toLowerCase());
+                if (classId == null) {
+                    errors.add(rowError(rowIndex, "No matching class found for class_name='" + className + "', section='" + section + "'"));
+                    continue;
+                }
+            }
+
+            StudentCreate validated = new StudentCreate();
+            validated.setAdmissionNo(admissionNo);
+            validated.setFirstName(cleaned.get("first_name"));
+            validated.setLastName(cleaned.get("last_name"));
+            validated.setGender(cleaned.get("gender"));
+            validated.setClassName(className);
+            validated.setSection(section);
+            validated.setClassId(classId);
+            validated.setRollNo(cleaned.get("roll_no"));
+            validated.setStudentStatus(cleaned.get("student_status") != null ? cleaned.get("student_status") : "Active");
+            validated.setFatherName(cleaned.get("father_name"));
+            validated.setMotherName(cleaned.get("mother_name"));
+            validated.setGuardianName(cleaned.get("guardian_name"));
+            validated.setGuardianPhone(cleaned.get("guardian_phone"));
+            validated.setGuardianEmail(cleaned.get("guardian_email"));
+            validated.setNationality(cleaned.get("nationality"));
+            validated.setBloodGroup(cleaned.get("blood_group"));
+
+            try {
+                if (cleaned.get("dob") != null) validated.setDob(LocalDate.parse(cleaned.get("dob")));
+                if (cleaned.get("admission_date") != null) validated.setAdmissionDate(LocalDate.parse(cleaned.get("admission_date")));
+            } catch (DateTimeParseException e) {
+                errors.add(rowError(rowIndex, "Invalid date format (use YYYY-MM-DD)"));
+                continue;
+            }
+
+            seenAdmissionNos.add(admissionNo);
+            toCreate.add(validated);
+        }
+
+        int createdCount = 0;
+        if (!dryRun) {
+            for (StudentCreate validated : toCreate) {
+                Student student = new Student();
+                validated.applyTo(student);
+                // Matches Python: bulk-import stores roll_no exactly as given in the
+                // CSV (including null/blank) - no next_roll_no auto-assignment, unlike
+                // the single-row POST /students endpoint.
+                student.setRollNo(validated.getRollNo());
+                studentRepository.save(student);
+            }
+            createdCount = toCreate.size();
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total_rows", rowIndex - 1);
+        result.put("created", dryRun ? 0 : createdCount);
+        result.put("valid_rows", toCreate.size());
+        result.put("errors", errors);
+        result.put("dry_run", dryRun);
+        result.put("unknown_columns", unknownColumns);
+        return result;
+    }
+
+    private Map<String, Object> rowError(int row, String error) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("row", row);
+        m.put("error", error);
+        return m;
+    }
+
+    private String csvField(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    /**
+     * Minimal RFC 4180 CSV parser: handles quoted fields (including embedded
+     * commas/newlines and "" escaped quotes) and CRLF/LF line endings.
+     */
+    private List<List<String>> parseCsv(Reader input) throws IOException {
+        PushbackReader reader = new PushbackReader(input, 1);
+        List<List<String>> rows = new ArrayList<>();
+        List<String> currentRow = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean inQuotes = false;
+        boolean sawAnyChar = false;
+        int ch;
+        while ((ch = reader.read()) != -1) {
+            sawAnyChar = true;
+            if (inQuotes) {
+                if (ch == '"') {
+                    int next = reader.read();
+                    if (next == '"') {
+                        field.append('"');
+                    } else {
+                        inQuotes = false;
+                        if (next != -1) reader.unread(next);
+                    }
+                } else {
+                    field.append((char) ch);
+                }
+                continue;
+            }
+            switch (ch) {
+                case '"' -> inQuotes = true;
+                case ',' -> {
+                    currentRow.add(field.toString());
+                    field.setLength(0);
+                }
+                case '\r' -> { /* ignore; \n (if present) ends the row */ }
+                case '\n' -> {
+                    currentRow.add(field.toString());
+                    field.setLength(0);
+                    rows.add(currentRow);
+                    currentRow = new ArrayList<>();
+                }
+                default -> field.append((char) ch);
+            }
+        }
+        if (sawAnyChar && (field.length() > 0 || !currentRow.isEmpty())) {
+            currentRow.add(field.toString());
+            rows.add(currentRow);
+        }
+        return rows;
     }
 
     @GetMapping({"", "/"})

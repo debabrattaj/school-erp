@@ -68,10 +68,11 @@ SQLite databases:
   notification hooks, exactly like the Python source's shared
   `deliver_message()` free function.
   `GET /marks/report-card`, `GET /timetable/pdf`, and `GET
-  /fees/{id}/receipt` are ported too — see `PdfService` below. Not yet
-  ported: students' CSV bulk-import endpoints, and `GET /fees/{id}/pay`
-  (the public guardian payment page itself — the signed token it validates
-  is ported and generated correctly, just not yet consumed by a page).
+  /fees/{id}/receipt` are ported too — see `PdfService` below.
+  `GET /fees/{id}/pay` (the public, no-login guardian payment page opened
+  from the link above) and students' `GET /bulk-import-template` /
+  `POST /bulk-import` are also ported — see "What's not ported yet" below,
+  which is now empty.
 - `PdfService` — a full port of `app/pdf.py`'s seven PDF generators (fee
   receipt, report card, transcript, timetable grid, bonafide certificate,
   transfer certificate, student ID card) using iText7 instead of reportlab.
@@ -259,11 +260,18 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Every route module is now ported, including `accounts` + `platform`. The
-only remaining known gaps are students' CSV bulk-import endpoints and
-`GET /fees/{id}/pay` (the public guardian payment page itself — the
-signed token scheme it would validate is fully ported in
-`PaymentLinkService`, just not yet consumed by an actual page/endpoint).
+Every route module and endpoint is now ported, including `accounts` +
+`platform`, students' CSV bulk-import (`GET /students/bulk-import-template`,
+`POST /students/bulk-import` — a hand-rolled RFC 4180 CSV parser since the
+project has no CSV library dependency; matches Python's row-by-row
+validation exactly, including the subtle rule that a row skipped for a
+missing required field never gets added to the in-file duplicate-
+admission-no set, so a later row can reuse that admission_no), and
+`GET /fees/{id}/pay` (the public, no-login guardian payment page opened
+from a WhatsApp/SMS link — QR code generated with zxing instead of the
+`qrcode` Python package, HTML response built the same inline-styled way,
+with output values HTML-escaped on the Java side as a deliberate small
+hardening the Python original doesn't have). Nothing is deferred.
 
 ## Pattern for porting a module (and gotchas hit so far)
 

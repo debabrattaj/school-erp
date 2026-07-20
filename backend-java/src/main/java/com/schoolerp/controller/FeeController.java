@@ -13,10 +13,20 @@ import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
 import com.schoolerp.service.FeeService;
 import com.schoolerp.service.NotificationService;
+import com.schoolerp.service.PaymentLinkService;
 import com.schoolerp.service.PdfService;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -24,10 +34,7 @@ import java.util.*;
 
 /**
  * Direct port of backend/app/routes/fees.py's core CRUD, PDF receipt, and
- * UPI payment endpoints. Not yet ported: GET /fees/{id}/pay (public
- * guardian payment page with a QR code, depends on the not-yet-ported
- * app/payment_links.py signed-token scheme) - peripheral to the core
- * billing flow.
+ * UPI payment endpoints.
  */
 @RestController
 @RequestMapping("/fees")
@@ -45,6 +52,7 @@ public class FeeController {
     private final NotificationService notificationService;
     private final PdfService pdfService;
     private final FeeService feeService;
+    private final PaymentLinkService paymentLinkService;
 
     public FeeController(
             FeeRepository feeRepository,
@@ -53,7 +61,8 @@ public class FeeController {
             PermissionService permissionService,
             NotificationService notificationService,
             PdfService pdfService,
-            FeeService feeService
+            FeeService feeService,
+            PaymentLinkService paymentLinkService
     ) {
         this.feeRepository = feeRepository;
         this.studentRepository = studentRepository;
@@ -62,6 +71,7 @@ public class FeeController {
         this.notificationService = notificationService;
         this.pdfService = pdfService;
         this.feeService = feeService;
+        this.paymentLinkService = paymentLinkService;
     }
 
     @PostMapping({"", "/"})
@@ -375,6 +385,68 @@ public class FeeController {
         return body;
     }
 
+    /** Public, no-login payment page a guardian opens from a WhatsApp/SMS link. */
+    @GetMapping("/{feeId}/pay")
+    public ResponseEntity<String> publicPaymentPage(@PathVariable Long feeId, @RequestParam String token) {
+        if (!paymentLinkService.verifyPaymentLinkToken(feeId, token)) {
+            return paymentPage(
+                    "<h2>This payment link is invalid or has expired.</h2>"
+                            + "<p>Please contact the school office for a new link.</p>",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        Fee fee = feeRepository.findById(feeId).orElse(null);
+        if (fee == null) {
+            return paymentPage("<h2>Fee record not found.</h2>", HttpStatus.NOT_FOUND);
+        }
+
+        double balance = Math.max(nz(fee.getTotalAmount()) - nz(fee.getPaidAmount()), 0);
+        if (balance <= 0) {
+            return paymentPage("<h2>This fee is already fully paid.</h2><p>Thank you!</p>", HttpStatus.OK);
+        }
+
+        SchoolSettings settings = feeService.getOrCreateSettings();
+        String upiId = schoolUpiId(settings);
+        if (upiId.isEmpty()) {
+            return paymentPage("<h2>Online payment is not available for this school right now.</h2>", HttpStatus.BAD_REQUEST);
+        }
+
+        Student student = studentRepository.findById(fee.getStudentId()).orElse(null);
+        String studentLabel = "-";
+        if (student != null) {
+            studentLabel = (nzStr(student.getFirstName()) + " " + nzStr(student.getLastName())).trim();
+        }
+
+        String payeeName = settings.getSchoolName() != null ? settings.getSchoolName() : "School";
+        String note = ("Fee #" + fee.getId() + " " + (fee.getFeeType() != null ? fee.getFeeType() : "")).trim();
+        String truncatedNote = note.length() > 80 ? note.substring(0, 80) : note;
+        String uri = buildUpiUri(upiId, payeeName, balance, truncatedNote);
+        String qrBase64 = generateQrCodeBase64(uri);
+
+        String body = String.format(Locale.ROOT, """
+                <h2>Pay via UPI</h2>
+                <p>%s &mdash; %s</p>
+                <img src="data:image/png;base64,%s" alt="UPI payment QR code" style="width:220px;height:220px;" />
+                <p style="font-size:1.3rem;margin:10px 0 2px;"><strong>Rs. %.2f</strong></p>
+                <p style="margin:0;color:#667085;">to <strong>%s</strong> (%s)</p>
+                <p style="margin-top:16px;">
+                  <a href="%s" style="display:inline-block;padding:12px 22px;background:#1e293b;color:#fff;border-radius:8px;text-decoration:none;">Open in UPI app</a>
+                </p>
+                <p style="color:#667085;font-size:0.85rem;margin-top:24px;">
+                  After paying, please share the transaction reference with the school office to get your receipt.
+                </p>
+                """,
+                escapeHtml(fee.getFeeType() != null ? fee.getFeeType() : "Fee"),
+                escapeHtml(studentLabel),
+                qrBase64,
+                balance,
+                escapeHtml(upiId),
+                escapeHtml(payeeName),
+                uri);
+
+        return paymentPage(body, HttpStatus.OK);
+    }
+
     @GetMapping("/{feeId}/payment/upi")
     public Map<String, Object> upiPaymentDetails(@PathVariable Long feeId) {
         permissionService.requireRoles("Admin", "Accounts", "Principal");
@@ -488,6 +560,37 @@ public class FeeController {
 
     private double nz(Double value) {
         return value == null ? 0 : value;
+    }
+
+    private String nzStr(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private ResponseEntity<String> paymentPage(String bodyHtml, HttpStatus status) {
+        String html = "<!doctype html>\n<html>\n<head>\n"
+                + "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "  <title>Fee Payment</title>\n</head>\n"
+                + "<body style=\"font-family:system-ui,sans-serif;text-align:center;padding:32px 20px;"
+                + "max-width:420px;margin:0 auto;color:#1e293b;\">\n  " + bodyHtml + "\n</body>\n</html>";
+        return ResponseEntity.status(status).contentType(MediaType.TEXT_HTML).body(html);
+    }
+
+    private String generateQrCodeBase64(String content) {
+        try {
+            BitMatrix matrix = new QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 220, 220);
+            BufferedImage image = MatrixToImageWriter.toBufferedImage(matrix);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(image, "PNG", out);
+            return Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private String str(Object value) {
