@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.JpaVendorAdapter;
@@ -32,6 +33,20 @@ import java.util.Map;
         transactionManagerRef = "centralTransactionManager"
 )
 public class CentralPersistenceConfig {
+
+    /**
+     * Translates Hibernate's raw ConstraintViolationException into Spring's
+     * DataIntegrityViolationException on @Repository beans, so
+     * catch (DataIntegrityViolationException) in controllers actually
+     * catches something. Spring Boot normally registers this
+     * automatically via PersistenceExceptionTranslationAutoConfiguration,
+     * but that's implicitly disabled by excluding HibernateJpaAutoConfiguration
+     * for the manual multi-tenant setup, so it must be declared explicitly.
+     */
+    @Bean
+    public static PersistenceExceptionTranslationPostProcessor persistenceExceptionTranslationPostProcessor() {
+        return new PersistenceExceptionTranslationPostProcessor();
+    }
 
     @Bean
     public DataSource centralDataSource(SchoolErpProperties properties) {
@@ -62,6 +77,11 @@ public class CentralPersistenceConfig {
         Map<String, Object> props = new HashMap<>();
         props.put("hibernate.hbm2ddl.auto", "update");
         props.put("hibernate.dialect", DatabaseUrls.dialectFor(properties.getTenant().getCentralDatabaseUrl()));
+        // See TenantPersistenceConfig for why this is required (Spring Boot's
+        // Hibernate auto-configuration is disabled, so its snake_case naming
+        // strategy must be wired in manually).
+        props.put("hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy");
+        props.put("hibernate.implicit_naming_strategy", "org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy");
         emf.setJpaPropertyMap(props);
         return emf;
     }

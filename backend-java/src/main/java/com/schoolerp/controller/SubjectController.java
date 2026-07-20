@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Direct port of backend/app/routes/subjects.py (subjects, class-subjects, class-exam-mappings). */
 @RestController
@@ -57,30 +58,32 @@ public class SubjectController {
 
     @PostMapping({"/subjects", "/subjects/"})
     public SubjectMaster createSubject(@Valid @RequestBody SubjectCreate payload) {
+        subjectMasterRepository.findBySubjectCode(payload.getSubjectCode())
+                .ifPresent(existing -> { throw ApiException.badRequest("Subject code already exists"); });
+
         SubjectMaster subject = new SubjectMaster();
         subject.setSubjectCode(payload.getSubjectCode());
         subject.setSubjectName(payload.getSubjectName());
         subject.setSubjectType(payload.getSubjectType());
         subject.setActive(Boolean.TRUE.equals(payload.getIsActive()));
-        try {
-            return subjectMasterRepository.save(subject);
-        } catch (DataIntegrityViolationException e) {
-            throw ApiException.badRequest("Subject code already exists");
-        }
+        return subjectMasterRepository.save(subject);
     }
 
     @PutMapping("/subjects/{subjectId}")
     public SubjectMaster updateSubject(@PathVariable Long subjectId, @Valid @RequestBody SubjectCreate payload) {
         SubjectMaster subject = subjectMasterRepository.findById(subjectId).orElseThrow(() -> ApiException.notFound("Subject not found"));
+
+        subjectMasterRepository.findBySubjectCode(payload.getSubjectCode()).ifPresent(existing -> {
+            if (!existing.getId().equals(subjectId)) {
+                throw ApiException.badRequest("Subject code already exists");
+            }
+        });
+
         subject.setSubjectCode(payload.getSubjectCode());
         subject.setSubjectName(payload.getSubjectName());
         subject.setSubjectType(payload.getSubjectType());
         subject.setActive(Boolean.TRUE.equals(payload.getIsActive()));
-        try {
-            return subjectMasterRepository.save(subject);
-        } catch (DataIntegrityViolationException e) {
-            throw ApiException.badRequest("Subject code already exists");
-        }
+        return subjectMasterRepository.save(subject);
     }
 
     @DeleteMapping("/subjects/{subjectId}")
@@ -132,6 +135,7 @@ public class SubjectController {
         mapping.setWeeklyPeriods(payload.getWeeklyPeriods());
         mapping.setActive(Boolean.TRUE.equals(payload.getIsActive()));
         applyNormalizedSubjectName(mapping, payload);
+        requireNoClassSubjectClash(mapping, null);
 
         try {
             return classSubjectRepository.save(mapping);
@@ -156,10 +160,30 @@ public class SubjectController {
         mapping.setWeeklyPeriods(payload.getWeeklyPeriods());
         mapping.setActive(Boolean.TRUE.equals(payload.getIsActive()));
         applyNormalizedSubjectName(mapping, payload);
+        requireNoClassSubjectClash(mapping, classSubjectId);
 
         try {
             return classSubjectRepository.save(mapping);
         } catch (DataIntegrityViolationException e) {
+            throw ApiException.badRequest("This subject is already mapped to this class");
+        }
+    }
+
+    /**
+     * Application-level enforcement of ClassSubject's (class_id, academic_year,
+     * subject_name) uniqueness. Hibernate's schema *update* migrator (used to
+     * lazily provision tenant DBs) does not reliably emit multi-column
+     * @UniqueConstraint DDL the way it does single-column unique columns, so
+     * this cannot be relied on to come from the database alone the way the
+     * Python/SQLAlchemy original does.
+     */
+    private void requireNoClassSubjectClash(ClassSubject mapping, Long excludeId) {
+        boolean clash = classSubjectRepository.findAll().stream()
+                .filter(cs -> excludeId == null || !cs.getId().equals(excludeId))
+                .anyMatch(cs -> Objects.equals(cs.getClassId(), mapping.getClassId())
+                        && Objects.equals(cs.getAcademicYear(), mapping.getAcademicYear())
+                        && Objects.equals(cs.getSubjectName(), mapping.getSubjectName()));
+        if (clash) {
             throw ApiException.badRequest("This subject is already mapped to this class");
         }
     }
@@ -217,6 +241,7 @@ public class SubjectController {
         mapping.setExamDate(payload.getExamDate());
         mapping.setActive(Boolean.TRUE.equals(payload.getIsActive()));
         mapping.setRemarks(payload.getRemarks());
+        requireNoClassExamClash(mapping, null);
 
         try {
             return classExamMappingRepository.save(mapping);
@@ -239,10 +264,23 @@ public class SubjectController {
         mapping.setExamDate(payload.getExamDate());
         mapping.setActive(Boolean.TRUE.equals(payload.getIsActive()));
         mapping.setRemarks(payload.getRemarks());
+        requireNoClassExamClash(mapping, mappingId);
 
         try {
             return classExamMappingRepository.save(mapping);
         } catch (DataIntegrityViolationException e) {
+            throw ApiException.badRequest("This exam is already mapped to this class for this academic year");
+        }
+    }
+
+    /** Application-level enforcement, see requireNoClassSubjectClash for why. */
+    private void requireNoClassExamClash(ClassExamMapping mapping, Long excludeId) {
+        boolean clash = classExamMappingRepository.findAll().stream()
+                .filter(m -> excludeId == null || !m.getId().equals(excludeId))
+                .anyMatch(m -> Objects.equals(m.getClassId(), mapping.getClassId())
+                        && Objects.equals(m.getExamId(), mapping.getExamId())
+                        && Objects.equals(m.getAcademicYear(), mapping.getAcademicYear()));
+        if (clash) {
             throw ApiException.badRequest("This exam is already mapped to this class for this academic year");
         }
     }

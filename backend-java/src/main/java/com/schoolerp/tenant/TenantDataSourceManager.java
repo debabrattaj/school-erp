@@ -113,6 +113,11 @@ public class TenantDataSourceManager {
                 .applySetting(AvailableSettings.DATASOURCE, dataSource)
                 .applySetting(AvailableSettings.DIALECT, DatabaseUrls.dialectFor(url))
                 .applySetting(AvailableSettings.HBM2DDL_AUTO, "update")
+                // Must match TenantPersistenceConfig's naming strategy exactly,
+                // or the DDL generated here (for a fresh tenant DB) won't match
+                // what the runtime multi-tenant EntityManagerFactory expects.
+                .applySetting(AvailableSettings.PHYSICAL_NAMING_STRATEGY, "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy")
+                .applySetting(AvailableSettings.IMPLICIT_NAMING_STRATEGY, "org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy")
                 .build();
         try {
             MetadataSources sources = new MetadataSources(registry);

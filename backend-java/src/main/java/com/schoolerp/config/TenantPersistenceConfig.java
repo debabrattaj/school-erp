@@ -60,6 +60,17 @@ public class TenantPersistenceConfig {
         // so hbm2ddl is intentionally off here (there is no single fixed DB
         // for this persistence unit to manage DDL against).
         props.put(AvailableSettings.HBM2DDL_AUTO, "none");
+        // Without this, unannotated columns get Hibernate's default naming
+        // (raw camelCase, e.g. "academicYear") instead of snake_case
+        // ("academic_year"), which silently breaks every @UniqueConstraint /
+        // @Column(name=...) written assuming snake_case - normally Spring
+        // Boot's Hibernate auto-configuration wires this in automatically,
+        // but that's disabled here in favor of manual multi-tenant setup, so
+        // it must be applied explicitly (and identically in
+        // TenantDataSourceManager's schema-bootstrap SessionFactory, or the
+        // DDL used to create a tenant DB won't match what this EMF expects).
+        props.put(AvailableSettings.PHYSICAL_NAMING_STRATEGY, "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy");
+        props.put(AvailableSettings.IMPLICIT_NAMING_STRATEGY, "org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy");
         props.put(AvailableSettings.MULTI_TENANT_CONNECTION_PROVIDER, connectionProvider);
         props.put(AvailableSettings.MULTI_TENANT_IDENTIFIER_RESOLVER, identifierResolver);
         // SQLite is the default tenant DB engine; Postgres tenants are also

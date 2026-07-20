@@ -6,7 +6,7 @@ FastAPI's `{"detail": "..."}` error format), same JWT claims, same
 multi-tenant architecture, so the existing `frontend/` can point at this
 backend unmodified.
 
-## Status: Phase 2 (foundation + auth + first academic modules)
+## Status: Phase 3 (foundation + auth + core academic/admin modules)
 
 This is an in-progress replica, not yet feature-complete. The Python backend
 has ~21,000 lines across 47 route modules; porting it all faithfully is a
@@ -37,14 +37,14 @@ SQLite databases:
 - Global error handling produces the exact `{"detail": "..."}` shape the
   frontend already expects (`error.response.data.detail`), so no frontend
   changes are needed for the endpoints implemented so far.
-- `/students/*` and `/teachers/*`: full CRUD parity with `routes/students.py`
-  (roll-number auto-assignment vs. manual mode, validation rules) and
-  `routes/teachers.py` (class-teacher assignment sync). Note `teachers.py`
-  calls no auth dependency on any endpoint in the Python source — replicated
-  exactly (see "opt-in auth" below), unlike `students.py` which does.
-  Not yet ported: students' CSV bulk-import endpoints and the
-  new-admission notification side effect (both depend on modules not yet
-  ported).
+- Full CRUD parity for: `/students`, `/teachers`, `/classes`, `/subjects`
+  (+ `/class-subjects`, `/class-exam-mappings`), `/attendance`, `/exams`,
+  `/exam-components`, `/marks` (grade calculation, per-component scores),
+  `/users`, `/roles`, `/settings`, `/master-data`, `/academic-years`,
+  `/timetable` (teacher-clash + slot-clash validation).
+  Not yet ported: students' CSV bulk-import endpoints, the new-admission
+  notification side effect, `GET /marks/report-card` and
+  `GET /timetable/pdf` (both depend on the not-yet-ported `app/pdf.py`).
 
 ### Verified manually
 
@@ -61,15 +61,16 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: classes, subjects, attendance,
-fees, exams, marks, timetable, users, roles, settings, master-data,
+Everything else in `backend/app/routes/`: fees, fee-structures,
 student-enrollments, accounts, hostel, transport, health-infirmary, mess,
 library, inventory, accounting, admissions (+ workflow/assessments),
 international-documents, multi-curriculum, communications, student-services,
-alumni-withdrawals, counseling, enrichment, compliance, exam-components,
-uploads, certificates, portal, chatbot, platform (owner console), dashboard,
-search, academic-years, fee-structures, module-custom-fields,
-module-layouts, student-custom-fields.
+alumni-withdrawals, counseling, enrichment, compliance, uploads,
+certificates, portal, chatbot, platform (owner console), dashboard, search,
+module-custom-fields, module-layouts, student-custom-fields. A minimal
+`StudentEnrollment` entity exists only for the enrollment-count guards
+`academic_years.py` needs — the full student-enrollments CRUD module is
+still unported.
 
 ## Pattern for porting a module (and gotchas hit so far)
 
@@ -113,6 +114,43 @@ underscore in the Python source.
 `room_number` column) needs the underlying column's getter `@JsonIgnore`-d
 and only the alias name exposed via `@JsonProperty`**, or both names leak
 into the JSON body. See `SchoolClass.getRoomNumber()`/`getRoomNo()`.
+
+**Two Hibernate naming/exception-translation traps that silently produced
+wrong behavior in manual testing, not compile errors — worth re-reading if
+something Just Doesn't Work:**
+
+1. *Column naming.* Spring Boot's Hibernate auto-configuration (which wires
+   in `SpringImplicitNamingStrategy` + `CamelCaseToUnderscoresNamingStrategy`
+   so `dayOfWeek` → `day_of_week`) is disabled here in favor of the manual
+   multi-tenant EMF setup, so **both** `CentralPersistenceConfig` and
+   `TenantPersistenceConfig` — and the schema-bootstrap `SessionFactory` in
+   `TenantDataSourceManager` (must match exactly, or a freshly-created tenant
+   DB gets different DDL than what the runtime EMF expects) — set
+   `hibernate.physical_naming_strategy` / `implicit_naming_strategy`
+   explicitly. Without it, unannotated columns get raw camelCase names, and
+   any `@UniqueConstraint`/`@Column(name=...)` written assuming snake_case
+   silently fails to apply (Hibernate can't find a column called
+   `academic_year` when the real column is `academicYear`).
+2. *Composite unique constraints are unreliable with hbm2ddl `update` +
+   SQLite.* Single-column `@Column(unique = true)` works fine (verified:
+   shows up as `... unique` in the generated DDL). Multi-column
+   `@Table(uniqueConstraints = ...)` does **not** get created at all under
+   schema-update mode — confirmed by inspecting `sqlite_master` directly, no
+   compile or runtime error, the constraint is just silently absent. On top
+   of that, SQLite's JDBC driver returns no usable SQLState, so even when a
+   constraint *does* fire, Hibernate can't classify it as
+   `DataIntegrityViolationException` (it surfaces as a generic
+   `JpaSystemException` instead) — so `catch (DataIntegrityViolationException)`
+   is not reliable here the way `except IntegrityError` is in the Python/
+   SQLAlchemy original. **Every duplicate check needs an explicit
+   find-before-insert pre-check in the controller** (see
+   `SubjectController`'s `requireNoClassSubjectClash`/`requireNoClassExamClash`,
+   `TimetableController.checkSlotClash`) — don't rely on the database or the
+   exception handler alone. `GlobalExceptionHandler` catches
+   `DataIntegrityViolationException`/`JpaSystemException` as a generic 400
+   safety net, but that net has a generic, non-Python-matching message, so
+   treat hitting it as a bug to fix with a proper pre-check, not a working
+   feature.
 
 ## Running locally
 

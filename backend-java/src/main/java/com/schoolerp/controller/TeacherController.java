@@ -45,6 +45,9 @@ public class TeacherController {
         if (teacherRepository.findByEmployeeNo(payload.getEmployeeNo()).isPresent()) {
             throw ApiException.badRequest("Teacher with this Employee No already exists");
         }
+        if (payload.getEmail() != null && teacherRepository.findByEmail(payload.getEmail()).isPresent()) {
+            throw ApiException.badRequest("Duplicate or invalid teacher data");
+        }
 
         boolean isClassTeacher = Boolean.TRUE.equals(payload.getIsClassTeacher());
         Teacher teacher = new Teacher();
@@ -74,6 +77,13 @@ public class TeacherController {
                 throw ApiException.badRequest("Teacher with this Employee No already exists");
             }
         });
+        if (payload.getEmail() != null) {
+            teacherRepository.findByEmail(payload.getEmail()).ifPresent(existing -> {
+                if (!existing.getId().equals(teacherId)) {
+                    throw ApiException.badRequest("Duplicate or invalid teacher data");
+                }
+            });
+        }
 
         boolean isClassTeacher = Boolean.TRUE.equals(payload.getIsClassTeacher());
         applyPayload(teacher, payload, isClassTeacher);
