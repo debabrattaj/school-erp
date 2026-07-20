@@ -69,6 +69,16 @@ SQLite databases:
   per-channel dispatch in `routes/communications.py` exactly, including
   `email_subject_for`'s template-subject → category → generic-fallback
   chain and the log response's joined `template_name` field.
+- `/student-services` (support ticket CRUD with auto-numbered `SVC-nnnn`
+  ticket numbers and student-joined response fields), `/counseling`
+  (wellbeing case CRUD with a required student link, risk/confidentiality
+  levels, and student+guardian-joined response fields), `/enrichment`
+  (extracurricular activity CRUD with capacity/fee validation),
+  `/compliance` (accreditation task CRUD across IB/Cambridge/CBSE/etc.),
+  and `/alumni-withdrawals` (withdrawal/transfer/alumni record CRUD with
+  `hydrate_student_snapshot`'s exact fallback chain — student name, admission
+  no., "class section" last-class string, and guardian email/phone are
+  pulled from the linked student only when not explicitly supplied).
 
 ### Verified manually
 
@@ -88,7 +98,6 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 Everything else in `backend/app/routes/`: accounts, hostel, transport,
 health-infirmary, mess, library, inventory, accounting,
 international-documents, multi-curriculum,
-student-services, alumni-withdrawals, counseling, enrichment, compliance,
 uploads, certificates, portal, chatbot, platform (owner console), search,
 module-custom-fields, module-layouts,
 student-custom-fields.
