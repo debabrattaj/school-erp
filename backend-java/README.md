@@ -84,9 +84,16 @@ SQLite databases:
   `fee_receipt_pdf` are wired into `GET /marks/report-card`, `GET
   /timetable/pdf`, and `GET /fees/{id}/receipt` respectively, each
   verified to return a real, valid, correctly-populated PDF. The other
-  four generators (transcript, both certificates, ID card) are ported and
-  unit-usable but not yet wired to an endpoint, since `certificates.py`
-  (their caller) isn't ported yet.
+  four generators (transcript, both certificates, ID card) are wired into
+  `/students/{id}/bonafide`, `/students/{id}/transfer-certificate`,
+  `/students/{id}/transcript`, and `/students/{id}/id-card`
+  (`CertificateController`, a direct port of `app/routes/certificates.py`
+  — same `/students` prefix so access is governed by the students
+  permission, matching the Python source's routing comment). The
+  transcript endpoint's multi-year/multi-exam grouping and grade
+  calculation share `GradeService` (extracted from `MarkController`) with
+  `/marks/report-card`, matching the Python source's shared
+  `calculate_grade()` import between `marks.py` and `certificates.py`.
 - `/communications` — template CRUD (`/templates/`) and message-log CRUD
   (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
   routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported
@@ -161,7 +168,7 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: certificates, portal, chatbot.
+Everything else in `backend/app/routes/`: portal, chatbot.
 
 `accounts` (school-account CRUD, feature-flag management) is deliberately
 deferred together with `platform` (the ~1,100-line owner console it depends

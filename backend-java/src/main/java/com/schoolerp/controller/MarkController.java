@@ -4,6 +4,7 @@ import com.schoolerp.entity.*;
 import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.*;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.GradeService;
 import com.schoolerp.service.PdfService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -30,9 +31,9 @@ public class MarkController {
     private final ExamComponentRepository examComponentRepository;
     private final ClassSubjectRepository classSubjectRepository;
     private final ClassExamMappingRepository classExamMappingRepository;
-    private final SchoolSettingsRepository schoolSettingsRepository;
     private final PermissionService permissionService;
     private final PdfService pdfService;
+    private final GradeService gradeService;
 
     public MarkController(
             MarkRepository markRepository,
@@ -42,9 +43,9 @@ public class MarkController {
             ExamComponentRepository examComponentRepository,
             ClassSubjectRepository classSubjectRepository,
             ClassExamMappingRepository classExamMappingRepository,
-            SchoolSettingsRepository schoolSettingsRepository,
             PermissionService permissionService,
-            PdfService pdfService
+            PdfService pdfService,
+            GradeService gradeService
     ) {
         this.markRepository = markRepository;
         this.markComponentScoreRepository = markComponentScoreRepository;
@@ -53,9 +54,9 @@ public class MarkController {
         this.examComponentRepository = examComponentRepository;
         this.classSubjectRepository = classSubjectRepository;
         this.classExamMappingRepository = classExamMappingRepository;
-        this.schoolSettingsRepository = schoolSettingsRepository;
         this.permissionService = permissionService;
         this.pdfService = pdfService;
+        this.gradeService = gradeService;
     }
 
     @GetMapping("/report-card")
@@ -92,8 +93,8 @@ public class MarkController {
         }
 
         double percentage = totalMax > 0 ? (totalObtained / totalMax * 100) : 0;
-        SchoolSettings settings = getOrCreateSchoolSettings();
-        String overallGrade = totalMax > 0 ? calculateGrade(totalObtained, totalMax) : "-";
+        SchoolSettings settings = gradeService.getOrCreateSchoolSettings();
+        String overallGrade = totalMax > 0 ? gradeService.calculateGrade(totalObtained, totalMax) : "-";
 
         String studentName = ((student.getFirstName() != null ? student.getFirstName() : "") + " "
                 + (student.getLastName() != null ? student.getLastName() : "")).trim();
@@ -182,7 +183,7 @@ public class MarkController {
         mark.setMarksObtained(marksObtained);
         mark.setMaxMarks(asDouble(data.get("max_marks")));
         mark.setTotalMarks(totalMarks);
-        mark.setGrade(calculateGrade(marksObtained, totalMarks));
+        mark.setGrade(gradeService.calculateGrade(marksObtained, totalMarks));
         mark.setRemarks((String) data.get("remarks"));
 
         mark = markRepository.save(mark);
@@ -311,7 +312,7 @@ public class MarkController {
         if (mark.getMarksObtained() < 0) throw ApiException.badRequest("Marks obtained cannot be negative");
         if (mark.getMarksObtained() > mark.getTotalMarks()) throw ApiException.badRequest("Marks obtained cannot be greater than total marks");
 
-        mark.setGrade(calculateGrade(mark.getMarksObtained(), mark.getTotalMarks()));
+        mark.setGrade(gradeService.calculateGrade(mark.getMarksObtained(), mark.getTotalMarks()));
         mark = markRepository.save(mark);
 
         if (data.containsKey("component_scores")) {
@@ -472,44 +473,6 @@ public class MarkController {
         if (!mapped) {
             throw ApiException.badRequest("Exam is not mapped to this student's class for the academic year");
         }
-    }
-
-    private String calculateGrade(double marksObtained, double totalMarks) {
-        double percentage = (marksObtained / totalMarks) * 100;
-        SchoolSettings settings = getOrCreateSchoolSettings();
-        String gradeRules = settings.getGradeRules() != null ? settings.getGradeRules()
-                : "A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39";
-
-        for (String rule : gradeRules.split(",")) {
-            String[] parts = rule.split(":");
-            if (parts.length != 2) continue;
-            String[] range = parts[1].split("-");
-            if (range.length != 2) continue;
-            try {
-                double min = Double.parseDouble(range[0]);
-                double max = Double.parseDouble(range[1]);
-                if (percentage >= min && percentage <= max) {
-                    return parts[0].trim();
-                }
-            } catch (NumberFormatException ignored) {
-                // matches Python's except ValueError: continue
-            }
-        }
-
-        double passPercentage = settings.getPassPercentage() != null ? settings.getPassPercentage() : 40;
-        return percentage < passPercentage ? "F" : "Pass";
-    }
-
-    private SchoolSettings getOrCreateSchoolSettings() {
-        List<SchoolSettings> all = schoolSettingsRepository.findAll();
-        if (!all.isEmpty()) {
-            return all.get(0);
-        }
-        SchoolSettings settings = new SchoolSettings();
-        settings.setSchoolName("International School");
-        settings.setPassPercentage(40.0);
-        settings.setGradeRules("A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39");
-        return schoolSettingsRepository.save(settings);
     }
 
     private Map<String, Object> markResponse(Mark mark) {

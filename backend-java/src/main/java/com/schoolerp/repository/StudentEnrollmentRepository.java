@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface StudentEnrollmentRepository extends JpaRepository<StudentEnrollment, Long> {
     List<StudentEnrollment> findByAcademicYearAndEnrollmentStatus(String academicYear, String enrollmentStatus);
     List<StudentEnrollment> findByAcademicYear(String academicYear);
+    List<StudentEnrollment> findByStudentId(Long studentId);
     Optional<StudentEnrollment> findByStudentIdAndClassIdAndAcademicYear(Long studentId, Long classId, String academicYear);
     Optional<StudentEnrollment> findByStudentIdAndAcademicYearAndEnrollmentStatus(Long studentId, String academicYear, String enrollmentStatus);
 }
