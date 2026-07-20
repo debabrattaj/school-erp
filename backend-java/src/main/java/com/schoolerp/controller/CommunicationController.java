@@ -8,8 +8,7 @@ import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.CommunicationLogRepository;
 import com.schoolerp.repository.CommunicationTemplateRepository;
 import com.schoolerp.security.PermissionService;
-import com.schoolerp.service.MailerService;
-import com.schoolerp.service.WhatsAppService;
+import com.schoolerp.service.CommunicationDeliveryService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,21 +30,18 @@ public class CommunicationController {
     private final CommunicationTemplateRepository templateRepository;
     private final CommunicationLogRepository logRepository;
     private final PermissionService permissionService;
-    private final MailerService mailerService;
-    private final WhatsAppService whatsAppService;
+    private final CommunicationDeliveryService deliveryService;
 
     public CommunicationController(
             CommunicationTemplateRepository templateRepository,
             CommunicationLogRepository logRepository,
             PermissionService permissionService,
-            MailerService mailerService,
-            WhatsAppService whatsAppService
+            CommunicationDeliveryService deliveryService
     ) {
         this.templateRepository = templateRepository;
         this.logRepository = logRepository;
         this.permissionService = permissionService;
-        this.mailerService = mailerService;
-        this.whatsAppService = whatsAppService;
+        this.deliveryService = deliveryService;
     }
 
     // ===================== templates =====================
@@ -138,7 +134,7 @@ public class CommunicationController {
             log.setSentAt(LocalDateTime.now());
         }
 
-        deliverMessage(log);
+        deliveryService.deliverMessage(log);
         log = logRepository.save(log);
         return serializeLog(log);
     }
@@ -147,7 +143,7 @@ public class CommunicationController {
     public Map<String, Object> sendLog(@PathVariable Long logId) {
         permissionService.requireRoles("Admin", "Principal", "Teacher", "Accounts");
         CommunicationLog log = requireLog(logId);
-        deliverMessage(log);
+        deliveryService.deliverMessage(log);
         log = logRepository.save(log);
         return serializeLog(log);
     }
@@ -166,68 +162,6 @@ public class CommunicationController {
         }
         log = logRepository.save(log);
         return serializeLog(log);
-    }
-
-    // ===================== delivery helpers =====================
-
-    private void deliverMessage(CommunicationLog log) {
-        if ("Email".equals(log.getChannel())) {
-            deliverEmail(log);
-        } else if ("WhatsApp".equals(log.getChannel()) || "SMS".equals(log.getChannel())) {
-            deliverWhatsapp(log);
-        } else {
-            markSent(log);
-        }
-    }
-
-    private void deliverEmail(CommunicationLog log) {
-        if (log.getRecipientEmail() == null || log.getRecipientEmail().isBlank()) {
-            markFailed(log, "No recipient email address");
-            return;
-        }
-        String subject = emailSubjectFor(log);
-        if (mailerService.sendEmail(log.getRecipientEmail().trim(), subject, log.getMessageBody())) {
-            markSent(log);
-        } else {
-            markFailed(log, "Email delivery failed");
-        }
-    }
-
-    private void deliverWhatsapp(CommunicationLog log) {
-        if (log.getRecipientPhone() == null || log.getRecipientPhone().isBlank()) {
-            markFailed(log, "No recipient phone number");
-            return;
-        }
-        if (whatsAppService.sendWhatsapp(log.getRecipientPhone().trim(), log.getMessageBody())) {
-            markSent(log);
-        } else {
-            markFailed(log, "WhatsApp delivery failed");
-        }
-    }
-
-    private String emailSubjectFor(CommunicationLog log) {
-        if (log.getTemplateId() != null) {
-            CommunicationTemplate template = templateRepository.findById(log.getTemplateId()).orElse(null);
-            if (template != null && template.getSubject() != null && !template.getSubject().isBlank()) {
-                return template.getSubject().trim();
-            }
-        }
-        if (log.getCategory() != null && !log.getCategory().isBlank()) {
-            return log.getCategory().trim();
-        }
-        return "Message from your school";
-    }
-
-    private void markSent(CommunicationLog log) {
-        log.setStatus("Sent");
-        log.setSentAt(LocalDateTime.now());
-        log.setErrorMessage(null);
-    }
-
-    private void markFailed(CommunicationLog log, String reason) {
-        log.setStatus("Failed");
-        log.setErrorMessage(reason);
-        log.setSentAt(null);
     }
 
     // ===================== validation / lookup helpers =====================

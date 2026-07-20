@@ -12,6 +12,7 @@ import com.schoolerp.repository.FeeStructureRepository;
 import com.schoolerp.repository.SchoolSettingsRepository;
 import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.NotificationService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,8 +27,7 @@ import java.util.*;
  * endpoints. Not yet ported: GET /fees/{id}/receipt (PDF, depends on
  * app/pdf.py) and GET /fees/{id}/pay (public guardian payment page with a
  * QR code, depends on the not-yet-ported app/payment_links.py signed-token
- * scheme) - both peripheral to the core billing flow. The new-fee guardian
- * notification side effect (app/notifications.py) is also not yet ported.
+ * scheme) - both peripheral to the core billing flow.
  */
 @RestController
 @RequestMapping("/fees")
@@ -43,19 +43,22 @@ public class FeeController {
     private final SchoolSettingsRepository schoolSettingsRepository;
     private final FeeStructureRepository feeStructureRepository;
     private final PermissionService permissionService;
+    private final NotificationService notificationService;
 
     public FeeController(
             FeeRepository feeRepository,
             StudentRepository studentRepository,
             SchoolSettingsRepository schoolSettingsRepository,
             FeeStructureRepository feeStructureRepository,
-            PermissionService permissionService
+            PermissionService permissionService,
+            NotificationService notificationService
     ) {
         this.feeRepository = feeRepository;
         this.studentRepository = studentRepository;
         this.schoolSettingsRepository = schoolSettingsRepository;
         this.feeStructureRepository = feeStructureRepository;
         this.permissionService = permissionService;
+        this.notificationService = notificationService;
     }
 
     @PostMapping({"", "/"})
@@ -89,7 +92,10 @@ public class FeeController {
         fee.setReceiptNo(receiptNo);
         fee.setRemarks(payload.getRemarks());
 
-        return feeRepository.save(fee);
+        fee = feeRepository.save(fee);
+        SchoolSettings settings = getOrCreateSettings();
+        notificationService.notifyGuardianFeeAdded(fee, student, settings.getSchoolName() != null ? settings.getSchoolName() : "School");
+        return fee;
     }
 
     @PostMapping("/bulk-class")
@@ -166,8 +172,11 @@ public class FeeController {
                 fee.setDueDate(batch.dueDate());
                 fee.setReceiptNo(receiptNo);
                 fee.setRemarks(payload.getRemarks());
-                feeRepository.save(fee);
+                fee = feeRepository.save(fee);
                 createdCount++;
+
+                SchoolSettings settings = getOrCreateSettings();
+                notificationService.notifyGuardianFeeAdded(fee, student, settings.getSchoolName() != null ? settings.getSchoolName() : "School");
             }
 
             Map<String, Object> group = new LinkedHashMap<>();

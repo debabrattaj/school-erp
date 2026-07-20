@@ -54,13 +54,24 @@ SQLite databases:
   `/admission-workflow-stages` (default-stage auto-seeding, in-use guard on
   delete, cascading a stage rename onto every inquiry in that stage), and
   `/admission-assessments` (with the inquiry-joined response fields).
-  Not yet ported: students' CSV bulk-import endpoints, the new-admission/
-  new-fee notification side effects, `GET /marks/report-card`,
-  `GET /timetable/pdf`, and `GET /fees/{id}/receipt` (all depend on the
-  not-yet-ported `app/pdf.py`), `GET /fees/{id}/pay` (public guardian
-  payment page, depends on `app/payment_links.py`'s signed-token scheme),
-  and the dashboard report engine's hostel/transport/library sources
-  (those route modules aren't ported yet either).
+  Both event-driven staff/guardian notification side effects are wired up
+  too: creating a student best-effort emails/SMSes the resolved class
+  teacher (`NotificationService.notifyClassTeacherNewStudent`, matching
+  `find_class_teacher`'s three-tier resolution exactly), and creating a fee
+  with an outstanding balance best-effort WhatsApps the guardian a signed,
+  30-day-expiring UPI payment link (`notifyGuardianFeeAdded` +
+  `PaymentLinkService`, a direct port of `app/payment_links.py`'s JWT
+  scheme reusing `JwtService`'s signing key). Both routed through a new
+  `CommunicationDeliveryService` extracted from `CommunicationController`
+  so the delivery logic — Email/WhatsApp/SMS channel dispatch, subject
+  fallback — is shared between the `/communications` endpoints and these
+  notification hooks, exactly like the Python source's shared
+  `deliver_message()` free function.
+  Not yet ported: students' CSV bulk-import endpoints, `GET
+  /marks/report-card`, `GET /timetable/pdf`, and `GET /fees/{id}/receipt`
+  (all depend on the not-yet-ported `app/pdf.py`), and `GET /fees/{id}/pay`
+  (the public guardian payment page itself — the signed token it validates
+  is ported and generated correctly, just not yet consumed by a page).
 - `/communications` — template CRUD (`/templates/`) and message-log CRUD
   (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
   routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported

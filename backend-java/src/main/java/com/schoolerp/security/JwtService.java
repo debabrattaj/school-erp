@@ -37,7 +37,12 @@ public class JwtService {
     }
 
     public String createAccessToken(Map<String, Object> claims) {
-        Instant expiry = Instant.now().plus(properties.getSecurity().getAccessTokenExpireMinutes(), ChronoUnit.MINUTES);
+        return createToken(claims, properties.getSecurity().getAccessTokenExpireMinutes());
+    }
+
+    /** Same signing key as createAccessToken, but with a caller-supplied expiry (e.g. payment links). */
+    public String createToken(Map<String, Object> claims, long expiryMinutes) {
+        Instant expiry = Instant.now().plus(expiryMinutes, ChronoUnit.MINUTES);
         return Jwts.builder()
                 .claims(claims)
                 .expiration(Date.from(expiry))

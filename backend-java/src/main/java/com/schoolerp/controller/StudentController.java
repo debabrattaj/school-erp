@@ -5,6 +5,7 @@ import com.schoolerp.entity.Student;
 import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.NotificationService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,9 +15,7 @@ import java.util.Map;
 /**
  * Direct port of backend/app/routes/students.py.
  *
- * Not yet ported: bulk-import / bulk-import-template (CSV import), and the
- * best-effort "notify class teacher of new admission" side effect (depends
- * on the not-yet-ported notifications/mailer-SMS module).
+ * Not yet ported: bulk-import / bulk-import-template (CSV import).
  */
 @RestController
 @RequestMapping("/students")
@@ -27,10 +26,12 @@ public class StudentController {
 
     private final StudentRepository studentRepository;
     private final PermissionService permissionService;
+    private final NotificationService notificationService;
 
-    public StudentController(StudentRepository studentRepository, PermissionService permissionService) {
+    public StudentController(StudentRepository studentRepository, PermissionService permissionService, NotificationService notificationService) {
         this.studentRepository = studentRepository;
         this.permissionService = permissionService;
+        this.notificationService = notificationService;
     }
 
     @PostMapping({"", "/"})
@@ -63,7 +64,9 @@ public class StudentController {
             student.setRollNo(nextRollNo(payload.getClassId(), payload.getClassName(), payload.getSection()));
         }
 
-        return studentRepository.save(student);
+        student = studentRepository.save(student);
+        notificationService.notifyClassTeacherNewStudent(student);
+        return student;
     }
 
     @GetMapping({"", "/"})
