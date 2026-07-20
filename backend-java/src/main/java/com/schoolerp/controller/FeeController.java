@@ -9,9 +9,9 @@ import com.schoolerp.entity.Student;
 import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.FeeRepository;
 import com.schoolerp.repository.FeeStructureRepository;
-import com.schoolerp.repository.SchoolSettingsRepository;
 import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.FeeService;
 import com.schoolerp.service.NotificationService;
 import com.schoolerp.service.PdfService;
 import jakarta.validation.Valid;
@@ -20,15 +20,14 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.Year;
 import java.util.*;
 
 /**
- * Direct port of backend/app/routes/fees.py's core CRUD and UPI payment
- * endpoints. Not yet ported: GET /fees/{id}/receipt (PDF, depends on
- * app/pdf.py) and GET /fees/{id}/pay (public guardian payment page with a
- * QR code, depends on the not-yet-ported app/payment_links.py signed-token
- * scheme) - both peripheral to the core billing flow.
+ * Direct port of backend/app/routes/fees.py's core CRUD, PDF receipt, and
+ * UPI payment endpoints. Not yet ported: GET /fees/{id}/pay (public
+ * guardian payment page with a QR code, depends on the not-yet-ported
+ * app/payment_links.py signed-token scheme) - peripheral to the core
+ * billing flow.
  */
 @RestController
 @RequestMapping("/fees")
@@ -41,28 +40,28 @@ public class FeeController {
 
     private final FeeRepository feeRepository;
     private final StudentRepository studentRepository;
-    private final SchoolSettingsRepository schoolSettingsRepository;
     private final FeeStructureRepository feeStructureRepository;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
     private final PdfService pdfService;
+    private final FeeService feeService;
 
     public FeeController(
             FeeRepository feeRepository,
             StudentRepository studentRepository,
-            SchoolSettingsRepository schoolSettingsRepository,
             FeeStructureRepository feeStructureRepository,
             PermissionService permissionService,
             NotificationService notificationService,
-            PdfService pdfService
+            PdfService pdfService,
+            FeeService feeService
     ) {
         this.feeRepository = feeRepository;
         this.studentRepository = studentRepository;
-        this.schoolSettingsRepository = schoolSettingsRepository;
         this.feeStructureRepository = feeStructureRepository;
         this.permissionService = permissionService;
         this.notificationService = notificationService;
         this.pdfService = pdfService;
+        this.feeService = feeService;
     }
 
     @PostMapping({"", "/"})
@@ -73,31 +72,31 @@ public class FeeController {
                 .orElseThrow(() -> ApiException.notFound("Student not found"));
 
         validateFeeAmounts(payload.getFeeType(), payload.getTotalAmount(), payload.getPaidAmount());
-        double[] status = calculateFeeStatus(payload.getTotalAmount(), payload.getPaidAmount());
+        double[] status = feeService.calculateFeeStatus(payload.getTotalAmount(), payload.getPaidAmount());
 
         String receiptNo = payload.getReceiptNo();
         if ((receiptNo == null || receiptNo.isBlank()) && payload.getPaidAmount() > 0) {
-            receiptNo = generateReceiptNo();
+            receiptNo = feeService.generateReceiptNo();
         }
 
         Fee fee = new Fee();
         fee.setStudentId(payload.getStudentId());
         fee.setFeeType(payload.getFeeType());
-        fee.setAcademicYear(payload.getAcademicYear() != null ? payload.getAcademicYear() : getOrCreateSettings().getAcademicYear());
+        fee.setAcademicYear(payload.getAcademicYear() != null ? payload.getAcademicYear() : feeService.getOrCreateSettings().getAcademicYear());
         fee.setClassId(payload.getClassId() != null ? payload.getClassId() : student.getClassId());
         fee.setClassNameSnapshot(payload.getClassNameSnapshot() != null ? payload.getClassNameSnapshot() : student.getClassName());
         fee.setSectionSnapshot(payload.getSectionSnapshot() != null ? payload.getSectionSnapshot() : student.getSection());
         fee.setTotalAmount(payload.getTotalAmount());
         fee.setPaidAmount(payload.getPaidAmount());
         fee.setDueAmount(status[0]);
-        fee.setPaymentStatus(statusLabel(status[1]));
+        fee.setPaymentStatus(feeService.statusLabel(status[1]));
         fee.setPaymentDate(payload.getPaymentDate());
         fee.setDueDate(payload.getDueDate());
         fee.setReceiptNo(receiptNo);
         fee.setRemarks(payload.getRemarks());
 
         fee = feeRepository.save(fee);
-        SchoolSettings settings = getOrCreateSettings();
+        SchoolSettings settings = feeService.getOrCreateSettings();
         notificationService.notifyGuardianFeeAdded(fee, student, settings.getSchoolName() != null ? settings.getSchoolName() : "School");
         return fee;
     }
@@ -117,7 +116,7 @@ public class FeeController {
             throw ApiException.badRequest("Invalid fee type. Allowed: " + String.join(", ", VALID_FEE_TYPES));
         }
 
-        String academicYear = payload.getAcademicYear() != null ? payload.getAcademicYear() : getOrCreateSettings().getAcademicYear();
+        String academicYear = payload.getAcademicYear() != null ? payload.getAcademicYear() : feeService.getOrCreateSettings().getAcademicYear();
 
         Map<String, FeeStructure> structures = resolveClassStructures(academicYear, payload.getClassName(), payload.getFeeType());
 
@@ -156,10 +155,10 @@ public class FeeController {
                     .toList();
             if (batchStudents.isEmpty()) continue;
 
-            double[] status = calculateFeeStatus(batch.amount(), payload.getPaidAmount());
+            double[] status = feeService.calculateFeeStatus(batch.amount(), payload.getPaidAmount());
 
             for (Student student : batchStudents) {
-                String receiptNo = payload.getPaidAmount() > 0 ? generateReceiptNo() : null;
+                String receiptNo = payload.getPaidAmount() > 0 ? feeService.generateReceiptNo() : null;
 
                 Fee fee = new Fee();
                 fee.setStudentId(student.getId());
@@ -171,7 +170,7 @@ public class FeeController {
                 fee.setTotalAmount(batch.amount());
                 fee.setPaidAmount(payload.getPaidAmount());
                 fee.setDueAmount(status[0]);
-                fee.setPaymentStatus(statusLabel(status[1]));
+                fee.setPaymentStatus(feeService.statusLabel(status[1]));
                 fee.setPaymentDate(payload.getPaymentDate());
                 fee.setDueDate(batch.dueDate());
                 fee.setReceiptNo(receiptNo);
@@ -179,7 +178,7 @@ public class FeeController {
                 fee = feeRepository.save(fee);
                 createdCount++;
 
-                SchoolSettings settings = getOrCreateSettings();
+                SchoolSettings settings = feeService.getOrCreateSettings();
                 notificationService.notifyGuardianFeeAdded(fee, student, settings.getSchoolName() != null ? settings.getSchoolName() : "School");
             }
 
@@ -228,7 +227,7 @@ public class FeeController {
 
         Fee fee = feeRepository.findById(feeId).orElseThrow(() -> ApiException.notFound("Fee record not found"));
         Student student = studentRepository.findById(fee.getStudentId()).orElse(null);
-        SchoolSettings settings = getOrCreateSettings();
+        SchoolSettings settings = feeService.getOrCreateSettings();
 
         String studentName = "-";
         String classLabel = fee.getClassNameSnapshot() != null ? fee.getClassNameSnapshot() : "";
@@ -284,8 +283,8 @@ public class FeeController {
 
         Fee fee = feeRepository.findById(feeId).orElseThrow(() -> ApiException.notFound("Fee record not found"));
 
-        double[] originalStatus = calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
-        if (statusLabel(originalStatus[1]).equals("Paid")) {
+        double[] originalStatus = feeService.calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
+        if (feeService.statusLabel(originalStatus[1]).equals("Paid")) {
             throw ApiException.badRequest("Fully paid fees cannot be edited");
         }
 
@@ -313,7 +312,7 @@ public class FeeController {
 
         String newAcademicYear = str(updateData.get("academic_year"));
         fee.setAcademicYear(newAcademicYear != null ? newAcademicYear
-                : (fee.getAcademicYear() != null ? fee.getAcademicYear() : getOrCreateSettings().getAcademicYear()));
+                : (fee.getAcademicYear() != null ? fee.getAcademicYear() : feeService.getOrCreateSettings().getAcademicYear()));
 
         Object newClassId = updateData.get("class_id");
         fee.setClassId(newClassId != null ? Long.valueOf(newClassId.toString())
@@ -338,12 +337,12 @@ public class FeeController {
         if (fee.getPaidAmount() < 0) throw ApiException.badRequest("Paid amount cannot be negative");
         if (fee.getPaidAmount() > fee.getTotalAmount()) throw ApiException.badRequest("Paid amount cannot be greater than total amount");
 
-        double[] status = calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
+        double[] status = feeService.calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
         fee.setDueAmount(status[0]);
-        fee.setPaymentStatus(statusLabel(status[1]));
+        fee.setPaymentStatus(feeService.statusLabel(status[1]));
 
         if ((fee.getReceiptNo() == null || fee.getReceiptNo().isBlank()) && fee.getPaidAmount() > 0) {
-            fee.setReceiptNo(generateReceiptNo());
+            fee.setReceiptNo(feeService.generateReceiptNo());
         }
 
         return feeRepository.save(fee);
@@ -366,7 +365,7 @@ public class FeeController {
     @GetMapping("/payment/config")
     public Map<String, Object> paymentConfig() {
         permissionService.requireRoles("Admin", "Accounts", "Principal");
-        SchoolSettings settings = getOrCreateSettings();
+        SchoolSettings settings = feeService.getOrCreateSettings();
         String upiId = schoolUpiId(settings);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("enabled", !upiId.isEmpty());
@@ -380,7 +379,7 @@ public class FeeController {
     public Map<String, Object> upiPaymentDetails(@PathVariable Long feeId) {
         permissionService.requireRoles("Admin", "Accounts", "Principal");
 
-        SchoolSettings settings = getOrCreateSettings();
+        SchoolSettings settings = feeService.getOrCreateSettings();
         String upiId = schoolUpiId(settings);
         if (upiId.isEmpty()) {
             throw ApiException.badRequest("UPI payment is not configured. Set the school's UPI ID in Settings.");
@@ -426,11 +425,11 @@ public class FeeController {
 
         fee.setPaidAmount(fee.getTotalAmount());
         fee.setPaymentDate(LocalDate.now());
-        double[] status = calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
+        double[] status = feeService.calculateFeeStatus(fee.getTotalAmount(), fee.getPaidAmount());
         fee.setDueAmount(status[0]);
-        fee.setPaymentStatus(statusLabel(status[1]));
+        fee.setPaymentStatus(feeService.statusLabel(status[1]));
         if (fee.getReceiptNo() == null || fee.getReceiptNo().isBlank()) {
-            fee.setReceiptNo(generateReceiptNo());
+            fee.setReceiptNo(feeService.generateReceiptNo());
         }
 
         String upiNote = "UPI Ref: " + reference;
@@ -450,39 +449,6 @@ public class FeeController {
         if (paidAmount > totalAmount) throw ApiException.badRequest("Paid amount cannot be greater than total amount");
     }
 
-    /** Returns [dueAmount, statusCode] where statusCode: 0=Paid, 1=Partial, 2=Unpaid. */
-    private double[] calculateFeeStatus(double totalAmount, double paidAmount) {
-        double due = totalAmount - paidAmount;
-        if (due <= 0) return new double[]{0, 0};
-        if (paidAmount > 0) return new double[]{due, 1};
-        return new double[]{due, 2};
-    }
-
-    private String statusLabel(double code) {
-        if (code == 0) return "Paid";
-        if (code == 1) return "Partial";
-        return "Unpaid";
-    }
-
-    private String generateReceiptNo() {
-        SchoolSettings settings = getOrCreateSettings();
-        String prefix = settings.getReceiptPrefix() != null ? settings.getReceiptPrefix() : "REC";
-        int year = Year.now().getValue();
-        long count = feeRepository.count() + 1;
-        return String.format("%s-%d-%05d", prefix, year, count);
-    }
-
-    private SchoolSettings getOrCreateSettings() {
-        List<SchoolSettings> all = schoolSettingsRepository.findAll();
-        if (!all.isEmpty()) {
-            return all.get(0);
-        }
-        SchoolSettings settings = new SchoolSettings();
-        settings.setSchoolName("International School");
-        settings.setCurrency("INR");
-        settings.setReceiptPrefix("REC");
-        return schoolSettingsRepository.save(settings);
-    }
 
     private Map<String, FeeStructure> resolveClassStructures(String academicYear, String className, String feeType) {
         List<String> classes = className != null ? Arrays.asList(className, null) : Collections.singletonList(null);

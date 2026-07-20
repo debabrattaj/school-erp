@@ -94,6 +94,26 @@ SQLite databases:
   calculation share `GradeService` (extracted from `MarkController`) with
   `/marks/report-card`, matching the Python source's shared
   `calculate_grade()` import between `marks.py` and `certificates.py`.
+- `/portal` — the parent/student self-service portal, a direct port of
+  `app/routes/portal.py`. Uses the *same* JWT auth as every other module
+  (Parent/Student are just more entries in `PermissionCatalog`'s
+  system-role table, already recognized) — no separate auth scheme was
+  needed despite the module's size. The security-critical piece is
+  `ensureStudentAccess`: Parent/Student users can only reach a student
+  they're explicitly linked to via `ParentStudentLink` (Admin/Principal
+  bypass the check), enforced on every single portal data endpoint
+  (`/children`, `/students/{id}/summary`, `/attendance`, `/marks`,
+  `/fees`, `/enrollments`, and both UPI-payment endpoints) exactly like
+  the Python source's `ensure_student_access` call at the top of each
+  handler. Also includes the admin-only `/portal/links` CRUD (with the
+  Parent/Student role-only and duplicate-link and one-student-per-Student-
+  account checks) and the UPI deep-link + confirm-payment flow, which
+  shares `FeeService` (extracted from `FeeController`, matching the Python
+  source's `calculate_fee_status`/`generate_receipt_no`/`get_settings`
+  being imported by both `fees.py` and `portal.py`) so a portal-confirmed
+  payment updates a fee identically to a staff-recorded one. The UPI URI's
+  query-string encoding matches Python's `urllib.parse.quote` byte-for-
+  byte (`%20` for spaces, not `URLEncoder`'s default `+`).
 - `/communications` — template CRUD (`/templates/`) and message-log CRUD
   (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
   routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported
@@ -168,7 +188,7 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: portal, chatbot.
+Everything else in `backend/app/routes/`: chatbot.
 
 `accounts` (school-account CRUD, feature-flag management) is deliberately
 deferred together with `platform` (the ~1,100-line owner console it depends
