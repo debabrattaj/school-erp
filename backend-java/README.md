@@ -114,6 +114,24 @@ SQLite databases:
   payment updates a fee identically to a staff-recorded one. The UPI URI's
   query-string encoding matches Python's `urllib.parse.quote` byte-for-
   byte (`%20` for spaces, not `URLEncoder`'s default `+`).
+- `/chatbot/ask` — the school-assistant chatbot, a direct port of
+  `app/routes/chatbot.py`: the same 14-intent, word/phrase-scored keyword
+  matcher (single words weight 1, multi-word phrases weight 2, ties go to
+  the first-listed intent) with typo tolerance (a same-ratio-based
+  approximation of `difflib.get_close_matches` at the same 0.8 cutoff,
+  4+ character tokens only), the same three-tier student resolution
+  (explicit chip pick → name/admission-number mention in the message →
+  parent/student portal links, with the same staff-vs-parent clarification
+  prompts), and all ten student-scoped answer handlers (attendance with
+  today/this-week/this-month/last-month parsing, fees, marks, summary,
+  history, timetable with today/tomorrow, upcoming exams, class teacher —
+  reusing `NotificationService.findClassTeacher`, transport, library).
+  `AnthropicChatService` ports the optional Claude fallback (only reached
+  when the keyword matcher scores every intent at 0): same system prompt,
+  same structured intent-or-reply output contract, same "carries nothing
+  but the raw message text" scoping guarantee, and the same graceful
+  no-op when `ANTHROPIC_API_KEY` isn't set (verified: unrecognized input
+  falls back to the static help menu with no key configured).
 - `/communications` — template CRUD (`/templates/`) and message-log CRUD
   (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
   routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported
@@ -188,7 +206,8 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: chatbot.
+Every route module is now ported except `accounts` + `platform` (see
+below).
 
 `accounts` (school-account CRUD, feature-flag management) is deliberately
 deferred together with `platform` (the ~1,100-line owner console it depends

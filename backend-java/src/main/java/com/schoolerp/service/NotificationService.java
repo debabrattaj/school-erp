@@ -57,7 +57,7 @@ public class NotificationService {
      * from the student's class_name + section; (3) the class row's free-text
      * class_teacher name matched against the Teacher list.
      */
-    private Teacher findClassTeacher(Student student) {
+    public Teacher findClassTeacher(Student student) {
         Long classId = student.getClassId();
         SchoolClass schoolClass = null;
 
