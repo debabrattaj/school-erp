@@ -99,8 +99,11 @@ public class SchoolErpProperties {
 
     public static class Uploads {
         private String dir = "./uploads";
+        private int maxSizeMb = 5;
         public String getDir() { return dir; }
         public void setDir(String v) { this.dir = v; }
+        public int getMaxSizeMb() { return maxSizeMb; }
+        public void setMaxSizeMb(int v) { this.maxSizeMb = v; }
     }
 
     public static class Backup {

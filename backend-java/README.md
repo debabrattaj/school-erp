@@ -108,6 +108,17 @@ SQLite databases:
   document CRUD with student-joined response), and `/multi-curriculum`
   (curriculum-plan CRUD across IB/Cambridge/CBSE/etc. tracks with an
   optional class link and computed `class_display` field).
+- `/uploads` (multipart file upload with the same extension allow-list,
+  size cap, and per-tenant-directory/UUID-filename scheme as `app/
+  uploads.py`, served back at `/uploads/**` via a `WebMvcConfigurer`
+  resource handler mirroring `main.py`'s `StaticFiles` mount), `/search`
+  (global search across students/teachers/classes/exams, 6-results-per-
+  module cap), `/module-custom-fields` and `/students/{id}/custom-fields`
+  (arbitrary per-record custom field storage with upsert-by-field-key bulk
+  save, existence-checked against the record's own module table — both
+  routers are deliberately unauthenticated, matching the Python source),
+  and `/module-layouts` (per-module drag-and-drop layout JSON storage,
+  soft-deleted via `is_active`, also deliberately unauthenticated).
 
 ### Verified manually
 
@@ -124,9 +135,7 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: uploads, certificates, portal,
-chatbot, search, module-custom-fields, module-layouts,
-student-custom-fields.
+Everything else in `backend/app/routes/`: certificates, portal, chatbot.
 
 `accounts` (school-account CRUD, feature-flag management) is deliberately
 deferred together with `platform` (the ~1,100-line owner console it depends
