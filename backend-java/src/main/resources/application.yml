@@ -11,7 +11,11 @@ spring:
         format_sql: false
   jackson:
     property-naming-strategy: SNAKE_CASE
-    default-property-inclusion: non_null
+    # Deliberately NOT non_null: Pydantic/FastAPI includes Optional fields
+    # with a None value in the JSON response by default (no route here sets
+    # response_model_exclude_none), so Jackson must match that - omitting
+    # null fields would silently shrink every entity/DTO response body
+    # relative to the Python original.
   mail:
     host: ${SMTP_HOST:}
     port: ${SMTP_PORT:587}

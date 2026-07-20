@@ -41,10 +41,14 @@ SQLite databases:
   (+ `/class-subjects`, `/class-exam-mappings`), `/attendance`, `/exams`,
   `/exam-components`, `/marks` (grade calculation, per-component scores),
   `/users`, `/roles`, `/settings`, `/master-data`, `/academic-years`,
-  `/timetable` (teacher-clash + slot-clash validation).
+  `/timetable` (teacher-clash + slot-clash validation), `/dashboard`
+  (`/summary`, `/trends`, the whitelisted `/report` aggregation engine for
+  students/fees/attendance/marks/teachers, and per-user `/layout`).
   Not yet ported: students' CSV bulk-import endpoints, the new-admission
   notification side effect, `GET /marks/report-card` and
-  `GET /timetable/pdf` (both depend on the not-yet-ported `app/pdf.py`).
+  `GET /timetable/pdf` (both depend on the not-yet-ported `app/pdf.py`), and
+  the dashboard report engine's hostel/transport/library sources (those
+  route modules aren't ported yet either).
 
 ### Verified manually
 
@@ -66,7 +70,7 @@ student-enrollments, accounts, hostel, transport, health-infirmary, mess,
 library, inventory, accounting, admissions (+ workflow/assessments),
 international-documents, multi-curriculum, communications, student-services,
 alumni-withdrawals, counseling, enrichment, compliance, uploads,
-certificates, portal, chatbot, platform (owner console), dashboard, search,
+certificates, portal, chatbot, platform (owner console), search,
 module-custom-fields, module-layouts, student-custom-fields. A minimal
 `StudentEnrollment` entity exists only for the enrollment-count guards
 `academic_years.py` needs — the full student-enrollments CRUD module is
@@ -114,6 +118,14 @@ underscore in the Python source.
 `room_number` column) needs the underlying column's getter `@JsonIgnore`-d
 and only the alias name exposed via `@JsonProperty`**, or both names leak
 into the JSON body. See `SchoolClass.getRoomNumber()`/`getRoomNo()`.
+
+**Never set `spring.jackson.default-property-inclusion: non_null`** (this
+was set briefly and then reverted). FastAPI/Pydantic includes `Optional`
+fields with a `None` value in the response body by default — no route here
+sets `response_model_exclude_none=True` — so every entity/DTO response
+should too. That setting silently drops null fields instead, shrinking
+every response body relative to the Python original (caught via
+`GET /dashboard/layout` returning `{}` instead of `{"widgets": null}`).
 
 **Two Hibernate naming/exception-translation traps that silently produced
 wrong behavior in manual testing, not compile errors — worth re-reading if
