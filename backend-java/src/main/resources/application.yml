@@ -75,6 +75,11 @@ schoolerp:
     keep: ${BACKUP_KEEP:14}
     enabled: ${BACKUP_ENABLED:false}
     interval-hours: ${BACKUP_INTERVAL_HOURS:24}
+  platform:
+    owner-email: ${PLATFORM_OWNER_EMAIL:owner@schoolerp.com}
+    owner-password: ${PLATFORM_OWNER_PASSWORD:owner123}
+    owner-name: ${PLATFORM_OWNER_NAME:Platform Owner}
+    token-minutes: ${PLATFORM_TOKEN_MINUTES:720}
   seed-demo-users: ${SEED_DEMO_USERS:true}
 
 logging:

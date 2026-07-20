@@ -190,6 +190,59 @@ SQLite databases:
   routers are deliberately unauthenticated, matching the Python source),
   and `/module-layouts` (per-module drag-and-drop layout JSON storage,
   soft-deleted via `is_active`, also deliberately unauthenticated).
+- `/platform` (`PlatformController`) — the multi-tenant owner console, a
+  direct port of `app/routes/platform.py`. Uses a completely separate JWT
+  auth model from every other module: `POST /platform/auth/login` issues a
+  token with `scope: "platform"` and `account_code: "__platform__"` (a
+  sentinel that can never resolve to a real tenant, so the token is inert
+  against every other endpoint and vice versa), verified by
+  `PlatformAuthService.requirePlatformOwner` (manual header parsing via
+  `JwtService.parseClaims`, not `PermissionService`/Spring Security's
+  context — `JwtAuthenticationFilter` explicitly skips its tenant-`User`
+  lookup for `scope: "platform"` tokens, since the token's `sub` is a
+  numeric `PlatformAdmin` id, not an email, and would otherwise blow up
+  every request with a `TenantNotFoundException` from `__platform__` not
+  matching a real account). Covers the full feature catalog, on-demand
+  central+per-tenant backups (`BackupService` — SQLite file copy, `pg_dump`
+  via `ProcessBuilder` for Postgres, prune-beyond-`BACKUP_KEEP`), audit
+  logs, full school CRUD (`POST /platform/schools` provisions a brand-new
+  tenant database and seeds its first Admin user purely by wrapping the
+  save calls in `TenantContext.setTenant(newAccountCode)` — no separate
+  "provision a database" code needed, since a tenant-scoped repository
+  call under a not-yet-seen account code lazily triggers the whole
+  `ensureDatabaseExists` + Hibernate schema-bootstrap + connection-pool
+  pipeline on its own), feature toggling, admin-password reset,
+  subscription-plan CRUD, subscription/billing management (`expiry_date`
+  uses the same `months * 30`-day approximation as the Python source, not
+  calendar-month arithmetic), and platform notifications including the
+  dual-mode `GET /platform/my-notifications` (owner token sees every
+  school's notifications; a regular tenant admin token sees only its own
+  account's + broadcasts, exactly like the Python source's `is_platform`
+  branch). `PlatformSeedService` seeds the first `PlatformAdmin`
+  (`PLATFORM_OWNER_EMAIL`/`_PASSWORD`/`_NAME`, defaulting to
+  `owner@schoolerp.com`/`owner123`) and the three default subscription
+  plans at startup, matching `ensure_platform_owner()`/
+  `ensure_default_plans()` being called once at Python `main.py` import
+  time.
+- `/accounts` (`AccountController`) — the tenant-facing companion to
+  `platform.py`, a direct port of `app/routes/accounts.py`. `GET
+  /accounts/me` uses the regular tenant JWT (`PermissionService
+  .getCurrentUser()`, not the platform auth) to return the caller's own
+  school + features + user profile; every other endpoint
+  (`GET`/`POST /accounts`, `PUT /accounts/{accountCode}/features`) is
+  gated by the same `PlatformAuthService.requirePlatformOwner` used by
+  `PlatformController` — the two controllers share that bean rather than
+  each having their own copy, matching Python's `platform.py` /
+  `accounts.py` both importing the same `require_platform_owner`
+  dependency.
+
+Verified end-to-end against a running server: platform owner login,
+school creation (tenant DB provisioning + Admin seeding confirmed by
+logging into the new tenant), feature-catalog/toggle, admin-password
+reset, plan/subscription CRUD, billing summary, platform notifications in
+both owner and tenant-admin modes, on-demand backup, and every `/accounts`
+endpoint including the 403 a tenant-admin token gets from the
+owner-gated ones.
 
 ### Verified manually
 
@@ -206,15 +259,11 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Every route module is now ported except `accounts` + `platform` (see
-below).
-
-`accounts` (school-account CRUD, feature-flag management) is deliberately
-deferred together with `platform` (the ~1,100-line owner console it depends
-on for `require_platform_owner` auth and tenant provisioning) — porting one
-without the other isn't meaningful, and the pair is architecturally
-significant enough to warrant its own dedicated pass rather than being
-folded into a routine CRUD-module batch.
+Every route module is now ported, including `accounts` + `platform`. The
+only remaining known gaps are students' CSV bulk-import endpoints and
+`GET /fees/{id}/pay` (the public guardian payment page itself — the
+signed token scheme it would validate is fully ported in
+`PaymentLinkService`, just not yet consumed by an actual page/endpoint).
 
 ## Pattern for porting a module (and gotchas hit so far)
 

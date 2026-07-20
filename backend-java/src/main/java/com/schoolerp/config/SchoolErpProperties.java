@@ -16,6 +16,7 @@ public class SchoolErpProperties {
     private Ai ai = new Ai();
     private Uploads uploads = new Uploads();
     private Backup backup = new Backup();
+    private Platform platform = new Platform();
     private boolean seedDemoUsers = true;
 
     public static class Security {
@@ -121,6 +122,21 @@ public class SchoolErpProperties {
         public void setIntervalHours(int v) { this.intervalHours = v; }
     }
 
+    public static class Platform {
+        private String ownerEmail = "owner@schoolerp.com";
+        private String ownerPassword = "owner123";
+        private String ownerName = "Platform Owner";
+        private int tokenMinutes = 720;
+        public String getOwnerEmail() { return ownerEmail; }
+        public void setOwnerEmail(String v) { this.ownerEmail = v; }
+        public String getOwnerPassword() { return ownerPassword; }
+        public void setOwnerPassword(String v) { this.ownerPassword = v; }
+        public String getOwnerName() { return ownerName; }
+        public void setOwnerName(String v) { this.ownerName = v; }
+        public int getTokenMinutes() { return tokenMinutes; }
+        public void setTokenMinutes(int v) { this.tokenMinutes = v; }
+    }
+
     public Security getSecurity() { return security; }
     public void setSecurity(Security v) { this.security = v; }
     public Cors getCors() { return cors; }
@@ -143,6 +159,8 @@ public class SchoolErpProperties {
     public void setUploads(Uploads v) { this.uploads = v; }
     public Backup getBackup() { return backup; }
     public void setBackup(Backup v) { this.backup = v; }
+    public Platform getPlatform() { return platform; }
+    public void setPlatform(Platform v) { this.platform = v; }
     public boolean isSeedDemoUsers() { return seedDemoUsers; }
     public void setSeedDemoUsers(boolean v) { this.seedDemoUsers = v; }
 }
