@@ -79,6 +79,18 @@ SQLite databases:
   `hydrate_student_snapshot`'s exact fallback chain — student name, admission
   no., "class section" last-class string, and guardian email/phone are
   pulled from the linked student only when not explicitly supplied).
+- `/health-infirmary` (infirmary visit CRUD with student-joined response),
+  `/mess` (menu CRUD unique per date+meal, attendance CRUD unique per
+  student+date+meal — both composite constraints enforced with app-level
+  pre-checks, not DB constraints), `/hostel` (blocks/rooms/allocations —
+  room capacity vs. active-allocation-count validation, one-active-allocation-
+  per-student, room-fill and bed-clash pre-checks, occupied/available-bed
+  counts on the room response), and `/transport` (routes/vehicles/stops/
+  assignments — vehicle-capacity vs. active-assignment-count validation,
+  one-active-assignment-per-student, vehicle-fill checks, a stop's route
+  must match the assignment's route, assigned/available-seat counts on the
+  vehicle response). All four follow the same explicit find-before-insert
+  uniqueness pattern established for composite constraints.
 
 ### Verified manually
 
@@ -95,12 +107,18 @@ GET  /students/next-roll-no?class_name=5&section=A                     -> 200, c
 
 ## What's not ported yet
 
-Everything else in `backend/app/routes/`: accounts, hostel, transport,
-health-infirmary, mess, library, inventory, accounting,
+Everything else in `backend/app/routes/`: library, inventory, accounting,
 international-documents, multi-curriculum,
-uploads, certificates, portal, chatbot, platform (owner console), search,
+uploads, certificates, portal, chatbot, search,
 module-custom-fields, module-layouts,
 student-custom-fields.
+
+`accounts` (school-account CRUD, feature-flag management) is deliberately
+deferred together with `platform` (the ~1,100-line owner console it depends
+on for `require_platform_owner` auth and tenant provisioning) — porting one
+without the other isn't meaningful, and the pair is architecturally
+significant enough to warrant its own dedicated pass rather than being
+folded into a routine CRUD-module batch.
 
 ## Pattern for porting a module (and gotchas hit so far)
 
