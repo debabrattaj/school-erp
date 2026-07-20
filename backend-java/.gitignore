@@ -1,0 +1,8 @@
+target/
+*.db
+*.db-journal
+uploads/
+backups/
+.env
+*.iml
+.idea/

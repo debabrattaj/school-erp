@@ -1,0 +1,73 @@
+server:
+  port: ${PORT:8000}
+
+spring:
+  application:
+    name: school-erp-backend
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: ${SMTP_USE_TLS:true}
+          ssl:
+            enable: ${SMTP_USE_SSL:false}
+        smtp.timeout: ${SMTP_TIMEOUT:10000}
+
+springdoc:
+  swagger-ui:
+    path: /docs
+
+schoolerp:
+  security:
+    secret-key: ${SECRET_KEY:}
+    access-token-expire-minutes: ${ACCESS_TOKEN_EXPIRE_MINUTES:1440}
+    min-password-length: ${MIN_PASSWORD_LENGTH:8}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  login-throttle:
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:8}
+    window-seconds: ${LOGIN_WINDOW_SECONDS:900}
+  reset:
+    token-ttl-minutes: ${RESET_TOKEN_TTL_MINUTES:30}
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    debug-return-token: ${RESET_DEBUG_RETURN_TOKEN:false}
+  backend-base-url: ${BACKEND_BASE_URL:http://localhost:8000}
+  tenant:
+    central-database-url: ${CENTRAL_DATABASE_URL:jdbc:sqlite:./school_accounts.db}
+    default-account-code: ${DEFAULT_ACCOUNT_CODE:default}
+    default-school-database-url: ${DEFAULT_SCHOOL_DATABASE_URL:jdbc:sqlite:./school_erp.db}
+  mail:
+    from: ${SMTP_FROM:no-reply@schoolerp.local}
+  whatsapp:
+    twilio-account-sid: ${TWILIO_ACCOUNT_SID:}
+    twilio-auth-token: ${TWILIO_AUTH_TOKEN:}
+    twilio-whatsapp-from: ${TWILIO_WHATSAPP_FROM:whatsapp:+14155238886}
+    default-country-code: ${WHATSAPP_DEFAULT_COUNTRY_CODE:+91}
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+  uploads:
+    dir: ${UPLOAD_DIR:./uploads}
+  backup:
+    dir: ${BACKUP_DIR:./backups}
+    keep: ${BACKUP_KEEP:14}
+    enabled: ${BACKUP_ENABLED:false}
+    interval-hours: ${BACKUP_INTERVAL_HOURS:24}
+  seed-demo-users: ${SEED_DEMO_USERS:true}
+
+logging:
+  level:
+    com.schoolerp: INFO
