@@ -67,11 +67,26 @@ SQLite databases:
   fallback — is shared between the `/communications` endpoints and these
   notification hooks, exactly like the Python source's shared
   `deliver_message()` free function.
-  Not yet ported: students' CSV bulk-import endpoints, `GET
-  /marks/report-card`, `GET /timetable/pdf`, and `GET /fees/{id}/receipt`
-  (all depend on the not-yet-ported `app/pdf.py`), and `GET /fees/{id}/pay`
+  `GET /marks/report-card`, `GET /timetable/pdf`, and `GET
+  /fees/{id}/receipt` are ported too — see `PdfService` below. Not yet
+  ported: students' CSV bulk-import endpoints, and `GET /fees/{id}/pay`
   (the public guardian payment page itself — the signed token it validates
   is ported and generated correctly, just not yet consumed by a page).
+- `PdfService` — a full port of `app/pdf.py`'s seven PDF generators (fee
+  receipt, report card, transcript, timetable grid, bonafide certificate,
+  transfer certificate, student ID card) using iText7 instead of reportlab.
+  Deliberately **not** pixel-matched to the Python original: it uses
+  iText's high-level `Document`/`Table` layout API rather than replicating
+  reportlab's manual mm-coordinate canvas positioning, because a PDF
+  download is consumed as a document by a human, not parsed field-by-field
+  like the JSON endpoints — content and data parity is what matters here,
+  not byte-for-byte layout. `report_card_pdf`, `timetable_pdf`, and
+  `fee_receipt_pdf` are wired into `GET /marks/report-card`, `GET
+  /timetable/pdf`, and `GET /fees/{id}/receipt` respectively, each
+  verified to return a real, valid, correctly-populated PDF. The other
+  four generators (transcript, both certificates, ID card) are ported and
+  unit-usable but not yet wired to an endpoint, since `certificates.py`
+  (their caller) isn't ported yet.
 - `/communications` — template CRUD (`/templates/`) and message-log CRUD
   (`/logs/`, `/logs/{id}/send`, `/logs/{id}/status`) with real delivery
   routing: Email via `MailerService`, WhatsApp/SMS via the newly-ported

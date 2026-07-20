@@ -2,26 +2,26 @@ package com.schoolerp.controller;
 
 import com.schoolerp.dto.timetable.TimetableEntryCreate;
 import com.schoolerp.entity.SchoolClass;
+import com.schoolerp.entity.SchoolSettings;
 import com.schoolerp.entity.Teacher;
 import com.schoolerp.entity.TimetableEntry;
 import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.SchoolClassRepository;
+import com.schoolerp.repository.SchoolSettingsRepository;
 import com.schoolerp.repository.TeacherRepository;
 import com.schoolerp.repository.TimetableEntryRepository;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.PdfService;
 import jakarta.validation.Valid;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
-/**
- * Direct port of backend/app/routes/timetable.py's CRUD endpoints. GET
- * /timetable/pdf (depends on the not-yet-ported app/pdf.py) is not included yet.
- */
+/** Direct port of backend/app/routes/timetable.py's CRUD and PDF export endpoints. */
 @RestController
 @RequestMapping("/timetable")
 public class TimetableController {
@@ -31,18 +31,143 @@ public class TimetableController {
     private final TimetableEntryRepository timetableEntryRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final TeacherRepository teacherRepository;
+    private final SchoolSettingsRepository schoolSettingsRepository;
     private final PermissionService permissionService;
+    private final PdfService pdfService;
 
     public TimetableController(
             TimetableEntryRepository timetableEntryRepository,
             SchoolClassRepository schoolClassRepository,
             TeacherRepository teacherRepository,
-            PermissionService permissionService
+            SchoolSettingsRepository schoolSettingsRepository,
+            PermissionService permissionService,
+            PdfService pdfService
     ) {
         this.timetableEntryRepository = timetableEntryRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.teacherRepository = teacherRepository;
+        this.schoolSettingsRepository = schoolSettingsRepository;
         this.permissionService = permissionService;
+        this.pdfService = pdfService;
+    }
+
+    @GetMapping("/pdf")
+    public ResponseEntity<byte[]> timetablePdfExport(
+            @RequestParam(name = "class_id", required = false) Long classId,
+            @RequestParam(name = "teacher_id", required = false) Long teacherId,
+            @RequestParam(name = "academic_year", required = false) String academicYear
+    ) {
+        permissionService.requireRoles("Admin", "Principal", "Teacher");
+
+        if (classId == null && teacherId == null) {
+            throw ApiException.badRequest("class_id or teacher_id is required");
+        }
+
+        Long finalClassId = classId;
+        Long finalTeacherId = teacherId;
+        List<TimetableEntry> entries = timetableEntryRepository.findAll().stream()
+                .filter(e -> finalClassId == null || finalClassId.equals(e.getClassId()))
+                .filter(e -> finalTeacherId == null || finalTeacherId.equals(e.getTeacherId()))
+                .filter(e -> academicYear == null || academicYear.equals(e.getAcademicYear()))
+                .sorted(Comparator.comparing(TimetableEntry::getPeriodNo))
+                .toList();
+        if (entries.isEmpty()) {
+            throw ApiException.notFound("No timetable entries found");
+        }
+
+        List<SchoolSettings> allSettings = schoolSettingsRepository.findAll();
+        String schoolName = !allSettings.isEmpty() && allSettings.get(0).getSchoolName() != null
+                ? allSettings.get(0).getSchoolName() : "School";
+
+        Map<Integer, List<TimetableEntry>> periodRows = new TreeMap<>();
+        for (TimetableEntry entry : entries) {
+            periodRows.computeIfAbsent(entry.getPeriodNo(), k -> new ArrayList<>()).add(entry);
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<Integer, List<TimetableEntry>> group : periodRows.entrySet()) {
+            Integer periodNo = group.getKey();
+            List<TimetableEntry> groupEntries = group.getValue();
+            TimetableEntry breakEntry = groupEntries.stream().filter(e -> !"period".equals(e.getEntryType())).findFirst().orElse(null);
+
+            if (breakEntry != null) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("period_no", periodNo);
+                row.put("is_break", true);
+                String entryType = breakEntry.getEntryType();
+                String titleCased = entryType == null ? "" : entryType.substring(0, 1).toUpperCase() + entryType.substring(1);
+                row.put("break_label", breakEntry.getLabel() != null ? breakEntry.getLabel() : titleCased);
+                row.put("start_time", breakEntry.getStartTime());
+                row.put("end_time", breakEntry.getEndTime());
+                rows.add(row);
+                continue;
+            }
+
+            Map<String, Map<String, String>> cells = new LinkedHashMap<>();
+            TimetableEntry sample = groupEntries.get(0);
+            for (TimetableEntry entry : groupEntries) {
+                String line1;
+                String line2;
+                if (classId != null) {
+                    line1 = entry.getSubject() != null ? entry.getSubject() : "-";
+                    line2 = entry.getTeacherNameSnapshot();
+                } else {
+                    String classLabel = entry.getClassNameSnapshot() != null ? entry.getClassNameSnapshot() : "";
+                    if (entry.getSectionSnapshot() != null && !entry.getSectionSnapshot().isBlank()) {
+                        classLabel = classLabel.isEmpty() ? entry.getSectionSnapshot() : classLabel + "-" + entry.getSectionSnapshot();
+                    }
+                    line1 = classLabel.isEmpty() ? "-" : classLabel;
+                    line2 = entry.getSubject();
+                }
+                Map<String, String> cell = new LinkedHashMap<>();
+                cell.put("line1", line1);
+                cell.put("line2", line2);
+                cells.put(entry.getDayOfWeek(), cell);
+            }
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("period_no", periodNo);
+            row.put("is_break", false);
+            row.put("start_time", sample.getStartTime());
+            row.put("end_time", sample.getEndTime());
+            row.put("cells", cells);
+            rows.add(row);
+        }
+
+        String title;
+        String subtitle;
+        List<String> days;
+        if (classId != null) {
+            SchoolClass cls = schoolClassRepository.findById(classId).orElse(null);
+            title = cls != null ? cls.getClassName() + " - " + cls.getSection() : "Class";
+            subtitle = "Class Timetable";
+            days = VALID_DAYS.subList(0, 6);
+        } else {
+            Teacher teacher = teacherRepository.findById(teacherId).orElse(null);
+            title = teacher != null ? teacher.getName() : "Teacher";
+            subtitle = "Teacher Timetable";
+            days = entries.stream().map(TimetableEntry::getDayOfWeek)
+                    .filter(d -> d != null && !"*".equals(d))
+                    .distinct()
+                    .sorted(Comparator.comparingInt(VALID_DAYS::indexOf))
+                    .toList();
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("school_name", schoolName);
+        data.put("subtitle", subtitle);
+        data.put("title", title);
+        data.put("academic_year", academicYear != null ? academicYear : entries.get(0).getAcademicYear());
+        data.put("days", days);
+        data.put("rows", rows);
+
+        byte[] pdfBytes = pdfService.timetablePdf(data);
+        String filename = "timetable_" + (classId != null ? "class_" + classId : "teacher_" + teacherId) + ".pdf";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + filename)
+                .body(pdfBytes);
     }
 
     @GetMapping({"", "/"})

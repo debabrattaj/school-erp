@@ -13,6 +13,7 @@ import com.schoolerp.repository.SchoolSettingsRepository;
 import com.schoolerp.repository.StudentRepository;
 import com.schoolerp.security.PermissionService;
 import com.schoolerp.service.NotificationService;
+import com.schoolerp.service.PdfService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,6 +45,7 @@ public class FeeController {
     private final FeeStructureRepository feeStructureRepository;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
+    private final PdfService pdfService;
 
     public FeeController(
             FeeRepository feeRepository,
@@ -51,7 +53,8 @@ public class FeeController {
             SchoolSettingsRepository schoolSettingsRepository,
             FeeStructureRepository feeStructureRepository,
             PermissionService permissionService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            PdfService pdfService
     ) {
         this.feeRepository = feeRepository;
         this.studentRepository = studentRepository;
@@ -59,6 +62,7 @@ public class FeeController {
         this.feeStructureRepository = feeStructureRepository;
         this.permissionService = permissionService;
         this.notificationService = notificationService;
+        this.pdfService = pdfService;
     }
 
     @PostMapping({"", "/"})
@@ -216,6 +220,56 @@ public class FeeController {
         return feeRepository.findByStudentId(studentId).stream()
                 .sorted(Comparator.comparing(Fee::getId).reversed())
                 .toList();
+    }
+
+    @GetMapping("/{feeId}/receipt")
+    public org.springframework.http.ResponseEntity<byte[]> feeReceipt(@PathVariable Long feeId) {
+        permissionService.requireRoles("Admin", "Accounts", "Principal");
+
+        Fee fee = feeRepository.findById(feeId).orElseThrow(() -> ApiException.notFound("Fee record not found"));
+        Student student = studentRepository.findById(fee.getStudentId()).orElse(null);
+        SchoolSettings settings = getOrCreateSettings();
+
+        String studentName = "-";
+        String classLabel = fee.getClassNameSnapshot() != null ? fee.getClassNameSnapshot() : "";
+        if (student != null) {
+            studentName = ((student.getFirstName() != null ? student.getFirstName() : "") + " "
+                    + (student.getLastName() != null ? student.getLastName() : "")).trim();
+            if (studentName.isEmpty()) {
+                studentName = student.getAdmissionNo() != null ? student.getAdmissionNo() : "-";
+            }
+            if (classLabel.isEmpty()) {
+                classLabel = student.getClassName() != null ? student.getClassName() : "";
+            }
+            if (student.getAdmissionNo() != null) {
+                studentName = student.getAdmissionNo() + " - " + studentName;
+            }
+        }
+
+        double total = fee.getTotalAmount() != null ? fee.getTotalAmount() : 0;
+        double paid = fee.getPaidAmount() != null ? fee.getPaidAmount() : 0;
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("school_name", settings.getSchoolName());
+        data.put("currency", settings.getCurrency());
+        data.put("receipt_no", fee.getReceiptNo());
+        data.put("student_name", studentName);
+        data.put("class_label", classLabel.isEmpty() ? "-" : classLabel);
+        data.put("fee_type", fee.getFeeType());
+        data.put("academic_year", fee.getAcademicYear());
+        data.put("total", total);
+        data.put("paid", paid);
+        data.put("balance", Math.max(total - paid, 0));
+        data.put("status", fee.getPaymentStatus());
+        data.put("payment_date", fee.getPaymentDate() != null ? fee.getPaymentDate().toString() : "-");
+
+        byte[] pdfBytes = pdfService.feeReceiptPdf(data);
+        String filename = "receipt_" + (fee.getReceiptNo() != null ? fee.getReceiptNo() : fee.getId()) + ".pdf";
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + filename)
+                .body(pdfBytes);
     }
 
     @GetMapping("/{feeId}")

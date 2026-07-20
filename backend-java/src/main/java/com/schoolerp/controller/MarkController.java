@@ -4,15 +4,15 @@ import com.schoolerp.entity.*;
 import com.schoolerp.exception.ApiException;
 import com.schoolerp.repository.*;
 import com.schoolerp.security.PermissionService;
+import com.schoolerp.service.PdfService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
-/**
- * Direct port of backend/app/routes/marks.py's CRUD endpoints. The PDF
- * report-card endpoint (GET /marks/report-card, depends on the not-yet-ported
- * app/pdf.py) is not included yet.
- */
+/** Direct port of backend/app/routes/marks.py's CRUD and report-card PDF endpoints. */
 @RestController
 @RequestMapping("/marks")
 public class MarkController {
@@ -32,6 +32,7 @@ public class MarkController {
     private final ClassExamMappingRepository classExamMappingRepository;
     private final SchoolSettingsRepository schoolSettingsRepository;
     private final PermissionService permissionService;
+    private final PdfService pdfService;
 
     public MarkController(
             MarkRepository markRepository,
@@ -42,7 +43,8 @@ public class MarkController {
             ClassSubjectRepository classSubjectRepository,
             ClassExamMappingRepository classExamMappingRepository,
             SchoolSettingsRepository schoolSettingsRepository,
-            PermissionService permissionService
+            PermissionService permissionService,
+            PdfService pdfService
     ) {
         this.markRepository = markRepository;
         this.markComponentScoreRepository = markComponentScoreRepository;
@@ -53,6 +55,80 @@ public class MarkController {
         this.classExamMappingRepository = classExamMappingRepository;
         this.schoolSettingsRepository = schoolSettingsRepository;
         this.permissionService = permissionService;
+        this.pdfService = pdfService;
+    }
+
+    @GetMapping("/report-card")
+    public ResponseEntity<byte[]> reportCard(
+            @RequestParam(name = "student_id") Long studentId,
+            @RequestParam(name = "exam_id") Long examId
+    ) {
+        permissionService.requireRoles("Admin", "Principal", "Teacher");
+
+        Student student = studentRepository.findById(studentId).orElseThrow(() -> ApiException.notFound("Student not found"));
+        Exam exam = examRepository.findById(examId).orElse(null);
+
+        List<Mark> marks = markRepository.findByStudentIdAndExamId(studentId, examId).stream()
+                .sorted(Comparator.comparing(Mark::getSubjectName, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        if (marks.isEmpty()) {
+            throw ApiException.notFound("No marks found for this student and exam.");
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        double totalObtained = 0;
+        double totalMax = 0;
+        for (Mark mark : marks) {
+            double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
+            double maximum = mark.getMaxMarks() != null ? mark.getMaxMarks() : (mark.getTotalMarks() != null ? mark.getTotalMarks() : 0);
+            totalObtained += obtained;
+            totalMax += maximum;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("subject", mark.getSubjectName() != null ? mark.getSubjectName() : (mark.getSubject() != null ? mark.getSubject() : "-"));
+            row.put("obtained", obtained);
+            row.put("max", maximum);
+            row.put("grade", mark.getGrade() != null ? mark.getGrade() : "-");
+            rows.add(row);
+        }
+
+        double percentage = totalMax > 0 ? (totalObtained / totalMax * 100) : 0;
+        SchoolSettings settings = getOrCreateSchoolSettings();
+        String overallGrade = totalMax > 0 ? calculateGrade(totalObtained, totalMax) : "-";
+
+        String studentName = ((student.getFirstName() != null ? student.getFirstName() : "") + " "
+                + (student.getLastName() != null ? student.getLastName() : "")).trim();
+        if (studentName.isEmpty()) {
+            studentName = student.getAdmissionNo() != null ? student.getAdmissionNo() : "-";
+        }
+
+        Mark first = marks.get(0);
+        String classLabel = first.getClassNameSnapshot() != null ? first.getClassNameSnapshot() : student.getClassName();
+        if (classLabel == null) classLabel = "-";
+        String section = first.getSectionSnapshot() != null ? first.getSectionSnapshot() : student.getSection();
+        if (section != null && !section.isBlank()) {
+            classLabel = classLabel + " - " + section;
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("school_name", settings.getSchoolName());
+        data.put("student_name", studentName);
+        data.put("admission_no", student.getAdmissionNo());
+        data.put("class_label", classLabel);
+        data.put("exam_name", exam != null ? exam.getExamName() : (first.getExamNameSnapshot() != null ? first.getExamNameSnapshot() : "-"));
+        data.put("academic_year", first.getAcademicYear() != null ? first.getAcademicYear() : "-");
+        data.put("rows", rows);
+        data.put("total_obtained", totalObtained);
+        data.put("total_max", totalMax);
+        data.put("percentage", percentage);
+        data.put("overall_grade", overallGrade);
+
+        byte[] pdfBytes = pdfService.reportCardPdf(data);
+        String filename = "report_card_" + (student.getAdmissionNo() != null ? student.getAdmissionNo() : student.getId()) + ".pdf";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + filename)
+                .body(pdfBytes);
     }
 
     @PostMapping({"", "/"})
