@@ -34,6 +34,7 @@ public class Role {
     public void setName(String v) { this.name = v; }
     public String getPermissions() { return permissions; }
     public void setPermissions(String v) { this.permissions = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_system")
     public boolean isSystem() { return isSystem; }
     public void setSystem(boolean v) { this.isSystem = v; }
     public String getDescription() { return description; }

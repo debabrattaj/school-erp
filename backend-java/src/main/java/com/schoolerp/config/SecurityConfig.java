@@ -38,10 +38,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/auth/**", "/docs/**", "/v3/api-docs/**", "/uploads/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+                // FastAPI has no global "require auth" layer: every route opts into
+                // auth individually via Depends(get_current_user)/require_roles(...),
+                // and several route modules (e.g. teachers.py) call neither. To
+                // replicate that exactly rather than defaulting to secure, this
+                // filter chain permits everything at the HTTP layer and leaves all
+                // enforcement to PermissionService.requireRoles()/getCurrentUser()
+                // calls inside each controller, mirroring the Python source
+                // per-endpoint.
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

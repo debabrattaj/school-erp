@@ -36,6 +36,7 @@ public class PlatformAdmin {
     public void setEmail(String v) { this.email = v; }
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String v) { this.passwordHash = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_active")
     public boolean isActive() { return isActive; }
     public void setActive(boolean v) { this.isActive = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }

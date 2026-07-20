@@ -41,6 +41,7 @@ public class SubscriptionPlan {
     public void setMaxUsers(Integer v) { this.maxUsers = v; }
     public String getDescription() { return description; }
     public void setDescription(String v) { this.description = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_active")
     public boolean isActive() { return isActive; }
     public void setActive(boolean v) { this.isActive = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }

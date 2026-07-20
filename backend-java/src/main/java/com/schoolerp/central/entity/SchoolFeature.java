@@ -32,6 +32,7 @@ public class SchoolFeature {
     public void setAccountId(Long v) { this.accountId = v; }
     public String getFeatureKey() { return featureKey; }
     public void setFeatureKey(String v) { this.featureKey = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_enabled")
     public boolean isEnabled() { return isEnabled; }
     public void setEnabled(boolean v) { this.isEnabled = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }

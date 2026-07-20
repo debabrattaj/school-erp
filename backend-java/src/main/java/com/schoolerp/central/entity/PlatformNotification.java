@@ -35,6 +35,7 @@ public class PlatformNotification {
     public void setMessage(String v) { this.message = v; }
     public String getNotificationType() { return notificationType; }
     public void setNotificationType(String v) { this.notificationType = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_read")
     public boolean isRead() { return isRead; }
     public void setRead(boolean v) { this.isRead = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }

@@ -24,6 +24,7 @@ public class MasterData {
     public void setCategory(String v) { this.category = v; }
     public String getValue() { return value; }
     public void setValue(String v) { this.value = v; }
+    @com.fasterxml.jackson.annotation.JsonProperty("is_active")
     public boolean isActive() { return isActive; }
     public void setActive(boolean v) { this.isActive = v; }
     public Integer getSortOrder() { return sortOrder; }
