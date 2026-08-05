@@ -53,7 +53,6 @@ def upgrade() -> None:
     sa.Column('room_number', sa.String(), nullable=True),
     sa.Column('academic_year', sa.String(), nullable=True),
     sa.Column('class_teacher_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['class_teacher_id'], ['teachers.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('classes', schema=None) as batch_op:
@@ -377,6 +376,14 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_teachers_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_teachers_employee_no'), ['employee_no'], unique=True)
         batch_op.create_index(batch_op.f('ix_teachers_id'), ['id'], unique=False)
+
+    # classes.class_teacher_id -> teachers.id: added here (not inline on
+    # 'classes' above) because classes and teachers reference each other
+    # (teachers.class_id -> classes.id) and 'classes' is created first.
+    op.create_foreign_key(
+        'classes_class_teacher_id_fkey', 'classes', 'teachers',
+        ['class_teacher_id'], ['id'], ondelete='SET NULL'
+    )
 
     op.create_table('transport_routes',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -1401,6 +1408,7 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_transport_routes_id'))
 
     op.drop_table('transport_routes')
+    op.drop_constraint('classes_class_teacher_id_fkey', 'classes', type_='foreignkey')
     with op.batch_alter_table('teachers', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_teachers_id'))
         batch_op.drop_index(batch_op.f('ix_teachers_employee_no'))
