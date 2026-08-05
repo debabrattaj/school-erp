@@ -34,11 +34,16 @@ def build_tenant_database_url(safe_code: str) -> str:
     Mirrors the dialect of DEFAULT_SCHOOL_DATABASE_URL: SQLite gets its own
     file, Postgres (and other server DBs) get a same-server database named
     after the school, reusing the configured host/user/password/port.
+
+    Some hosts (e.g. cPanel) force a fixed prefix on every database name they
+    let you create. Set TENANT_DB_NAME_PREFIX to match so a database created
+    ahead of time through the host's UI lines up with what the app expects.
     """
     if is_sqlite(DATABASE_URL):
         return f"sqlite:///./school_erp_{safe_code}.db"
     parsed = make_url(DATABASE_URL)
-    return parsed.set(database=f"school_erp_{safe_code}").render_as_string(hide_password=False)
+    prefix = os.getenv("TENANT_DB_NAME_PREFIX", "")
+    return parsed.set(database=f"{prefix}school_erp_{safe_code}").render_as_string(hide_password=False)
 
 
 def ensure_database_exists(url: str) -> None:
