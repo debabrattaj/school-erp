@@ -7,6 +7,7 @@ __pycache__/
 backend/.env
 frontend/.env
 frontend/.env.local
+frontend/.env.production
 
 # Databases (per-tenant SQLite files — real data shouldn't ship with source)
 backend/*.db
