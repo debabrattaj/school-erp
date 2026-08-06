@@ -178,8 +178,20 @@ existing tables — the migration is what adds the new columns.
 ### Wiring it up in cPanel
 
 If the backend runs on cPanel itself (via "Setup Python App" / Passenger),
-add a Cron Job that calls the script directly in the app's own virtualenv —
-no HTTP round-trip or auth token needed:
+getting scheduled fee generation live is two separate things: getting this
+*code* onto the server, then telling cron to *run* it.
+
+**0. Deploy the code.** If you deploy via cPanel's Git Version Control
+feature, the repo root's `.cpanel.yml` automates this — fill in its two
+placeholders (`DEPLOYPATH` from this repo's Git Version Control page,
+and the venv activate line from Setup Python App, see the comments at the
+top of the file) and "Deploy HEAD Commit" will copy the code, install
+dependencies, run `manage_migrations.py upgrade head`, and restart the app.
+If you deploy some other way (manual `git pull` over SSH, FTP, etc.), just
+make sure those same steps happen once before continuing.
+
+Then add a Cron Job that calls the script directly in the app's own
+virtualenv — no HTTP round-trip or auth token needed:
 
 1. cPanel → Software → **Setup Python App** → open the school-erp backend
    entry and copy the "Enter to the virtual environment" command it shows

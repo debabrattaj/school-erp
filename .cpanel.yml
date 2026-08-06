@@ -1,0 +1,43 @@
+# cPanel Git Version Control deployment file.
+#
+# When you click "Deploy HEAD Commit" (or "Update from Remote" + Deploy) on
+# this repo's Git Version Control page in cPanel, cPanel runs the commands
+# below in order, in one persistent shell session (exported vars and `cd`
+# carry over between lines — this is cPanel's own convention, see their docs
+# on .cpanel.yml).
+#
+# Fill in the two placeholders below before this does anything useful:
+#
+#   DEPLOYPATH   The "Deployment Path" shown on this repo's Git Version
+#                Control page in cPanel (Software -> Git Version Control ->
+#                this repository). NOT the bare repository path.
+#
+#   VENV_ACTIVATE  The exact "Enter to the virtual environment" command
+#                  shown on Software -> Setup Python App -> this app's entry.
+#                  It looks like:
+#                    source /home/<cpanel_user>/virtualenv/school-erp/backend/3.11/bin/activate
+#                  Copy it verbatim — the Python version and path segments
+#                  are specific to your account.
+#
+# What this does, in order:
+#   1. Copies the freshly-pulled repo checkout over the live deployment path.
+#   2. Activates the backend's own virtualenv (the one Setup Python App made).
+#   3. Installs/updates backend dependencies in that virtualenv.
+#   4. Runs Alembic migrations against every tenant school database (safe to
+#      run repeatedly — see backend/manage_migrations.py).
+#   5. Touches Passenger's restart file so the running app picks up the
+#      new code on the next request.
+#
+# This file does NOT create the Cron Job that fires run_scheduled_fees.py —
+# that's a one-time manual step in cPanel's Cron Jobs page (see SETUP.md
+# "Scheduled fee auto-generation" -> "Wiring it up in cPanel"). This file
+# only keeps the *code* on the server in sync with what you deploy here.
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/CPANEL_USERNAME/PATH/TO/DEPLOYMENT/school-erp/
+    - /bin/cp -R * $DEPLOYPATH
+    - source /home/CPANEL_USERNAME/virtualenv/PATH/TO/APP/3.11/bin/activate
+    - cd $DEPLOYPATH/backend && pip install -q -r requirements.txt
+    - cd $DEPLOYPATH/backend && python manage_migrations.py upgrade head
+    - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
