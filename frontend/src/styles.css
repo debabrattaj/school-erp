@@ -2259,6 +2259,18 @@ button {
   height: 18px;
 }
 
+.schedule-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.schedule-cell small {
+  color: var(--saas-muted);
+  font-size: 12px;
+}
+
 .fee-mode-toggle {
   position: relative;
   display: inline-flex;

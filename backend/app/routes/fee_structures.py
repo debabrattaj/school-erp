@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import FeeStructure, User
+from app.fee_scheduling import validate_schedule
+from app.models import FeeGenerationRun, FeeStructure, User
 from app.schemas import (
     FeeStructureCreate,
     FeeStructureUpdate,
     FeeStructureResponse,
     FeeStructureClassLookupResponse,
+    FeeGenerationRunResponse,
 )
 from app.security import require_roles
 
@@ -109,6 +111,11 @@ def create_fee_structure(
     if payload.amount < 0:
         raise HTTPException(status_code=400, detail="Amount cannot be negative")
 
+    try:
+        validate_schedule(payload.auto_generate, payload.recurrence, payload.next_run_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     structure = FeeStructure(**payload.model_dump())
     db.add(structure)
     db.commit()
@@ -191,6 +198,21 @@ def lookup_class_fee_structure(
     )
 
 
+@router.get("/generation-runs", response_model=list[FeeGenerationRunResponse])
+def list_generation_runs(
+    fee_structure_id: int | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    """Recent scheduled auto-generation attempts, most recent first — lets an
+    admin confirm the cron job actually ran without SSHing in to read logs."""
+    query = db.query(FeeGenerationRun)
+    if fee_structure_id:
+        query = query.filter(FeeGenerationRun.fee_structure_id == fee_structure_id)
+    return query.order_by(FeeGenerationRun.id.desc()).limit(min(limit, 200)).all()
+
+
 @router.put("/{structure_id}", response_model=FeeStructureResponse)
 def update_fee_structure(
     structure_id: int,
@@ -218,6 +240,15 @@ def update_fee_structure(
 
     if "amount" in update_data and update_data["amount"] < 0:
         raise HTTPException(status_code=400, detail="Amount cannot be negative")
+
+    try:
+        validate_schedule(
+            update_data.get("auto_generate", structure.auto_generate),
+            update_data.get("recurrence", structure.recurrence),
+            update_data.get("next_run_date", structure.next_run_date),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     for key, value in update_data.items():
         setattr(structure, key, value)

@@ -257,6 +257,11 @@ class Fee(Base):
 
     remarks = Column(String, nullable=True)
 
+    # Set only on fees created by the scheduled auto-generation job, e.g.
+    # "2026-08" for a monthly cycle. Null for manually-created fees. Used to
+    # avoid double-billing a student for the same cycle on cron re-runs.
+    billing_period = Column(String, nullable=True, index=True)
+
 
 class FeeStructure(Base):
     __tablename__ = "fee_structures"
@@ -273,6 +278,15 @@ class FeeStructure(Base):
 
     remarks = Column(String, nullable=True)
 
+    # Scheduled auto-generation: when auto_generate is on, run_scheduled_fees.py
+    # bills every applicable class for this structure's fee_type once
+    # next_run_date arrives, then advances it per `recurrence` (or turns
+    # auto_generate back off for a one-time "once" schedule).
+    auto_generate = Column(Boolean, nullable=False, default=False, server_default="0")
+    recurrence = Column(String, nullable=True)  # monthly | quarterly | annually | once
+    next_run_date = Column(Date, nullable=True)
+    last_generated_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -283,6 +297,36 @@ class FeeStructure(Base):
             "residential_type",
             "fee_type",
             name="uq_fee_structure_year_class_res_type",
+        ),
+    )
+
+
+class FeeGenerationRun(Base):
+    """One row per (fee_structure, billing_period) the scheduler has
+    attempted, for troubleshooting an unattended cron job and as a belt-and-
+    braces guard against reprocessing a cycle twice."""
+
+    __tablename__ = "fee_generation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    fee_structure_id = Column(Integer, ForeignKey("fee_structures.id", ondelete="SET NULL"), nullable=True)
+    academic_year = Column(String, nullable=False)
+    fee_type = Column(String, nullable=False)
+    class_name = Column(String, nullable=True)  # structure's own class_name; null = "every class"
+    billing_period = Column(String, nullable=False)
+
+    run_at = Column(DateTime, default=datetime.utcnow)
+    students_billed = Column(Integer, default=0)
+    students_skipped = Column(Integer, default=0)
+    status = Column(String, nullable=False)  # success | partial | failed
+    error_message = Column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "fee_structure_id",
+            "billing_period",
+            name="uq_fee_generation_run_structure_period",
         ),
     )
 

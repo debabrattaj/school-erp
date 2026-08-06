@@ -13,6 +13,7 @@ import {
   Wallet,
   Settings2,
   Download,
+  History,
 } from "lucide-react";
 
 import API from "../api";
@@ -42,9 +43,27 @@ const emptyStructureForm = {
   amount: "",
   due_date: "",
   remarks: "",
+  auto_generate: false,
+  recurrence: "",
+  next_run_date: "",
 };
 
 const residentialTypeOptions = ["Day Scholar", "Hosteller"];
+
+// Mirrors backend/app/fee_scheduling.py's MAX_SCHEDULE_DAY — next_run_date's
+// day-of-month is capped so every recurrence lines up in shorter months too.
+const MAX_SCHEDULE_DAY = 28;
+
+const recurrenceOptions = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "annually", label: "Annually" },
+  { value: "once", label: "One-time" },
+];
+
+function recurrenceLabel(value) {
+  return recurrenceOptions.find((option) => option.value === value)?.label || value || "-";
+}
 
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) =>
@@ -155,6 +174,33 @@ function getStatusClass(status) {
   return "status warning";
 }
 
+function runStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+
+  if (text === "success") return "status active";
+  if (text === "failed") return "status danger";
+
+  return "status pending"; // "partial"
+}
+
+// last_generated_at / run_at come from the backend as naive-UTC timestamps
+// (no "Z" suffix) — treat them as UTC explicitly before converting to the
+// viewer's local time, otherwise the browser reads them as already-local.
+function formatDateTime(value) {
+  if (!value) return "-";
+  const iso = /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function Fees() {
   const navigate = useNavigate();
   const money = useMoney();
@@ -178,6 +224,10 @@ export default function Fees() {
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
   const [editingStructureId, setEditingStructureId] = useState(null);
+
+  const [showGenerationHistory, setShowGenerationHistory] = useState(false);
+  const [generationRuns, setGenerationRuns] = useState([]);
+  const [generationRunsLoading, setGenerationRunsLoading] = useState(false);
 
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
@@ -244,6 +294,24 @@ export default function Fees() {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  async function loadGenerationRuns() {
+    try {
+      setGenerationRunsLoading(true);
+      const response = await API.get("/fee-structures/generation-runs");
+      setGenerationRuns(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load auto-generation history."));
+    } finally {
+      setGenerationRunsLoading(false);
+    }
+  }
+
+  function openGenerationHistory() {
+    setShowGenerationHistory(true);
+    loadGenerationRuns();
   }
 
   async function loadPageData() {
@@ -736,8 +804,18 @@ export default function Fees() {
   }
 
   function handleStructureFormChange(e) {
-    const { name, value } = e.target;
-    setStructureForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    setStructureForm((prev) => {
+      const updated = { ...prev, [name]: type === "checkbox" ? checked : value };
+
+      if (name === "auto_generate" && !checked) {
+        updated.recurrence = "";
+        updated.next_run_date = "";
+      }
+
+      return updated;
+    });
   }
 
   function handleAddStructure() {
@@ -757,6 +835,9 @@ export default function Fees() {
       amount: structure.amount ?? "",
       due_date: normalizeDateInput(structure.due_date),
       remarks: structure.remarks || "",
+      auto_generate: Boolean(structure.auto_generate),
+      recurrence: structure.recurrence || "",
+      next_run_date: normalizeDateInput(structure.next_run_date),
     });
     setPageMode("structure");
   }
@@ -770,6 +851,24 @@ export default function Fees() {
       return;
     }
 
+    if (structureForm.auto_generate) {
+      if (!structureForm.recurrence) {
+        setMessage("Choose how often the auto-generated fee should repeat.");
+        return;
+      }
+
+      if (!structureForm.next_run_date) {
+        setMessage("Set the next generation date.");
+        return;
+      }
+
+      const day = Number(structureForm.next_run_date.split("-")[2]);
+      if (day > MAX_SCHEDULE_DAY) {
+        setMessage(`Next Generation Date's day-of-month must be ${MAX_SCHEDULE_DAY} or earlier.`);
+        return;
+      }
+    }
+
     const payload = {
       academic_year: structureForm.academic_year,
       class_name: structureForm.class_name || null,
@@ -778,6 +877,9 @@ export default function Fees() {
       amount: Number(structureForm.amount),
       due_date: structureForm.due_date || null,
       remarks: structureForm.remarks || null,
+      auto_generate: structureForm.auto_generate,
+      recurrence: structureForm.auto_generate ? structureForm.recurrence : null,
+      next_run_date: structureForm.auto_generate ? structureForm.next_run_date : null,
     };
 
     try {
@@ -812,6 +914,12 @@ export default function Fees() {
       setMessage(getApiErrorMessage(error, "Unable to delete fee structure."));
     }
   }
+
+  // Auto-generate metadata (last_generated_at) isn't part of the editable
+  // form state — read it straight from the loaded list when editing.
+  const editingStructure = editingStructureId
+    ? feeStructures.find((structure) => structure.id === editingStructureId)
+    : null;
 
   const filteredFees = fees.filter((fee) => {
     const studentName = getStudentName(fee.student_id);
@@ -1286,7 +1394,77 @@ export default function Fees() {
                     onChange={handleStructureFormChange}
                   />
                 </div>
+              </div>
 
+              <div className="sis-section-title">Automatic Generation</div>
+
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Auto-generate on a schedule</label>
+                  <label className="switch-row">
+                    <input
+                      type="checkbox"
+                      name="auto_generate"
+                      checked={structureForm.auto_generate}
+                      onChange={handleStructureFormChange}
+                    />
+                    <span>{structureForm.auto_generate ? "On" : "Off"}</span>
+                  </label>
+                  <small>
+                    When on, this fee is billed automatically to every matching
+                    student — no one needs to run "Add Fee for Class" by hand.
+                  </small>
+                </div>
+
+                {structureForm.auto_generate && (
+                  <>
+                    <div className="form-field">
+                      <label>Repeats *</label>
+                      <select
+                        name="recurrence"
+                        value={structureForm.recurrence}
+                        onChange={handleStructureFormChange}
+                        required
+                      >
+                        <option value="">Select frequency</option>
+                        {recurrenceOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <small>
+                        "One-time" fires once on the date below, then turns
+                        itself back off.
+                      </small>
+                    </div>
+
+                    <div className="form-field">
+                      <label>Next Generation Date *</label>
+                      <input
+                        type="date"
+                        name="next_run_date"
+                        value={structureForm.next_run_date}
+                        onChange={handleStructureFormChange}
+                        required
+                      />
+                      <small>
+                        Day-of-month must be {MAX_SCHEDULE_DAY} or earlier, so
+                        every month lines up.
+                      </small>
+                    </div>
+
+                    {editingStructure?.last_generated_at && (
+                      <div className="form-field">
+                        <label>Last Generated</label>
+                        <input type="text" value={formatDateTime(editingStructure.last_generated_at)} disabled />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="form-grid">
                 <div className="form-field full-width">
                   <label>Remarks</label>
                   <textarea
@@ -1325,6 +1503,11 @@ export default function Fees() {
               <div>
                 <h3>Configured Fee Structures ({feeStructures.length})</h3>
               </div>
+
+              <button type="button" className="secondary-button" onClick={openGenerationHistory}>
+                <History size={17} />
+                Auto-Generation History
+              </button>
             </div>
 
             <div className="table-wrapper">
@@ -1337,6 +1520,7 @@ export default function Fees() {
                     <th>Fee Type</th>
                     <th>Amount</th>
                     <th>Due Date</th>
+                    <th>Schedule</th>
                     <th>Remarks</th>
                     <th>Actions</th>
                   </tr>
@@ -1350,6 +1534,19 @@ export default function Fees() {
                       <td>{structure.fee_type}</td>
                       <td>{money(Number(structure.amount))}</td>
                       <td>{normalizeDateInput(structure.due_date) || "-"}</td>
+                      <td>
+                        {structure.auto_generate ? (
+                          <div className="schedule-cell">
+                            <span className="status active">{recurrenceLabel(structure.recurrence)}</span>
+                            <small>Next: {normalizeDateInput(structure.next_run_date) || "-"}</small>
+                            {structure.last_generated_at && (
+                              <small>Last run: {formatDateTime(structure.last_generated_at)}</small>
+                            )}
+                          </div>
+                        ) : (
+                          "Manual"
+                        )}
+                      </td>
                       <td>{structure.remarks || "-"}</td>
                       <td>
                         <div className="action-buttons">
@@ -1375,7 +1572,7 @@ export default function Fees() {
                   ))}
                   {!feeStructures.length && (
                     <tr>
-                      <td colSpan={8}>No fee structures configured yet.</td>
+                      <td colSpan={9}>No fee structures configured yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1578,6 +1775,57 @@ export default function Fees() {
               <p>Status: {selectedFee.payment_status || "Unpaid"}</p>
               <p>Remarks: {selectedFee.remarks || "-"}</p>
             </div>
+          </aside>
+        </div>
+      )}
+
+      {showGenerationHistory && (
+        <div className="student-drawer-backdrop">
+          <aside className="student-drawer">
+            <button
+              type="button"
+              className="drawer-close"
+              onClick={() => setShowGenerationHistory(false)}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="student-profile-head">
+              <div className="student-avatar">
+                <History size={42} />
+              </div>
+
+              <h3>Auto-Generation History</h3>
+              <p>Most recent scheduled fee runs, across every Fee Structure.</p>
+            </div>
+
+            {generationRunsLoading && <div className="drawer-section">Loading...</div>}
+
+            {!generationRunsLoading && !generationRuns.length && (
+              <div className="drawer-section">
+                No scheduled runs yet — this fills in once a Fee Structure with
+                Auto-Generate on has a run date in the past and
+                run_scheduled_fees.py has run at least once.
+              </div>
+            )}
+
+            {generationRuns.map((run) => (
+              <div className="drawer-section" key={run.id}>
+                <h4>
+                  {run.fee_type} — {run.class_name || "All Classes"}
+                </h4>
+                <p>Period: {run.billing_period}</p>
+                <p>
+                  Status: <span className={runStatusClass(run.status)}>{run.status}</span>
+                </p>
+                <p>
+                  Billed: {run.students_billed} student{run.students_billed === 1 ? "" : "s"}
+                  {run.students_skipped ? ` · Skipped ${run.students_skipped} (already billed)` : ""}
+                </p>
+                <p>Run at: {formatDateTime(run.run_at)}</p>
+                {run.error_message && <p>Error: {run.error_message}</p>}
+              </div>
+            ))}
           </aside>
         </div>
       )}
