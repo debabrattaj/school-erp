@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Any
-from datetime import date
+from datetime import date, datetime
 
 
 # =========================
@@ -401,6 +401,9 @@ class FeeBulkClassResponse(BaseModel):
     class_name: str
     section: Optional[str] = None
     groups: List["FeeBulkClassGroupResult"] = []
+    # Students who already had a fee for this billing_period and were left
+    # alone rather than double-billed. Always 0 for manually-triggered calls.
+    skipped_count: int = 0
 
 
 # =========================
@@ -415,6 +418,10 @@ class FeeStructureBase(BaseModel):
     amount: float
     due_date: Optional[date] = None
     remarks: Optional[str] = None
+    # Scheduled auto-generation (see app/fee_scheduling.py for validation rules).
+    auto_generate: bool = False
+    recurrence: Optional[str] = None  # monthly | quarterly | annually | once
+    next_run_date: Optional[date] = None
 
 
 class FeeStructureCreate(FeeStructureBase):
@@ -429,10 +436,31 @@ class FeeStructureUpdate(BaseModel):
     amount: Optional[float] = None
     due_date: Optional[date] = None
     remarks: Optional[str] = None
+    auto_generate: Optional[bool] = None
+    recurrence: Optional[str] = None
+    next_run_date: Optional[date] = None
 
 
 class FeeStructureResponse(FeeStructureBase):
     id: int
+    last_generated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FeeGenerationRunResponse(BaseModel):
+    id: int
+    fee_structure_id: Optional[int] = None
+    academic_year: str
+    fee_type: str
+    class_name: Optional[str] = None
+    billing_period: str
+    run_at: Optional[datetime] = None
+    students_billed: int
+    students_skipped: int
+    status: str
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

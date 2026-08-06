@@ -132,3 +132,67 @@ In CI/production just `pip install pytest` and run `python -m pytest`.
   Also set `CORS_ALLOWED_ORIGINS` and `FRONTEND_BASE_URL` to your Vercel domain.
 - After the first deploy, run `python manage_migrations.py upgrade head`
   against the production registry to bring every tenant DB to the latest schema.
+
+## 9. Scheduled fee auto-generation
+
+Fee Structures (`/fee-structures`) can bill themselves automatically on a
+schedule instead of a staff member running "Bulk Class" fee creation by
+hand. Three fields on a Fee Structure control it:
+
+- `auto_generate` (bool) — turn the schedule on/off.
+- `recurrence` — `monthly` | `quarterly` | `annually` | `once`.
+- `next_run_date` — the next date it should fire; day-of-month must be ≤ 28
+  (avoids "the 31st" ambiguity in shorter months). Advances automatically
+  after each run — or, for `once`, flips `auto_generate` back off so it
+  doesn't fire again.
+
+A structure with `class_name` set only bills that class; one with
+`class_name` left blank ("All Classes") bills every class that currently
+has an active student, resolving each class's own Fee Structure
+individually — so a more specific per-class override still wins, same as
+manual "Bulk Class" billing does today.
+
+### Running it
+
+```bash
+cd backend
+python run_scheduled_fees.py             # process every due cycle, for every school
+python run_scheduled_fees.py --dry-run   # log what would happen, change nothing
+```
+
+Safe to run more than once: fees it creates are tagged with a
+`billing_period` (e.g. `"2026-08"`), and a student who already has a fee for
+that period is never billed again — so a cron job that fires twice, or gets
+re-run by hand, won't double-charge anyone. If it hasn't run in a while, it
+catches up one cycle at a time (May, then June, then July...) rather than
+skipping straight to the current month.
+
+Each attempt is logged to `fee_generation_runs` — check recent runs without
+SSHing in via `GET /fee-structures/generation-runs`.
+
+**Before relying on the schedule**, apply the migration on every tenant DB
+(§4): `python manage_migrations.py upgrade head`. The script itself creates
+missing *tables* on the DBs it touches, but not missing *columns* on
+existing tables — the migration is what adds the new columns.
+
+### Wiring it up in cPanel
+
+If the backend runs on cPanel itself (via "Setup Python App" / Passenger),
+add a Cron Job that calls the script directly in the app's own virtualenv —
+no HTTP round-trip or auth token needed:
+
+1. cPanel → Software → **Setup Python App** → open the school-erp backend
+   entry and copy the "Enter to the virtual environment" command it shows
+   (the exact venv path is account-specific, e.g.
+   `source /home/<user>/virtualenv/school-erp/backend/3.11/bin/activate`).
+2. cPanel → Advanced → **Cron Jobs** → Add New Cron Job. Once a day is
+   plenty (the catch-up logic covers any gaps), command:
+   ```
+   source /home/<user>/virtualenv/school-erp/backend/3.11/bin/activate && cd /home/<user>/school-erp/backend && python run_scheduled_fees.py >> /home/<user>/logs/fee_cron.log 2>&1
+   ```
+3. Cron fires on the **server's** clock — compare the time cPanel's Cron
+   Jobs page shows against the school's local time and offset the
+   hour/minute fields if they differ.
+4. Test by hand first: run the same command from cPanel's Terminal (or SSH)
+   with `--dry-run` appended, check the logged cycles look right, then run
+   it for real once before trusting the schedule to fire unattended.

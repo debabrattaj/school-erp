@@ -168,18 +168,40 @@ def create_fee(
     return new_fee
 
 
-@router.post("/bulk-class", response_model=FeeBulkClassResponse)
-def create_fee_for_class(
-    payload: FeeBulkClassCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_roles(["Admin", "Accounts"])
-    )
-):
-    query = db.query(Student).filter(Student.class_name == payload.class_name)
+def assign_class_fee(
+    db: Session,
+    *,
+    class_name: str,
+    fee_type: str,
+    academic_year: str | None = None,
+    section: str | None = None,
+    total_amount: float | None = None,
+    paid_amount: float = 0,
+    payment_date=None,
+    due_date=None,
+    remarks: str | None = None,
+    billing_period: str | None = None,
+    active_only: bool = False,
+) -> FeeBulkClassResponse:
+    """Bill every student in a class (optionally one section) for a fee type,
+    resolving the amount from Fee Structures. Shared by the manual "Bulk
+    Class" endpoint below and the scheduled auto-generation job.
 
-    if payload.section:
-        query = query.filter(Student.section == payload.section)
+    billing_period (e.g. "2026-08") marks fees as belonging to a specific
+    auto-generated cycle and, when set, skips any student who already has a
+    fee for this (fee_type, academic_year, billing_period) — so re-running
+    the scheduler for a cycle it already processed never double-bills.
+    active_only additionally restricts to students with student_status
+    "Active" — used by the scheduler, left off for manual calls to keep
+    existing behavior unchanged.
+    """
+    query = db.query(Student).filter(Student.class_name == class_name)
+
+    if section:
+        query = query.filter(Student.section == section)
+
+    if active_only:
+        query = query.filter(Student.student_status == "Active")
 
     students = query.all()
 
@@ -189,81 +211,94 @@ def create_fee_for_class(
             detail="No students found for the selected class"
         )
 
-    if payload.fee_type not in VALID_FEE_TYPES:
+    if fee_type not in VALID_FEE_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid fee type. Allowed: {', '.join(VALID_FEE_TYPES)}"
         )
 
-    academic_year = payload.academic_year or get_settings(db).academic_year
+    academic_year = academic_year or get_settings(db).academic_year
 
     # A fee type's own Fee Structure already says who it applies to: a
     # residential-type-specific row (e.g. Hostel Fee -> Hosteller only)
     # bills just that group, while a "Both" row (or no structure at all,
     # using the manually-entered amount) bills everyone.
-    structures = resolve_class_structures(db, academic_year, payload.class_name, payload.fee_type)
+    structures = resolve_class_structures(db, academic_year, class_name, fee_type)
 
     batches = []  # (residential_type_filter_or_None, total_amount, due_date)
 
     if not structures:
-        if not payload.total_amount or payload.total_amount <= 0:
+        if not total_amount or total_amount <= 0:
             raise HTTPException(
                 status_code=400,
                 detail="Total Amount must be greater than 0, or configure a Fee Structure for this class and fee type."
             )
-        batches.append((None, payload.total_amount, payload.due_date))
+        batches.append((None, total_amount, due_date))
     elif set(structures.keys()) == {None}:
         structure = structures[None]
-        batches.append((None, structure.amount, structure.due_date or payload.due_date))
+        batches.append((None, structure.amount, structure.due_date or due_date))
     else:
         both = structures.get(None)
         for residential_type in ("Hosteller", "Day Scholar"):
             structure = structures.get(residential_type) or both
             if structure:
-                batches.append((residential_type, structure.amount, structure.due_date or payload.due_date))
+                batches.append((residential_type, structure.amount, structure.due_date or due_date))
 
-    for _, total_amount, _ in batches:
-        validate_fee_amounts(payload.fee_type, total_amount, payload.paid_amount)
+    for _, batch_total_amount, _ in batches:
+        validate_fee_amounts(fee_type, batch_total_amount, paid_amount)
+
+    already_billed_ids: set[int] = set()
+    if billing_period:
+        already_billed_ids = {
+            row[0] for row in db.query(Fee.student_id).filter(
+                Fee.fee_type == fee_type,
+                Fee.academic_year == academic_year,
+                Fee.billing_period == billing_period,
+                Fee.student_id.in_([s.id for s in students]),
+            ).all()
+        }
 
     settings = get_settings(db)
     created = []
     groups = []
 
-    for residential_type, total_amount, due_date in batches:
+    for residential_type, batch_total_amount, batch_due_date in batches:
         batch_students = [
             student for student in students
-            if not residential_type or student.residential_type == residential_type
+            if (not residential_type or student.residential_type == residential_type)
+            and student.id not in already_billed_ids
         ]
 
         if not batch_students:
             continue
 
-        due_amount, payment_status = calculate_fee_status(total_amount, payload.paid_amount)
+        due_amount, payment_status = calculate_fee_status(batch_total_amount, paid_amount)
 
         for student in batch_students:
-            receipt_no = generate_receipt_no(db) if payload.paid_amount > 0 else None
+            receipt_no = generate_receipt_no(db) if paid_amount > 0 else None
 
             new_fee = Fee(
                 student_id=student.id,
-                fee_type=payload.fee_type,
+                fee_type=fee_type,
                 academic_year=academic_year,
                 class_id=student.class_id,
                 class_name_snapshot=student.class_name,
                 section_snapshot=student.section,
-                total_amount=total_amount,
-                paid_amount=payload.paid_amount,
+                total_amount=batch_total_amount,
+                paid_amount=paid_amount,
                 due_amount=due_amount,
                 payment_status=payment_status,
-                payment_date=payload.payment_date,
-                due_date=due_date,
+                payment_date=payment_date,
+                due_date=batch_due_date,
                 receipt_no=receipt_no,
-                remarks=payload.remarks
+                remarks=remarks,
+                billing_period=billing_period,
             )
 
             db.add(new_fee)
             created.append((new_fee, student))
 
-            if payload.paid_amount > 0:
+            if paid_amount > 0:
                 # Session has autoflush disabled, so generate_receipt_no()'s
                 # count query won't see this row on the next iteration unless flushed.
                 db.flush()
@@ -271,13 +306,24 @@ def create_fee_for_class(
         groups.append(FeeBulkClassGroupResult(
             residential_type=residential_type,
             student_count=len(batch_students),
-            amount=total_amount,
+            amount=batch_total_amount,
         ))
 
     if not created:
-        raise HTTPException(
-            status_code=404,
-            detail="No students in this class/section matched the resolved fee structure"
+        # A manual call with nothing to bill is a mistake worth surfacing.
+        # A scheduled call finding everyone already billed for this cycle is
+        # the expected steady state on a re-run, not an error.
+        if billing_period is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No students in this class/section matched the resolved fee structure"
+            )
+        return FeeBulkClassResponse(
+            created_count=0,
+            class_name=class_name,
+            section=section,
+            groups=groups,
+            skipped_count=len(already_billed_ids),
         )
 
     db.commit()
@@ -288,9 +334,32 @@ def create_fee_for_class(
 
     return FeeBulkClassResponse(
         created_count=len(created),
+        class_name=class_name,
+        section=section,
+        groups=groups,
+        skipped_count=len(already_billed_ids),
+    )
+
+
+@router.post("/bulk-class", response_model=FeeBulkClassResponse)
+def create_fee_for_class(
+    payload: FeeBulkClassCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(["Admin", "Accounts"])
+    )
+):
+    return assign_class_fee(
+        db,
         class_name=payload.class_name,
         section=payload.section,
-        groups=groups,
+        fee_type=payload.fee_type,
+        academic_year=payload.academic_year,
+        total_amount=payload.total_amount,
+        paid_amount=payload.paid_amount,
+        payment_date=payload.payment_date,
+        due_date=payload.due_date,
+        remarks=payload.remarks,
     )
 
 
