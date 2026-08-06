@@ -21,7 +21,13 @@ def engine_kwargs(url: str) -> dict:
         # SQLite + threaded server needs this; file DBs have no real pool.
         return {"connect_args": {"check_same_thread": False}}
     # Postgres and other server DBs: verify connections before use.
-    return {"pool_pre_ping": True}
+    # query_cache_size=0 disables SQLAlchemy's compiled-statement cache. Some
+    # WSGI hosts (e.g. Passenger) run concurrent requests as real OS threads
+    # sharing this module-level engine, which can race on that cache's
+    # lazily-computed result metadata (surfaces as a spurious
+    # NotImplementedError deep in row processing). Most deployments (uvicorn,
+    # gunicorn) don't hit this because they isolate concurrency differently.
+    return {"pool_pre_ping": True, "query_cache_size": 0}
 
 
 def make_engine(url: str):
