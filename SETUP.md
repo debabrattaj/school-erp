@@ -182,26 +182,25 @@ getting scheduled fee generation live is two separate things: getting this
 *code* onto the server, then telling cron to *run* it.
 
 **0. Deploy the code.** If you deploy via cPanel's Git Version Control
-feature, the repo root's `.cpanel.yml` automates this — fill in its two
-placeholders (`DEPLOYPATH` from this repo's Git Version Control page,
-and the venv activate line from Setup Python App, see the comments at the
-top of the file) and "Deploy HEAD Commit" will copy the code, install
-dependencies, run `manage_migrations.py upgrade head`, and restart the app.
-If you deploy some other way (manual `git pull` over SSH, FTP, etc.), just
-make sure those same steps happen once before continuing.
+feature, the repo root's `.cpanel.yml` automates this — "Deploy HEAD
+Commit" installs dependencies, runs `manage_migrations.py upgrade head`,
+and restarts the app. If you deploy some other way (manual `git pull` over
+SSH, FTP, etc.), just make sure those same steps happen once before
+continuing.
 
 Then add a Cron Job that calls the script directly in the app's own
-virtualenv — no HTTP round-trip or auth token needed:
+virtualenv — no HTTP round-trip or auth token needed. For schoolment.com's
+account (`schoolm1`), that command is:
 
-1. cPanel → Software → **Setup Python App** → open the school-erp backend
-   entry and copy the "Enter to the virtual environment" command it shows
-   (the exact venv path is account-specific, e.g.
-   `source /home/<user>/virtualenv/school-erp/backend/3.11/bin/activate`).
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_scheduled_fees.py >> /home/schoolm1/logs/fee_cron.log 2>&1
+```
+
+1. Create the log directory once (cPanel Terminal, or File Manager):
+   `mkdir -p /home/schoolm1/logs` — the cron command above redirects into
+   it, which silently fails if the directory doesn't exist yet.
 2. cPanel → Advanced → **Cron Jobs** → Add New Cron Job. Once a day is
-   plenty (the catch-up logic covers any gaps), command:
-   ```
-   source /home/<user>/virtualenv/school-erp/backend/3.11/bin/activate && cd /home/<user>/school-erp/backend && python run_scheduled_fees.py >> /home/<user>/logs/fee_cron.log 2>&1
-   ```
+   plenty (the catch-up logic covers any gaps) — command as above.
 3. Cron fires on the **server's** clock — compare the time cPanel's Cron
    Jobs page shows against the school's local time and offset the
    hour/minute fields if they differ.
