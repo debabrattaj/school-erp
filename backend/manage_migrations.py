@@ -21,6 +21,14 @@ from urllib.parse import urlsplit, urlunsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Must run before importing app.tenant: it reads DATABASE_URL env vars at
+# import time, and nothing this script imports happens to pull in
+# app.security (the only place that otherwise calls load_dotenv()) — run
+# standalone from a shell with no .env already exported, this would
+# otherwise silently fall back to the SQLite defaults instead of erroring.
+from dotenv import load_dotenv  # noqa: E402
+load_dotenv()
+
 from app.tenant import CentralSessionLocal, init_tenant_registry  # noqa: E402
 from app.tenant_models import SchoolAccount  # noqa: E402
 
