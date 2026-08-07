@@ -20,8 +20,11 @@ def engine_kwargs(url: str) -> dict:
     if is_sqlite(url):
         # SQLite + threaded server needs this; file DBs have no real pool.
         return {"connect_args": {"check_same_thread": False}}
-    # Postgres and other server DBs: verify connections before use.
-    return {"pool_pre_ping": True}
+    # Postgres and other server DBs: verify connections before use. Each
+    # tenant school gets its own engine (see get_school_session_factory in
+    # app/tenant.py), so on memory-constrained hosting the per-engine
+    # compiled-query cache adds up fast across many schools — disable it.
+    return {"pool_pre_ping": True, "query_cache_size": 0}
 
 
 def make_engine(url: str):
