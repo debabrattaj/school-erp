@@ -481,6 +481,14 @@ def create_school(
                     role="Admin",
                 )
             )
+            school_db.add(
+                models.SchoolSettings(
+                    school_name=payload.school_name.strip(),
+                    institution_type=payload.school_type,
+                    board_affiliation=payload.curriculum,
+                    campus_country=payload.country,
+                )
+            )
             school_db.commit()
         finally:
             school_db.close()

@@ -10,27 +10,18 @@ router = APIRouter(prefix="/settings", tags=["School Settings"])
 
 
 def create_default_settings(db: Session):
+    # Generic placeholders only — schools created through the platform
+    # console get their real name/details seeded directly (see
+    # app.routes.platform.create_school); this fallback only fires if a
+    # tenant's settings row is somehow missing when Settings is first opened.
     settings = SchoolSettings(
-        school_name="KIIT International School",
-        tagline="Nurturing Global Citizens",
-        institution_type="International School",
-        board_affiliation="CBSE / Cambridge",
-        school_code="KIITIS-BBSR",
-        website="https://kiitis.ac.in",
-        campus_name="Main Campus",
-        campus_city="Bhubaneswar",
-        campus_state="Odisha",
-        campus_country="India",
-        address="Bhubaneswar, Odisha",
-        phone="",
-        email="",
-        principal_name="",
-        academic_year="2026 - 2027",
+        school_name="New School",
+        academic_year="",
         default_sections="A,B,C",
         houses="Red,Blue,Green,Yellow",
         working_days="Monday-Saturday",
         currency="INR",
-        receipt_prefix="KIITIS-REC",
+        receipt_prefix="REC",
         pass_percentage=40,
         grade_rules="A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
     )
