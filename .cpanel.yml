@@ -26,4 +26,5 @@ deployment:
     - source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate
     - cd $DEPLOYPATH/backend && pip install -q -r requirements.txt
     - cd $DEPLOYPATH/backend && python manage_migrations.py upgrade head
+    - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
