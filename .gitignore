@@ -39,3 +39,7 @@ backend/.pylibs/
 
 # Uploaded files
 backend/uploads/
+
+# Passenger's restart-trigger file/directory (touched by .cpanel.yml on
+# deploy; pure runtime state, nothing to track)
+backend/tmp/
