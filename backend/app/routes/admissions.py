@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.notifications import notify_admission_inquiry_received
 from app.routes.admission_workflow import ensure_default_stages
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
@@ -102,6 +103,10 @@ def create_admission_inquiry(
     db.add(inquiry)
     commit_or_400(db, "Admission inquiry number already exists")
     db.refresh(inquiry)
+
+    settings = db.query(models.SchoolSettings).first()
+    notify_admission_inquiry_received(db, inquiry, (settings.school_name if settings else None) or "School")
+
     return inquiry
 
 

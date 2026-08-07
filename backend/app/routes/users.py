@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Role
+from app.models import SchoolSettings, User, Role
+from app.notifications import notify_new_user_welcome
 from app.schemas import (
     UserCreate,
     UserUpdate,
@@ -61,6 +62,9 @@ def create_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    settings = db.query(SchoolSettings).first()
+    notify_new_user_welcome(db, new_user, (settings.school_name if settings else None) or "School")
 
     return new_user
 

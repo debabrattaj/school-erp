@@ -14,7 +14,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.models import CommunicationLog, Fee, SchoolClass, Student, Teacher
+from app.models import AdmissionInquiry, CommunicationLog, Fee, SchoolClass, Student, Teacher, User
 
 logger = logging.getLogger(__name__)
 
@@ -129,15 +129,16 @@ def notify_class_teacher_new_student(db: Session, student: Student) -> None:
 def notify_guardian_fee_added(
     db: Session, fee: Fee, student: Student, school_name: str
 ) -> None:
-    """WhatsApp the guardian a UPI payment link when a fee with an
+    """WhatsApp + email the guardian a UPI payment link when a fee with an
     outstanding balance is added for their child.
 
-    Silently does nothing if the guardian has no phone number or the fee has
-    no balance due (e.g. it was recorded as already paid); never raises.
+    Sends whichever channels the guardian has contact details for.
+    Silently does nothing if there's no balance due (e.g. the fee was
+    recorded as already paid) or no contact details at all; never raises.
     """
     try:
         balance = (fee.total_amount or 0) - (fee.paid_amount or 0)
-        if balance <= 0 or not student.guardian_phone:
+        if balance <= 0 or not (student.guardian_phone or student.guardian_email):
             return
 
         from app.payment_links import build_payment_link
@@ -150,15 +151,73 @@ def notify_guardian_fee_added(
             f"at {school_name}. Pay via UPI: {link}"
         )
 
+        logs = []
+        if student.guardian_phone:
+            logs.append(
+                CommunicationLog(
+                    channel="WhatsApp",
+                    category="Fee Payment",
+                    recipient_name=student.guardian_name or "Parent",
+                    recipient_phone=student.guardian_phone,
+                    recipient_email=student.guardian_email,
+                    message_body=body,
+                    related_module="fees",
+                    related_record_id=fee.id,
+                )
+            )
+        if student.guardian_email:
+            logs.append(
+                CommunicationLog(
+                    channel="Email",
+                    category="Fee Payment",
+                    recipient_name=student.guardian_name or "Parent",
+                    recipient_phone=student.guardian_phone,
+                    recipient_email=student.guardian_email,
+                    message_body=body,
+                    related_module="fees",
+                    related_record_id=fee.id,
+                )
+            )
+
+        from app.routes.communications import deliver_message
+
+        for log in logs:
+            db.add(log)
+            deliver_message(log, db)
+
+        db.commit()
+    except Exception:  # noqa: BLE001 - notification must never break fee creation
+        logger.exception("Failed to notify guardian about fee %s", fee.id)
+        db.rollback()
+
+
+def notify_admission_inquiry_received(
+    db: Session, inquiry: AdmissionInquiry, school_name: str
+) -> None:
+    """Email the guardian confirming a new admission inquiry was received.
+
+    Silently does nothing if the guardian has no email on file; never raises.
+    """
+    try:
+        if not inquiry.guardian_email:
+            return
+
+        body = (
+            f"Dear {inquiry.guardian_name or 'Parent'}, thank you for your interest in "
+            f"{school_name}. We've received your admission inquiry for "
+            f"{inquiry.student_name} (Grade {inquiry.grade_applying}, "
+            f"Inquiry No {inquiry.inquiry_no}). Our admissions team will be in touch soon."
+        )
+
         log = CommunicationLog(
-            channel="WhatsApp",
-            category="Fee Payment",
-            recipient_name=student.guardian_name or "Parent",
-            recipient_phone=student.guardian_phone,
-            recipient_email=student.guardian_email,
+            channel="Email",
+            category="Admission Inquiry",
+            recipient_name=inquiry.guardian_name or "Parent",
+            recipient_email=inquiry.guardian_email,
+            recipient_phone=inquiry.guardian_phone,
             message_body=body,
-            related_module="fees",
-            related_record_id=fee.id,
+            related_module="admissions",
+            related_record_id=inquiry.id,
         )
 
         from app.routes.communications import deliver_message
@@ -166,6 +225,43 @@ def notify_guardian_fee_added(
         db.add(log)
         deliver_message(log, db)
         db.commit()
-    except Exception:  # noqa: BLE001 - notification must never break fee creation
-        logger.exception("Failed to notify guardian about fee %s", fee.id)
+    except Exception:  # noqa: BLE001 - notification must never break inquiry creation
+        logger.exception("Failed to notify guardian about admission inquiry %s", inquiry.id)
+        db.rollback()
+
+
+def notify_new_user_welcome(db: Session, user: User, school_name: str) -> None:
+    """Email a newly-created staff account confirming it exists.
+
+    Never includes the password, even though the admin who created the
+    account already knows it - the recipient uses "Forgot Password" to set
+    their own. Never raises.
+    """
+    try:
+        if not user.email:
+            return
+
+        body = (
+            f"Hi {user.name}, an account has been created for you at {school_name} "
+            f"with the role \"{user.role}\". Your login email is {user.email}. "
+            f"Use the \"Forgot Password\" link on the login page to set your own password."
+        )
+
+        log = CommunicationLog(
+            channel="Email",
+            category="User Account",
+            recipient_name=user.name,
+            recipient_email=user.email,
+            message_body=body,
+            related_module="users",
+            related_record_id=user.id,
+        )
+
+        from app.routes.communications import deliver_message
+
+        db.add(log)
+        deliver_message(log, db)
+        db.commit()
+    except Exception:  # noqa: BLE001 - notification must never break user creation
+        logger.exception("Failed to send welcome email to user %s", user.id)
         db.rollback()
