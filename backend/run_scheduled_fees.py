@@ -37,6 +37,15 @@ from datetime import date, datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Must run before any app.* import that reads a DATABASE_URL env var at
+# import time (app.tenant, app.database). Only app.security calls
+# load_dotenv() normally; this script happens to import it transitively via
+# app.routes.fees, but that's exactly the kind of fragile-by-luck ordering
+# that broke manage_migrations.py, which has no such transitive import — do
+# it explicitly here too rather than relying on it.
+from dotenv import load_dotenv  # noqa: E402
+load_dotenv()
+
 from fastapi import HTTPException  # noqa: E402
 
 from app.fee_scheduling import advance, billing_period_label  # noqa: E402
