@@ -1301,3 +1301,109 @@ class ParentStudentLink(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "student_id", name="uq_portal_link_user_student"),
     )
+
+
+class TeacherSalaryStructure(Base):
+    """One active pay structure per teacher. Generating a payslip snapshots
+    these values, so later edits here never change an already-issued payslip.
+    """
+
+    __tablename__ = "teacher_salary_structures"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False,
+        unique=True, index=True,
+    )
+
+    basic_pay = Column(Float, nullable=False, default=0)
+    hra = Column(Float, nullable=False, default=0)
+    other_allowances = Column(Float, nullable=False, default=0)
+    provident_fund = Column(Float, nullable=False, default=0)
+    professional_tax = Column(Float, nullable=False, default=0)
+    other_deductions = Column(Float, nullable=False, default=0)
+
+    effective_from = Column(Date, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Payslip(Base):
+    __tablename__ = "payslips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    month = Column(Integer, nullable=False, index=True)  # 1-12
+    year = Column(Integer, nullable=False, index=True)
+
+    # Snapshotted from TeacherSalaryStructure at generation time.
+    basic_pay = Column(Float, nullable=False, default=0)
+    hra = Column(Float, nullable=False, default=0)
+    other_allowances = Column(Float, nullable=False, default=0)
+    gross_pay = Column(Float, nullable=False, default=0)
+    provident_fund = Column(Float, nullable=False, default=0)
+    professional_tax = Column(Float, nullable=False, default=0)
+    other_deductions = Column(Float, nullable=False, default=0)
+    total_deductions = Column(Float, nullable=False, default=0)
+    net_pay = Column(Float, nullable=False, default=0)
+
+    status = Column(String, nullable=False, default="Pending")  # Pending, Paid
+    payment_date = Column(Date, nullable=True)
+    remarks = Column(String, nullable=True)
+
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "month", "year", name="uq_payslip_teacher_period"),
+    )
+
+
+class Assignment(Base):
+    """A homework/assignment posted by a teacher for a class+section."""
+
+    __tablename__ = "assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True, index=True)
+    attachment_url = Column(String, nullable=True)
+
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PortalMessage(Base):
+    """One flat, continuous message log per student shared by every guardian
+    and staff member with access to that student — a school-office group
+    chat, not per-guardian private DMs.
+    """
+
+    __tablename__ = "portal_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    sender_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    sender_name = Column(String, nullable=False)
+    sender_role = Column(String, nullable=False)  # Parent, Student, Teacher, Admin, Principal
+    is_staff = Column(Boolean, nullable=False, default=False)
+
+    body = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

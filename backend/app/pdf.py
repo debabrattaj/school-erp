@@ -114,6 +114,98 @@ def fee_receipt_pdf(data: dict) -> bytes:
     return buf.getvalue()
 
 
+MONTH_NAMES = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def payslip_pdf(data: dict) -> bytes:
+    """Render a payslip to PDF bytes.
+
+    Expected keys: school_name, currency, teacher_name, employee_no, month,
+    year, basic_pay, hra, other_allowances, gross_pay, provident_fund,
+    professional_tax, other_deductions, total_deductions, net_pay, status,
+    payment_date.
+    """
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 25 * mm
+    right = width - 25 * mm
+    y = height - 30 * mm
+
+    period = f"{MONTH_NAMES[int(data.get('month') or 0)] or '-'} {data.get('year') or ''}"
+
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(left, y, data.get("school_name") or "School")
+    c.setFont("Helvetica", 11)
+    y -= 8 * mm
+    c.drawString(left, y, f"Payslip for {period}")
+    c.setFont("Helvetica", 10)
+    c.drawRightString(right, y, f"Status: {data.get('status') or '-'}")
+    y -= 4 * mm
+    c.line(left, y, right, y)
+    y -= 10 * mm
+
+    def row(label, value):
+        nonlocal y
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left, y, label)
+        c.setFont("Helvetica", 10)
+        c.drawString(left + 55 * mm, y, str(value))
+        y -= 7 * mm
+
+    currency = data.get("currency")
+    row("Employee", data.get("teacher_name") or "-")
+    row("Employee No", data.get("employee_no") or "-")
+    row("Payment Date", data.get("payment_date") or "-")
+    y -= 3 * mm
+    c.line(left, y, right, y)
+    y -= 10 * mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "Earnings")
+    c.drawString(left + 90 * mm, y, "Deductions")
+    y -= 8 * mm
+
+    earnings = [
+        ("Basic Pay", data.get("basic_pay")),
+        ("HRA", data.get("hra")),
+        ("Other Allowances", data.get("other_allowances")),
+    ]
+    deductions = [
+        ("Provident Fund", data.get("provident_fund")),
+        ("Professional Tax", data.get("professional_tax")),
+        ("Other Deductions", data.get("other_deductions")),
+    ]
+    for (e_label, e_val), (d_label, d_val) in zip(earnings, deductions):
+        c.setFont("Helvetica", 10)
+        c.drawString(left, y, e_label)
+        c.drawRightString(left + 85 * mm, y, _money(e_val, currency))
+        c.drawString(left + 90 * mm, y, d_label)
+        c.drawRightString(right, y, _money(d_val, currency))
+        y -= 7 * mm
+
+    y -= 3 * mm
+    c.line(left, y, right, y)
+    y -= 10 * mm
+
+    row("Gross Pay", _money(data.get("gross_pay"), currency))
+    row("Total Deductions", _money(data.get("total_deductions"), currency))
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(left, y, "Net Pay")
+    c.drawString(left + 55 * mm, y, _money(data.get("net_pay"), currency))
+    y -= 10 * mm
+
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(left, 20 * mm, "This is a computer-generated payslip.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def report_card_pdf(data: dict) -> bytes:
     """Render an academic report card to PDF bytes.
 

@@ -1890,3 +1890,117 @@ class TimetableEntryResponse(TimetableEntryBase):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Payroll ----------------
+
+class SalaryStructureUpdate(BaseModel):
+    basic_pay: float = 0
+    hra: float = 0
+    other_allowances: float = 0
+    provident_fund: float = 0
+    professional_tax: float = 0
+    other_deductions: float = 0
+    effective_from: Optional[date] = None
+
+
+class SalaryStructureResponse(SalaryStructureUpdate):
+    id: int
+    teacher_id: int
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class GeneratePayrollRequest(BaseModel):
+    month: int
+    year: int
+
+
+class PayslipResponse(BaseModel):
+    id: int
+    teacher_id: int
+    teacher_name_snapshot: Optional[str] = None
+    month: int
+    year: int
+    basic_pay: float
+    hra: float
+    other_allowances: float
+    gross_pay: float
+    provident_fund: float
+    professional_tax: float
+    other_deductions: float
+    total_deductions: float
+    net_pay: float
+    status: str
+    payment_date: Optional[date] = None
+    remarks: Optional[str] = None
+    generated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PayslipMarkPaid(BaseModel):
+    payment_date: Optional[date] = None
+    remarks: Optional[str] = None
+
+
+# ---------------- Homework / Assignments ----------------
+
+class AssignmentBase(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: str
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    attachment_url: Optional[str] = None
+    teacher_id: Optional[int] = None
+
+
+class AssignmentCreate(AssignmentBase):
+    pass
+
+
+class AssignmentUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    attachment_url: Optional[str] = None
+    teacher_id: Optional[int] = None
+
+
+class AssignmentResponse(AssignmentBase):
+    id: int
+    teacher_name_snapshot: Optional[str] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------- Portal messages ----------------
+
+class PortalMessageCreate(BaseModel):
+    body: str
+
+
+class PortalMessageResponse(BaseModel):
+    id: int
+    student_id: int
+    sender_name: str
+    sender_role: str
+    is_staff: bool
+    body: str
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True

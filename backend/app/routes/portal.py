@@ -458,6 +458,139 @@ def portal_student_enrollments(
     ]
 
 
+VALID_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+@router.get("/students/{student_id}/timetable")
+def portal_student_timetable(
+    student_id: int,
+    academic_year: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.TimetableEntry).filter(
+        models.TimetableEntry.class_name_snapshot == student.class_name,
+        models.TimetableEntry.section_snapshot == student.section,
+    )
+    if academic_year:
+        query = query.filter(models.TimetableEntry.academic_year == academic_year)
+
+    entries = query.all()
+    entries.sort(
+        key=lambda e: (
+            VALID_DAYS.index(e.day_of_week) if e.day_of_week in VALID_DAYS else len(VALID_DAYS),
+            e.period_no,
+        )
+    )
+
+    return [
+        {
+            "day_of_week": entry.day_of_week,
+            "period_no": entry.period_no,
+            "entry_type": entry.entry_type,
+            "label": entry.label,
+            "start_time": entry.start_time,
+            "end_time": entry.end_time,
+            "subject": entry.subject,
+            "teacher_name": entry.teacher_name_snapshot,
+            "room": entry.room,
+        }
+        for entry in entries
+    ]
+
+
+@router.get("/students/{student_id}/homework")
+def portal_student_homework(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.Assignment).filter(models.Assignment.class_name == student.class_name)
+    if student.section:
+        query = query.filter(
+            (models.Assignment.section == student.section) | (models.Assignment.section.is_(None))
+        )
+
+    assignments = query.order_by(
+        models.Assignment.due_date.desc().nullslast(), models.Assignment.id.desc()
+    ).all()
+
+    return [
+        {
+            "id": a.id,
+            "subject": a.subject,
+            "title": a.title,
+            "description": a.description,
+            "due_date": a.due_date,
+            "attachment_url": a.attachment_url,
+            "teacher_name": a.teacher_name_snapshot,
+            "created_at": a.created_at,
+        }
+        for a in assignments
+    ]
+
+
+MESSAGE_ROLES = PORTAL_ROLES + ["Teacher"]
+
+
+def ensure_message_access(db: Session, user: User, student_id: int) -> models.Student:
+    """Same as ensure_student_access, but Teachers get staff-level access too
+    (they're not linked to students via ParentStudentLink like guardians are).
+    """
+    if user.role == "Teacher":
+        student = db.query(models.Student).filter(models.Student.id == student_id).first()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return student
+    return ensure_student_access(db, user, student_id)
+
+
+@router.get("/students/{student_id}/messages", response_model=list[schemas.PortalMessageResponse])
+def portal_list_messages(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MESSAGE_ROLES)),
+):
+    ensure_message_access(db, current_user, student_id)
+    return (
+        db.query(models.PortalMessage)
+        .filter(models.PortalMessage.student_id == student_id)
+        .order_by(models.PortalMessage.created_at.asc(), models.PortalMessage.id.asc())
+        .all()
+    )
+
+
+@router.post("/students/{student_id}/messages", response_model=schemas.PortalMessageResponse)
+def portal_send_message(
+    student_id: int,
+    payload: schemas.PortalMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MESSAGE_ROLES)),
+):
+    ensure_message_access(db, current_user, student_id)
+
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Message body is required")
+
+    message = models.PortalMessage(
+        student_id=student_id,
+        sender_user_id=current_user.id,
+        sender_name=current_user.name,
+        sender_role=current_user.role,
+        is_staff=current_user.role in ("Admin", "Principal", "Teacher"),
+        body=body,
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
 # ---------------- Admin: manage portal links ----------------
 
 

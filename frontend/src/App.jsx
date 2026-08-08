@@ -64,6 +64,8 @@ import Counseling from "./pages/Counseling";
 import Enrichment from "./pages/Enrichment";
 import Compliance from "./pages/Compliance";
 import ReportCard from "./pages/ReportCard";
+import Payroll from "./pages/Payroll";
+import Homework from "./pages/Homework";
 
 const MOBILE_BREAKPOINT = 900;
 
@@ -225,6 +227,28 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
               <ProtectedLayout>
                 <Accounts />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payroll"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
+              <ProtectedLayout>
+                <Payroll />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/homework"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Homework />
               </ProtectedLayout>
             </ProtectedRoute>
           }

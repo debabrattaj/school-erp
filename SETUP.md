@@ -241,3 +241,50 @@ just self-served.
 - On success it sends the same confirmation email the internal CRM's "Add
   Inquiry" already triggers (`notify_admission_inquiry_received`) and
   returns the generated `inquiry_no` as a reference number.
+
+## 11. Payroll
+
+Per-teacher salary structures (`/payroll/salary-structures/{teacher_id}`,
+Admin/Accounts only) plus monthly payslip generation
+(`POST /payroll/generate` with `{month, year}`, Admin/Accounts only —
+Principal gets view access). Generating a period snapshots each teacher's
+*current* salary structure into a `Payslip` row, so editing the structure
+later never rewrites a payslip that already went out — same principle as
+Fee auto-generation's `billing_period` snapshotting. Safe to re-run: a
+teacher already billed for that month/year is skipped, not duplicated.
+
+Payslips can be marked Paid (`PUT /payroll/payslips/{id}/mark-paid`) and
+downloaded as a PDF (`GET /payroll/payslips/{id}/pdf`, via `app/pdf.py`'s
+`payslip_pdf()`). Frontend: `frontend/src/pages/Payroll.jsx`, at `/payroll`.
+
+No public payroll surface exists or is planned — this is an internal
+finance tool only.
+
+## 12. Richer parent/student portal: timetable, homework, messaging
+
+Three additions to the existing parent/student portal (`/portal`), all in
+`backend/app/routes/portal.py` alongside the existing per-student
+endpoints, gated the same way (`ensure_student_access` — a guardian only
+sees their own linked student's data):
+
+- **Timetable** (`GET /portal/students/{id}/timetable`) — read-only view
+  of the student's class timetable, reusing the existing `TimetableEntry`
+  data teachers already maintain in `/timetable`.
+- **Homework** (`GET /portal/students/{id}/homework`) — read-only view of
+  `Assignment` rows matching the student's class + section. Teachers post
+  assignments via `/homework` (`backend/app/routes/homework.py`,
+  `frontend/src/pages/Homework.jsx`) and they show up in the portal
+  immediately — no separate "publish" step.
+- **Messages** (`GET`/`POST /portal/students/{id}/messages`) — a single
+  flat, continuous message thread per student, shared by every guardian
+  linked to that student and staff, not private per-guardian DMs. Parents
+  use it from the Portal's "Messages" tab; staff reply from the same
+  student's "Messages" tab in `StudentDetails.jsx`. Teachers aren't in
+  `PORTAL_ROLES` (they're not linked via `ParentStudentLink`), so
+  messaging uses its own `ensure_message_access()` that additionally
+  grants Teachers staff-level access.
+
+Deliberately out of scope here: online tests/quizzes. That's a full
+assessment engine (question banks, grading, attempt tracking) — bolting a
+half-built version onto this would be worse than not having it; treat it
+as a separate, dedicated feature if it's wanted.

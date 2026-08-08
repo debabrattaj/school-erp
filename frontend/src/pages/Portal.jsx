@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { QrCode, X } from "lucide-react";
+import { QrCode, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
 import API from "../api";
@@ -10,6 +10,9 @@ const TABS = [
   ["attendance", "Attendance"],
   ["marks", "Marks"],
   ["fees", "Fees"],
+  ["timetable", "Timetable"],
+  ["homework", "Homework"],
+  ["messages", "Messages"],
   ["history", "History"],
 ];
 
@@ -48,6 +51,13 @@ export default function Portal() {
   const [history, setHistory] = useState([]);
   const [yearFilter, setYearFilter] = useState("");
 
+  const [timetable, setTimetable] = useState([]);
+  const [homework, setHomework] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messageBody, setMessageBody] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+
   async function loadChildren() {
     try {
       const response = await API.get("/portal/children");
@@ -72,23 +82,63 @@ export default function Portal() {
     setMessage("");
     const params = yearFilter ? { academic_year: yearFilter } : {};
     try {
-      const [summaryRes, attendanceRes, marksRes, feesRes, historyRes] =
+      const [summaryRes, attendanceRes, marksRes, feesRes, historyRes, timetableRes, homeworkRes] =
         await Promise.all([
           API.get(`/portal/students/${studentId}/summary`),
           API.get(`/portal/students/${studentId}/attendance`, { params }),
           API.get(`/portal/students/${studentId}/marks`, { params }),
           API.get(`/portal/students/${studentId}/fees`, { params }),
           API.get(`/portal/students/${studentId}/enrollments`),
+          API.get(`/portal/students/${studentId}/timetable`),
+          API.get(`/portal/students/${studentId}/homework`),
         ]);
       setSummary(summaryRes.data);
       setAttendance(attendanceRes.data);
       setMarks(marksRes.data);
       setFees(feesRes.data);
       setHistory(historyRes.data || []);
+      setTimetable(timetableRes.data || []);
+      setHomework(homeworkRes.data || []);
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to load student data."));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMessages(studentId) {
+    if (!studentId) return;
+    setMessagesLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/messages`);
+      setMessages(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load messages."));
+    } finally {
+      setMessagesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "messages" && selectedId) {
+      loadMessages(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
+  async function sendMessage(event) {
+    event.preventDefault();
+    const body = messageBody.trim();
+    if (!body || !selectedId) return;
+
+    setSendingMessage(true);
+    try {
+      await API.post(`/portal/students/${selectedId}/messages`, { body });
+      setMessageBody("");
+      await loadMessages(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to send message."));
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -415,6 +465,124 @@ export default function Portal() {
               </table>
               </div>
             </>
+          )}
+
+          {!loading && activeTab === "timetable" && (
+            <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Period</th>
+                  <th>Time</th>
+                  <th>Subject</th>
+                  <th>Teacher</th>
+                  <th>Room</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timetable.map((entry, index) => (
+                  <tr key={index}>
+                    <td>{entry.day_of_week}</td>
+                    <td>{entry.period_no}</td>
+                    <td>
+                      {entry.start_time && entry.end_time
+                        ? `${entry.start_time} - ${entry.end_time}`
+                        : "-"}
+                    </td>
+                    <td>
+                      {entry.entry_type === "period"
+                        ? entry.subject || "-"
+                        : entry.label || entry.entry_type}
+                    </td>
+                    <td>{entry.teacher_name || "-"}</td>
+                    <td>{entry.room || "-"}</td>
+                  </tr>
+                ))}
+                {!timetable.length && (
+                  <tr>
+                    <td colSpan={6}>No timetable published for this class yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {!loading && activeTab === "homework" && (
+            <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Due Date</th>
+                  <th>Subject</th>
+                  <th>Title</th>
+                  <th>Description</th>
+                  <th>Teacher</th>
+                </tr>
+              </thead>
+              <tbody>
+                {homework.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.due_date || "-"}</td>
+                    <td>{item.subject || "-"}</td>
+                    <td>{item.title}</td>
+                    <td>{item.description || "-"}</td>
+                    <td>{item.teacher_name || "-"}</td>
+                  </tr>
+                ))}
+                {!homework.length && (
+                  <tr>
+                    <td colSpan={5}>No homework posted for this class yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {activeTab === "messages" && (
+            <div className="portal-messages">
+              <div className="portal-messages-list">
+                {messagesLoading && <p>Loading...</p>}
+                {!messagesLoading && !messages.length && (
+                  <p>No messages yet. Send one below to reach the school office.</p>
+                )}
+                {!messagesLoading &&
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={
+                        msg.is_staff
+                          ? "portal-message portal-message-staff"
+                          : "portal-message portal-message-self"
+                      }
+                    >
+                      <div className="portal-message-meta">
+                        <strong>{msg.sender_name}</strong>
+                        <span>{msg.sender_role}</span>
+                      </div>
+                      <p>{msg.body}</p>
+                    </div>
+                  ))}
+              </div>
+
+              <form className="portal-message-form" onSubmit={sendMessage}>
+                <textarea
+                  value={messageBody}
+                  onChange={(event) => setMessageBody(event.target.value)}
+                  placeholder="Write a message to the school..."
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={sendingMessage || !messageBody.trim()}
+                >
+                  <Send size={16} /> Send
+                </button>
+              </form>
+            </div>
           )}
 
           {!loading && activeTab === "history" && (
