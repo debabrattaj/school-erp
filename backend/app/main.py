@@ -42,6 +42,7 @@ from app.routes import platform
 from app.routes import payroll
 from app.routes import homework
 from app.routes import online_tests
+from app.routes import leads
 from app.tenant import init_tenant_registry
 from app.routes import (
     students,
@@ -1182,6 +1183,7 @@ app.include_router(library.router)
 app.include_router(inventory.router)
 app.include_router(accounting.router)
 app.include_router(admissions.router)
+app.include_router(leads.router)
 app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)
 app.include_router(multi_curriculum.router)

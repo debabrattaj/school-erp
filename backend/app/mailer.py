@@ -36,14 +36,14 @@ def _from_address() -> str:
     return os.getenv("SMTP_FROM", "no-reply@schoolerp.local").strip()
 
 
-def send_email(to: str, subject: str, body: str) -> bool:
+def send_email(to: str, subject: str, body: str, cc: str | None = None) -> bool:
     """Send a plain-text email. Returns True if sent (or logged in dev mode),
     False on a hard failure. Never raises.
     """
     if not is_configured():
         # Log-only mode: no SMTP server configured.
         logger.info(
-            "[email:log-mode] To=%s | Subject=%s\n%s", to, subject, body
+            "[email:log-mode] To=%s | Cc=%s | Subject=%s\n%s", to, cc, subject, body
         )
         return True
 
@@ -58,6 +58,8 @@ def send_email(to: str, subject: str, body: str) -> bool:
     message = EmailMessage()
     message["From"] = _from_address()
     message["To"] = to
+    if cc:
+        message["Cc"] = cc
     message["Subject"] = subject
     message.set_content(body)
 
