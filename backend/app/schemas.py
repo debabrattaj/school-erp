@@ -908,6 +908,30 @@ class AdmissionInquiryResponse(AdmissionInquiryBase):
         from_attributes = True
 
 
+class PublicAdmissionInquiryCreate(BaseModel):
+    """Fields a prospective parent may submit from the public 'Apply Online'
+    page. Deliberately excludes internal CRM fields (inquiry_no, stage,
+    assigned_to, converted_student_id) — those are always server-assigned.
+    """
+
+    account_code: Optional[str] = "default"
+    student_name: str
+    grade_applying: str
+    academic_year: str
+    guardian_name: str
+    guardian_phone: str
+    guardian_email: Optional[str] = None
+    notes: Optional[str] = None
+    # Honeypot: hidden from real users via CSS. Bots that fill every field
+    # trip this, so submissions with it set are silently dropped.
+    website: Optional[str] = None
+
+
+class PublicAdmissionInquiryResponse(BaseModel):
+    inquiry_no: str
+    message: str
+
+
 class AdmissionWorkflowStageBase(BaseModel):
     name: str
     sort_order: Optional[int] = 0

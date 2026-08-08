@@ -12,6 +12,7 @@ import {
   Settings,
   ArrowUp,
   ArrowDown,
+  Copy,
 } from "lucide-react";
 
 import API from "../api";
@@ -123,6 +124,16 @@ export default function Admissions() {
   const [stageEdits, setStageEdits] = useState({});
 
   const stageOptions = stages.length ? stages.map((stage) => stage.name) : fallbackStageOptions;
+
+  const accountCode = localStorage.getItem("school_erp_account_code") || "default";
+  const applyLink = `${window.location.origin}${import.meta.env.BASE_URL}apply?school=${accountCode}`;
+
+  function copyApplyLink() {
+    navigator.clipboard.writeText(applyLink).then(
+      () => setMessage("Apply link copied to clipboard."),
+      () => setMessage(`Apply link: ${applyLink}`)
+    );
+  }
 
   useEffect(() => {
     if (!message) return undefined;
@@ -1034,7 +1045,15 @@ export default function Admissions() {
         </div>
 
         <div className="module-header-actions">
-          
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={copyApplyLink}
+            title={applyLink}
+          >
+            <Copy size={17} />
+            Copy Apply Link
+          </button>
           <button
             type="button"
             className="secondary-button"

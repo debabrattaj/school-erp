@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
 from app.notifications import notify_admission_inquiry_received
+from app.rate_limit import check_login_allowed, login_keys, record_login_failure
 from app.routes.admission_workflow import ensure_default_stages
+from app.tenant import get_account, get_school_session_factory
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
+
+PUBLIC_INQUIRY_SUCCESS_MESSAGE = (
+    "Thank you! We've received your inquiry and our admissions team will be in touch soon."
+)
 
 
 def validate_stage(db: Session, stage: str | None):
@@ -108,6 +114,84 @@ def create_admission_inquiry(
     notify_admission_inquiry_received(db, inquiry, (settings.school_name if settings else None) or "School")
 
     return inquiry
+
+
+@router.post("/public", response_model=schemas.PublicAdmissionInquiryResponse)
+def submit_public_admission_inquiry(
+    payload: schemas.PublicAdmissionInquiryCreate,
+    request: Request,
+):
+    """Unauthenticated endpoint backing the public 'Apply Online' page.
+
+    Resolves the tenant from `account_code` in the body (there is no login
+    session yet to carry it), same pattern as /auth/forgot-password. Only
+    accepts the safe subset of fields — stage, assigned_to, and
+    converted_student_id are always server-assigned, never client-supplied.
+    """
+    keys = login_keys(
+        request.client.host if request.client else None,
+        payload.guardian_email,
+    )
+    retry_after = check_login_allowed(keys)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    record_login_failure(keys)
+
+    # Honeypot: real users never see or fill this field. Pretend success so
+    # bots don't learn to leave it blank, but skip the actual write.
+    if (payload.website or "").strip():
+        return schemas.PublicAdmissionInquiryResponse(
+            inquiry_no="", message=PUBLIC_INQUIRY_SUCCESS_MESSAGE
+        )
+
+    required = {
+        "Student name": payload.student_name,
+        "Grade applying for": payload.grade_applying,
+        "Academic year": payload.academic_year,
+        "Guardian name": payload.guardian_name,
+        "Guardian phone": payload.guardian_phone,
+    }
+    missing = [label for label, value in required.items() if not (value or "").strip()]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required field(s): {', '.join(missing)}")
+
+    try:
+        account = get_account(payload.account_code)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    session_factory = get_school_session_factory(account["database_url"])
+    db = session_factory()
+    try:
+        inquiry = models.AdmissionInquiry(
+            inquiry_no=next_inquiry_no(db),
+            student_name=payload.student_name.strip(),
+            grade_applying=payload.grade_applying.strip(),
+            academic_year=payload.academic_year.strip(),
+            guardian_name=payload.guardian_name.strip(),
+            guardian_phone=payload.guardian_phone.strip(),
+            guardian_email=(payload.guardian_email or "").strip() or None,
+            notes=(payload.notes or "").strip() or None,
+            source="Website",
+            stage="Inquiry",
+        )
+        db.add(inquiry)
+        commit_or_400(db, "Please try again in a moment.")
+        db.refresh(inquiry)
+
+        settings = db.query(models.SchoolSettings).first()
+        school_name = (settings.school_name if settings else None) or account.get("school_name") or "School"
+        notify_admission_inquiry_received(db, inquiry, school_name)
+
+        return schemas.PublicAdmissionInquiryResponse(
+            inquiry_no=inquiry.inquiry_no, message=PUBLIC_INQUIRY_SUCCESS_MESSAGE
+        )
+    finally:
+        db.close()
 
 
 @router.put("/{inquiry_id}", response_model=schemas.AdmissionInquiryResponse)
