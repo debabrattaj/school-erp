@@ -5,6 +5,7 @@ __pycache__/
 
 # Secrets
 backend/.env
+backend/.env.bak.*
 frontend/.env
 frontend/.env.local
 
