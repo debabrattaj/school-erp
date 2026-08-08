@@ -62,6 +62,9 @@ DEFAULT_FEATURES = {
     "academic_years": True,
     "parent_portal": True,
     "timetable": True,
+    "payroll": True,
+    "homework": True,
+    "online_tests": True,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

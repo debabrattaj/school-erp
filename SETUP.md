@@ -241,3 +241,76 @@ just self-served.
 - On success it sends the same confirmation email the internal CRM's "Add
   Inquiry" already triggers (`notify_admission_inquiry_received`) and
   returns the generated `inquiry_no` as a reference number.
+
+## 11. Payroll
+
+Per-teacher salary structures (`/payroll/salary-structures/{teacher_id}`,
+Admin/Accounts only) plus monthly payslip generation
+(`POST /payroll/generate` with `{month, year}`, Admin/Accounts only —
+Principal gets view access). Generating a period snapshots each teacher's
+*current* salary structure into a `Payslip` row, so editing the structure
+later never rewrites a payslip that already went out — same principle as
+Fee auto-generation's `billing_period` snapshotting. Safe to re-run: a
+teacher already billed for that month/year is skipped, not duplicated.
+
+Payslips can be marked Paid (`PUT /payroll/payslips/{id}/mark-paid`) and
+downloaded as a PDF (`GET /payroll/payslips/{id}/pdf`, via `app/pdf.py`'s
+`payslip_pdf()`). Frontend: `frontend/src/pages/Payroll.jsx`, at `/payroll`.
+
+No public payroll surface exists or is planned — this is an internal
+finance tool only.
+
+## 12. Richer parent/student portal: timetable, homework, messaging
+
+Three additions to the existing parent/student portal (`/portal`), all in
+`backend/app/routes/portal.py` alongside the existing per-student
+endpoints, gated the same way (`ensure_student_access` — a guardian only
+sees their own linked student's data):
+
+- **Timetable** (`GET /portal/students/{id}/timetable`) — read-only view
+  of the student's class timetable, reusing the existing `TimetableEntry`
+  data teachers already maintain in `/timetable`.
+- **Homework** (`GET /portal/students/{id}/homework`) — read-only view of
+  `Assignment` rows matching the student's class + section. Teachers post
+  assignments via `/homework` (`backend/app/routes/homework.py`,
+  `frontend/src/pages/Homework.jsx`) and they show up in the portal
+  immediately — no separate "publish" step.
+- **Messages** (`GET`/`POST /portal/students/{id}/messages`) — a single
+  flat, continuous message thread per student, shared by every guardian
+  linked to that student and staff, not private per-guardian DMs. Parents
+  use it from the Portal's "Messages" tab; staff reply from the same
+  student's "Messages" tab in `StudentDetails.jsx`. Teachers aren't in
+  `PORTAL_ROLES` (they're not linked via `ParentStudentLink`), so
+  messaging uses its own `ensure_message_access()` that additionally
+  grants Teachers staff-level access.
+
+Deliberately out of scope here: online tests/quizzes. That's a full
+assessment engine (question banks, grading, attempt tracking) — bolting a
+half-built version onto this would be worse than not having it; treat it
+as a separate, dedicated feature if it's wanted.
+
+## 13. Online tests (quizzes)
+
+Teacher-authored, auto-graded multiple-choice / true-false tests, taken by
+students through the portal. `backend/app/routes/online_tests.py` (staff
+authoring — Admin/Principal/Teacher) plus new endpoints on
+`backend/app/routes/portal.py` (student-facing). Frontend:
+`frontend/src/pages/OnlineTests.jsx` (`/online-tests`) and a new "Online
+Tests" tab in `Portal.jsx`.
+
+- **Only auto-gradable question types** (`mcq_single`, `true_false`) —
+  every submission is scored immediately, so there's no manual-grading
+  queue or "pending review" state. Subjective/short-answer questions are
+  intentionally not supported for the same reason `Payslip`/homework
+  avoided half-built states elsewhere in this app.
+- **State machine:** `Draft` (invisible to students) → `Published`
+  (students in the matching class + section can attempt it, subject to an
+  optional `starts_at`/`ends_at` window) → `Closed` (no new attempts, past
+  ones stay visible). One attempt per student per test — no retakes.
+- **Only the `Student` role can start or submit an attempt** — a linked
+  `Parent` account can view the test list and, once submitted, the
+  reviewed result, but can't take the test on the student's behalf.
+- Submitting doesn't hard-block on the timer having run out server-side;
+  the frontend's countdown auto-submits at zero, but a slow network
+  round-trip on the way in shouldn't lock a student out of their own
+  answers.

@@ -102,6 +102,22 @@ export default function Sidebar({ onNavigate }) {
       group: "Academics",
     },
     {
+      label: "Homework",
+      icon: ClipboardList,
+      path: "/homework",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "homework",
+      group: "Academics",
+    },
+    {
+      label: "Online Tests",
+      icon: FileCheck,
+      path: "/online-tests",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "online_tests",
+      group: "Academics",
+    },
+    {
       label: "Exams",
       icon: FileText,
       path: "/exams",
@@ -267,6 +283,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/accounting",
       roles: ["Admin", "Principal", "Accounts"],
       feature: "accounting",
+      group: "Finance & Operations",
+    },
+    {
+      label: "Payroll",
+      icon: Wallet,
+      path: "/payroll",
+      roles: ["Admin", "Principal", "Accounts"],
+      feature: "payroll",
       group: "Finance & Operations",
     },
     {

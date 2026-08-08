@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { QrCode, X } from "lucide-react";
+import { QrCode, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
 import API from "../api";
@@ -10,8 +10,18 @@ const TABS = [
   ["attendance", "Attendance"],
   ["marks", "Marks"],
   ["fees", "Fees"],
+  ["timetable", "Timetable"],
+  ["homework", "Homework"],
+  ["tests", "Online Tests"],
+  ["messages", "Messages"],
   ["history", "History"],
 ];
+
+function parseUtc(value) {
+  if (!value) return null;
+  const iso = typeof value === "string" && !value.endsWith("Z") ? `${value}Z` : value;
+  return new Date(iso);
+}
 
 function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
@@ -20,6 +30,7 @@ function getApiErrorMessage(error, fallback) {
 export default function Portal() {
   const user = getUser();
   const isParent = user?.role === "Parent";
+  const isStudent = user?.role === "Student";
   const [children, setChildren] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("summary");
@@ -48,6 +59,20 @@ export default function Portal() {
   const [history, setHistory] = useState([]);
   const [yearFilter, setYearFilter] = useState("");
 
+  const [timetable, setTimetable] = useState([]);
+  const [homework, setHomework] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messageBody, setMessageBody] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  const [onlineTests, setOnlineTests] = useState([]);
+  const [onlineTestsLoading, setOnlineTestsLoading] = useState(false);
+  const [activeOnlineTest, setActiveOnlineTest] = useState(null);
+  const [testAnswers, setTestAnswers] = useState({});
+  const [submittingTest, setSubmittingTest] = useState(false);
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(null);
+
   async function loadChildren() {
     try {
       const response = await API.get("/portal/children");
@@ -72,24 +97,159 @@ export default function Portal() {
     setMessage("");
     const params = yearFilter ? { academic_year: yearFilter } : {};
     try {
-      const [summaryRes, attendanceRes, marksRes, feesRes, historyRes] =
+      const [summaryRes, attendanceRes, marksRes, feesRes, historyRes, timetableRes, homeworkRes] =
         await Promise.all([
           API.get(`/portal/students/${studentId}/summary`),
           API.get(`/portal/students/${studentId}/attendance`, { params }),
           API.get(`/portal/students/${studentId}/marks`, { params }),
           API.get(`/portal/students/${studentId}/fees`, { params }),
           API.get(`/portal/students/${studentId}/enrollments`),
+          API.get(`/portal/students/${studentId}/timetable`),
+          API.get(`/portal/students/${studentId}/homework`),
         ]);
       setSummary(summaryRes.data);
       setAttendance(attendanceRes.data);
       setMarks(marksRes.data);
       setFees(feesRes.data);
       setHistory(historyRes.data || []);
+      setTimetable(timetableRes.data || []);
+      setHomework(homeworkRes.data || []);
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to load student data."));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadMessages(studentId) {
+    if (!studentId) return;
+    setMessagesLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/messages`);
+      setMessages(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load messages."));
+    } finally {
+      setMessagesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "messages" && selectedId) {
+      loadMessages(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
+  async function sendMessage(event) {
+    event.preventDefault();
+    const body = messageBody.trim();
+    if (!body || !selectedId) return;
+
+    setSendingMessage(true);
+    try {
+      await API.post(`/portal/students/${selectedId}/messages`, { body });
+      setMessageBody("");
+      await loadMessages(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to send message."));
+    } finally {
+      setSendingMessage(false);
+    }
+  }
+
+  async function loadOnlineTests(studentId) {
+    if (!studentId) return;
+    setOnlineTestsLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/online-tests`);
+      setOnlineTests(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load online tests."));
+    } finally {
+      setOnlineTestsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "tests" && selectedId && !activeOnlineTest) {
+      loadOnlineTests(selectedId);
+    }
+  }, [activeTab, selectedId, activeOnlineTest]);
+
+  async function openOnlineTest(testId) {
+    setMessage("");
+    try {
+      const response = await API.get(`/portal/students/${selectedId}/online-tests/${testId}`);
+      const data = response.data;
+      setActiveOnlineTest(data);
+
+      const initialAnswers = {};
+      data.questions.forEach((q) => {
+        if (q.selected_option) initialAnswers[q.id] = q.selected_option;
+      });
+      setTestAnswers(initialAnswers);
+
+      if (data.attempt.status === "In Progress" && data.test.duration_minutes) {
+        const startedAt = parseUtc(data.attempt.started_at);
+        const deadline = startedAt.getTime() + data.test.duration_minutes * 60000;
+        setTimeLeftSeconds(Math.max(0, Math.round((deadline - Date.now()) / 1000)));
+      } else {
+        setTimeLeftSeconds(null);
+      }
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to open this test."));
+    }
+  }
+
+  function closeOnlineTest() {
+    setActiveOnlineTest(null);
+    setTestAnswers({});
+    setTimeLeftSeconds(null);
+    loadOnlineTests(selectedId);
+  }
+
+  function selectAnswer(questionId, option) {
+    setTestAnswers((prev) => ({ ...prev, [questionId]: option }));
+  }
+
+  async function submitOnlineTest() {
+    if (!activeOnlineTest || submittingTest) return;
+    setSubmittingTest(true);
+    try {
+      const answers = Object.entries(testAnswers).map(([question_id, selected_option]) => ({
+        question_id: Number(question_id),
+        selected_option,
+      }));
+      await API.post(
+        `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/submit`,
+        { answers }
+      );
+      setMessage("Test submitted.");
+      await openOnlineTest(activeOnlineTest.test.id);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to submit test."));
+    } finally {
+      setSubmittingTest(false);
+    }
+  }
+
+  useEffect(() => {
+    if (timeLeftSeconds === null || activeOnlineTest?.attempt.status !== "In Progress") {
+      return undefined;
+    }
+    if (timeLeftSeconds <= 0) {
+      submitOnlineTest();
+      return undefined;
+    }
+    const timerId = window.setTimeout(() => setTimeLeftSeconds((prev) => prev - 1), 1000);
+    return () => window.clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeftSeconds]);
+
+  function formatTimeLeft(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
   }
 
   useEffect(() => {
@@ -415,6 +575,254 @@ export default function Portal() {
               </table>
               </div>
             </>
+          )}
+
+          {!loading && activeTab === "timetable" && (
+            <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Period</th>
+                  <th>Time</th>
+                  <th>Subject</th>
+                  <th>Teacher</th>
+                  <th>Room</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timetable.map((entry, index) => (
+                  <tr key={index}>
+                    <td>{entry.day_of_week}</td>
+                    <td>{entry.period_no}</td>
+                    <td>
+                      {entry.start_time && entry.end_time
+                        ? `${entry.start_time} - ${entry.end_time}`
+                        : "-"}
+                    </td>
+                    <td>
+                      {entry.entry_type === "period"
+                        ? entry.subject || "-"
+                        : entry.label || entry.entry_type}
+                    </td>
+                    <td>{entry.teacher_name || "-"}</td>
+                    <td>{entry.room || "-"}</td>
+                  </tr>
+                ))}
+                {!timetable.length && (
+                  <tr>
+                    <td colSpan={6}>No timetable published for this class yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {!loading && activeTab === "homework" && (
+            <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Due Date</th>
+                  <th>Subject</th>
+                  <th>Title</th>
+                  <th>Description</th>
+                  <th>Teacher</th>
+                </tr>
+              </thead>
+              <tbody>
+                {homework.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.due_date || "-"}</td>
+                    <td>{item.subject || "-"}</td>
+                    <td>{item.title}</td>
+                    <td>{item.description || "-"}</td>
+                    <td>{item.teacher_name || "-"}</td>
+                  </tr>
+                ))}
+                {!homework.length && (
+                  <tr>
+                    <td colSpan={5}>No homework posted for this class yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {!loading && activeTab === "tests" && !activeOnlineTest && (
+            <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Title</th>
+                  <th>Marks</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onlineTestsLoading && (
+                  <tr>
+                    <td colSpan={6}>Loading...</td>
+                  </tr>
+                )}
+                {!onlineTestsLoading &&
+                  onlineTests.map((test) => (
+                    <tr key={test.id}>
+                      <td>{test.subject || "-"}</td>
+                      <td>{test.title}</td>
+                      <td>{test.total_marks}</td>
+                      <td>
+                        {test.attempt_status === "Submitted"
+                          ? "Submitted"
+                          : test.attempt_status === "In Progress"
+                          ? "In Progress"
+                          : test.is_open
+                          ? "Not Started"
+                          : "Closed"}
+                      </td>
+                      <td>
+                        {test.attempt_status === "Submitted"
+                          ? `${test.score} / ${test.max_score}`
+                          : "-"}
+                      </td>
+                      <td>
+                        {test.attempt_status === "Submitted" ? (
+                          <button type="button" className="secondary-button" onClick={() => openOnlineTest(test.id)}>
+                            Review
+                          </button>
+                        ) : test.attempt_status === "In Progress" ? (
+                          <button type="button" className="primary-button" onClick={() => openOnlineTest(test.id)}>
+                            Continue
+                          </button>
+                        ) : test.is_open && isStudent ? (
+                          <button type="button" className="primary-button" onClick={() => openOnlineTest(test.id)}>
+                            Start
+                          </button>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                {!onlineTestsLoading && !onlineTests.length && (
+                  <tr>
+                    <td colSpan={6}>No online tests published for this class yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {activeTab === "tests" && activeOnlineTest && (
+            <div className="online-test-runner">
+              <div className="online-test-runner-header">
+                <div>
+                  <h3>{activeOnlineTest.test.title}</h3>
+                  <p>{activeOnlineTest.test.subject}</p>
+                </div>
+                {timeLeftSeconds !== null && activeOnlineTest.attempt.status === "In Progress" && (
+                  <div className="online-test-timer">Time left: {formatTimeLeft(timeLeftSeconds)}</div>
+                )}
+              </div>
+
+              {activeOnlineTest.attempt.status === "Submitted" && (
+                <div className="message-box">
+                  Score: {activeOnlineTest.attempt.score} / {activeOnlineTest.attempt.max_score}
+                </div>
+              )}
+
+              {activeOnlineTest.questions.map((q, index) => (
+                <div key={q.id} className="online-test-question">
+                  <p className="online-test-question-text">
+                    {index + 1}. {q.question_text} <span className="online-test-question-marks">({q.marks} mark{q.marks === 1 ? "" : "s"})</span>
+                  </p>
+                  <div className="online-test-options">
+                    {(q.options || ["True", "False"]).map((option) => {
+                      const isSelected = testAnswers[q.id] === option;
+                      const isSubmitted = activeOnlineTest.attempt.status === "Submitted";
+                      const isCorrectOption = isSubmitted && q.correct_option === option;
+                      let optionClass = "online-test-option";
+                      if (isSelected) optionClass += " online-test-option-selected";
+                      if (isSubmitted && isCorrectOption) optionClass += " online-test-option-correct";
+                      if (isSubmitted && isSelected && !isCorrectOption) optionClass += " online-test-option-wrong";
+                      return (
+                        <label key={option} className={optionClass}>
+                          <input
+                            type="radio"
+                            name={`question-${q.id}`}
+                            checked={isSelected}
+                            disabled={isSubmitted}
+                            onChange={() => selectAnswer(q.id, option)}
+                          />
+                          {option}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <div className="form-actions">
+                {activeOnlineTest.attempt.status === "In Progress" && (
+                  <button type="button" className="primary-button" onClick={submitOnlineTest} disabled={submittingTest}>
+                    {submittingTest ? "Submitting..." : "Submit Test"}
+                  </button>
+                )}
+                <button type="button" className="light-button" onClick={closeOnlineTest}>
+                  Back to Tests
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "messages" && (
+            <div className="portal-messages">
+              <div className="portal-messages-list">
+                {messagesLoading && <p>Loading...</p>}
+                {!messagesLoading && !messages.length && (
+                  <p>No messages yet. Send one below to reach the school office.</p>
+                )}
+                {!messagesLoading &&
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={
+                        msg.is_staff
+                          ? "portal-message portal-message-staff"
+                          : "portal-message portal-message-self"
+                      }
+                    >
+                      <div className="portal-message-meta">
+                        <strong>{msg.sender_name}</strong>
+                        <span>{msg.sender_role}</span>
+                      </div>
+                      <p>{msg.body}</p>
+                    </div>
+                  ))}
+              </div>
+
+              <form className="portal-message-form" onSubmit={sendMessage}>
+                <textarea
+                  value={messageBody}
+                  onChange={(event) => setMessageBody(event.target.value)}
+                  placeholder="Write a message to the school..."
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={sendingMessage || !messageBody.trim()}
+                >
+                  <Send size={16} /> Send
+                </button>
+              </form>
+            </div>
           )}
 
           {!loading && activeTab === "history" && (

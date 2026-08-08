@@ -69,6 +69,10 @@ export default function StudentDetails() {
   const [messAttendance, setMessAttendance] = useState([]);
   const [libraryIssues, setLibraryIssues] = useState([]);
   const [inventoryIssues, setInventoryIssues] = useState([]);
+  const [portalMessages, setPortalMessages] = useState([]);
+  const [portalMessagesLoading, setPortalMessagesLoading] = useState(false);
+  const [portalMessageBody, setPortalMessageBody] = useState("");
+  const [sendingPortalMessage, setSendingPortalMessage] = useState(false);
 
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
@@ -203,6 +207,41 @@ export default function StudentDetails() {
   useEffect(() => {
     loadStudentDetails();
   }, [studentId]);
+
+  async function loadPortalMessages() {
+    setPortalMessagesLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/messages`);
+      setPortalMessages(response.data || []);
+    } catch (error) {
+      setMessage(error.response?.data?.detail || "Unable to load messages.");
+    } finally {
+      setPortalMessagesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "messages" && studentId) {
+      loadPortalMessages();
+    }
+  }, [activeTab, studentId]);
+
+  async function sendPortalMessage(event) {
+    event.preventDefault();
+    const body = portalMessageBody.trim();
+    if (!body) return;
+
+    setSendingPortalMessage(true);
+    try {
+      await API.post(`/portal/students/${studentId}/messages`, { body });
+      setPortalMessageBody("");
+      await loadPortalMessages();
+    } catch (error) {
+      setMessage(error.response?.data?.detail || "Unable to send message.");
+    } finally {
+      setSendingPortalMessage(false);
+    }
+  }
 
   const examMap = useMemo(() => {
     const map = {};
@@ -355,6 +394,7 @@ export default function StudentDetails() {
     ["mess", "Mess"],
     ["library", "Library"],
     ["inventory", "Inventory"],
+    ["messages", "Messages"],
     ["custom", "Custom Fields"],
   ];
 
@@ -782,6 +822,53 @@ export default function StudentDetails() {
             </tr>
           ))}
         </RecordsTable>
+      )}
+
+      {activeTab === "messages" && (
+        <section className="student360-panel">
+          <PanelTitle title="Messages" text="Shared with every guardian linked to this student." />
+          <div className="portal-messages">
+            <div className="portal-messages-list">
+              {portalMessagesLoading && <p>Loading...</p>}
+              {!portalMessagesLoading && !portalMessages.length && (
+                <p>No messages yet.</p>
+              )}
+              {!portalMessagesLoading &&
+                portalMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={
+                      msg.is_staff
+                        ? "portal-message portal-message-self"
+                        : "portal-message portal-message-staff"
+                    }
+                  >
+                    <div className="portal-message-meta">
+                      <strong>{msg.sender_name}</strong>
+                      <span>{msg.sender_role}</span>
+                    </div>
+                    <p>{msg.body}</p>
+                  </div>
+                ))}
+            </div>
+
+            <form className="portal-message-form" onSubmit={sendPortalMessage}>
+              <textarea
+                value={portalMessageBody}
+                onChange={(event) => setPortalMessageBody(event.target.value)}
+                placeholder="Reply to the guardian..."
+                rows={2}
+              />
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={sendingPortalMessage || !portalMessageBody.trim()}
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </section>
       )}
 
       {activeTab === "custom" && (

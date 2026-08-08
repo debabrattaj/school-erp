@@ -39,6 +39,9 @@ from app.routes import fee_structures
 from app.routes import portal
 from app.routes import chatbot
 from app.routes import platform
+from app.routes import payroll
+from app.routes import homework
+from app.routes import online_tests
 from app.tenant import init_tenant_registry
 from app.routes import (
     students,
@@ -1156,6 +1159,9 @@ app.include_router(classes.router)
 app.include_router(attendance.router)
 app.include_router(fees.router)
 app.include_router(fee_structures.router)
+app.include_router(payroll.router)
+app.include_router(homework.router)
+app.include_router(online_tests.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)

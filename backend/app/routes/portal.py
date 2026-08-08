@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from urllib.parse import quote, urlencode
 
@@ -456,6 +457,353 @@ def portal_student_enrollments(
         }
         for enrollment in enrollments
     ]
+
+
+VALID_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+@router.get("/students/{student_id}/timetable")
+def portal_student_timetable(
+    student_id: int,
+    academic_year: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.TimetableEntry).filter(
+        models.TimetableEntry.class_name_snapshot == student.class_name,
+        models.TimetableEntry.section_snapshot == student.section,
+    )
+    if academic_year:
+        query = query.filter(models.TimetableEntry.academic_year == academic_year)
+
+    entries = query.all()
+    entries.sort(
+        key=lambda e: (
+            VALID_DAYS.index(e.day_of_week) if e.day_of_week in VALID_DAYS else len(VALID_DAYS),
+            e.period_no,
+        )
+    )
+
+    return [
+        {
+            "day_of_week": entry.day_of_week,
+            "period_no": entry.period_no,
+            "entry_type": entry.entry_type,
+            "label": entry.label,
+            "start_time": entry.start_time,
+            "end_time": entry.end_time,
+            "subject": entry.subject,
+            "teacher_name": entry.teacher_name_snapshot,
+            "room": entry.room,
+        }
+        for entry in entries
+    ]
+
+
+@router.get("/students/{student_id}/homework")
+def portal_student_homework(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.Assignment).filter(models.Assignment.class_name == student.class_name)
+    if student.section:
+        query = query.filter(
+            (models.Assignment.section == student.section) | (models.Assignment.section.is_(None))
+        )
+
+    assignments = query.order_by(
+        models.Assignment.due_date.desc().nullslast(), models.Assignment.id.desc()
+    ).all()
+
+    return [
+        {
+            "id": a.id,
+            "subject": a.subject,
+            "title": a.title,
+            "description": a.description,
+            "due_date": a.due_date,
+            "attachment_url": a.attachment_url,
+            "teacher_name": a.teacher_name_snapshot,
+            "created_at": a.created_at,
+        }
+        for a in assignments
+    ]
+
+
+MESSAGE_ROLES = PORTAL_ROLES + ["Teacher"]
+
+
+def ensure_message_access(db: Session, user: User, student_id: int) -> models.Student:
+    """Same as ensure_student_access, but Teachers get staff-level access too
+    (they're not linked to students via ParentStudentLink like guardians are).
+    """
+    if user.role == "Teacher":
+        student = db.query(models.Student).filter(models.Student.id == student_id).first()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return student
+    return ensure_student_access(db, user, student_id)
+
+
+@router.get("/students/{student_id}/messages", response_model=list[schemas.PortalMessageResponse])
+def portal_list_messages(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MESSAGE_ROLES)),
+):
+    ensure_message_access(db, current_user, student_id)
+    return (
+        db.query(models.PortalMessage)
+        .filter(models.PortalMessage.student_id == student_id)
+        .order_by(models.PortalMessage.created_at.asc(), models.PortalMessage.id.asc())
+        .all()
+    )
+
+
+@router.post("/students/{student_id}/messages", response_model=schemas.PortalMessageResponse)
+def portal_send_message(
+    student_id: int,
+    payload: schemas.PortalMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MESSAGE_ROLES)),
+):
+    ensure_message_access(db, current_user, student_id)
+
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Message body is required")
+
+    message = models.PortalMessage(
+        student_id=student_id,
+        sender_user_id=current_user.id,
+        sender_name=current_user.name,
+        sender_role=current_user.role,
+        is_staff=current_user.role in ("Admin", "Principal", "Teacher"),
+        body=body,
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+# ---------------- Online tests ----------------
+
+
+def _online_test_is_open(test: models.OnlineTest) -> bool:
+    if test.status != "Published":
+        return False
+    now = datetime.utcnow()
+    if test.starts_at and now < test.starts_at:
+        return False
+    if test.ends_at and now > test.ends_at:
+        return False
+    return True
+
+
+def _question_public(question: models.OnlineTestQuestion, reveal_answer: bool = False):
+    options = json.loads(question.options) if question.options else None
+    data = {
+        "id": question.id,
+        "question_type": question.question_type,
+        "question_text": question.question_text,
+        "options": options,
+        "marks": question.marks,
+        "sort_order": question.sort_order,
+    }
+    if reveal_answer:
+        data["correct_option"] = question.correct_option
+    return data
+
+
+@router.get("/students/{student_id}/online-tests")
+def portal_list_online_tests(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.OnlineTest).filter(
+        models.OnlineTest.class_name == student.class_name,
+        models.OnlineTest.status.in_(["Published", "Closed"]),
+    )
+    if student.section:
+        query = query.filter(
+            (models.OnlineTest.section == student.section) | (models.OnlineTest.section.is_(None))
+        )
+    tests = query.order_by(models.OnlineTest.id.desc()).all()
+
+    attempts = {
+        a.test_id: a
+        for a in db.query(models.OnlineTestAttempt).filter(
+            models.OnlineTestAttempt.student_id == student_id,
+            models.OnlineTestAttempt.test_id.in_([t.id for t in tests]),
+        ).all()
+    } if tests else {}
+
+    results = []
+    for test in tests:
+        questions = db.query(models.OnlineTestQuestion).filter(
+            models.OnlineTestQuestion.test_id == test.id
+        ).all()
+        attempt = attempts.get(test.id)
+        results.append({
+            "id": test.id,
+            "subject": test.subject,
+            "title": test.title,
+            "description": test.description,
+            "duration_minutes": test.duration_minutes,
+            "starts_at": test.starts_at,
+            "ends_at": test.ends_at,
+            "total_marks": sum(q.marks or 0 for q in questions),
+            "question_count": len(questions),
+            "is_open": _online_test_is_open(test),
+            "attempt_status": attempt.status if attempt else None,
+            "score": attempt.score if attempt else None,
+            "max_score": attempt.max_score if attempt else None,
+        })
+    return results
+
+
+@router.get("/students/{student_id}/online-tests/{test_id}")
+def portal_get_online_test(
+    student_id: int,
+    test_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    if not test or test.class_name != student.class_name or test.status not in ("Published", "Closed"):
+        raise HTTPException(status_code=404, detail="Test not found")
+    if test.section and test.section != student.section:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+
+    if not attempt:
+        if current_user.role != "Student":
+            raise HTTPException(status_code=403, detail="Only the student can start this test")
+        if not _online_test_is_open(test):
+            raise HTTPException(status_code=400, detail="This test is not currently open")
+
+        questions = db.query(models.OnlineTestQuestion).filter(
+            models.OnlineTestQuestion.test_id == test_id
+        ).order_by(models.OnlineTestQuestion.sort_order).all()
+        if not questions:
+            raise HTTPException(status_code=400, detail="This test has no questions yet")
+
+        attempt = models.OnlineTestAttempt(test_id=test_id, student_id=student_id, status="In Progress")
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+
+    questions = db.query(models.OnlineTestQuestion).filter(
+        models.OnlineTestQuestion.test_id == test_id
+    ).order_by(models.OnlineTestQuestion.sort_order).all()
+
+    submitted = attempt.status == "Submitted"
+    answers_by_question = {}
+    if submitted:
+        for answer in db.query(models.OnlineTestAnswer).filter(models.OnlineTestAnswer.attempt_id == attempt.id).all():
+            answers_by_question[answer.question_id] = answer
+
+    return {
+        "test": {
+            "id": test.id,
+            "title": test.title,
+            "subject": test.subject,
+            "description": test.description,
+            "duration_minutes": test.duration_minutes,
+        },
+        "attempt": {
+            "id": attempt.id,
+            "status": attempt.status,
+            "started_at": attempt.started_at,
+            "submitted_at": attempt.submitted_at,
+            "score": attempt.score,
+            "max_score": attempt.max_score,
+        },
+        "questions": [
+            {
+                **_question_public(q, reveal_answer=submitted),
+                "selected_option": answers_by_question[q.id].selected_option if q.id in answers_by_question else None,
+                "is_correct": answers_by_question[q.id].is_correct if q.id in answers_by_question else None,
+            }
+            for q in questions
+        ],
+    }
+
+
+@router.post("/students/{student_id}/online-tests/{test_id}/submit")
+def portal_submit_online_test(
+    student_id: int,
+    test_id: int,
+    payload: schemas.OnlineTestSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can submit this test")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="No attempt found for this test — open it first")
+    if attempt.status == "Submitted":
+        raise HTTPException(status_code=400, detail="This test has already been submitted")
+
+    questions = {
+        q.id: q
+        for q in db.query(models.OnlineTestQuestion).filter(models.OnlineTestQuestion.test_id == test_id).all()
+    }
+    selected_by_question = {a.question_id: a.selected_option for a in payload.answers}
+
+    total_score = 0.0
+    max_score = 0.0
+    for question in questions.values():
+        max_score += question.marks or 0
+        selected = selected_by_question.get(question.id)
+        is_correct = selected is not None and selected == question.correct_option
+        marks_awarded = (question.marks or 0) if is_correct else 0
+        total_score += marks_awarded
+
+        db.add(models.OnlineTestAnswer(
+            attempt_id=attempt.id,
+            question_id=question.id,
+            selected_option=selected,
+            is_correct=is_correct,
+            marks_awarded=marks_awarded,
+        ))
+
+    attempt.status = "Submitted"
+    attempt.submitted_at = datetime.utcnow()
+    attempt.score = total_score
+    attempt.max_score = max_score
+
+    db.commit()
+    db.refresh(attempt)
+    return {
+        "id": attempt.id,
+        "status": attempt.status,
+        "score": attempt.score,
+        "max_score": attempt.max_score,
+    }
 
 
 # ---------------- Admin: manage portal links ----------------

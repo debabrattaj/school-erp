@@ -1301,3 +1301,189 @@ class ParentStudentLink(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "student_id", name="uq_portal_link_user_student"),
     )
+
+
+class TeacherSalaryStructure(Base):
+    """One active pay structure per teacher. Generating a payslip snapshots
+    these values, so later edits here never change an already-issued payslip.
+    """
+
+    __tablename__ = "teacher_salary_structures"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False,
+        unique=True, index=True,
+    )
+
+    basic_pay = Column(Float, nullable=False, default=0)
+    hra = Column(Float, nullable=False, default=0)
+    other_allowances = Column(Float, nullable=False, default=0)
+    provident_fund = Column(Float, nullable=False, default=0)
+    professional_tax = Column(Float, nullable=False, default=0)
+    other_deductions = Column(Float, nullable=False, default=0)
+
+    effective_from = Column(Date, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Payslip(Base):
+    __tablename__ = "payslips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    month = Column(Integer, nullable=False, index=True)  # 1-12
+    year = Column(Integer, nullable=False, index=True)
+
+    # Snapshotted from TeacherSalaryStructure at generation time.
+    basic_pay = Column(Float, nullable=False, default=0)
+    hra = Column(Float, nullable=False, default=0)
+    other_allowances = Column(Float, nullable=False, default=0)
+    gross_pay = Column(Float, nullable=False, default=0)
+    provident_fund = Column(Float, nullable=False, default=0)
+    professional_tax = Column(Float, nullable=False, default=0)
+    other_deductions = Column(Float, nullable=False, default=0)
+    total_deductions = Column(Float, nullable=False, default=0)
+    net_pay = Column(Float, nullable=False, default=0)
+
+    status = Column(String, nullable=False, default="Pending")  # Pending, Paid
+    payment_date = Column(Date, nullable=True)
+    remarks = Column(String, nullable=True)
+
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "month", "year", name="uq_payslip_teacher_period"),
+    )
+
+
+class Assignment(Base):
+    """A homework/assignment posted by a teacher for a class+section."""
+
+    __tablename__ = "assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True, index=True)
+    attachment_url = Column(String, nullable=True)
+
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PortalMessage(Base):
+    """One flat, continuous message log per student shared by every guardian
+    and staff member with access to that student — a school-office group
+    chat, not per-guardian private DMs.
+    """
+
+    __tablename__ = "portal_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    sender_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    sender_name = Column(String, nullable=False)
+    sender_role = Column(String, nullable=False)  # Parent, Student, Teacher, Admin, Principal
+    is_staff = Column(Boolean, nullable=False, default=False)
+
+    body = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class OnlineTest(Base):
+    """A teacher-authored online quiz. Only auto-gradable question types
+    (mcq_single, true_false) are supported — no subjective/manual-grading
+    workflow, so a submitted attempt is scored immediately with no
+    "pending review" state.
+    """
+
+    __tablename__ = "online_tests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    duration_minutes = Column(Integer, nullable=True)  # null = untimed
+
+    status = Column(String, nullable=False, default="Draft", index=True)  # Draft, Published, Closed
+    starts_at = Column(DateTime, nullable=True)
+    ends_at = Column(DateTime, nullable=True)
+
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class OnlineTestQuestion(Base):
+    __tablename__ = "online_test_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    test_id = Column(Integer, ForeignKey("online_tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    sort_order = Column(Integer, default=0)
+
+    question_type = Column(String, nullable=False, default="mcq_single")  # mcq_single, true_false
+    question_text = Column(Text, nullable=False)
+    options = Column(Text, nullable=True)  # JSON list of option strings (mcq_single only)
+    correct_option = Column(String, nullable=False)  # option text (mcq_single) or "True"/"False"
+    marks = Column(Float, nullable=False, default=1)
+
+
+class OnlineTestAttempt(Base):
+    """One attempt per student per test — no retakes."""
+
+    __tablename__ = "online_test_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    test_id = Column(Integer, ForeignKey("online_tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    started_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, nullable=True)
+    score = Column(Float, nullable=True)
+    max_score = Column(Float, nullable=True)  # snapshotted total at submission time
+    status = Column(String, nullable=False, default="In Progress")  # In Progress, Submitted
+
+    __table_args__ = (
+        UniqueConstraint("test_id", "student_id", name="uq_online_test_attempt_student"),
+    )
+
+
+class OnlineTestAnswer(Base):
+    __tablename__ = "online_test_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    attempt_id = Column(Integer, ForeignKey("online_test_attempts.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(Integer, ForeignKey("online_test_questions.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    selected_option = Column(String, nullable=True)
+    is_correct = Column(Boolean, nullable=True)
+    marks_awarded = Column(Float, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("attempt_id", "question_id", name="uq_online_test_answer_question"),
+    )
