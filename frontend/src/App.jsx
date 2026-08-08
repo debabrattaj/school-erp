@@ -8,6 +8,7 @@ import MasterData from "./pages/MasterData";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ApplyOnline from "./pages/ApplyOnline";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Timetable from "./pages/Timetable";
@@ -128,6 +129,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/apply" element={<ApplyOnline />} />
         <Route path="/platform-login" element={<PlatformLogin />} />
         <Route
           path="/platform"

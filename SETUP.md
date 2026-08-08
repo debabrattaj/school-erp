@@ -207,3 +207,37 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
 4. Test by hand first: run the same command from cPanel's Terminal (or SSH)
    with `--dry-run` appended, check the logged cycles look right, then run
    it for real once before trusting the schedule to fire unattended.
+
+## 10. Online admission form
+
+Prospective parents can submit an admission inquiry themselves, without an
+account, at `/apply` (e.g. `https://schoolment.com/school-admin/apply`) —
+no login, no bearer token. Staff previously had to key every inquiry into
+the Admissions CRM by hand; this is the same `AdmissionInquiry` record,
+just self-served.
+
+- **Frontend:** `frontend/src/pages/ApplyOnline.jsx`, routed at `/apply`
+  alongside `/login` — outside `ProtectedLayout`, so it renders with no
+  sidebar and no auth check. The target school comes from a required
+  `?school=` query param; the Admissions CRM page has a "Copy Apply Link"
+  button that builds this URL for the logged-in school automatically. The
+  page is school-specific by design (this is a white-labeled multi-tenant
+  app) — it looks up that school via `GET /admissions/public/school-info`
+  and shows its actual name/tagline/logo instead of generic branding, and
+  a missing or unrecognized `?school=` shows "this admission link isn't
+  valid" rather than silently falling back to some default tenant.
+- **Backend:** `POST /admissions/public` (`backend/app/routes/admissions.py`).
+  Resolves the tenant from `account_code` in the request body — the same
+  pre-auth pattern `/auth/login` and `/auth/forgot-password` use — rather
+  than a session header, since a first-time visitor has no session yet.
+  Only accepts the fields a parent should set (student/guardian details);
+  `stage`, `assigned_to`, `converted_student_id`, and `inquiry_no` are
+  always server-assigned, never taken from the request.
+- **Abuse protection:** a hidden honeypot field (`website`) — real
+  browsers never fill it, so a submission with it set is dropped silently
+  while still returning a normal-looking success response — plus the same
+  per-IP rate limiter `/auth/login` uses (`LOGIN_MAX_ATTEMPTS` /
+  `LOGIN_WINDOW_SECONDS`, §backend env vars).
+- On success it sends the same confirmation email the internal CRM's "Add
+  Inquiry" already triggers (`notify_admission_inquiry_received`) and
+  returns the generated `inquiry_no` as a reference number.
