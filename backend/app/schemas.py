@@ -943,6 +943,24 @@ class PublicSchoolInfoResponse(BaseModel):
     logo_url: Optional[str] = None
 
 
+class DemoRequestCreate(BaseModel):
+    """'Book a demo' form on the public marketing site (schoolment.com)."""
+
+    name: str
+    school: str
+    email: str
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    page_url: Optional[str] = None
+    # Honeypot: hidden from real users via CSS. Bots that fill every field
+    # trip this, so submissions with it set are silently dropped.
+    website: Optional[str] = None
+
+
+class DemoRequestResponse(BaseModel):
+    message: str
+
+
 class AdmissionWorkflowStageBase(BaseModel):
     name: str
     sort_order: Optional[int] = 0
