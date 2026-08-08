@@ -66,6 +66,7 @@ import Compliance from "./pages/Compliance";
 import ReportCard from "./pages/ReportCard";
 import Payroll from "./pages/Payroll";
 import Homework from "./pages/Homework";
+import OnlineTests from "./pages/OnlineTests";
 
 const MOBILE_BREAKPOINT = 900;
 
@@ -249,6 +250,17 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <Homework />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/online-tests"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <OnlineTests />
               </ProtectedLayout>
             </ProtectedRoute>
           }

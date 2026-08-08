@@ -2004,3 +2004,114 @@ class PortalMessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Online Tests ----------------
+
+class OnlineTestQuestionCreate(BaseModel):
+    question_type: str = "mcq_single"  # mcq_single | true_false
+    question_text: str
+    options: Optional[list[str]] = None
+    correct_option: str
+    marks: float = 1
+    sort_order: int = 0
+
+
+class OnlineTestQuestionUpdate(BaseModel):
+    question_type: Optional[str] = None
+    question_text: Optional[str] = None
+    options: Optional[list[str]] = None
+    correct_option: Optional[str] = None
+    marks: Optional[float] = None
+    sort_order: Optional[int] = None
+
+
+class OnlineTestQuestionResponse(BaseModel):
+    id: int
+    question_type: str
+    question_text: str
+    options: Optional[list[str]] = None
+    correct_option: str
+    marks: float
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
+class OnlineTestQuestionPublic(BaseModel):
+    """Question shape shown to a student taking the test — no correct_option."""
+
+    id: int
+    question_type: str
+    question_text: str
+    options: Optional[list[str]] = None
+    marks: float
+    sort_order: int
+
+
+class OnlineTestBase(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: str
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    teacher_id: Optional[int] = None
+
+
+class OnlineTestCreate(OnlineTestBase):
+    pass
+
+
+class OnlineTestUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    teacher_id: Optional[int] = None
+    status: Optional[str] = None
+
+
+class OnlineTestResponse(OnlineTestBase):
+    id: int
+    status: str
+    teacher_name_snapshot: Optional[str] = None
+    total_marks: float = 0
+    question_count: int = 0
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OnlineTestAnswerSubmit(BaseModel):
+    question_id: int
+    selected_option: Optional[str] = None
+
+
+class OnlineTestSubmitRequest(BaseModel):
+    answers: list[OnlineTestAnswerSubmit] = []
+
+
+class OnlineTestAttemptResponse(BaseModel):
+    id: int
+    test_id: int
+    student_id: int
+    started_at: Optional[Any] = None
+    submitted_at: Optional[Any] = None
+    score: Optional[float] = None
+    max_score: Optional[float] = None
+    status: str
+
+    class Config:
+        from_attributes = True

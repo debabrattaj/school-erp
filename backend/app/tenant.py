@@ -64,6 +64,7 @@ DEFAULT_FEATURES = {
     "timetable": True,
     "payroll": True,
     "homework": True,
+    "online_tests": True,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

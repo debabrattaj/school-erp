@@ -288,3 +288,29 @@ Deliberately out of scope here: online tests/quizzes. That's a full
 assessment engine (question banks, grading, attempt tracking) — bolting a
 half-built version onto this would be worse than not having it; treat it
 as a separate, dedicated feature if it's wanted.
+
+## 13. Online tests (quizzes)
+
+Teacher-authored, auto-graded multiple-choice / true-false tests, taken by
+students through the portal. `backend/app/routes/online_tests.py` (staff
+authoring — Admin/Principal/Teacher) plus new endpoints on
+`backend/app/routes/portal.py` (student-facing). Frontend:
+`frontend/src/pages/OnlineTests.jsx` (`/online-tests`) and a new "Online
+Tests" tab in `Portal.jsx`.
+
+- **Only auto-gradable question types** (`mcq_single`, `true_false`) —
+  every submission is scored immediately, so there's no manual-grading
+  queue or "pending review" state. Subjective/short-answer questions are
+  intentionally not supported for the same reason `Payslip`/homework
+  avoided half-built states elsewhere in this app.
+- **State machine:** `Draft` (invisible to students) → `Published`
+  (students in the matching class + section can attempt it, subject to an
+  optional `starts_at`/`ends_at` window) → `Closed` (no new attempts, past
+  ones stay visible). One attempt per student per test — no retakes.
+- **Only the `Student` role can start or submit an attempt** — a linked
+  `Parent` account can view the test list and, once submitted, the
+  reviewed result, but can't take the test on the student's behalf.
+- Submitting doesn't hard-block on the timer having run out server-side;
+  the frontend's countdown auto-submits at zero, but a slow network
+  round-trip on the way in shouldn't lock a student out of their own
+  answers.
