@@ -218,10 +218,14 @@ just self-served.
 
 - **Frontend:** `frontend/src/pages/ApplyOnline.jsx`, routed at `/apply`
   alongside `/login` — outside `ProtectedLayout`, so it renders with no
-  sidebar and no auth check. Reads the target school from a `?school=`
-  query param (defaults to `default`); the Admissions CRM page has a
-  "Copy Apply Link" button that builds this URL for the logged-in school
-  automatically.
+  sidebar and no auth check. The target school comes from a required
+  `?school=` query param; the Admissions CRM page has a "Copy Apply Link"
+  button that builds this URL for the logged-in school automatically. The
+  page is school-specific by design (this is a white-labeled multi-tenant
+  app) — it looks up that school via `GET /admissions/public/school-info`
+  and shows its actual name/tagline/logo instead of generic branding, and
+  a missing or unrecognized `?school=` shows "this admission link isn't
+  valid" rather than silently falling back to some default tenant.
 - **Backend:** `POST /admissions/public` (`backend/app/routes/admissions.py`).
   Resolves the tenant from `account_code` in the request body — the same
   pre-auth pattern `/auth/login` and `/auth/forgot-password` use — rather

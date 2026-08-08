@@ -932,6 +932,17 @@ class PublicAdmissionInquiryResponse(BaseModel):
     message: str
 
 
+class PublicSchoolInfoResponse(BaseModel):
+    """Branding shown on the public 'Apply Online' page, so a parent can see
+    which school the link belongs to. No PII — the same school_name is
+    already visible to any guardian on the public fee-payment page.
+    """
+
+    school_name: str
+    tagline: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
 class AdmissionWorkflowStageBase(BaseModel):
     name: str
     sort_order: Optional[int] = 0

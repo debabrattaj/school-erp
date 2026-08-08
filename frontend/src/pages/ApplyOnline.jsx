@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { School, User, Users, Phone, Mail, GraduationCap, CheckCircle } from "lucide-react";
+import { School, User, Users, Phone, Mail, GraduationCap, CheckCircle, AlertTriangle } from "lucide-react";
 import API from "../api";
 
 const emptyForm = {
@@ -20,12 +20,34 @@ function getApiErrorMessage(error, fallback) {
 
 export default function ApplyOnline() {
   const [searchParams] = useSearchParams();
-  const accountCode = searchParams.get("school") || "default";
+  const accountCode = searchParams.get("school");
 
   const [formData, setFormData] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
+
+  // null while unresolved, the resolved school once the lookup succeeds.
+  const [schoolInfo, setSchoolInfo] = useState(null);
+  // Starts true when there's no ?school= at all — nothing to look up.
+  const [schoolInfoError, setSchoolInfoError] = useState(!accountCode);
+
+  useEffect(() => {
+    if (!accountCode) return undefined;
+
+    let cancelled = false;
+    API.get("/admissions/public/school-info", { params: { account_code: accountCode } })
+      .then((response) => {
+        if (!cancelled) setSchoolInfo(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolInfoError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountCode]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -52,6 +74,37 @@ export default function ApplyOnline() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (schoolInfoError) {
+    return (
+      <div className="login-page">
+        <div className="login-card login-card--wide">
+          <div className="apply-success">
+            <div className="apply-success-icon apply-success-icon--error">
+              <AlertTriangle size={32} />
+            </div>
+            <h2>This admission link isn't valid</h2>
+            <p className="login-subtitle">
+              We couldn't find the school this link points to. Please double-check the
+              link or contact the school office for a fresh one.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!schoolInfo) {
+    return (
+      <div className="login-page">
+        <div className="login-card login-card--wide">
+          <div className="apply-success">
+            <p className="login-subtitle">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (result) {
@@ -88,17 +141,22 @@ export default function ApplyOnline() {
       <div className="login-card login-card--wide">
         <div className="login-brand">
           <div className="login-logo">
-            <School size={34} />
+            {schoolInfo.logo_url ? (
+              <img src={schoolInfo.logo_url} alt={`${schoolInfo.school_name} logo`} />
+            ) : (
+              <School size={34} />
+            )}
           </div>
           <div>
-            <h1>School ERP</h1>
-            <p>Admissions</p>
+            <h1>{schoolInfo.school_name}</h1>
+            <p>{schoolInfo.tagline || "Admissions"}</p>
           </div>
         </div>
 
         <h2>Apply for admission online</h2>
         <p className="login-subtitle">
-          Fill in a few details and our admissions team will get back to you.
+          Fill in a few details and {schoolInfo.school_name}'s admissions team will get
+          back to you.
         </p>
 
         {message && <div className="toast-notification">{message}</div>}

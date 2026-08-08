@@ -116,6 +116,35 @@ def create_admission_inquiry(
     return inquiry
 
 
+@router.get("/public/school-info", response_model=schemas.PublicSchoolInfoResponse)
+def get_public_school_info(account_code: str = "default"):
+    """Which school an /apply link belongs to, for the page to display.
+
+    Lets the public admission form identify itself (name, tagline, logo)
+    instead of showing generic branding — important since the same app is
+    white-labeled per school. Returns 404 for an unknown/inactive account
+    so the frontend can show "this link isn't valid" instead of silently
+    falling back to the wrong school.
+    """
+    try:
+        account = get_account(account_code)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    session_factory = get_school_session_factory(account["database_url"])
+    db = session_factory()
+    try:
+        settings = db.query(models.SchoolSettings).first()
+    finally:
+        db.close()
+
+    return schemas.PublicSchoolInfoResponse(
+        school_name=(settings.school_name if settings else None) or account.get("school_name") or "School",
+        tagline=settings.tagline if settings else None,
+        logo_url=settings.logo_url if settings else None,
+    )
+
+
 @router.post("/public", response_model=schemas.PublicAdmissionInquiryResponse)
 def submit_public_admission_inquiry(
     payload: schemas.PublicAdmissionInquiryCreate,

@@ -109,6 +109,18 @@ def test_public_submission_unknown_school_returns_404(client):
     assert resp.status_code == 404
 
 
+def test_public_school_info_returns_branding_for_known_school(client):
+    resp = client.get("/admissions/public/school-info", params={"account_code": "default"})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["school_name"]
+
+
+def test_public_school_info_404_for_unknown_school(client):
+    resp = client.get("/admissions/public/school-info", params={"account_code": "no-such-school"})
+    assert resp.status_code == 404
+
+
 def test_public_submission_sends_confirmation_email(client, db_session):
     from app.models import AdmissionInquiry, CommunicationLog
 
