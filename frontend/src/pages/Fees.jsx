@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { isFeatureEnabled } from "../auth";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import { getMasterValues } from "../services/masterDataService";
@@ -224,6 +225,7 @@ export default function Fees() {
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
   const [editingStructureId, setEditingStructureId] = useState(null);
+  const feeAutoGenEnabled = isFeatureEnabled("fee_auto_generation");
 
   const [showGenerationHistory, setShowGenerationHistory] = useState(false);
   const [generationRuns, setGenerationRuns] = useState([]);
@@ -1401,18 +1403,32 @@ export default function Fees() {
               <div className="form-grid">
                 <div className="form-field">
                   <label>Auto-generate on a schedule</label>
-                  <label className="switch-row">
+                  <label
+                    className="switch-row"
+                    title={
+                      feeAutoGenEnabled
+                        ? undefined
+                        : "The platform owner hasn't enabled automatic fee generation for this school yet."
+                    }
+                  >
                     <input
                       type="checkbox"
                       name="auto_generate"
                       checked={structureForm.auto_generate}
+                      disabled={!feeAutoGenEnabled}
                       onChange={handleStructureFormChange}
                     />
                     <span>{structureForm.auto_generate ? "On" : "Off"}</span>
                   </label>
                   <small>
-                    When on, this fee is billed automatically to every matching
-                    student — no one needs to run "Add Fee for Class" by hand.
+                    {feeAutoGenEnabled ? (
+                      <>
+                        When on, this fee is billed automatically to every matching
+                        student — no one needs to run "Add Fee for Class" by hand.
+                      </>
+                    ) : (
+                      "Disabled by platform owner — ask them to enable automatic fee generation for this school first."
+                    )}
                   </small>
                 </div>
 

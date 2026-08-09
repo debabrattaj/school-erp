@@ -2344,6 +2344,15 @@ button {
   height: 18px;
 }
 
+.switch-row:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.switch-row input:disabled {
+  cursor: not-allowed;
+}
+
 .schedule-cell {
   display: flex;
   flex-direction: column;
