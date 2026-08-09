@@ -60,10 +60,9 @@ from app.tenant import (  # noqa: E402
     CentralSessionLocal,
     DEFAULT_ACCOUNT_CODE,
     DEFAULT_SCHOOL_DATABASE_URL,
-    get_account,
-    get_feature_map,
     get_school_session_factory,
     init_tenant_registry,
+    is_feature_enabled,
 )
 from app.tenant_models import SchoolAccount  # noqa: E402
 
@@ -98,11 +97,7 @@ def tenant_accounts() -> list[tuple[str, str]]:
 
 
 def is_enabled_for_tenant(account_code: str) -> bool:
-    try:
-        account = get_account(account_code)
-    except HTTPException:
-        return False
-    return get_feature_map(account["id"]).get(FEATURE_KEY, False)
+    return is_feature_enabled(account_code, FEATURE_KEY)
 
 
 def resolve_academic_year(db, target_date: date) -> AcademicYear | None:

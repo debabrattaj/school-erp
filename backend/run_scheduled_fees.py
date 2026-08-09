@@ -5,6 +5,14 @@ external scheduler — a cPanel Cron Job on the box that also runs the app, or
 any OS cron. See SETUP.md "Scheduled fee auto-generation" for the exact
 cPanel wiring.
 
+Off by default per school: this only does anything for a tenant whose
+central "fee_auto_generation" platform feature flag is on. That flag
+defaults to False for every school and can only be switched on by the
+platform owner via the Platform Console (PUT /platform/schools/{id}/features)
+— a school's own Admin/Accounts can still configure a Fee Structure's
+auto_generate/recurrence/next_run_date freely, but nothing actually bills
+anyone until the platform owner has enabled it for that school.
+
 For every tenant school database (the default one plus every account in the
 central registry), this finds every FeeStructure with auto_generate=True
 whose next_run_date has arrived, bills every applicable class for that fee
@@ -57,10 +65,13 @@ from app.tenant import (  # noqa: E402
     DEFAULT_SCHOOL_DATABASE_URL,
     get_school_session_factory,
     init_tenant_registry,
+    is_feature_enabled,
 )
 from app.tenant_models import SchoolAccount  # noqa: E402
 
 logger = logging.getLogger("fee_scheduler")
+
+FEATURE_KEY = "fee_auto_generation"
 
 # Guards against an infinite loop if recurrence/next_run_date data is ever
 # corrupted; 24 monthly cycles is 2 years of backlog, far more than a
@@ -202,6 +213,10 @@ def process_structure(db, account_code: str, structure: FeeStructure, today: dat
 
 
 def run_for_tenant(account_code: str, database_url: str, dry_run: bool) -> int:
+    if not is_feature_enabled(account_code, FEATURE_KEY):
+        logger.info("%s: %s not enabled by platform owner, skipping", account_code, FEATURE_KEY)
+        return 0
+
     session_factory = get_school_session_factory(database_url)
     db = session_factory()
     processed = 0

@@ -230,3 +230,55 @@ def test_fee_structure_accepts_valid_schedule(client, auth):
 def test_generation_runs_endpoint_requires_auth(client):
     resp = client.get("/fee-structures/generation-runs")
     assert resp.status_code in (401, 403)
+
+
+# --- Platform feature gate (app/tenant.py DEFAULT_FEATURES / is_feature_enabled) ---
+
+def test_fee_auto_generation_defaults_to_disabled():
+    from app.tenant import DEFAULT_FEATURES
+    assert DEFAULT_FEATURES["fee_auto_generation"] is False
+
+
+def test_run_scheduled_fees_skips_unknown_account():
+    import run_scheduled_fees
+    assert run_scheduled_fees.is_feature_enabled("no-such-account", run_scheduled_fees.FEATURE_KEY) is False
+
+
+def test_run_scheduled_fees_respects_platform_toggle(client):
+    import run_scheduled_fees
+    from app.tenant import CentralSessionLocal, get_account, is_feature_enabled
+    from app.tenant_models import SchoolFeature
+
+    account = get_account("default")
+    assert is_feature_enabled("default", run_scheduled_fees.FEATURE_KEY) is False
+
+    db = CentralSessionLocal()
+    try:
+        row = (
+            db.query(SchoolFeature)
+            .filter(SchoolFeature.account_id == account["id"], SchoolFeature.feature_key == "fee_auto_generation")
+            .first()
+        )
+        if row:
+            row.is_enabled = True
+        else:
+            db.add(SchoolFeature(account_id=account["id"], feature_key="fee_auto_generation", is_enabled=True))
+        db.commit()
+    finally:
+        db.close()
+
+    try:
+        assert is_feature_enabled("default", run_scheduled_fees.FEATURE_KEY) is True
+    finally:
+        db = CentralSessionLocal()
+        try:
+            row = (
+                db.query(SchoolFeature)
+                .filter(SchoolFeature.account_id == account["id"], SchoolFeature.feature_key == "fee_auto_generation")
+                .first()
+            )
+            if row:
+                row.is_enabled = False
+                db.commit()
+        finally:
+            db.close()
