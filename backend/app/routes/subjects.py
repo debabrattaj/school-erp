@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
+from app.security import require_roles
 from app import models, schemas
 
 router = APIRouter(
     tags=["Subjects"]
 )
+
+BULK_IMPORT_COLUMNS = ["subject_code", "subject_name", "subject_type", "is_active"]
 
 
 def commit_or_400(db: Session, message: str):
@@ -50,6 +55,81 @@ def get_subjects(db: Session = Depends(get_db)):
         .order_by(models.SubjectMaster.subject_name.asc())
         .all()
     )
+
+
+@router.get("/subjects/bulk-import-template")
+def bulk_import_subjects_template(
+    current_user: models.User = Depends(require_roles(["Admin", "Principal"]))
+):
+    return csv_template_response(
+        BULK_IMPORT_COLUMNS,
+        {
+            "subject_code": "PHY101",
+            "subject_name": "Physics",
+            "subject_type": "Scholastic",
+            "is_active": "true",
+        },
+        "subjects_import_template.csv",
+    )
+
+
+@router.post("/subjects/bulk-import")
+def bulk_import_subjects(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(["Admin", "Principal"])),
+):
+    rows, unknown_columns = read_csv_upload(file, BULK_IMPORT_COLUMNS)
+
+    seen_codes = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        subject_code = cleaned.get("subject_code")
+        if not subject_code:
+            errors.append({"row": row_index, "error": "subject_code is required"})
+            continue
+        if not cleaned.get("subject_name"):
+            errors.append({"row": row_index, "error": "subject_name is required"})
+            continue
+
+        if cleaned.get("is_active") is not None:
+            cleaned["is_active"] = cleaned["is_active"].strip().lower() in ("true", "1", "yes")
+
+        if subject_code in seen_codes:
+            errors.append({"row": row_index, "error": f"Duplicate subject_code in file: {subject_code}"})
+            continue
+        if db.query(models.SubjectMaster).filter(models.SubjectMaster.subject_code == subject_code).first():
+            errors.append({"row": row_index, "error": f"subject_code already exists: {subject_code}"})
+            continue
+
+        try:
+            validated = schemas.SubjectCreate(**cleaned)
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        seen_codes.add(subject_code)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(models.SubjectMaster(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.get("/subjects/{subject_id}", response_model=schemas.SubjectResponse)

@@ -7,10 +7,12 @@ history, same principle as Fee auto-generation snapshotting billing_period.
 
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import Payslip, Teacher, TeacherSalaryStructure, User
 from app.pdf import payslip_pdf
@@ -29,6 +31,17 @@ router = APIRouter(prefix="/payroll", tags=["Payroll"])
 MANAGERS = ["Admin", "Accounts"]
 VIEWERS = ["Admin", "Accounts", "Principal"]
 
+SALARY_BULK_IMPORT_COLUMNS = [
+    "employee_no",
+    "basic_pay",
+    "hra",
+    "other_allowances",
+    "provident_fund",
+    "professional_tax",
+    "other_deductions",
+    "effective_from",
+]
+
 
 def _get_teacher_or_404(db: Session, teacher_id: int) -> Teacher:
     teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
@@ -43,6 +56,124 @@ def list_salary_structures(
     current_user: User = Depends(require_roles(VIEWERS)),
 ):
     return db.query(TeacherSalaryStructure).all()
+
+
+@router.get("/salary-structures/bulk-import-template")
+def bulk_import_salary_structures_template(
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    return csv_template_response(
+        SALARY_BULK_IMPORT_COLUMNS,
+        {
+            "employee_no": "EMP2026101",
+            "basic_pay": "30000",
+            "hra": "8000",
+            "other_allowances": "2000",
+            "provident_fund": "1800",
+            "professional_tax": "200",
+            "other_deductions": "0",
+            "effective_from": "2026-04-01",
+        },
+        "payroll_salary_structures_import_template.csv",
+    )
+
+
+@router.post("/salary-structures/bulk-import")
+def bulk_import_salary_structures(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    """Upserts one salary structure per teacher — re-uploading an updated
+    sheet for the same employee_no replaces that teacher's figures, same as
+    editing them one at a time via the PUT endpoint."""
+    rows, unknown_columns = read_csv_upload(file, SALARY_BULK_IMPORT_COLUMNS)
+
+    teacher_lookup = {
+        teacher.employee_no: teacher.id
+        for teacher in db.query(Teacher).all()
+    }
+    existing_teacher_ids = {
+        row.teacher_id
+        for row in db.query(TeacherSalaryStructure.teacher_id).all()
+    }
+
+    seen = set()
+    errors = []
+    to_upsert = []  # (teacher_id, validated) pairs
+
+    NUMERIC_FIELDS = ["basic_pay", "hra", "other_allowances", "provident_fund", "professional_tax", "other_deductions"]
+
+    for row_index, cleaned in rows:
+        employee_no = cleaned.get("employee_no")
+        if not employee_no:
+            errors.append({"row": row_index, "error": "employee_no is required"})
+            continue
+
+        teacher_id = teacher_lookup.get(employee_no)
+        if teacher_id is None:
+            errors.append({"row": row_index, "error": f"No teacher found with employee_no {employee_no!r}"})
+            continue
+
+        if employee_no in seen:
+            errors.append({"row": row_index, "error": f"Duplicate employee_no in file: {employee_no}"})
+            continue
+
+        try:
+            numeric = {field: float(cleaned[field]) if cleaned.get(field) else 0 for field in NUMERIC_FIELDS}
+        except ValueError:
+            errors.append({"row": row_index, "error": "basic_pay, hra, other_allowances, provident_fund, professional_tax and other_deductions must be numbers"})
+            continue
+
+        try:
+            validated = SalaryStructureUpdate(
+                **numeric,
+                effective_from=cleaned.get("effective_from"),
+            )
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        seen.add(employee_no)
+        to_upsert.append((teacher_id, validated))
+
+    created_count = 0
+    updated_count = 0
+    if not dry_run:
+        for teacher_id, validated in to_upsert:
+            data = validated.model_dump()
+            structure = (
+                db.query(TeacherSalaryStructure)
+                .filter(TeacherSalaryStructure.teacher_id == teacher_id)
+                .first()
+            )
+            if structure:
+                for key, value in data.items():
+                    setattr(structure, key, value)
+                updated_count += 1
+            else:
+                db.add(TeacherSalaryStructure(teacher_id=teacher_id, **data))
+                created_count += 1
+        if to_upsert:
+            db.commit()
+    else:
+        for teacher_id, _validated in to_upsert:
+            if teacher_id in existing_teacher_ids:
+                updated_count += 1
+            else:
+                created_count += 1
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": (created_count + updated_count) if not dry_run else 0,
+        "valid_rows": len(to_upsert),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+        "new_teachers": created_count,
+        "updated_teachers": updated_count,
+    }
 
 
 @router.get("/salary-structures/{teacher_id}", response_model=SalaryStructureResponse)

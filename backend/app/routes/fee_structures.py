@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.fee_scheduling import validate_schedule
 from app.models import FeeGenerationRun, FeeStructure, User
@@ -17,6 +19,16 @@ router = APIRouter(
     prefix="/fee-structures",
     tags=["Finance & Billing"]
 )
+
+BULK_IMPORT_COLUMNS = [
+    "academic_year",
+    "class_name",
+    "residential_type",
+    "fee_type",
+    "amount",
+    "due_date",
+    "remarks",
+]
 
 
 def find_existing(
@@ -211,6 +223,101 @@ def list_generation_runs(
     if fee_structure_id:
         query = query.filter(FeeGenerationRun.fee_structure_id == fee_structure_id)
     return query.order_by(FeeGenerationRun.id.desc()).limit(min(limit, 200)).all()
+
+
+@router.get("/bulk-import-template")
+def bulk_import_template(
+    current_user: User = Depends(require_roles(["Admin", "Accounts"])),
+):
+    return csv_template_response(
+        BULK_IMPORT_COLUMNS,
+        {
+            "academic_year": "2026-27",
+            "class_name": "8",
+            "residential_type": "",
+            "fee_type": "Tuition Fee",
+            "amount": "5000",
+            "due_date": "2026-04-10",
+            "remarks": "",
+        },
+        "fee_structures_import_template.csv",
+    )
+
+
+@router.post("/bulk-import")
+def bulk_import_fee_structures(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Accounts"])),
+):
+    rows, unknown_columns = read_csv_upload(file, BULK_IMPORT_COLUMNS)
+
+    seen = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        academic_year = cleaned.get("academic_year")
+        fee_type = cleaned.get("fee_type")
+        if not academic_year:
+            errors.append({"row": row_index, "error": "academic_year is required"})
+            continue
+        if not fee_type:
+            errors.append({"row": row_index, "error": "fee_type is required"})
+            continue
+        if not cleaned.get("amount"):
+            errors.append({"row": row_index, "error": "amount is required"})
+            continue
+
+        key = (academic_year, cleaned.get("class_name"), cleaned.get("residential_type"), fee_type)
+        if key in seen:
+            errors.append({"row": row_index, "error": "Duplicate academic_year/class_name/residential_type/fee_type in file"})
+            continue
+        if find_existing(db, academic_year, cleaned.get("class_name"), cleaned.get("residential_type"), fee_type):
+            errors.append({
+                "row": row_index,
+                "error": "A fee structure already exists for this academic year, class, residential type, and fee type.",
+            })
+            continue
+
+        try:
+            validated = FeeStructureCreate(
+                academic_year=academic_year,
+                class_name=cleaned.get("class_name"),
+                residential_type=cleaned.get("residential_type"),
+                fee_type=fee_type,
+                amount=cleaned["amount"],
+                due_date=cleaned.get("due_date"),
+                remarks=cleaned.get("remarks"),
+            )
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        if validated.amount < 0:
+            errors.append({"row": row_index, "error": "Amount cannot be negative"})
+            continue
+
+        seen.add(key)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(FeeStructure(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.put("/{structure_id}", response_model=FeeStructureResponse)

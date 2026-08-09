@@ -9,6 +9,7 @@ import {
   Trash2,
   PlusCircle,
   Eye,
+  Upload,
   X,
   Wallet,
   Settings2,
@@ -20,6 +21,7 @@ import API from "../api";
 import { isFeatureEnabled } from "../auth";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyFeeForm = {
@@ -213,6 +215,7 @@ export default function Fees() {
   const [academicYears, setAcademicYears] = useState([]);
   const [classOptionsMaster, setClassOptionsMaster] = useState([]);
   const [feeStructures, setFeeStructures] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const [formData, setFormData] = useState(emptyFeeForm);
   const [editingId, setEditingId] = useState(null);
@@ -1520,11 +1523,33 @@ export default function Fees() {
                 <h3>Configured Fee Structures ({feeStructures.length})</h3>
               </div>
 
-              <button type="button" className="secondary-button" onClick={openGenerationHistory}>
-                <History size={17} />
-                Auto-Generation History
-              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Upload size={17} />
+                  Import CSV
+                </button>
+                <button type="button" className="secondary-button" onClick={openGenerationHistory}>
+                  <History size={17} />
+                  Auto-Generation History
+                </button>
+              </div>
             </div>
+
+            {showBulkImport && (
+              <BulkImportModal
+                title="Bulk Import Fee Structures"
+                description="Upload a CSV file to create multiple fee structures at once. Auto-generation stays off for imported rows — turn it on per structure afterward."
+                templateUrl="/fee-structures/bulk-import-template"
+                templateFilename="fee_structures_import_template.csv"
+                importUrl="/fee-structures/bulk-import"
+                onClose={() => setShowBulkImport(false)}
+                onImported={loadFeeStructures}
+              />
+            )}
 
             <div className="table-wrapper">
               <table className="classic-table">

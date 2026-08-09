@@ -5,12 +5,14 @@ import {
   MapPin,
   PlusCircle,
   Trash2,
+  Upload,
   UserCheck,
 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyRouteForm = {
@@ -79,6 +81,7 @@ function getStudentName(student) {
 
 export default function Transport() {
   const [activeTab, setActiveTab] = useState("routes");
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [routes, setRoutes] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [stops, setStops] = useState([]);
@@ -553,7 +556,33 @@ export default function Transport() {
       {activeTab === "vehicles" && (
         <>
           <section className="form-panel">
-            <PanelTitle title={editing.type === "vehicle" ? "Edit Vehicle" : "Add Vehicle"} text="Add buses, vans, drivers and seat capacity." />
+            <PanelTitle
+              title={editing.type === "vehicle" ? "Edit Vehicle" : "Add Vehicle"}
+              text="Add buses, vans, drivers and seat capacity."
+              actions={
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Upload size={17} />
+                  Import CSV
+                </button>
+              }
+            />
+
+            {showBulkImport && (
+              <BulkImportModal
+                title="Bulk Import Vehicles"
+                description="Upload a CSV file to create multiple vehicles at once. route_name is optional and must match an existing route's name."
+                templateUrl="/transport/vehicles/bulk-import-template"
+                templateFilename="transport_vehicles_import_template.csv"
+                importUrl="/transport/vehicles/bulk-import"
+                onClose={() => setShowBulkImport(false)}
+                onImported={loadPageData}
+              />
+            )}
+
             <form className="classic-form" onSubmit={saveVehicle}>
               <div className="form-grid">
                 <TextField label="Vehicle No *" name="vehicle_no" value={vehicleForm.vehicle_no} onChange={handleVehicleChange} required />
@@ -702,13 +731,14 @@ export default function Transport() {
   );
 }
 
-function PanelTitle({ title, text }) {
+function PanelTitle({ title, text, actions }) {
   return (
     <div className="panel-header">
       <div>
         <h3>{title}</h3>
         <p>{text}</p>
       </div>
+      {actions}
     </div>
   );
 }

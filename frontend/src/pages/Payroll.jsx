@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Wallet, Users, Banknote, Download, Edit, X, PlayCircle } from "lucide-react";
+import { Wallet, Users, Banknote, Download, Edit, Upload, X, PlayCircle } from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 
 const emptyStructureForm = {
   basic_pay: "",
@@ -31,6 +32,7 @@ function currentMonthYear() {
 export default function Payroll() {
   const [teachers, setTeachers] = useState([]);
   const [structures, setStructures] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -234,7 +236,28 @@ export default function Payroll() {
             <h3>Salary Structures</h3>
             <p>One structure per teacher. Editing it never changes an already-generated payslip.</p>
           </div>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload size={17} />
+            Import CSV
+          </button>
         </div>
+
+        {showBulkImport && (
+          <BulkImportModal
+            title="Bulk Import Salary Structures"
+            description="Upload a CSV file to set salary structures for multiple teachers at once, matched by Employee No. Re-uploading updates existing structures."
+            templateUrl="/payroll/salary-structures/bulk-import-template"
+            templateFilename="payroll_salary_structures_import_template.csv"
+            importUrl="/payroll/salary-structures/bulk-import"
+            onClose={() => setShowBulkImport(false)}
+            onImported={loadAll}
+          />
+        )}
+
         <div className="table-wrapper">
           <table className="classic-table">
             <thead>
