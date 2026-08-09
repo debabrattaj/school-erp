@@ -9,6 +9,8 @@ import {
   X,
   ClipboardList,
   ListChecks,
+  CalendarClock,
+  History,
 } from "lucide-react";
 
 import API from "../api";
@@ -88,6 +90,35 @@ const fallbackExamTypes = [
   "Assignment",
 ];
 
+const emptyTemplateForm = {
+  name: "",
+  exam_type: "",
+  offset_days: "",
+  is_active: true,
+  remarks: "",
+};
+
+function runStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "success") return "status active";
+  if (text === "failed") return "status danger";
+  return "status pending";
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const iso = /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function Exams() {
   const t = useT();
   const navigate = useNavigate();
@@ -115,6 +146,18 @@ export default function Exams() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  // Exam Templates (scheduled auto-creation)
+  const [examTemplates, setExamTemplates] = useState([]);
+  const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [seedYear, setSeedYear] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const [showTemplateHistory, setShowTemplateHistory] = useState(false);
+  const [templateRuns, setTemplateRuns] = useState([]);
+  const [templateRunsLoading, setTemplateRunsLoading] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -635,6 +678,140 @@ export default function Exams() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  async function loadExamTemplates() {
+    try {
+      const response = await API.get("/exam-templates/");
+      setExamTemplates(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(error.response?.data?.detail || "Unable to load exam templates.");
+    }
+  }
+
+  async function openTemplatesMode() {
+    setMessage("");
+    setPageMode("templates");
+    setEditingTemplateId(null);
+    setTemplateForm(emptyTemplateForm);
+    await loadExamTemplates();
+    if (!academicYears.length) {
+      try {
+        const response = await API.get("/academic-years/");
+        setAcademicYears(response.data || []);
+      } catch (error) {
+        console.error("Unable to load academic years", error);
+      }
+    }
+  }
+
+  function handleTemplateFormChange(event) {
+    const { name, value, type, checked } = event.target;
+    setTemplateForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleEditTemplate(template) {
+    setEditingTemplateId(template.id);
+    setTemplateForm({
+      name: template.name || "",
+      exam_type: template.exam_type || "",
+      offset_days: String(template.offset_days ?? ""),
+      is_active: template.is_active !== false,
+      remarks: template.remarks || "",
+    });
+  }
+
+  function handleCancelTemplateEdit() {
+    setEditingTemplateId(null);
+    setTemplateForm(emptyTemplateForm);
+  }
+
+  async function handleSubmitTemplate(event) {
+    event.preventDefault();
+    setMessage("");
+
+    const name = templateForm.name.trim();
+    if (!name) {
+      setMessage("Template name is required.");
+      return;
+    }
+
+    const payload = {
+      name,
+      exam_type: templateForm.exam_type || null,
+      offset_days: Number(templateForm.offset_days || 0),
+      is_active: Boolean(templateForm.is_active),
+      remarks: templateForm.remarks?.trim() || null,
+    };
+
+    setSavingTemplate(true);
+    try {
+      if (editingTemplateId) {
+        await API.put(`/exam-templates/${editingTemplateId}`, payload);
+        setMessage("Exam template updated.");
+      } else {
+        await API.post("/exam-templates/", payload);
+        setMessage("Exam template added.");
+      }
+      handleCancelTemplateEdit();
+      await loadExamTemplates();
+    } catch (error) {
+      console.error(error);
+      setMessage(error.response?.data?.detail || "Unable to save exam template.");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  async function handleDeleteTemplate(templateId) {
+    const confirmDelete = window.confirm("Delete this exam template?");
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/exam-templates/${templateId}`);
+      setMessage("Exam template deleted.");
+      await loadExamTemplates();
+    } catch (error) {
+      console.error(error);
+      setMessage(error.response?.data?.detail || "Unable to delete exam template.");
+    }
+  }
+
+  async function handleSeedFromYear() {
+    if (!seedYear) {
+      setMessage("Choose an academic year to seed from.");
+      return;
+    }
+    setSeeding(true);
+    try {
+      const response = await API.post("/exam-templates/seed-from-year", {
+        academic_year: seedYear,
+      });
+      setMessage(
+        `Seeded ${response.data.created_count} template(s) from ${seedYear} (${response.data.skipped_count} already existed).`
+      );
+      await loadExamTemplates();
+    } catch (error) {
+      console.error(error);
+      setMessage(error.response?.data?.detail || "Unable to seed templates from that year.");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  async function openTemplateHistory() {
+    setShowTemplateHistory(true);
+    setTemplateRunsLoading(true);
+    try {
+      const response = await API.get("/exam-templates/generation-runs");
+      setTemplateRuns(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(error.response?.data?.detail || "Unable to load exam generation history.");
+    } finally {
+      setTemplateRunsLoading(false);
+    }
+  }
+
   function renderField(field) {
     const value = getFieldValue(field);
 
@@ -763,18 +940,23 @@ export default function Exams() {
             Map Exam to Class
           </button>
 
-          {pageMode === "form" && (
+          <button type="button" className="secondary-button" onClick={openTemplatesMode}>
+            <CalendarClock size={17} />
+            Auto-Create Calendar
+          </button>
+
+          {(pageMode === "form" || pageMode === "templates") && (
             <button
               type="button"
               className="light-button"
-              onClick={handleCancelEdit}
+              onClick={pageMode === "templates" ? () => setPageMode("list") : handleCancelEdit}
             >
               <ArrowLeft size={17} />
               Back
             </button>
           )}
 
-          {pageMode !== "form" && (
+          {pageMode !== "form" && pageMode !== "templates" && (
             <button type="button" className="primary-button" onClick={handleAddExam}>
               <PlusCircle size={18} />
               Add Exam
@@ -1169,6 +1351,190 @@ export default function Exams() {
         />
       )}
 
+      {pageMode === "templates" && (
+        <>
+          <section className="form-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Exam Templates</h3>
+                <p>
+                  A recurring exam type (e.g. "Unit Test 1") auto-creates that
+                  year's exam on its own, once the school's current academic
+                  year reaches the offset below — no one has to remember to
+                  create it by hand every term.
+                </p>
+              </div>
+              <button type="button" className="secondary-button" onClick={openTemplateHistory}>
+                <History size={17} />
+                Auto-Create History
+              </button>
+            </div>
+
+            <form className="classic-form" onSubmit={handleSubmitTemplate}>
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Name *</label>
+                  <input
+                    name="name"
+                    value={templateForm.name}
+                    onChange={handleTemplateFormChange}
+                    placeholder="Unit Test 1"
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Exam Type</label>
+                  <select
+                    name="exam_type"
+                    value={templateForm.exam_type}
+                    onChange={handleTemplateFormChange}
+                  >
+                    <option value="">Select Exam Type</option>
+                    {examTypeOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Days After Year Start *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    name="offset_days"
+                    value={templateForm.offset_days}
+                    onChange={handleTemplateFormChange}
+                    required
+                  />
+                  <small>
+                    e.g. 45 fires this exam 45 days after the current academic
+                    year's start date.
+                  </small>
+                </div>
+
+                <div className="form-field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="is_active"
+                      checked={templateForm.is_active}
+                      onChange={handleTemplateFormChange}
+                    />{" "}
+                    Active
+                  </label>
+                </div>
+
+                <div className="form-field full-width">
+                  <label>Remarks</label>
+                  <input
+                    name="remarks"
+                    value={templateForm.remarks}
+                    onChange={handleTemplateFormChange}
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="primary-button" disabled={savingTemplate}>
+                  <PlusCircle size={18} />
+                  {savingTemplate ? "Saving..." : editingTemplateId ? "Update Template" : "Add Template"}
+                </button>
+                {editingTemplateId && (
+                  <button type="button" className="light-button" onClick={handleCancelTemplateEdit}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <div className="sis-section-title">Bootstrap from a past year</div>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Copy exams from</label>
+                <select value={seedYear} onChange={(event) => setSeedYear(event.target.value)}>
+                  <option value="">Select academic year</option>
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.name}>
+                      {year.name}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  Copies that year's real exams into matching templates, so you
+                  don't have to type the calendar in from scratch.
+                </small>
+              </div>
+              <div className="form-field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleSeedFromYear}
+                  disabled={seeding || !seedYear}
+                >
+                  {seeding ? "Seeding..." : "Seed Templates"}
+                </button>
+              </div>
+            </div>
+
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Exam Type</th>
+                    <th>Days After Year Start</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {examTemplates.map((template) => (
+                    <tr key={template.id}>
+                      <td>{template.name}</td>
+                      <td>{template.exam_type || "-"}</td>
+                      <td>{template.offset_days}</td>
+                      <td>{template.is_active ? "Yes" : "No"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            type="button"
+                            className="edit-button"
+                            onClick={() => handleEditTemplate(template)}
+                            title="Edit"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() => handleDeleteTemplate(template.id)}
+                            title="Delete"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!examTemplates.length && (
+                    <tr>
+                      <td colSpan={5}>
+                        No exam templates yet. Add one above, or seed from a past
+                        year's calendar.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
       {pageMode === "list" && (
         <>
       <section className="table-panel module-filter-panel">
@@ -1332,6 +1698,50 @@ export default function Exams() {
                 ))}
               </div>
             )}
+          </aside>
+        </div>
+      )}
+
+      {showTemplateHistory && (
+        <div className="student-drawer-backdrop">
+          <aside className="student-drawer">
+            <button
+              type="button"
+              className="drawer-close"
+              onClick={() => setShowTemplateHistory(false)}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="student-profile-head">
+              <div className="student-avatar">
+                <History size={42} />
+              </div>
+
+              <h3>Auto-Create History</h3>
+              <p>Most recent scheduled exam-creation runs, across every template.</p>
+            </div>
+
+            {templateRunsLoading && <div className="drawer-section">Loading...</div>}
+
+            {!templateRunsLoading && !templateRuns.length && (
+              <div className="drawer-section">
+                No scheduled runs yet — this fills in once an Exam Template's
+                offset has been reached for a school's current academic year
+                and run_scheduled_exams.py has run at least once.
+              </div>
+            )}
+
+            {templateRuns.map((run) => (
+              <div className="drawer-section" key={run.id}>
+                <h4>{run.academic_year}</h4>
+                <p>
+                  Status: <span className={runStatusClass(run.status)}>{run.status}</span>
+                </p>
+                <p>Run at: {formatDateTime(run.run_at)}</p>
+                {run.error_message && <p>Error: {run.error_message}</p>}
+              </div>
+            ))}
           </aside>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Lock, Send, Star } from "lucide-react";
+import { CalendarPlus, CheckCircle2, History, Lock, Send, Settings2, Star, X } from "lucide-react";
 
 import API from "../api";
 import { getMasterValues } from "../services/masterDataService";
@@ -11,8 +11,36 @@ const emptyYearForm = {
   remarks: "",
 };
 
+const emptyScheduleForm = {
+  auto_promote_enabled: false,
+  auto_promote_date: "",
+  auto_promote_to_year: "",
+  auto_promote_carry_forward_fees: false,
+};
+
 function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
+}
+
+function runStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "success") return "status active";
+  if (text === "failed") return "status danger";
+  return "status pending"; // "partial"
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const iso = /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function getClassLabel(classRecord) {
@@ -39,6 +67,14 @@ export default function AcademicYears() {
 
   const [yearForm, setYearForm] = useState(emptyYearForm);
   const [saving, setSaving] = useState(false);
+
+  // Scheduled auto-promotion
+  const [scheduleYearId, setScheduleYearId] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [showPromotionHistory, setShowPromotionHistory] = useState(false);
+  const [promotionRuns, setPromotionRuns] = useState([]);
+  const [promotionRunsLoading, setPromotionRunsLoading] = useState(false);
 
   // Year-end state
   const [fromYear, setFromYear] = useState("");
@@ -149,6 +185,55 @@ export default function AcademicYears() {
         }
       }
       setMessage(detail);
+    }
+  }
+
+  function openScheduleEditor(year) {
+    setScheduleYearId(year.id);
+    setScheduleForm({
+      auto_promote_enabled: Boolean(year.auto_promote_enabled),
+      auto_promote_date: year.auto_promote_date || "",
+      auto_promote_to_year: year.auto_promote_to_year || "",
+      auto_promote_carry_forward_fees: Boolean(year.auto_promote_carry_forward_fees),
+    });
+  }
+
+  function handleScheduleFormChange(event) {
+    const { name, value, type, checked } = event.target;
+    setScheduleForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  async function handleSaveSchedule(event) {
+    event.preventDefault();
+    if (!scheduleYearId) return;
+    setSavingSchedule(true);
+    try {
+      await API.put(`/academic-years/${scheduleYearId}`, {
+        auto_promote_enabled: scheduleForm.auto_promote_enabled,
+        auto_promote_date: scheduleForm.auto_promote_enabled ? scheduleForm.auto_promote_date || null : null,
+        auto_promote_to_year: scheduleForm.auto_promote_enabled ? scheduleForm.auto_promote_to_year || null : null,
+        auto_promote_carry_forward_fees: scheduleForm.auto_promote_carry_forward_fees,
+      });
+      setMessage("Auto-promotion schedule saved.");
+      setScheduleYearId(null);
+      await loadPageData();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save auto-promotion schedule."));
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  async function openPromotionHistory() {
+    setShowPromotionHistory(true);
+    setPromotionRunsLoading(true);
+    try {
+      const response = await API.get("/academic-years/promotion-runs");
+      setPromotionRuns(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load promotion history."));
+    } finally {
+      setPromotionRunsLoading(false);
     }
   }
 
@@ -354,6 +439,10 @@ export default function AcademicYears() {
             <h3>All Years</h3>
             <p>Only one year can be current at a time. Closed years become read-only.</p>
           </div>
+          <button type="button" className="secondary-button" onClick={openPromotionHistory}>
+            <History size={17} />
+            Promotion History
+          </button>
         </div>
 
         <div className="table-wrapper"><table className="classic-table">
@@ -364,6 +453,7 @@ export default function AcademicYears() {
               <th>End</th>
               <th>Status</th>
               <th>Current</th>
+              <th>Auto-Promote</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -375,6 +465,17 @@ export default function AcademicYears() {
                 <td>{year.end_date || "-"}</td>
                 <td>{year.status}</td>
                 <td>{year.is_current ? <CheckCircle2 size={17} color="#16a34a" /> : "-"}</td>
+                <td>
+                  {year.auto_promote_enabled ? (
+                    <span className={year.auto_promoted_at ? "status active" : "status pending"}>
+                      {year.auto_promoted_at
+                        ? "Ran"
+                        : `On · ${year.auto_promote_date || "no date"} → ${year.auto_promote_to_year || "?"}`}
+                    </span>
+                  ) : (
+                    <span className="status">Off</span>
+                  )}
+                </td>
                 <td>
                   {year.status !== "Closed" && (
                     <>
@@ -391,6 +492,14 @@ export default function AcademicYears() {
                       <button
                         type="button"
                         className="secondary-button"
+                        onClick={() => openScheduleEditor(year)}
+                      >
+                        <Settings2 size={15} />
+                        Auto-Promote
+                      </button>{" "}
+                      <button
+                        type="button"
+                        className="secondary-button"
                         onClick={() => handleCloseYear(year.id)}
                       >
                         <Lock size={15} />
@@ -403,11 +512,93 @@ export default function AcademicYears() {
             ))}
             {!years.length && (
               <tr>
-                <td colSpan={6}>No academic years yet. Add your first year above.</td>
+                <td colSpan={7}>No academic years yet. Add your first year above.</td>
               </tr>
             )}
           </tbody>
         </table></div>
+
+        {scheduleYearId && (
+          <form className="classic-form" onSubmit={handleSaveSchedule} style={{ marginTop: "1rem" }}>
+            <div className="sis-section-title">
+              Auto-Promote — {years.find((y) => y.id === scheduleYearId)?.name}
+            </div>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Auto-promote on a schedule</label>
+                <label className="switch-row">
+                  <input
+                    type="checkbox"
+                    name="auto_promote_enabled"
+                    checked={scheduleForm.auto_promote_enabled}
+                    onChange={handleScheduleFormChange}
+                  />
+                  <span>{scheduleForm.auto_promote_enabled ? "On" : "Off"}</span>
+                </label>
+                <small>
+                  When on, every active student in this year is promoted,
+                  detained, or graduated automatically on the date below —
+                  using the same suggestion logic as "Suggest from Results".
+                </small>
+              </div>
+
+              {scheduleForm.auto_promote_enabled && (
+                <>
+                  <div className="form-field">
+                    <label>Promote On *</label>
+                    <input
+                      type="date"
+                      name="auto_promote_date"
+                      value={scheduleForm.auto_promote_date}
+                      onChange={handleScheduleFormChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Into Academic Year *</label>
+                    <select
+                      name="auto_promote_to_year"
+                      value={scheduleForm.auto_promote_to_year}
+                      onChange={handleScheduleFormChange}
+                      required
+                    >
+                      <option value="">Select Year</option>
+                      {years
+                        .filter((y) => y.id !== scheduleYearId)
+                        .map((y) => (
+                          <option key={y.id} value={y.name}>
+                            {y.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>
+                      <input
+                        type="checkbox"
+                        name="auto_promote_carry_forward_fees"
+                        checked={scheduleForm.auto_promote_carry_forward_fees}
+                        onChange={handleScheduleFormChange}
+                      />{" "}
+                      Carry forward unpaid fee balances
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="primary-button" disabled={savingSchedule}>
+                {savingSchedule ? "Saving..." : "Save Schedule"}
+              </button>{" "}
+              <button type="button" className="secondary-button" onClick={() => setScheduleYearId(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </section>
 
       <section className="form-panel">
@@ -608,6 +799,56 @@ export default function AcademicYears() {
           </div>
         )}
       </section>
+
+      {showPromotionHistory && (
+        <div className="student-drawer-backdrop">
+          <aside className="student-drawer">
+            <button
+              type="button"
+              className="drawer-close"
+              onClick={() => setShowPromotionHistory(false)}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="student-profile-head">
+              <div className="student-avatar">
+                <History size={42} />
+              </div>
+
+              <h3>Promotion History</h3>
+              <p>Most recent scheduled year-end promotion runs, across every academic year.</p>
+            </div>
+
+            {promotionRunsLoading && <div className="drawer-section">Loading...</div>}
+
+            {!promotionRunsLoading && !promotionRuns.length && (
+              <div className="drawer-section">
+                No scheduled runs yet — this fills in once an academic year with
+                Auto-Promote on has a promote date in the past and
+                run_scheduled_promotions.py has run at least once.
+              </div>
+            )}
+
+            {promotionRuns.map((run) => (
+              <div className="drawer-section" key={run.id}>
+                <h4>
+                  {run.from_academic_year} → {run.to_academic_year || "-"}
+                </h4>
+                <p>
+                  Status: <span className={runStatusClass(run.status)}>{run.status}</span>
+                </p>
+                <p>
+                  Promoted: {run.promoted_count} · Detained: {run.detained_count} · Graduated:{" "}
+                  {run.graduated_count} · Skipped: {run.skipped_count}
+                </p>
+                <p>Run at: {formatDateTime(run.run_at)}</p>
+                {run.error_message && <p>Error: {run.error_message}</p>}
+              </div>
+            ))}
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

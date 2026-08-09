@@ -314,3 +314,110 @@ Tests" tab in `Portal.jsx`.
   the frontend's countdown auto-submits at zero, but a slow network
   round-trip on the way in shouldn't lock a student out of their own
   answers.
+
+## 14. Scheduled year-end promotion
+
+`AcademicYear` (`/academic-years`) can process year-end promotion itself
+instead of a staff member running "Year-End Processing" by hand. It reuses
+the exact same promote/detain/graduate suggestion logic that screen's
+"Suggestions" panel already computes (marks vs. the school's pass
+percentage) — the schedule just applies those suggestions unattended on a
+chosen date rather than waiting for someone to review and click through
+them. A student with no marks recorded, or a "promote" suggestion the
+suggestion logic can't confidently map to a target class (non-numeric class
+names aren't auto-mapped — see `_suggest_next_class` in
+`student_enrollments.py`), is left alone for staff to handle manually;
+everything else is applied.
+
+Fields on an Academic Year control it:
+
+- `auto_promote_enabled` (bool) — turn the schedule on/off.
+- `auto_promote_date` — the date it should fire.
+- `auto_promote_to_year` — which academic year to promote students into;
+  must already exist.
+- `auto_promote_carry_forward_fees` (bool, default off) — carry forward
+  unpaid fee balances into the new year, same as the manual screen's own
+  checkbox.
+
+### Running it
+
+```bash
+cd backend
+python run_scheduled_promotions.py             # process every due academic year, for every school
+python run_scheduled_promotions.py --dry-run   # log what would happen, change nothing
+```
+
+Safe to run more than once: the underlying promotion logic already skips a
+student who's already enrolled in the target academic year, so re-running
+(or a cron firing twice) never double-promotes anyone. Each attempt is
+logged to `promotion_generation_runs` — check recent runs without SSHing in
+via `GET /academic-years/promotion-runs`.
+
+**Before relying on the schedule**, apply the migration on every tenant DB
+(§4): `python manage_migrations.py upgrade head`.
+
+### Wiring it up in cPanel
+
+Same shape as §9's fee scheduler — a daily Cron Job calling the script
+directly in the app's own virtualenv:
+
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_scheduled_promotions.py >> /home/schoolm1/logs/promotion_cron.log 2>&1
+```
+
+Test with `--dry-run` first, same as §9.
+
+## 15. Scheduled exam creation
+
+Exam Templates (`/exam-templates`) let a recurring exam type (e.g. "Unit
+Test 1") auto-create that year's `Exam` record on schedule instead of
+someone remembering to create it by hand every term — staff then adds
+subjects/marks as usual. Unlike fees or promotion, an exam template's
+schedule isn't a date you set directly: it's an `offset_days` from
+whichever academic year is currently in range (its `start_date` has
+arrived, its `end_date` hasn't). Each template fires once per academic
+year, so there's no mutable "next run" state to manage.
+
+Fields on an Exam Template:
+
+- `name` — e.g. `"Unit Test 1"`. Must be unique.
+- `offset_days` — days after the academic year's `start_date` this exam
+  should be created.
+- `is_active` (bool) — disable a recurring exam type without deleting its
+  history.
+
+Because `Exam.exam_name` must be unique across the whole `exams` table (a
+pre-existing rule this doesn't change), the exam this creates is named
+`"{template name} ({academic year})"` — e.g. `"Unit Test 1 (2026-27)"` — so
+the same template can fire every year without colliding with itself.
+
+**Bootstrapping from history:** `POST /exam-templates/seed-from-year` with
+`{"academic_year": "2025-26"}` copies that year's real exams into matching
+templates (computing each one's `offset_days` from the year's own
+`start_date`), so a school with exam history doesn't have to type the
+calendar in from scratch.
+
+### Running it
+
+```bash
+cd backend
+python run_scheduled_exams.py             # create every due exam, for every school
+python run_scheduled_exams.py --dry-run   # log what would happen, change nothing
+```
+
+Safe to run more than once: a `(template, academic_year)` pair already
+logged as `success` in `exam_generation_runs` is never regenerated. Check
+recent runs without SSHing in via `GET /exam-templates/generation-runs`.
+
+**Before relying on the schedule**, apply the migration on every tenant DB
+(§4): `python manage_migrations.py upgrade head`.
+
+### Wiring it up in cPanel
+
+Same shape again — a daily Cron Job:
+
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_scheduled_exams.py >> /home/schoolm1/logs/exam_cron.log 2>&1
+```
+
+Test with `--dry-run` first, same as §9.

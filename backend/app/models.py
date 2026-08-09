@@ -343,6 +343,13 @@ class Exam(Base):
     exam_date = Column(Date, nullable=False)
     academic_year = Column(String, nullable=True)
 
+    # Set when this Exam was auto-created by run_scheduled_exams.py from an
+    # ExamTemplate, so the scheduler can tell "already generated" apart from
+    # a staff member happening to create a similarly-named exam by hand.
+    generated_from_template_id = Column(
+        Integer, ForeignKey("exam_templates.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     remarks = Column(String, nullable=True)
 
 
@@ -1272,8 +1279,84 @@ class AcademicYear(Base):
 
     remarks = Column(String, nullable=True)
 
+    # Scheduled auto-promotion: when auto_promote_enabled is on,
+    # run_scheduled_promotions.py applies the same promote/detain/graduate
+    # suggestions the manual "Year-End Processing" screen already computes
+    # (marks vs pass percentage) to every active student in this year, once
+    # auto_promote_date arrives. auto_promoted_at guards against re-running.
+    auto_promote_enabled = Column(Boolean, nullable=False, default=False, server_default="0")
+    auto_promote_date = Column(Date, nullable=True)
+    auto_promote_to_year = Column(String, nullable=True)
+    auto_promote_carry_forward_fees = Column(Boolean, nullable=False, default=False, server_default="0")
+    auto_promoted_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PromotionGenerationRun(Base):
+    """One row per academic year the scheduled year-end promotion job has
+    attempted, for troubleshooting an unattended cron job — mirrors
+    FeeGenerationRun."""
+
+    __tablename__ = "promotion_generation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    from_academic_year = Column(String, nullable=False)
+    to_academic_year = Column(String, nullable=True)
+
+    run_at = Column(DateTime, default=datetime.utcnow)
+    promoted_count = Column(Integer, default=0)
+    detained_count = Column(Integer, default=0)
+    graduated_count = Column(Integer, default=0)
+    skipped_count = Column(Integer, default=0)
+    status = Column(String, nullable=False)  # success | partial | failed
+    error_message = Column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("from_academic_year", name="uq_promotion_run_from_year"),
+    )
+
+
+class ExamTemplate(Base):
+    """A recurring exam type (e.g. "Unit Test 1") that auto-creates its Exam
+    record once per academic year, run_scheduled_exams.py fires it
+    offset_days after that year's start_date."""
+
+    __tablename__ = "exam_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    name = Column(String, nullable=False, unique=True)
+    exam_type = Column(String, nullable=True)
+    offset_days = Column(Integer, nullable=False)  # days after the academic year's start_date
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ExamGenerationRun(Base):
+    """One row per (exam_template, academic_year) the scheduled exam-creation
+    job has attempted — mirrors FeeGenerationRun/PromotionGenerationRun."""
+
+    __tablename__ = "exam_generation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    exam_template_id = Column(Integer, ForeignKey("exam_templates.id", ondelete="SET NULL"), nullable=True)
+    academic_year = Column(String, nullable=False)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="SET NULL"), nullable=True)
+
+    run_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, nullable=False)  # success | failed
+    error_message = Column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("exam_template_id", "academic_year", name="uq_exam_run_template_year"),
+    )
 
 
 class ParentStudentLink(Base):
