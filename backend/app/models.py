@@ -1321,8 +1321,12 @@ class PromotionGenerationRun(Base):
 
 class ExamTemplate(Base):
     """A recurring exam type (e.g. "Unit Test 1") that auto-creates its Exam
-    record once per academic year, run_scheduled_exams.py fires it
-    offset_days after that year's start_date."""
+    record once next_run_date arrives, then advances next_run_date to the
+    same month/day next year — mirrors FeeStructure's next_run_date.
+
+    Only fires for schools where the central platform's "exam_auto_generation"
+    feature flag is on (see app.tenant.get_feature_map) — off by default,
+    the platform owner must switch it on per school via the Platform Console."""
 
     __tablename__ = "exam_templates"
 
@@ -1330,17 +1334,22 @@ class ExamTemplate(Base):
 
     name = Column(String, nullable=False, unique=True)
     exam_type = Column(String, nullable=True)
-    offset_days = Column(Integer, nullable=False)  # days after the academic year's start_date
+    next_run_date = Column(Date, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, server_default="1")
     remarks = Column(String, nullable=True)
+    last_generated_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class ExamGenerationRun(Base):
-    """One row per (exam_template, academic_year) the scheduled exam-creation
-    job has attempted — mirrors FeeGenerationRun/PromotionGenerationRun."""
+    """One row per exam-creation attempt the scheduler has made — an audit
+    log, not a dedup guard (unlike FeeGenerationRun/PromotionGenerationRun,
+    idempotency here lives entirely in ExamTemplate.next_run_date advancing
+    after a successful fire, since the same template can legitimately be
+    retried against the same not-yet-created academic year more than once
+    before it succeeds)."""
 
     __tablename__ = "exam_generation_runs"
 
@@ -1353,10 +1362,6 @@ class ExamGenerationRun(Base):
     run_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, nullable=False)  # success | failed
     error_message = Column(String, nullable=True)
-
-    __table_args__ = (
-        UniqueConstraint("exam_template_id", "academic_year", name="uq_exam_run_template_year"),
-    )
 
 
 class ParentStudentLink(Base):

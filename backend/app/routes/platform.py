@@ -81,6 +81,7 @@ FEATURE_LABELS = {
     "parent_portal": "Parent/Student Portal",
     "ai_chatbot": "AI Assistant",
     "timetable": "Timetable",
+    "exam_auto_generation": "Automatic Exam Creation",
 }
 
 

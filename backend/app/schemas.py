@@ -515,7 +515,7 @@ class ExamResponse(ExamBase):
 class ExamTemplateBase(BaseModel):
     name: str
     exam_type: Optional[str] = None
-    offset_days: int
+    next_run_date: Optional[date] = None
     is_active: Optional[bool] = True
     remarks: Optional[str] = None
 
@@ -527,13 +527,14 @@ class ExamTemplateCreate(ExamTemplateBase):
 class ExamTemplateUpdate(BaseModel):
     name: Optional[str] = None
     exam_type: Optional[str] = None
-    offset_days: Optional[int] = None
+    next_run_date: Optional[date] = None
     is_active: Optional[bool] = None
     remarks: Optional[str] = None
 
 
 class ExamTemplateResponse(ExamTemplateBase):
     id: int
+    last_generated_at: Optional[Any] = None
 
     class Config:
         from_attributes = True
