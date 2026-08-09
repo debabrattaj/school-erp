@@ -94,7 +94,7 @@ const emptyTemplateForm = {
   name: "",
   exam_type: "",
   next_run_date: "",
-  is_active: true,
+  is_active: false,
   remarks: "",
 };
 
@@ -1469,7 +1469,8 @@ export default function Exams() {
                 </select>
                 <small>
                   Copies that year's real exams into matching templates, so you
-                  don't have to type the calendar in from scratch.
+                  don't have to type the calendar in from scratch. Seeded
+                  templates start inactive — review and switch each one on.
                 </small>
               </div>
               <div className="form-field">

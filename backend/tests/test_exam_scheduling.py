@@ -83,7 +83,7 @@ def test_create_exam_template(client, auth):
     body = resp.json()
     assert body["name"] == "SchedExam-UnitTest1"
     assert body["next_run_date"] == "2099-09-15"
-    assert body["is_active"] is True
+    assert body["is_active"] is False  # off by default, same as auto_generate/auto_promote_enabled
     assert body["last_generated_at"] is None
 
 
@@ -101,6 +101,12 @@ def test_create_exam_template_rejects_active_without_date(client, auth):
 def test_create_exam_template_allows_inactive_without_date(client, auth):
     resp = client.post("/exam-templates/", json={"name": "SchedExam-InactiveNoDate", "is_active": False}, headers=auth)
     assert resp.status_code == 200, resp.text
+
+
+def test_create_exam_template_omitting_is_active_defaults_off_and_needs_no_date(client, auth):
+    resp = client.post("/exam-templates/", json={"name": "SchedExam-BareMinimum"}, headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["is_active"] is False
 
 
 def test_list_exam_templates(client, auth):
@@ -176,6 +182,7 @@ def test_seed_from_year_creates_templates_with_future_next_run_date(client, auth
     # original past date.
     assert template["next_run_date"] > date.today().isoformat()
     assert template["next_run_date"][5:] == "10-15"
+    assert template["is_active"] is False  # seeded templates start inactive too
 
     # Re-running the seed must not create a duplicate template.
     seed_again = client.post("/exam-templates/seed-from-year", json={

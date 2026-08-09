@@ -516,7 +516,7 @@ class ExamTemplateBase(BaseModel):
     name: str
     exam_type: Optional[str] = None
     next_run_date: Optional[date] = None
-    is_active: Optional[bool] = True
+    is_active: Optional[bool] = False
     remarks: Optional[str] = None
 
 
