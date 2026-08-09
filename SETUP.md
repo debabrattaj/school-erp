@@ -152,6 +152,15 @@ has an active student, resolving each class's own Fee Structure
 individually — so a more specific per-class override still wins, same as
 manual "Bulk Class" billing does today.
 
+**Off by default, platform-owner gated.** A school's own Admin/Accounts can
+set `auto_generate`/`recurrence`/`next_run_date` on a Fee Structure freely,
+but `run_scheduled_fees.py` still won't bill anyone for that school until
+the platform owner has switched on the `fee_auto_generation` feature for it
+— from the Platform Console (`/platform` login → Manage Modules → Automatic
+Fee Billing) or `PUT /platform/schools/{id}/features` with
+`{"fee_auto_generation": true}`. Defaults to `False` for every school,
+including ones that existed before this gate was added.
+
 ### Running it
 
 ```bash
@@ -173,7 +182,9 @@ SSHing in via `GET /fee-structures/generation-runs`.
 **Before relying on the schedule**, apply the migration on every tenant DB
 (§4): `python manage_migrations.py upgrade head`. The script itself creates
 missing *tables* on the DBs it touches, but not missing *columns* on
-existing tables — the migration is what adds the new columns.
+existing tables — the migration is what adds the new columns. Then have the
+platform owner enable `fee_auto_generation` for each school that should use
+it — the cron job will otherwise skip every school and log why.
 
 ### Wiring it up in cPanel
 
@@ -339,11 +350,20 @@ Fields on an Academic Year control it:
   unpaid fee balances into the new year, same as the manual screen's own
   checkbox.
 
+**Off by default, platform-owner gated.** A school's own Admin/Principal can
+set these fields on an Academic Year freely, but `run_scheduled_promotions.py`
+still won't promote anyone for that school until the platform owner has
+switched on the `promotion_auto_generation` feature for it — from the
+Platform Console (Manage Modules → Automatic Year-End Promotion) or
+`PUT /platform/schools/{id}/features` with `{"promotion_auto_generation": true}`.
+Defaults to `False` for every school, including ones that existed before
+this gate was added.
+
 ### Running it
 
 ```bash
 cd backend
-python run_scheduled_promotions.py             # process every due academic year, for every school
+python run_scheduled_promotions.py             # process every due academic year, for every enabled school
 python run_scheduled_promotions.py --dry-run   # log what would happen, change nothing
 ```
 
@@ -354,7 +374,9 @@ logged to `promotion_generation_runs` — check recent runs without SSHing in
 via `GET /academic-years/promotion-runs`.
 
 **Before relying on the schedule**, apply the migration on every tenant DB
-(§4): `python manage_migrations.py upgrade head`.
+(§4): `python manage_migrations.py upgrade head`. Then have the platform
+owner enable `promotion_auto_generation` for each school that should use it
+— the cron job will otherwise skip every school and log why.
 
 ### Wiring it up in cPanel
 

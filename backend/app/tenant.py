@@ -65,9 +65,13 @@ DEFAULT_FEATURES = {
     "payroll": True,
     "homework": True,
     "online_tests": True,
-    # Off by default: the platform owner must switch this on per school via
-    # the Platform Console before run_scheduled_exams.py will auto-create
-    # anything for that school, even if the school has templates configured.
+    # Off by default: the platform owner must switch each of these on per
+    # school via the Platform Console before the matching cron script will
+    # actually act on that school's data — a school's own Admin can still
+    # configure fee structures / academic-year promotion settings / exam
+    # templates freely, but nothing fires unattended until enabled here.
+    "fee_auto_generation": False,
+    "promotion_auto_generation": False,
     "exam_auto_generation": False,
 }
 
@@ -179,6 +183,20 @@ def get_feature_map(account_id: int):
         }
     finally:
         db.close()
+
+
+def is_feature_enabled(account_code: str, feature_key: str) -> bool:
+    """Whether the platform owner has switched a given feature on for this
+    school. Used by the scheduled-automation cron scripts (fees, year-end
+    promotion, exam creation) to gate themselves per tenant — every such
+    feature defaults to False in DEFAULT_FEATURES, so an account with no
+    explicit SchoolFeature row for this key is treated as disabled, same as
+    an unknown/inactive account."""
+    try:
+        account = get_account(account_code)
+    except HTTPException:
+        return False
+    return get_feature_map(account["id"]).get(feature_key, False)
 
 
 def get_account_code_from_request(request: Request):
