@@ -93,7 +93,7 @@ const fallbackExamTypes = [
 const emptyTemplateForm = {
   name: "",
   exam_type: "",
-  offset_days: "",
+  next_run_date: "",
   is_active: true,
   remarks: "",
 };
@@ -714,7 +714,7 @@ export default function Exams() {
     setTemplateForm({
       name: template.name || "",
       exam_type: template.exam_type || "",
-      offset_days: String(template.offset_days ?? ""),
+      next_run_date: template.next_run_date || "",
       is_active: template.is_active !== false,
       remarks: template.remarks || "",
     });
@@ -734,11 +734,15 @@ export default function Exams() {
       setMessage("Template name is required.");
       return;
     }
+    if (templateForm.is_active && !templateForm.next_run_date) {
+      setMessage("Next Run Date is required while the template is active.");
+      return;
+    }
 
     const payload = {
       name,
       exam_type: templateForm.exam_type || null,
-      offset_days: Number(templateForm.offset_days || 0),
+      next_run_date: templateForm.next_run_date || null,
       is_active: Boolean(templateForm.is_active),
       remarks: templateForm.remarks?.trim() || null,
     };
@@ -1358,10 +1362,11 @@ export default function Exams() {
               <div>
                 <h3>Exam Templates</h3>
                 <p>
-                  A recurring exam type (e.g. "Unit Test 1") auto-creates that
-                  year's exam on its own, once the school's current academic
-                  year reaches the offset below — no one has to remember to
-                  create it by hand every term.
+                  A recurring exam type (e.g. "Unit Test 1") auto-creates
+                  itself on its Next Run Date, which then moves forward a
+                  year automatically — no one has to remember to create it by
+                  hand every term. Requires the platform owner to enable
+                  automatic exam creation for this school first.
                 </p>
               </div>
               <button type="button" className="secondary-button" onClick={openTemplateHistory}>
@@ -1400,18 +1405,18 @@ export default function Exams() {
                 </div>
 
                 <div className="form-field">
-                  <label>Days After Year Start *</label>
+                  <label>Next Run Date {templateForm.is_active && "*"}</label>
                   <input
-                    type="number"
-                    min="0"
-                    name="offset_days"
-                    value={templateForm.offset_days}
+                    type="date"
+                    name="next_run_date"
+                    value={templateForm.next_run_date}
                     onChange={handleTemplateFormChange}
-                    required
+                    required={templateForm.is_active}
                   />
                   <small>
-                    e.g. 45 fires this exam 45 days after the current academic
-                    year's start date.
+                    This exam is auto-created on this date, then the date
+                    automatically moves forward one year — so you only set it
+                    once.
                   </small>
                 </div>
 
@@ -1486,7 +1491,7 @@ export default function Exams() {
                   <tr>
                     <th>Name</th>
                     <th>Exam Type</th>
-                    <th>Days After Year Start</th>
+                    <th>Next Run Date</th>
                     <th>Active</th>
                     <th>Actions</th>
                   </tr>
@@ -1496,7 +1501,7 @@ export default function Exams() {
                     <tr key={template.id}>
                       <td>{template.name}</td>
                       <td>{template.exam_type || "-"}</td>
-                      <td>{template.offset_days}</td>
+                      <td>{template.next_run_date || "-"}</td>
                       <td>{template.is_active ? "Yes" : "No"}</td>
                       <td>
                         <div className="action-buttons">

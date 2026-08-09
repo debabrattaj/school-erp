@@ -65,6 +65,10 @@ DEFAULT_FEATURES = {
     "payroll": True,
     "homework": True,
     "online_tests": True,
+    # Off by default: the platform owner must switch this on per school via
+    # the Platform Console before run_scheduled_exams.py will auto-create
+    # anything for that school, even if the school has templates configured.
+    "exam_auto_generation": False,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

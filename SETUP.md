@@ -372,45 +372,65 @@ Test with `--dry-run` first, same as §9.
 Exam Templates (`/exam-templates`) let a recurring exam type (e.g. "Unit
 Test 1") auto-create that year's `Exam` record on schedule instead of
 someone remembering to create it by hand every term — staff then adds
-subjects/marks as usual. Unlike fees or promotion, an exam template's
-schedule isn't a date you set directly: it's an `offset_days` from
-whichever academic year is currently in range (its `start_date` has
-arrived, its `end_date` hasn't). Each template fires once per academic
-year, so there's no mutable "next run" state to manage.
+subjects/marks as usual.
+
+**Off by default, platform-owner gated.** Unlike fee auto-generation and
+scheduled promotion (which any school's own Admin can turn on for
+themselves), this only fires for a school whose central
+`exam_auto_generation` feature flag has been switched on by the *platform
+owner* — a school's own Admin/Principal can create and edit Exam Templates
+freely, but nothing actually auto-creates until the platform owner enables
+it for that school from the Platform Console (`/platform` login, Manage
+Modules → Automatic Exam Creation, or `PUT /platform/schools/{id}/features`
+with `{"exam_auto_generation": true}`). Defaults to `False` for every school,
+including ones that existed before this feature shipped.
 
 Fields on an Exam Template:
 
 - `name` — e.g. `"Unit Test 1"`. Must be unique.
-- `offset_days` — days after the academic year's `start_date` this exam
-  should be created.
+- `next_run_date` — the date this exam should next be created. Required
+  while the template is active. After a successful fire, this advances
+  automatically to the same month/day next year — same "mutable date that
+  moves itself forward" shape as `FeeStructure.next_run_date` — so you only
+  set it once, ever.
 - `is_active` (bool) — disable a recurring exam type without deleting its
-  history.
+  history. A template can be inactive with no `next_run_date` set.
 
 Because `Exam.exam_name` must be unique across the whole `exams` table (a
 pre-existing rule this doesn't change), the exam this creates is named
 `"{template name} ({academic year})"` — e.g. `"Unit Test 1 (2026-27)"` — so
-the same template can fire every year without colliding with itself.
+the same template can fire every year without colliding with itself. The
+academic year is resolved automatically: whichever `AcademicYear` row's
+`start_date`/`end_date` range covers the template's `next_run_date`. If none
+does yet (staff hasn't created that year), the date is left where it is and
+retried on the next run rather than skipped or silently backed up — the
+exam still gets created once the year exists.
 
 **Bootstrapping from history:** `POST /exam-templates/seed-from-year` with
 `{"academic_year": "2025-26"}` copies that year's real exams into matching
-templates (computing each one's `offset_days` from the year's own
-`start_date`), so a school with exam history doesn't have to type the
-calendar in from scratch.
+templates, setting each one's `next_run_date` to the *next future*
+occurrence of that exam's month/day (this year if it hasn't passed yet,
+otherwise next year) — never a date already in the past. Lets a school with
+exam history skip typing the calendar in from scratch.
 
 ### Running it
 
 ```bash
 cd backend
-python run_scheduled_exams.py             # create every due exam, for every school
+python run_scheduled_exams.py             # create every due exam, for every enabled school
 python run_scheduled_exams.py --dry-run   # log what would happen, change nothing
 ```
 
-Safe to run more than once: a `(template, academic_year)` pair already
-logged as `success` in `exam_generation_runs` is never regenerated. Check
-recent runs without SSHing in via `GET /exam-templates/generation-runs`.
+Safe to run more than once: idempotency lives in `next_run_date` itself —
+once it advances past today, that cycle won't fire again. If it hasn't run
+in a while, it catches up one year at a time (capped at 5 missed cycles) the
+same way the fee scheduler catches up missed months. Check recent runs
+without SSHing in via `GET /exam-templates/generation-runs`.
 
 **Before relying on the schedule**, apply the migration on every tenant DB
-(§4): `python manage_migrations.py upgrade head`.
+(§4): `python manage_migrations.py upgrade head`. Then have the platform
+owner enable `exam_auto_generation` for each school that should use it —
+the cron job will otherwise skip every school and log why.
 
 ### Wiring it up in cPanel
 

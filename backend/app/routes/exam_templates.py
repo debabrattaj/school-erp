@@ -1,8 +1,10 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.exam_scheduling import validate_offset_days
+from app.exam_scheduling import next_occurrence, validate_schedule
 from app.models import AcademicYear, Exam, ExamGenerationRun, ExamTemplate, User
 from app.schemas import (
     ExamTemplateCreate,
@@ -37,8 +39,9 @@ def create_exam_template(
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
+    is_active = payload.is_active if payload.is_active is not None else True
     try:
-        validate_offset_days(payload.offset_days)
+        validate_schedule(is_active, payload.next_run_date)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -49,8 +52,8 @@ def create_exam_template(
     template = ExamTemplate(
         name=name,
         exam_type=payload.exam_type,
-        offset_days=payload.offset_days,
-        is_active=payload.is_active if payload.is_active is not None else True,
+        next_run_date=payload.next_run_date,
+        is_active=is_active,
         remarks=payload.remarks,
     )
     db.add(template)
@@ -64,7 +67,7 @@ def list_exam_templates(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(VIEW_ROLES)),
 ):
-    return db.query(ExamTemplate).order_by(ExamTemplate.offset_days.asc()).all()
+    return db.query(ExamTemplate).order_by(ExamTemplate.next_run_date.asc()).all()
 
 
 @router.get("/generation-runs", response_model=list[ExamGenerationRunResponse])
@@ -103,11 +106,12 @@ def update_exam_template(
             raise HTTPException(status_code=400, detail="An exam template with this name already exists")
         update_data["name"] = name
 
-    if "offset_days" in update_data:
-        try:
-            validate_offset_days(update_data["offset_days"])
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+    new_is_active = update_data.get("is_active", template.is_active)
+    new_next_run_date = update_data.get("next_run_date", template.next_run_date)
+    try:
+        validate_schedule(new_is_active, new_next_run_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     for key, value in update_data.items():
         setattr(template, key, value)
@@ -137,23 +141,19 @@ def seed_templates_from_year(
 ):
     """Bootstrap the recurring exam calendar from a year that already
     happened: copy each of that year's exams into an Exam Template, with
-    offset_days computed from the year's own start_date. Lets a school with
-    exam history skip typing the calendar in from scratch."""
-    year = (
-        db.query(AcademicYear)
-        .filter(AcademicYear.name == payload.academic_year)
-        .first()
-    )
-    if not year:
-        raise HTTPException(status_code=404, detail="Academic year not found")
-    if not year.start_date:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{year.name} has no start date set, so exam offsets can't be computed",
-        )
-
+    next_run_date set to the next upcoming occurrence of that exam's
+    month/day (this year if it hasn't passed yet, otherwise next year) —
+    never a date already in the past. Lets a school with exam history skip
+    typing the calendar in from scratch."""
     exams = db.query(Exam).filter(Exam.academic_year == payload.academic_year).all()
+    if not exams:
+        year_exists = (
+            db.query(AcademicYear).filter(AcademicYear.name == payload.academic_year).first()
+        )
+        if not year_exists:
+            raise HTTPException(status_code=404, detail="Academic year not found")
 
+    today = date.today()
     created_names = []
     skipped_count = 0
     for exam in exams:
@@ -162,17 +162,14 @@ def seed_templates_from_year(
             skipped_count += 1
             continue
 
-        offset_days = (exam.exam_date - year.start_date).days
-        if offset_days < 0:
-            skipped_count += 1
-            continue
+        next_run_date = next_occurrence(exam.exam_date.month, exam.exam_date.day, today)
 
         template = ExamTemplate(
             name=exam.exam_name,
             exam_type=exam.exam_type,
-            offset_days=offset_days,
+            next_run_date=next_run_date,
             is_active=True,
-            remarks=f"Seeded from {year.name}'s exam calendar",
+            remarks=f"Seeded from {payload.academic_year}'s exam calendar",
         )
         db.add(template)
         created_names.append(exam.exam_name)
