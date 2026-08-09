@@ -5578,6 +5578,72 @@ textarea {
   border-color: var(--saas-border-strong);
 }
 
+.menu-button {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu-button-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 220px;
+  background: #ffffff;
+  border: 1px solid var(--saas-border-strong);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-button-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--saas-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menu-button-item svg {
+  flex-shrink: 0;
+}
+
+.menu-button-item:hover:not(:disabled) {
+  background: var(--saas-surface-soft);
+}
+
+.menu-button-item:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+.menu-button-item-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menu-button-item-hint {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #98a2b3;
+}
+
 .message-box {
   border: 1px solid #e0c66f;
   padding: 14px 18px;
