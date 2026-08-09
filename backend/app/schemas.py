@@ -506,9 +506,60 @@ class ExamUpdate(BaseModel):
 
 class ExamResponse(ExamBase):
     id: int
+    generated_from_template_id: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+
+class ExamTemplateBase(BaseModel):
+    name: str
+    exam_type: Optional[str] = None
+    offset_days: int
+    is_active: Optional[bool] = True
+    remarks: Optional[str] = None
+
+
+class ExamTemplateCreate(ExamTemplateBase):
+    pass
+
+
+class ExamTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    exam_type: Optional[str] = None
+    offset_days: Optional[int] = None
+    is_active: Optional[bool] = None
+    remarks: Optional[str] = None
+
+
+class ExamTemplateResponse(ExamTemplateBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ExamGenerationRunResponse(BaseModel):
+    id: int
+    exam_template_id: Optional[int] = None
+    academic_year: str
+    exam_id: Optional[int] = None
+    run_at: Optional[Any] = None
+    status: str
+    error_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SeedExamTemplatesRequest(BaseModel):
+    academic_year: str
+
+
+class SeedExamTemplatesResponse(BaseModel):
+    created_count: int
+    skipped_count: int
+    created_names: List[str]
 
 
 class ExamComponentBase(BaseModel):
@@ -1804,6 +1855,11 @@ class AcademicYearBase(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     remarks: Optional[str] = None
+    # Scheduled auto-promotion (see app/promotion_scheduling.py).
+    auto_promote_enabled: Optional[bool] = False
+    auto_promote_date: Optional[date] = None
+    auto_promote_to_year: Optional[str] = None
+    auto_promote_carry_forward_fees: Optional[bool] = False
 
 
 class AcademicYearCreate(AcademicYearBase):
@@ -1815,12 +1871,33 @@ class AcademicYearUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     remarks: Optional[str] = None
+    auto_promote_enabled: Optional[bool] = None
+    auto_promote_date: Optional[date] = None
+    auto_promote_to_year: Optional[str] = None
+    auto_promote_carry_forward_fees: Optional[bool] = None
 
 
 class AcademicYearResponse(AcademicYearBase):
     id: int
     is_current: bool
     status: str
+    auto_promoted_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PromotionGenerationRunResponse(BaseModel):
+    id: int
+    from_academic_year: str
+    to_academic_year: Optional[str] = None
+    run_at: Optional[Any] = None
+    promoted_count: int
+    detained_count: int
+    graduated_count: int
+    skipped_count: int
+    status: str
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

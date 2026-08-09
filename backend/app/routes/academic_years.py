@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.models import User
+from app.promotion_scheduling import validate_promotion_schedule
 from app.security import require_roles
 
 router = APIRouter(
@@ -28,6 +29,23 @@ def get_year_or_404(db: Session, year_id: int) -> models.AcademicYear:
     if not year:
         raise HTTPException(status_code=404, detail="Academic year not found")
     return year
+
+
+def validate_auto_promote_fields(db: Session, enabled, auto_promote_date, to_year, exclude_year_id):
+    try:
+        validate_promotion_schedule(bool(enabled), auto_promote_date, to_year)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if enabled and to_year:
+        query = db.query(models.AcademicYear).filter(models.AcademicYear.name == to_year)
+        if exclude_year_id is not None:
+            query = query.filter(models.AcademicYear.id != exclude_year_id)
+        if not query.first():
+            raise HTTPException(
+                status_code=400,
+                detail=f"auto_promote_to_year '{to_year}' is not a known academic year",
+            )
 
 
 def sync_master_data(db: Session, name: str):
@@ -63,6 +81,20 @@ def list_academic_years(
     return (
         db.query(models.AcademicYear)
         .order_by(models.AcademicYear.name.desc())
+        .all()
+    )
+
+
+@router.get("/promotion-runs", response_model=list[schemas.PromotionGenerationRunResponse])
+def list_promotion_runs(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(VIEW_ROLES)),
+):
+    return (
+        db.query(models.PromotionGenerationRun)
+        .order_by(models.PromotionGenerationRun.id.desc())
+        .limit(min(limit, 200))
         .all()
     )
 
@@ -112,6 +144,11 @@ def create_academic_year(
             detail="End date must be after start date",
         )
 
+    validate_auto_promote_fields(
+        db, payload.auto_promote_enabled, payload.auto_promote_date,
+        payload.auto_promote_to_year, exclude_year_id=None,
+    )
+
     year = models.AcademicYear(
         name=name,
         start_date=payload.start_date,
@@ -119,6 +156,10 @@ def create_academic_year(
         remarks=payload.remarks,
         status="Upcoming",
         is_current=False,
+        auto_promote_enabled=bool(payload.auto_promote_enabled),
+        auto_promote_date=payload.auto_promote_date,
+        auto_promote_to_year=payload.auto_promote_to_year,
+        auto_promote_carry_forward_fees=bool(payload.auto_promote_carry_forward_fees),
     )
     db.add(year)
     sync_master_data(db, name)
@@ -168,6 +209,24 @@ def update_academic_year(
         year.end_date = payload.end_date
     if payload.remarks is not None:
         year.remarks = payload.remarks
+
+    new_enabled = payload.auto_promote_enabled if payload.auto_promote_enabled is not None else year.auto_promote_enabled
+    new_date = payload.auto_promote_date if payload.auto_promote_date is not None else year.auto_promote_date
+    new_to_year = payload.auto_promote_to_year if payload.auto_promote_to_year is not None else year.auto_promote_to_year
+    validate_auto_promote_fields(db, new_enabled, new_date, new_to_year, exclude_year_id=year_id)
+
+    if payload.auto_promote_enabled is not None:
+        year.auto_promote_enabled = payload.auto_promote_enabled
+        if not payload.auto_promote_enabled:
+            year.auto_promoted_at = None  # re-enabling later should fire again
+    if payload.auto_promote_date is not None:
+        if year.auto_promote_date != payload.auto_promote_date:
+            year.auto_promoted_at = None  # a changed date should fire again
+        year.auto_promote_date = payload.auto_promote_date
+    if payload.auto_promote_to_year is not None:
+        year.auto_promote_to_year = payload.auto_promote_to_year
+    if payload.auto_promote_carry_forward_fees is not None:
+        year.auto_promote_carry_forward_fees = payload.auto_promote_carry_forward_fees
 
     if year.start_date and year.end_date and year.end_date <= year.start_date:
         raise HTTPException(
