@@ -1335,7 +1335,11 @@ class ExamTemplate(Base):
     name = Column(String, nullable=False, unique=True)
     exam_type = Column(String, nullable=True)
     next_run_date = Column(Date, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    # Off by default, same as FeeStructure.auto_generate and
+    # AcademicYear.auto_promote_enabled — a template must be explicitly
+    # switched on, not just created, before it's eligible to fire (on top
+    # of the separate platform-owner "exam_auto_generation" gate).
+    is_active = Column(Boolean, nullable=False, default=False, server_default="0")
     remarks = Column(String, nullable=True)
     last_generated_at = Column(DateTime, nullable=True)
 

@@ -415,8 +415,11 @@ Fields on an Exam Template:
   automatically to the same month/day next year — same "mutable date that
   moves itself forward" shape as `FeeStructure.next_run_date` — so you only
   set it once, ever.
-- `is_active` (bool) — disable a recurring exam type without deleting its
-  history. A template can be inactive with no `next_run_date` set.
+- `is_active` (bool, defaults to `False`) — a template must be explicitly
+  switched on, not just created, before it's eligible to fire — same as
+  `FeeStructure.auto_generate`/`AcademicYear.auto_promote_enabled` — on top
+  of the separate platform-owner gate below. A template can sit inactive
+  with no `next_run_date` set while it's being prepared.
 
 Because `Exam.exam_name` must be unique across the whole `exams` table (a
 pre-existing rule this doesn't change), the exam this creates is named
@@ -433,7 +436,9 @@ exam still gets created once the year exists.
 templates, setting each one's `next_run_date` to the *next future*
 occurrence of that exam's month/day (this year if it hasn't passed yet,
 otherwise next year) — never a date already in the past. Lets a school with
-exam history skip typing the calendar in from scratch.
+exam history skip typing the calendar in from scratch. Seeded templates
+start inactive too — staff review and switch each one on rather than a
+single bulk action activating a whole calendar at once.
 
 ### Running it
 

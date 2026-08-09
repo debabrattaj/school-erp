@@ -39,7 +39,7 @@ def create_exam_template(
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
-    is_active = payload.is_active if payload.is_active is not None else True
+    is_active = payload.is_active if payload.is_active is not None else False
     try:
         validate_schedule(is_active, payload.next_run_date)
     except ValueError as exc:
@@ -144,7 +144,9 @@ def seed_templates_from_year(
     next_run_date set to the next upcoming occurrence of that exam's
     month/day (this year if it hasn't passed yet, otherwise next year) —
     never a date already in the past. Lets a school with exam history skip
-    typing the calendar in from scratch."""
+    typing the calendar in from scratch. Seeded templates start inactive,
+    same as a freshly typed-in one — staff review and activate each one
+    explicitly rather than a bulk action switching a whole calendar live."""
     exams = db.query(Exam).filter(Exam.academic_year == payload.academic_year).all()
     if not exams:
         year_exists = (
@@ -168,7 +170,7 @@ def seed_templates_from_year(
             name=exam.exam_name,
             exam_type=exam.exam_type,
             next_run_date=next_run_date,
-            is_active=True,
+            is_active=False,
             remarks=f"Seeded from {payload.academic_year}'s exam calendar",
         )
         db.add(template)
