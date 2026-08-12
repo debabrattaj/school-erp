@@ -1,0 +1,129 @@
+import React, { useEffect, useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { useAuth, ApiError } from "../auth/AuthContext";
+import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
+import { colors, spacing } from "../theme/theme";
+import { DEFAULT_API_BASE_URL, getApiBase, setApiBase } from "../api/client";
+
+export default function LoginScreen() {
+  const { login } = useAuth();
+  const [accountCode, setAccountCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [needsMfa, setNeedsMfa] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showServerSettings, setShowServerSettings] = useState(false);
+  const [apiBase, setApiBaseState] = useState(DEFAULT_API_BASE_URL);
+
+  useEffect(() => {
+    getApiBase().then(setApiBaseState);
+  }, []);
+
+  async function handleSubmit() {
+    setError(null);
+    if (!accountCode || !email || !password) {
+      setError("School code, email and password are required.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await login({ accountCode: accountCode.trim(), email: email.trim(), password, mfaCode: mfaCode || undefined });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.detail === "MFA_REQUIRED") {
+          setNeedsMfa(true);
+          setError("Enter the 6-digit code from your authenticator app.");
+        } else {
+          setError(typeof e.detail === "string" ? e.detail : "Login failed.");
+        }
+      } else {
+        setError("Could not reach the server. Check Server settings below.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveServerUrl() {
+    await setApiBase(apiBase.trim());
+    setShowServerSettings(false);
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>School ERP</Text>
+        <Text style={styles.subtitle}>Sign in to continue</Text>
+
+        <Field label="School code">
+          <AppTextInput
+            value={accountCode}
+            onChangeText={setAccountCode}
+            autoCapitalize="characters"
+            placeholder="e.g. SPRINGDALE"
+          />
+        </Field>
+        <Field label="Email">
+          <AppTextInput
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="you@school.edu"
+          />
+        </Field>
+        <Field label="Password">
+          <AppTextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
+        </Field>
+
+        {needsMfa && (
+          <Field label="Authentication code">
+            <AppTextInput
+              value={mfaCode}
+              onChangeText={setMfaCode}
+              keyboardType="number-pad"
+              placeholder="123456"
+              maxLength={6}
+            />
+          </Field>
+        )}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <PrimaryButton title="Sign in" onPress={handleSubmit} loading={loading} style={{ marginTop: spacing(2) }} />
+
+        <SecondaryButton
+          title={showServerSettings ? "Hide server settings" : "Server settings"}
+          onPress={() => setShowServerSettings((v) => !v)}
+          style={{ marginTop: spacing(4) }}
+        />
+
+        {showServerSettings && (
+          <Field label="API base URL">
+            <AppTextInput
+              value={apiBase}
+              onChangeText={setApiBaseState}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="https://your-school-erp-api.example.com"
+            />
+            <SecondaryButton title="Save" onPress={saveServerUrl} style={{ marginTop: spacing(2) }} />
+          </Field>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.background },
+  container: { flexGrow: 1, justifyContent: "center", padding: spacing(6) },
+  title: { fontSize: 30, fontWeight: "800", color: colors.primaryDark, textAlign: "center" },
+  subtitle: { fontSize: 15, color: colors.textMuted, textAlign: "center", marginBottom: spacing(8) },
+  error: { color: colors.danger, marginBottom: spacing(3), textAlign: "center" },
+});
