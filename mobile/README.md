@@ -102,11 +102,19 @@ This is a managed Expo project, so production builds go through
 including for iOS):
 
 ```bash
-npx eas login
-npx eas build:configure
-npx eas build --platform android   # produces an .apk/.aab
-npx eas build --platform ios       # produces an .ipa (needs an Apple Developer account)
+npx eas-cli login
+npx eas-cli build:configure
+npx eas-cli build --platform android --profile preview   # installable .apk, for sideloading/testing
+npx eas-cli build --platform android --profile production # .aab, for Play Store submission
+npx eas-cli build --platform ios --profile production      # .ipa (needs an Apple Developer account)
 ```
+
+(Use `eas-cli`, not `eas` — `npx eas ...` resolves to the wrong package and fails
+with "could not determine executable to run".)
+
+The `preview` profile (see `eas.json`) builds a plain `.apk` you can download and
+install directly on an Android phone. The default `production` profile builds an
+`.aab`, which the Play Store requires but which can't be installed by hand.
 
 Set the production API URL either via `app.json`'s `extra` field + `expo-constants`,
 or keep using the in-app **Server settings** override.
