@@ -1,0 +1,20 @@
+# Redirect the previous flat .html module URLs to their new clean folder URLs.
+RewriteEngine On
+RewriteRule ^modules/school-admission-management-software\.html$ /modules/school-admission-management-software/ [R=301,L]
+RewriteRule ^modules/school-fee-management-and-online-payment-system\.html$ /modules/school-fee-management-and-online-payment-system/ [R=301,L]
+RewriteRule ^modules/student-attendance-and-timetable-system\.html$ /modules/student-attendance-and-timetable-system/ [R=301,L]
+RewriteRule ^modules/exam-and-report-card-management-software\.html$ /modules/exam-and-report-card-management-software/ [R=301,L]
+RewriteRule ^modules/online-exam-and-test-software-for-schools\.html$ /modules/online-exam-and-test-software-for-schools/ [R=301,L]
+RewriteRule ^modules/parent-teacher-communication-portal-software\.html$ /modules/parent-teacher-communication-portal-software/ [R=301,L]
+RewriteRule ^modules/whatsapp-integration-for-school-communication\.html$ /modules/whatsapp-integration-for-school-communication/ [R=301,L]
+RewriteRule ^modules/ai-chatbot-for-school-parent-support\.html$ /modules/ai-chatbot-for-school-parent-support/ [R=301,L]
+
+# Also cover the very first round of (shorter) slugs, in case any were shared already.
+RewriteRule ^modules/admission-crm\.html$ /modules/school-admission-management-software/ [R=301,L]
+RewriteRule ^modules/fees-payments\.html$ /modules/school-fee-management-and-online-payment-system/ [R=301,L]
+RewriteRule ^modules/attendance-timetable\.html$ /modules/student-attendance-and-timetable-system/ [R=301,L]
+RewriteRule ^modules/exams-report-cards\.html$ /modules/exam-and-report-card-management-software/ [R=301,L]
+RewriteRule ^modules/online-exam\.html$ /modules/online-exam-and-test-software-for-schools/ [R=301,L]
+RewriteRule ^modules/parent-teacher-portal\.html$ /modules/parent-teacher-communication-portal-software/ [R=301,L]
+RewriteRule ^modules/whatsapp\.html$ /modules/whatsapp-integration-for-school-communication/ [R=301,L]
+RewriteRule ^modules/sai-ai-chatbot\.html$ /modules/ai-chatbot-for-school-parent-support/ [R=301,L]

@@ -468,3 +468,53 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
 ```
 
 Test with `--dry-run` first, same as §9.
+
+## 16. Marketing site deployment
+
+`landing-page/` is the schoolment.com marketing site — plain static
+HTML/CSS/JS (no npm, no build step, no Node process). It deploys through the
+same cPanel Git Version Control repo as the backend, via the extra task at
+the bottom of `.cpanel.yml`:
+
+```
+- export PUBLIC_HTML=/home/schoolm1/public_html
+- /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+```
+
+`rsync --delete` mirrors `landing-page/` into the docroot exactly — anything
+removed from `landing-page/` in git disappears from the live site on the
+next deploy too, not just anything added or changed. `.well-known` and
+`cgi-bin` are excluded so this never deletes SSL/ACME verification files or
+cPanel's own cgi-bin.
+
+**Before this will work, `PUBLIC_HTML` must point at schoolment.com's real
+document root** — `/home/schoolm1/public_html` is only correct if
+schoolment.com is the account's primary domain. If it's an addon domain or
+subdomain instead, cPanel → **Domains** shows its actual document root
+(usually something like `/home/schoolm1/public_html/schoolment.com` or
+`/home/schoolm1/schoolment.com`) — update the `export PUBLIC_HTML=` line in
+`.cpanel.yml` to match before deploying, or the site will land in the wrong
+place (or the deploy will fail if the path doesn't exist).
+
+### Deploying
+
+Same two options as the backend, since it's the same repo and the same
+Git Version Control checkout:
+
+- **cPanel UI**: Git Version Control page → **Update from Remote**, then
+  **Deploy HEAD Commit**. Runs the backend steps and the marketing-site
+  rsync in one go, since they're both tasks in the same `.cpanel.yml`.
+- **SSH**, if you'd rather not click through the UI:
+
+```bash
+export DEPLOYPATH=/home/schoolm1/repositories/school-erp/ && \
+cd $DEPLOYPATH && git pull origin main && \
+export PUBLIC_HTML=/home/schoolm1/public_html && \
+rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+```
+
+(This is the static-site half only — see §9 "Wiring it up in cPanel" for the
+full command that also updates backend dependencies and runs migrations.)
+
+No cron job, no restart file, no virtualenv — it's static files, so once
+they're copied into the docroot they're live immediately.
