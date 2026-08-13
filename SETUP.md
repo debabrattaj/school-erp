@@ -478,14 +478,24 @@ the bottom of `.cpanel.yml`:
 
 ```
 - export PUBLIC_HTML=/home/schoolm1/public_html
-- /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+- /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
 ```
 
 `rsync --delete` mirrors `landing-page/` into the docroot exactly — anything
 removed from `landing-page/` in git disappears from the live site on the
-next deploy too, not just anything added or changed. `.well-known` and
-`cgi-bin` are excluded so this never deletes SSL/ACME verification files or
-cPanel's own cgi-bin.
+next deploy too, not just anything added or changed. `.well-known`,
+`cgi-bin`, and `school-admin` are excluded so this never deletes SSL/ACME
+verification files, cPanel's own cgi-bin, or the admin app frontend.
+
+**`PUBLIC_HTML` is shared with other things — the exclude list must cover
+all of them, always.** The document root isn't exclusive to the marketing
+site: the admin app frontend is deployed to `$PUBLIC_HTML/school-admin/`,
+separately from this git-based flow. The first version of this task didn't
+exclude `school-admin/`, and running it deleted the entire admin frontend
+(everything under it except `.well-known`) on 2026-08-13 — recovered by
+rebuilding and re-uploading `frontend/`'s dist. If anything else ever gets
+deployed under `$PUBLIC_HTML` outside of `landing-page/`'s own files, add it
+to `--exclude` in `.cpanel.yml` *before* the next deploy, not after.
 
 **Before this will work, `PUBLIC_HTML` must point at schoolment.com's real
 document root** — `/home/schoolm1/public_html` is only correct if
@@ -510,7 +520,7 @@ Git Version Control checkout:
 export DEPLOYPATH=/home/schoolm1/repositories/school-erp/ && \
 cd $DEPLOYPATH && git pull origin main && \
 export PUBLIC_HTML=/home/schoolm1/public_html && \
-rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
 ```
 
 (This is the static-site half only — see §9 "Wiring it up in cPanel" for the

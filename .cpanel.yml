@@ -27,6 +27,15 @@
 # removed from the live docroot too). PUBLIC_HTML below MUST be changed to
 # schoolment.com's real document root before this runs — see SETUP.md
 # "Marketing site deployment" for how to find it and for the --delete caveat.
+#
+# CRITICAL: PUBLIC_HTML is NOT exclusive to the marketing site — the admin
+# app frontend lives at $PUBLIC_HTML/school-admin/, and .well-known holds
+# SSL/ACME verification files. Every one of those must stay in --exclude
+# below, or --delete will erase them the next time this runs (this has
+# already happened once — see git history / SETUP.md §16 for the incident).
+# If anything else ever gets added under $PUBLIC_HTML outside of
+# landing-page/'s own files, add it to --exclude here BEFORE the next
+# deploy, not after.
 ---
 deployment:
   tasks:
@@ -37,4 +46,4 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
     - export PUBLIC_HTML=/home/schoolm1/public_html
-    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
