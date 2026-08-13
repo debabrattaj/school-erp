@@ -605,3 +605,71 @@ traceback shows the real error directly, which log-hunting often doesn't
 (this server had no `stderr.log` or per-domain `error_log` at all for this
 app — the traceback only surfaces by reproducing the call directly like
 this).
+
+## 18. Admin app (frontend/) build + deploy in cPanel
+
+`frontend/` (the Vite/React admin app — the actual login/dashboard portal,
+distinct from the marketing site) builds and deploys through the same
+cPanel Git Version Control flow as everything else, via the last two tasks
+in `.cpanel.yml`. Unlike the backend, it never runs as a live Node
+process — Node/npm are only needed to *build* it (`npm ci && npm run
+build`), and the resulting static `dist/` output is rsynced into
+`school-admin/`, same as any other static site.
+
+**Where the Node environment comes from.** A dedicated `nodebuild.schoolment.com`
+subdomain was created (cPanel → Domains → Create A New Domain) purely to
+get a "Setup Node.js App" entry provisioned:
+
+- Application root: `repositories/school-erp/frontend`
+- Node.js version: 20.x (Vite 8 + React 19 need 20.19+/22.12+; pick the
+  highest available)
+- Application URL: `nodebuild.schoolment.com` (its own dedicated,
+  previously-unused subdomain — **do not** point this at `schoolment.com`,
+  `login.schoolment.com`, or any domain that already serves real content;
+  cPanel's Node App setup takes over the *entire* target domain's routing,
+  not just a subpath, which nearly repointed `login.schoolment.com` away
+  from the admin app during setup)
+- The app itself is left **stopped** — nothing should ever serve live
+  traffic through it, it exists only so its nodevenv (`npm`/`node`) is
+  available for `.cpanel.yml`'s build task to `source`.
+
+If this Node App entry is ever recreated, the exact `source .../activate`
+path depends on the Node version chosen — get it from the app's detail
+page in Setup Node.js App and update `.cpanel.yml` to match. `nodebuild/`
+(the subdomain's docroot, physically `$PUBLIC_HTML/nodebuild` since it's
+nested inside the same account) is directory-listable from both
+`nodebuild.schoolment.com/` and `schoolment.com/nodebuild/` — harmless
+(nothing sensitive lives there), but worth locking down with an empty
+`index.html` or `Options -Indexes` off if it bothers you.
+
+**Where it's actually served.** `login.schoolment.com`'s document root
+*is* `$PUBLIC_HTML/school-admin` directly — that's the real, canonical URL
+for the admin app, not a `/school-admin/` path under the main domain
+(which is also technically reachable, since `school-admin/` is physically
+nested inside `public_html/`, but isn't the intended access point). This
+is why the build does **not** set `VITE_BASE_PATH`: Vite's default
+`base: '/'` is correct for a subdomain-root deployment. Setting it to
+`/school-admin/` would break asset loading on `login.schoolment.com`,
+since the HTML would reference `/school-admin/assets/...` from a docroot
+that's already *inside* `school-admin/` — see `frontend/vite.config.js`'s
+comment for the subpath case this option exists for, which doesn't apply
+here.
+
+**`VITE_API_BASE_URL`** is set to `https://schoolment.com/school-erp` at
+build time (the backend Python App's real URL — see §17) and baked
+directly into the built JS as `axios`'s `baseURL` (`frontend/src/api.js`,
+`platformApi.js`) — there's no proxy or rewrite involved, so this must be
+the exact public API URL.
+
+**Before this works end to end, confirm backend CORS allows the admin
+app's origin.** The backend's `CORS_ALLOWED_ORIGINS` env var (in
+`backend/.env` on the server) needs `https://login.schoolment.com` in its
+comma-separated list, or the deployed frontend's API calls will be
+blocked by the browser even though the backend itself is healthy. This
+wasn't verified as part of the initial build+deploy task setup — check
+it before assuming a blank/broken-looking admin app is a build problem
+rather than a CORS one.
+
+**`school-admin/.well-known` must survive this too** — same reasoning as
+the marketing-site rsync, it holds SSL/ACME files and is excluded from
+the `dist/` → `school-admin/` sync for the same reason.
