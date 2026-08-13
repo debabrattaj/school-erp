@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
-import { BookOpen, Edit, PlusCircle, Trash2, Undo2 } from "lucide-react";
+import { BookOpen, Edit, PlusCircle, Trash2, Undo2, Upload } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
 
 const today = todayLocalDate();
@@ -44,6 +45,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 export default function Library() {
   const [activeTab, setActiveTab] = useState("books");
   const [books, setBooks] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [issues, setIssues] = useState([]);
   const [students, setStudents] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -245,13 +247,34 @@ export default function Library() {
           <p>Manage books, student issues, returns, and library availability.</p>
         </div>
         <div className="module-header-actions">
-          
+          {activeTab === "books" && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowBulkImport(true)}
+            >
+              <Upload size={17} />
+              Import CSV
+            </button>
+          )}
           <button type="button" className="primary-button" onClick={activeTab === "books" ? addBook : addIssue}>
             <PlusCircle size={18} />
             {activeTab === "books" ? "Add Book" : "Issue Book"}
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Library Books"
+          description="Upload a CSV file to add multiple books to the catalogue at once."
+          templateUrl="/library/books/bulk-import-template"
+          templateFilename="library_books_import_template.csv"
+          importUrl="/library/books/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadPageData}
+        />
+      )}
 
       <section className="summary-strip report-summary-grid">
         <SummaryCard icon={BookOpen} label="Books" value={books.length} />

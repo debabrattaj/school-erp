@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,11 +10,13 @@ import {
   ClipboardList,
   ListChecks,
   CalendarClock,
+  ChevronDown,
   History,
 } from "lucide-react";
 
 import API from "../api";
 import { useT } from "../i18n";
+import { isFeatureEnabled } from "../auth";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import ClassExamMappings from "./ClassExamMappings";
 import { getMasterValues } from "../services/masterDataService";
@@ -137,6 +139,9 @@ export default function Exams() {
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
   const [mappingExamId, setMappingExamId] = useState("");
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const toolsMenuRef = useRef(null);
+  const examAutoGenEnabled = isFeatureEnabled("exam_auto_generation");
   const [componentExam, setComponentExam] = useState(null);
   const [selectedExam, setSelectedExam] = useState(null);
   const [selectedExamCustomValues, setSelectedExamCustomValues] = useState({});
@@ -168,6 +173,19 @@ export default function Exams() {
 
     return () => window.clearTimeout(timeoutId);
   }, [message]);
+
+  useEffect(() => {
+    if (!toolsMenuOpen) return undefined;
+
+    function handleClickOutside(event) {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target)) {
+        setToolsMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [toolsMenuOpen]);
 
   async function getActiveLayout() {
     try {
@@ -932,22 +950,57 @@ export default function Exams() {
         </div>
 
         <div className="module-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              setMappingExamId("");
-              setPageMode("mapping");
-            }}
-          >
-            <ClipboardList size={17} />
-            Map Exam to Class
-          </button>
+          <div className="menu-button" ref={toolsMenuRef}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setToolsMenuOpen((open) => !open)}
+            >
+              Exam Tools
+              <ChevronDown size={15} />
+            </button>
 
-          <button type="button" className="secondary-button" onClick={openTemplatesMode}>
-            <CalendarClock size={17} />
-            Auto-Create Calendar
-          </button>
+            {toolsMenuOpen && (
+              <div className="menu-button-list">
+                <button
+                  type="button"
+                  className="menu-button-item"
+                  onClick={() => {
+                    setToolsMenuOpen(false);
+                    setMappingExamId("");
+                    setPageMode("mapping");
+                  }}
+                >
+                  <ClipboardList size={17} />
+                  <span className="menu-button-item-label">Map Exam to Class</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="menu-button-item"
+                  disabled={!examAutoGenEnabled}
+                  title={
+                    examAutoGenEnabled
+                      ? undefined
+                      : "The platform owner hasn't enabled automatic exam creation for this school yet."
+                  }
+                  onClick={() => {
+                    if (!examAutoGenEnabled) return;
+                    setToolsMenuOpen(false);
+                    openTemplatesMode();
+                  }}
+                >
+                  <CalendarClock size={17} />
+                  <span className="menu-button-item-label">
+                    Auto-Create Calendar
+                    {!examAutoGenEnabled && (
+                      <span className="menu-button-item-hint">Disabled by platform owner</span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {(pageMode === "form" || pageMode === "templates") && (
             <button

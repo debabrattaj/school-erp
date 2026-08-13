@@ -4,6 +4,7 @@ import {
   Edit,
   Trash2,
   PlusCircle,
+  Upload,
   BookOpen,
   CheckCircle,
   XCircle,
@@ -11,6 +12,7 @@ import {
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 
 const emptySubjectForm = {
   subject_code: "",
@@ -52,6 +54,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 
 export default function Subjects() {
   const [subjects, setSubjects] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [formData, setFormData] = useState(emptySubjectForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
@@ -355,13 +358,32 @@ export default function Subjects() {
         </div>
 
         <div className="module-header-actions">
-
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload size={17} />
+            Import CSV
+          </button>
           <button type="button" className="primary-button" onClick={handleAddSubject}>
             <PlusCircle size={18} />
             Add Subject
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Subjects"
+          description="Upload a CSV file to create multiple subjects at once."
+          templateUrl="/subjects/bulk-import-template"
+          templateFilename="subjects_import_template.csv"
+          importUrl="/subjects/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadSubjects}
+        />
+      )}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

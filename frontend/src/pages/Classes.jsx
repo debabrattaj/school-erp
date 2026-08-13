@@ -5,6 +5,7 @@ import {
   Edit,
   PlusCircle,
   Eye,
+  Upload,
   X,
   BookOpen,
   Users,
@@ -24,6 +25,7 @@ import {
   deleteAllModuleCustomFields,
 } from "../services/moduleCustomFieldService";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 
 const MODULE_NAME = "Classes";
 
@@ -199,6 +201,7 @@ export default function Classes() {
   const navigate = useNavigate();
 
   const [classes, setClasses] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [subjectOptions, setSubjectOptions] = useState([]);
@@ -1284,12 +1287,32 @@ export default function Classes() {
         </div>
 
         <div className="module-header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload size={17} />
+            Import CSV
+          </button>
           <button type="button" className="primary-button" onClick={handleAddClass}>
             <PlusCircle size={18} />
             Add Class
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Classes"
+          description="Upload a CSV file to create multiple classes at once. Assign a class teacher afterward from each class's edit form."
+          templateUrl="/classes/bulk-import-template"
+          templateFilename="classes_import_template.csv"
+          importUrl="/classes/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadClasses}
+        />
+      )}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

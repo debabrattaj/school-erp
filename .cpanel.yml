@@ -19,6 +19,14 @@
 # This file does NOT create the Cron Job that fires run_scheduled_fees.py —
 # that's a one-time manual step in cPanel's Cron Jobs page (see SETUP.md
 # "Scheduled fee auto-generation" -> "Wiring it up in cPanel").
+#
+# The marketing site (landing-page/) is plain static HTML/CSS/JS — no build
+# step, no Node process. It deploys by mirroring landing-page/ straight into
+# the domain's document root with rsync --delete, so the docroot always ends
+# up an exact copy of what's in git (anything removed from landing-page/ is
+# removed from the live docroot too). PUBLIC_HTML below MUST be changed to
+# schoolment.com's real document root before this runs — see SETUP.md
+# "Marketing site deployment" for how to find it and for the --delete caveat.
 ---
 deployment:
   tasks:
@@ -28,3 +36,5 @@ deployment:
     - cd $DEPLOYPATH/backend && python manage_migrations.py upgrade head
     - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
+    - export PUBLIC_HTML=/home/schoolm1/public_html
+    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/

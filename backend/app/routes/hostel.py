@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import HostelAllocation, HostelBlock, HostelRoom, Student, User
 from app.schemas import (
@@ -15,6 +17,8 @@ from app.schemas import (
 from app.security import require_roles
 
 router = APIRouter(prefix="/hostel", tags=["Hostel"])
+
+ROOM_BULK_IMPORT_COLUMNS = ["block_name", "room_no", "floor", "capacity", "remarks"]
 
 
 def commit_or_400(db: Session, message: str):
@@ -172,6 +176,102 @@ def create_room(
     commit_or_400(db, "Room already exists in this hostel block")
     db.refresh(room)
     return serialize_room(room, db)
+
+
+@router.get("/rooms/bulk-import-template")
+def bulk_import_rooms_template(
+    current_user: User = Depends(require_roles(["Admin"])),
+):
+    return csv_template_response(
+        ROOM_BULK_IMPORT_COLUMNS,
+        {
+            "block_name": "Block A",
+            "room_no": "101",
+            "floor": "1",
+            "capacity": "4",
+            "remarks": "",
+        },
+        "hostel_rooms_import_template.csv",
+    )
+
+
+@router.post("/rooms/bulk-import")
+def bulk_import_rooms(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin"])),
+):
+    rows, unknown_columns = read_csv_upload(file, ROOM_BULK_IMPORT_COLUMNS)
+
+    block_lookup = {
+        block.block_name.strip().lower(): block.id
+        for block in db.query(HostelBlock).all()
+    }
+
+    seen = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        block_name = cleaned.get("block_name")
+        room_no = cleaned.get("room_no")
+        if not block_name:
+            errors.append({"row": row_index, "error": "block_name is required"})
+            continue
+        if not room_no:
+            errors.append({"row": row_index, "error": "room_no is required"})
+            continue
+
+        block_id = block_lookup.get(block_name.strip().lower())
+        if block_id is None:
+            errors.append({"row": row_index, "error": f"No hostel block found named {block_name!r}"})
+            continue
+
+        key = (block_id, room_no.strip().lower())
+        if key in seen:
+            errors.append({"row": row_index, "error": f"Duplicate room in file: {block_name} / {room_no}"})
+            continue
+        if db.query(HostelRoom).filter(HostelRoom.block_id == block_id, HostelRoom.room_no == room_no).first():
+            errors.append({"row": row_index, "error": f"Room already exists in this hostel block: {room_no}"})
+            continue
+
+        try:
+            validated = HostelRoomCreate(
+                block_id=block_id,
+                room_no=room_no,
+                floor=cleaned.get("floor"),
+                capacity=int(cleaned["capacity"]) if cleaned.get("capacity") else 1,
+                remarks=cleaned.get("remarks"),
+            )
+        except (ValidationError, ValueError) as exc:
+            message = exc.errors()[0]["msg"] if isinstance(exc, ValidationError) else "capacity must be a whole number"
+            errors.append({"row": row_index, "error": message})
+            continue
+
+        if validated.capacity <= 0:
+            errors.append({"row": row_index, "error": "Room capacity must be greater than 0"})
+            continue
+
+        seen.add(key)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(HostelRoom(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.put("/rooms/{room_id}", response_model=HostelRoomResponse)

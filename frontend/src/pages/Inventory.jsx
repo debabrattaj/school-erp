@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
-import { Boxes, Edit, IndianRupee, PackageCheck, PlusCircle, Trash2 } from "lucide-react";
+import { Boxes, Edit, IndianRupee, PackageCheck, PlusCircle, Trash2, Upload } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
 
 const today = todayLocalDate();
@@ -64,6 +65,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("items");
   const [items, setItems] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -369,7 +371,16 @@ export default function Inventory() {
           <p>Track school stock, supplies, issues to students, and reorder levels.</p>
         </div>
         <div className="module-header-actions">
-          
+          {activeTab === "items" && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowBulkImport(true)}
+            >
+              <Upload size={17} />
+              Import CSV
+            </button>
+          )}
           {activeTab !== "bulkIssue" && (
             <button type="button" className="primary-button" onClick={activeTab === "items" ? addItem : addMovement}>
               <PlusCircle size={18} />
@@ -378,6 +389,18 @@ export default function Inventory() {
           )}
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Inventory Items"
+          description="Upload a CSV file to add multiple inventory items at once."
+          templateUrl="/inventory/items/bulk-import-template"
+          templateFilename="inventory_items_import_template.csv"
+          importUrl="/inventory/items/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadPageData}
+        />
+      )}
 
       <section className="summary-strip report-summary-grid">
         <SummaryCard icon={Boxes} label="Items" value={items.length} />

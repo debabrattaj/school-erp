@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import (
     Student,
@@ -24,6 +26,17 @@ from app.schemas import (
 from app.security import require_roles
 
 router = APIRouter(prefix="/transport", tags=["Transport"])
+
+VEHICLE_BULK_IMPORT_COLUMNS = [
+    "vehicle_no",
+    "route_name",
+    "vehicle_type",
+    "capacity",
+    "driver_name",
+    "driver_phone",
+    "attendant_name",
+    "remarks",
+]
 
 
 def commit_or_400(db: Session, message: str):
@@ -269,6 +282,106 @@ def create_vehicle(
     commit_or_400(db, "Vehicle with this number already exists")
     db.refresh(vehicle)
     return serialize_vehicle(vehicle, db)
+
+
+@router.get("/vehicles/bulk-import-template")
+def bulk_import_vehicles_template(
+    current_user: User = Depends(require_roles(["Admin"])),
+):
+    return csv_template_response(
+        VEHICLE_BULK_IMPORT_COLUMNS,
+        {
+            "vehicle_no": "OD-05-AB-1234",
+            "route_name": "Route 1",
+            "vehicle_type": "Bus",
+            "capacity": "40",
+            "driver_name": "Ramesh Kumar",
+            "driver_phone": "9876543210",
+            "attendant_name": "Suresh Rao",
+            "remarks": "",
+        },
+        "transport_vehicles_import_template.csv",
+    )
+
+
+@router.post("/vehicles/bulk-import")
+def bulk_import_vehicles(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin"])),
+):
+    rows, unknown_columns = read_csv_upload(file, VEHICLE_BULK_IMPORT_COLUMNS)
+
+    route_lookup = {
+        route.route_name.strip().lower(): route.id
+        for route in db.query(TransportRoute).all()
+    }
+
+    seen = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        vehicle_no = cleaned.get("vehicle_no")
+        if not vehicle_no:
+            errors.append({"row": row_index, "error": "vehicle_no is required"})
+            continue
+
+        route_id = None
+        route_name = cleaned.pop("route_name", None)
+        if route_name:
+            route_id = route_lookup.get(route_name.strip().lower())
+            if route_id is None:
+                errors.append({"row": row_index, "error": f"No transport route found named {route_name!r}"})
+                continue
+
+        if vehicle_no in seen:
+            errors.append({"row": row_index, "error": f"Duplicate vehicle_no in file: {vehicle_no}"})
+            continue
+        if db.query(TransportVehicle).filter(TransportVehicle.vehicle_no == vehicle_no).first():
+            errors.append({"row": row_index, "error": f"Vehicle with this number already exists: {vehicle_no}"})
+            continue
+
+        try:
+            validated = TransportVehicleCreate(
+                vehicle_no=vehicle_no,
+                route_id=route_id,
+                vehicle_type=cleaned.get("vehicle_type") or "Bus",
+                capacity=int(cleaned["capacity"]) if cleaned.get("capacity") else 1,
+                driver_name=cleaned.get("driver_name"),
+                driver_phone=cleaned.get("driver_phone"),
+                attendant_name=cleaned.get("attendant_name"),
+                remarks=cleaned.get("remarks"),
+            )
+        except (ValidationError, ValueError) as exc:
+            message = exc.errors()[0]["msg"] if isinstance(exc, ValidationError) else "capacity must be a whole number"
+            errors.append({"row": row_index, "error": message})
+            continue
+
+        if validated.capacity <= 0:
+            errors.append({"row": row_index, "error": "Vehicle capacity must be greater than 0"})
+            continue
+
+        seen.add(vehicle_no)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(TransportVehicle(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.put("/vehicles/{vehicle_id}", response_model=TransportVehicleResponse)
