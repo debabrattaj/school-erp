@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schoolment — School Management System with Built in AI</title>
+  <meta name="description" content="Schoolment is a complete school management platform: admissions CRM, fees, attendance, exams, online tests, parent portal and Sai — an AI chatbot for instant parent support." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://schoolment.com/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cg fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4 4)'%3E%3Cpath d='M12 3 3.5 8h17z'/%3E%3Cpath d='M6.5 8v9'/%3E%3Cpath d='M10 8v9'/%3E%3Cpath d='M14 8v9'/%3E%3Cpath d='M17.5 8v9'/%3E%3Cpath d='M4 20h16'/%3E%3C/g%3E%3C/svg%3E" />
+
+  <!-- Open Graph / Twitter Card — for link previews when shared on
+       WhatsApp, LinkedIn, Twitter/X, etc. og:image points at an asset that
+       still needs to be created and uploaded (1200x630px recommended);
+       until then, shared links will preview without an image. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Schoolment" />
+  <meta property="og:title" content="School Management System with Built in AI" />
+  <meta property="og:description" content="Schoolment is a complete school management platform: admissions CRM, fees, attendance, exams, online tests, parent portal and Sai — an AI chatbot for instant parent support." />
+  <meta property="og:url" content="https://schoolment.com/" />
+  <meta property="og:image" content="https://schoolment.com/og-image.png" />
+  <meta property="og:locale" content="en_IN" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="School Management System with Built in AI" />
+  <meta name="twitter:description" content="Schoolment is a complete school management platform: admissions CRM, fees, attendance, exams, online tests, parent portal and Sai — an AI chatbot for instant parent support." />
+  <meta name="twitter:image" content="https://schoolment.com/og-image.png" />
+
+  <!-- Structured data: LocalBusiness (contact/address already on this
+       page) + SoftwareApplication (the product). No aggregateRating/review
+       block — there's no genuine review data on this page to cite, and
+       fabricating one would violate Google's structured-data guidelines.
+       Add one for real once you have actual reviews. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Schoolment",
+    "description": "Schoolment is a complete school management platform: admissions CRM, fees, attendance, exams, online tests, parent portal and Sai — an AI chatbot for instant parent support.",
+    "url": "https://schoolment.com/",
+    "telephone": "+91-81164-46262",
+    "email": "info@schoolment.com",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Flat #1, Somu Avenue, Bishwanath Nagar, Gothapatana",
+      "addressLocality": "Bhubaneswar",
+      "addressRegion": "Odisha",
+      "addressCountry": "IN"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Schoolment",
+    "description": "Schoolment is a complete school management platform: admissions CRM, fees, attendance, exams, online tests, parent portal and Sai — an AI chatbot for instant parent support.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "url": "https://schoolment.com/"
+  }
+  </script>
+</head>
+<body>
+  <!-- ===== Header ===== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <a href="/" class="brand" aria-label="Schoolment home">
+        <span class="brand-text">
+          <span class="brand-top">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3.5 8h17z"/><path d="M6.5 8v9"/><path d="M10 8v9"/><path d="M14 8v9"/><path d="M17.5 8v9"/><path d="M4 20h16"/></svg>
+            </span>
+            <span class="brand-name">School<span>ment</span></span>
+          </span>
+          <span class="brand-tagline">online school management software</span>
+        </span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <div class="nav-item" id="modulesNavItem">
+          <button type="button" class="nav-link-btn" id="modulesTrigger" aria-haspopup="true" aria-expanded="false">
+            Modules
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="nav-dropdown" id="modulesDropdown" role="menu">
+            <a href="/modules/school-admission-management-software/" role="menuitem"><span class="mod-icon">🎯</span> Admission CRM</a>
+            <a href="/modules/school-fee-management-and-online-payment-system/" role="menuitem"><span class="mod-icon">💳</span> Fees &amp; Payments</a>
+            <a href="/modules/student-attendance-and-timetable-system/" role="menuitem"><span class="mod-icon">🗓️</span> Attendance &amp; Timetable</a>
+            <a href="/modules/exam-and-report-card-management-software/" role="menuitem"><span class="mod-icon">📝</span> Exams &amp; Report Cards</a>
+            <a href="/modules/online-exam-and-test-software-for-schools/" role="menuitem"><span class="mod-icon">🖥️</span> Online Exam</a>
+            <a href="/modules/parent-teacher-communication-portal-software/" role="menuitem"><span class="mod-icon">👨‍👩‍👧</span> Parent &amp; Teacher Portal</a>
+            <a href="/modules/whatsapp-integration-for-school-communication/" role="menuitem"><span class="mod-icon">💬</span> WhatsApp for Parents</a>
+            <a href="/modules/ai-chatbot-for-school-parent-support/" role="menuitem"><span class="mod-icon">🤖</span> Sai — Schoolment AI Chatbot</a>
+          </div>
+        </div>
+        <a href="/modules/ai-chatbot-for-school-parent-support/">Sai</a>
+        <a href="/modules/whatsapp-integration-for-school-communication/">WhatsApp</a>
+        <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/about-us/">About Us</a>
+        <a href="/contact/">Contact</a>
+        <a href="/#contact" class="btn btn-primary nav-mobile-cta">Book a demo</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path class="sun" d="M12 3v2m0 14v2m9-9h-2M5 12H3m14.95 6.95-1.41-1.41M6.46 6.46 5.05 5.05m12.9 0-1.41 1.41M6.46 17.54l-1.41 1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+        </button>
+        <a href="/#contact" class="btn btn-primary">Book a demo</a>
+      </div>
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Everything your school needs, in one place</span>
+        <h1>School Management System with Built in AI</h1>
+        <p class="lede">
+          Schoolment brings admissions, fees, attendance, exams and parent
+          communication together — with Sai, an AI assistant that answers
+          parents 24×7 so your staff can focus on students.
+        </p>
+        <div class="hero-cta">
+          <a href="#contact" class="btn btn-primary btn-lg">Book a free demo</a>
+          <a href="#modules" class="btn btn-ghost btn-lg">Explore modules</a>
+        </div>
+        <ul class="hero-badges">
+          <li>✓ No setup fee</li>
+          <li>✓ Data migration included</li>
+          <li>✓ Onboarding in 2 weeks</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="mock-card mock-main">
+          <div class="mock-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <em>Principal dashboard</em>
+          </div>
+          <div class="mock-stats">
+            <div><b>1,284</b><span>Students</span><i class="trend up">▲ 3.2%</i></div>
+            <div><b>96%</b><span>Attendance</span><i class="trend up">▲ 1.4%</i></div>
+            <div><b>₹8.2L</b><span>Fees today</span><i class="trend up">▲ 12%</i></div>
+          </div>
+          <div class="mock-chart">
+            <div class="mock-chart-head"><span>Fees · this week</span><b>₹41.6L</b></div>
+            <div class="mock-bars">
+              <i style="--h:40%"></i><i style="--h:70%"></i><i style="--h:55%"></i>
+              <i style="--h:85%"></i><i style="--h:65%"></i><i style="--h:95%"></i>
+              <i style="--h:50%"></i>
+            </div>
+          </div>
+        </div>
+        <div class="mock-card mock-chat">
+          <div class="mock-chat-head">
+            <span class="mock-chat-av">🤖</span>
+            <span class="mock-chat-id">Sai<em>● online</em></span>
+          </div>
+          <div class="mock-chat-row bot">Hi! Your child's fee for July is due on the 15th. Pay now?</div>
+          <div class="mock-chat-row user">Send me the receipt for June</div>
+          <div class="mock-chat-row bot">Done ✅ Receipt #JUN-4821 emailed to you.</div>
+          <div class="mock-chat-row bot typing"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Modules ===== -->
+  <section class="section" id="modules">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Everything in one platform</span>
+        <h2>Eight powerful modules, zero integration headaches</h2>
+        <p>Each module works on its own or together — start with what you need and grow from there.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="card-icon">🎯</div>
+          <h3>Admission CRM</h3>
+          <p>Capture every enquiry, follow up with a visual pipeline, and let parents apply online themselves with a school-branded form.</p>
+          <a href="/modules/school-admission-management-software/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">💳</div>
+          <h3>Fees &amp; Payments</h3>
+          <p>Automatic recurring fee generation, UPI payment links for guardians, instant receipts, and a full audit trail.</p>
+          <a href="/modules/school-fee-management-and-online-payment-system/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">🗓️</div>
+          <h3>Attendance &amp; Timetable</h3>
+          <p>Fast one-tap attendance marking, a smart timetable builder with clash detection, and live visibility for parents.</p>
+          <a href="/modules/student-attendance-and-timetable-system/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">📝</div>
+          <h3>Exams &amp; Report Cards</h3>
+          <p>Schedule exams, enter grades once, and generate beautiful report cards with your school's branding.</p>
+          <a href="/modules/exam-and-report-card-management-software/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">🖥️</div>
+          <h3>Online Exam</h3>
+          <p>Teacher-authored quizzes with instant auto-grading, an on-screen timer, and full answer review for students.</p>
+          <a href="/modules/online-exam-and-test-software-for-schools/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">👨‍👩‍👧</div>
+          <h3>Parent &amp; Teacher Portal</h3>
+          <p>One login for attendance, marks, fees, homework, online tests, and two-way messaging with the school.</p>
+          <a href="/modules/parent-teacher-communication-portal-software/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card">
+          <div class="card-icon">💬</div>
+          <h3>WhatsApp for Parents</h3>
+          <p>Fee reminders, admission confirmations and account updates land straight in a parent's WhatsApp — no new app to install.</p>
+          <a href="/modules/whatsapp-integration-for-school-communication/" class="card-link">Learn more →</a>
+        </article>
+        <article class="card card-wide">
+          <div class="card-icon">🤖</div>
+          <div class="card-wide-body">
+            <h3>Sai — Schoolment AI Chatbot</h3>
+            <p>An always-on assistant inside the portal that answers fee, attendance, marks and timetable questions instantly from your school's real data.</p>
+            <a href="/modules/ai-chatbot-for-school-parent-support/" class="card-link">Learn more →</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== AI highlight ===== -->
+  <section class="section ai-section" id="ai">
+    <div class="container ai-grid">
+      <div class="ai-copy">
+        <span class="eyebrow">Meet Sai</span>
+        <h2>Sai — the AI assistant that resolves parent queries, day or night</h2>
+        <p>Stop drowning in the same questions every day. Sai, Schoolment's built-in AI, understands your school's data and answers parents instantly in plain language.</p>
+        <ul class="check-list">
+          <li>Answers about fees, dues and payment status</li>
+          <li>Shows attendance and marks instantly, from real records</li>
+          <li>Explains the class timetable and upcoming exams</li>
+          <li>Works right inside the parent portal, day or night</li>
+        </ul>
+        <div class="module-hero-cta">
+          <a href="/#contact" class="btn btn-primary">See Sai in action</a>
+          <a href="/modules/ai-chatbot-for-school-parent-support/" class="btn btn-ghost">Learn more</a>
+        </div>
+      </div>
+      <div class="ai-visual" aria-hidden="true">
+        <div class="chat-window">
+          <div class="chat-top"><span class="dot"></span> Sai</div>
+          <div class="chat-body">
+            <div class="bubble in">When is my daughter's fee due?</div>
+            <div class="bubble out">Her Tuition Fee for August is due on the 15th — ₹4,500 pending. Want the payment link?</div>
+            <div class="bubble in">Show her latest marks</div>
+            <div class="bubble out">Science (Unit Test 2): 47/50. Nice improvement 🎉</div>
+          </div>
+          <div class="chat-input"><span>Type a message…</span><button aria-hidden="true">➤</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== WhatsApp highlight ===== -->
+  <section class="section wa-section" id="whatsapp">
+    <div class="container ai-grid">
+      <div class="wa-visual" aria-hidden="true">
+        <div class="chat-window wa">
+          <div class="wa-top">
+            <span class="wa-av">🏫</span>
+            <span class="wa-id">Schoolment · Greenview<em>online</em></span>
+            <span class="wa-icons">📞 ⋮</span>
+          </div>
+          <div class="wa-body">
+            <div class="wa-day">TODAY</div>
+            <div class="bubble in">📢 Reminder: Aarav's Tuition Fee for August (₹4,500) is due on the 15th.<br>Pay: schoolment.com/pay/JUN-4821<span class="wa-time">9:04 AM</span></div>
+            <div class="bubble in">✅ Payment of ₹4,500 received for Aarav — Tuition Fee, August. Receipt #AUG-1123 generated.<span class="wa-time">9:16 AM</span></div>
+            <div class="bubble in">📣 School Notice: PTM for Grade 6 is on Sat, 19 Jul at 10:00 AM in the main hall.<span class="wa-time">2:30 PM</span></div>
+          </div>
+          <div class="wa-input"><span>Message</span><button aria-hidden="true">🎤</button></div>
+        </div>
+      </div>
+      <div class="ai-copy">
+        <span class="eyebrow eyebrow-wa">On WhatsApp</span>
+        <h2>Fee reminders and school updates — straight to WhatsApp</h2>
+        <p>No new app to download and nothing extra to check. The moment a fee is due, a payment lands, or your office sends an update, it reaches parents on the number they already use every day.</p>
+        <ul class="check-list check-list-wa">
+          <li>Automatic fee-due reminders, sent the moment a fee is created</li>
+          <li>Payment confirmations, sent instantly on receipt</li>
+          <li>Bulk announcements to every parent in one send, from Communications</li>
+          <li>Fee reminders go out over WhatsApp and email together whenever both are on file</li>
+        </ul>
+        <div class="module-hero-cta">
+          <a href="/#contact" class="btn btn-wa">Get it on WhatsApp</a>
+          <a href="/modules/whatsapp-integration-for-school-communication/" class="btn btn-ghost">Learn more</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Stats ===== -->
+  <section class="stats-band">
+    <div class="container stats">
+      <div><b>8</b><span>Modules, one login</span></div>
+      <div><b>24×7</b><span>Sai parent support</span></div>
+      <div><b>2 wks</b><span>From signup to live</span></div>
+      <div><b>99.9%</b><span>Uptime target</span></div>
+    </div>
+  </section>
+
+  <!-- ===== How it works ===== -->
+  <section class="section" id="how">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Simple onboarding</span>
+        <h2>Live in three easy steps</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>Import your data</h3>
+          <p>We migrate your students, classes and fee structures for you — no spreadsheets left behind.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>Configure &amp; brand</h3>
+          <p>Set roles, fee heads and report card templates with your school's logo and colours.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>Go live &amp; train</h3>
+          <p>Staff and parents get guided onboarding, and our team supports you every step of the way.</p>
+        </div>
+      </div>
+      <p style="text-align:center; margin-top:1.6rem;">
+        <a href="/getting-started-with-school-management-portal/" class="btn btn-ghost">See the full walkthrough →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== Runs itself ===== -->
+  <section class="section" id="automation">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Runs itself</span>
+        <h2>Set it once. It runs on a schedule.</h2>
+        <p>Three things your office used to do by hand, every single cycle — now they fire themselves on dates you choose.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3><span class="f-icon" aria-hidden="true">💳</span> Automatic fee billing</h3>
+          <p>Fee structures bill themselves monthly, quarterly, or annually on the date you set — no one has to run "Bulk Class" billing by hand, ever again.</p>
+        </article>
+        <article class="feature-card">
+          <h3><span class="f-icon" aria-hidden="true">📝</span> Self-building exam calendar</h3>
+          <p>Recurring exams — Unit Tests, Half-Yearlies, Annuals — create themselves each academic year on schedule. Or copy a past year's calendar in one click instead of typing it in again.</p>
+        </article>
+        <article class="feature-card">
+          <h3><span class="f-icon" aria-hidden="true">🎓</span> Automatic year-end promotion</h3>
+          <p>On the date you choose, every student is promoted, detained, or graduated automatically — using the same result-based logic your office already reviews by hand today.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Testimonial ===== -->
+  <section class="section testimonial-section">
+    <div class="container">
+      <figure class="testimonial">
+        <blockquote>"We started Schoolment after watching school offices lose hours to fee registers, absentee calls and the same parent questions every day. Our goal is simple: give every school one place to run admissions, fees, attendance and exams — with an AI assistant that handles the routine, so your team can focus on students."</blockquote>
+        <figcaption>
+          <span class="avatar">S</span>
+          <span><b>The Schoolment team</b><em>Why we're building this</em></span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===== CTA / Contact ===== -->
+  <section class="section cta-section" id="contact">
+    <div class="container cta">
+      <div class="cta-copy">
+        <h2>Ready to modernise your school?</h2>
+        <p>Book a 30-minute demo and see Schoolment running with your school's data.</p>
+        <ul class="check-list">
+          <li>Personalised walkthrough</li>
+          <li>Migration &amp; pricing plan</li>
+          <li>No commitment required</li>
+        </ul>
+        <h3 class="contact-info-head">Or reach us directly</h3>
+        <ul class="contact-info">
+          <li>
+            <span class="contact-icon" aria-hidden="true">📞</span>
+            <a href="tel:+918116446262">+91 81164 46262</a>
+          </li>
+          <li>
+            <span class="contact-icon" aria-hidden="true">✉️</span>
+            <a href="mailto:info@schoolment.com">info@schoolment.com</a>
+          </li>
+          <li>
+            <span class="contact-icon" aria-hidden="true">📍</span>
+            <span>Flat #1, Somu Avenue, Bishwanath Nagar, Gothapatana, Bhubaneswar, India</span>
+          </li>
+        </ul>
+      </div>
+      <form class="cta-form" id="demoForm" novalidate>
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" type="text" placeholder="Your name" required />
+        </div>
+        <div class="field">
+          <label for="school">School name</label>
+          <input id="school" name="school" type="text" placeholder="Your school" required />
+        </div>
+        <div class="field">
+          <label for="email">Work email</label>
+          <input id="email" name="email" type="email" placeholder="you@school.edu" required />
+        </div>
+        <div class="field">
+          <label for="phone">Phone</label>
+          <input id="phone" name="phone" type="tel" placeholder="+91 " />
+        </div>
+        <div class="field hp-field" aria-hidden="true">
+          <label for="website">Website</label>
+          <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg">Book my demo</button>
+        <p class="form-note" id="formNote" role="status"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site-footer">
+    <div class="container footer-grid footer-grid-locations">
+      <div class="footer-brand">
+        <a href="/#top" class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3.5 8h17z"/><path d="M6.5 8v9"/><path d="M10 8v9"/><path d="M14 8v9"/><path d="M17.5 8v9"/><path d="M4 20h16"/></svg>
+          </span>
+          <span class="brand-name">School<span>ment</span></span>
+        </a>
+        <p>Online school management software for modern schools.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Modules</h4>
+        <a href="/modules/school-admission-management-software/">Admission CRM</a>
+        <a href="/modules/school-fee-management-and-online-payment-system/">Fees &amp; Payments</a>
+        <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a>
+        <a href="/modules/exam-and-report-card-management-software/">Exams &amp; Report Cards</a>
+        <a href="/modules/online-exam-and-test-software-for-schools/">Online Exam</a>
+        <a href="/modules/parent-teacher-communication-portal-software/">Parent &amp; Teacher Portal</a>
+        <a href="/modules/whatsapp-integration-for-school-communication/">WhatsApp for Parents</a>
+        <a href="/modules/ai-chatbot-for-school-parent-support/">Sai — Schoolment AI Chatbot</a>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#contact">Book a demo</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="/about-us/">About Us</a>
+        <a href="/contact/">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <a href="/help-centre/">Help centre</a>
+        <a href="/privacy-and-security/">Privacy</a>
+      </div>
+      <div class="footer-col">
+        <h4>Locations</h4>
+        <a href="/online-school-management-erp-bhubaneswar/">Bhubaneswar</a>
+        <a href="/online-school-management-erp-cuttack/">Cuttack</a>
+        <a href="/online-school-management-erp-kolkata/">Kolkata</a>
+        <a href="/online-school-management-erp-ranchi/">Ranchi</a>
+        <a href="/online-school-management-erp-raipur/">Raipur</a>
+        <a href="/online-school-management-erp-patna/">Patna</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>© <span id="year"></span> Schoolment. All rights reserved.</p>
+      <p>Made for schools, with ❤️</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
