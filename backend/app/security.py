@@ -9,6 +9,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from app.database import get_db
@@ -20,7 +22,11 @@ from app.permissions import (
     SYSTEM_ROLE_PERMISSIONS,
 )
 
-load_dotenv()
+# Anchored to backend/.env regardless of the process's current working
+# directory — load_dotenv() with no path searches from cwd, which some
+# Passenger/cPanel setups don't set to the app root, causing SECRET_KEY to
+# go missing there even though it works fine when run from backend/ by hand.
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
