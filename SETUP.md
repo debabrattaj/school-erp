@@ -528,3 +528,80 @@ full command that also updates backend dependencies and runs migrations.)
 
 No cron job, no restart file, no virtualenv — it's static files, so once
 they're copied into the docroot they're live immediately.
+
+## 17. cPanel gotcha: recreating the Python App overwrites `passenger_wsgi.py`
+
+If the backend's Python App registration (`schoolment.com/school-erp` in
+cPanel → Setup Python App) is ever destroyed and recreated — e.g. to
+recover from a broken/orphaned registration — **cPanel silently overwrites
+`backend/passenger_wsgi.py`** with its own generic boilerplate:
+
+```python
+import imp
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+wsgi = imp.load_source('wsgi', 'passenger_wsgi.py')
+application = wsgi.application
+```
+
+That boilerplate is broken on its own terms: it tries to load
+`passenger_wsgi.py` as a module named `wsgi` *from within
+`passenger_wsgi.py` itself*, which re-executes the whole file, hits the
+same line again, and recurses until Python gives up
+(`RecursionError: maximum recursion depth exceeded`). Every request 500s
+because the app can't even be imported — this happened live on
+2026-08-13, recovered by just restoring the tracked file:
+
+```bash
+cd /home/schoolm1/repositories/school-erp
+git status                           # confirms backend/passenger_wsgi.py shows modified
+git checkout -- backend/passenger_wsgi.py
+touch backend/tmp/restart.txt
+```
+
+The real `passenger_wsgi.py` (committed in git) bridges FastAPI's ASGI app
+to the WSGI interface Passenger expects, via `sync_asgi.py`'s
+`make_wsgi_app()` — see both files' docstrings. **If the Python App is ever
+destroyed and recreated again, re-run the `git checkout` above immediately
+after** — don't assume the file survived just because Create succeeded
+without an error.
+
+To verify `passenger_wsgi.py` is actually working (not just present) after
+any change to the Python App registration, reproduce Passenger's own call
+directly rather than trusting a browser 500 page or manual `uvicorn`/`python
+-c "from app.main import app"` runs — those don't exercise
+`passenger_wsgi.py` at all and will look healthy even when it's broken:
+
+```python
+import io, sys, traceback
+sys.path.insert(0, "/home/schoolm1/repositories/school-erp/backend")
+import passenger_wsgi
+
+environ = {
+    "REQUEST_METHOD": "GET", "PATH_INFO": "/docs", "SCRIPT_NAME": "",
+    "QUERY_STRING": "", "CONTENT_TYPE": "", "CONTENT_LENGTH": "",
+    "SERVER_NAME": "schoolment.com", "SERVER_PORT": "443",
+    "SERVER_PROTOCOL": "HTTP/1.1", "wsgi.version": (1, 0),
+    "wsgi.url_scheme": "https", "wsgi.input": io.BytesIO(b""),
+    "wsgi.errors": sys.stderr, "wsgi.multithread": False,
+    "wsgi.multiprocess": False, "wsgi.run_once": False,
+}
+captured = {}
+def start_response(status, headers, exc_info=None):
+    captured["status"] = status
+
+try:
+    body = b"".join(passenger_wsgi.application(environ, start_response))
+    print("SUCCESS", captured["status"], body[:200])
+except Exception:
+    traceback.print_exc()
+```
+
+A clean `SUCCESS 200 OK` means Passenger's actual code path works; a
+traceback shows the real error directly, which log-hunting often doesn't
+(this server had no `stderr.log` or per-domain `error_log` at all for this
+app — the traceback only surfaces by reproducing the call directly like
+this).
