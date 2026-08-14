@@ -700,9 +700,9 @@ td.separator{
 
 #milestoneTable td:not(.milestone-col):not(.drag-handle),
 #milestoneTable th:not(.milestone-col):not(.milestone-drag-col){
-    width:38px;
-    min-width:38px;
-    max-width:38px;
+    width:40px;
+    min-width:40px;
+    max-width:40px;
 }
 
 .milestone-drag-col,
@@ -723,14 +723,20 @@ td.separator{
     left:36px;
     z-index:3;
 
-    width:430px;
-    min-width:430px;
-    max-width:430px;
+    /* 36 (drag) + 556 = 592, matching the resource grid's frozen block */
+    width:556px;
+    min-width:556px;
+    max-width:556px;
 
     text-align:left;
-    padding:0 12px;
+    padding:0 0 0 12px;
 
     background:var(--surface-2);
+
+    /* divider drawn inside the box so the action zone can end exactly on
+       the frozen-block edge, like .resource-action-col does */
+    border-right:0;
+    box-shadow:inset -1px 0 0 var(--border-strong);
 }
 
 /* ---- Resource table columns ---- */
@@ -755,6 +761,9 @@ td.separator{
     background:var(--surface-2);
 }
 
+/* frozen headers carry long labels — give them a little more room */
+#resourceTable thead th.resource-col{letter-spacing:.01em}
+
 .resource-col{
     position:sticky;
     z-index:4;
@@ -765,17 +774,17 @@ td.separator{
 }
 
 /* Type */
-.resource-col:nth-child(2){left:36px;width:96px;min-width:96px;max-width:96px}
+.resource-col:nth-child(2){left:36px;width:84px;min-width:84px;max-width:84px}
 /* Grade */
-.resource-col:nth-child(3){left:132px;width:84px;min-width:84px;max-width:84px}
+.resource-col:nth-child(3){left:120px;width:66px;min-width:66px;max-width:66px}
 /* Designation */
-.resource-col:nth-child(4){left:216px;width:154px;min-width:154px;max-width:154px}
+.resource-col:nth-child(4){left:186px;width:146px;min-width:146px;max-width:146px}
 /* Technology / Skillset */
-.resource-col:nth-child(5){left:370px;width:166px;min-width:166px;max-width:166px}
+.resource-col:nth-child(5){left:332px;width:156px;min-width:156px;max-width:156px}
 
 .resource-action-col{
     position:sticky;
-    left:536px;
+    left:488px;
     z-index:4;
 
     width:104px;
@@ -784,6 +793,7 @@ td.separator{
 
     background:var(--surface-2);
     border-right:1px solid var(--border-strong);
+    padding:0;
 }
 
 .total-col{
@@ -815,13 +825,13 @@ td.separator{
     appearance:none;
     -webkit-appearance:none;
 
-    padding:0 20px 0 7px;
+    padding:0 17px 0 7px;
     cursor:pointer;
 
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M6 8l4 4 4-4'/></svg>");
     background-repeat:no-repeat;
-    background-position:right 2px center;
-    background-size:14px;
+    background-position:right 1px center;
+    background-size:13px;
 
     transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
 }
@@ -850,6 +860,26 @@ td.separator{
     display:flex;
     align-items:center;
     gap:6px;
+}
+
+/* Same footprint as .resource-action-col so the +/- buttons in both
+   grids land on exactly the same x positions */
+.milestone-action-group,
+.resource-action-group{
+    flex:0 0 104px;
+    width:104px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+}
+
+/* Empty slot standing in for the resource grid's clone button */
+.row-btn-spacer{
+    width:24px;
+    height:24px;
+    flex:0 0 24px;
 }
 
 .milestone-actions select{
@@ -3282,9 +3312,18 @@ markAsDirty()
 
 }
 
+let actionGroup=document.createElement("div")
+actionGroup.className="milestone-action-group"
+
+let spacer=document.createElement("span")
+spacer.className="row-btn-spacer"
+
+actionGroup.appendChild(addBtn)
+actionGroup.appendChild(spacer)
+actionGroup.appendChild(deleteBtn)
+
 container.appendChild(select)
-container.appendChild(addBtn)
-container.appendChild(deleteBtn)
+container.appendChild(actionGroup)
 
 td.appendChild(container)
 
@@ -3468,9 +3507,7 @@ let action=document.createElement("td")
 action.className="resource-action-col"
 
 let container=document.createElement("div")
-container.style.display="flex"
-container.style.gap="4px"
-container.style.justifyContent="center"
+container.className="resource-action-group"
 
 /* + button */
 
