@@ -1,0 +1,13 @@
+# SPA fallback: this app is client-side routed (React Router). A direct
+# request/refresh on a route like /platform-login has no matching file on
+# disk, so without this rule the server 404s before React ever loads.
+# Rewrite any request that isn't a real file or directory to index.html
+# instead, and let the client-side router take it from there.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
