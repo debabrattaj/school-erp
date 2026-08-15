@@ -1,4 +1,15 @@
-export type FieldType = "text" | "number" | "email" | "date" | "select" | "textarea" | "phone";
+export type FieldType =
+  | "text"
+  | "number"
+  | "email"
+  | "date"
+  | "select"
+  | "textarea"
+  | "phone"
+  /** Pick/capture an image, upload it, store the returned URL. */
+  | "photo"
+  /** Numeric foreign key chosen from another module's records. */
+  | "reference";
 
 export interface FormFieldConfig {
   key: string;
@@ -7,6 +18,14 @@ export interface FormFieldConfig {
   required?: boolean;
   options?: { label: string; value: string }[];
   placeholder?: string;
+  /** For `reference` fields: where to pick the record from. */
+  reference?: {
+    endpoint: string;
+    /** Fields to search, and the fields composing the display label. */
+    searchFields: string[];
+    labelFields: string[];
+    subtitleFields?: string[];
+  };
 }
 
 export interface ListColumnConfig {

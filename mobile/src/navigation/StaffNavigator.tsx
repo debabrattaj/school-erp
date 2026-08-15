@@ -7,6 +7,11 @@ import MarksScreen from "../screens/marks/MarksScreen";
 import SettingsScreen from "../screens/settings/SettingsScreen";
 import PayrollScreen from "../screens/payroll/PayrollScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
+import ReportCardScreen from "../screens/reportcard/ReportCardScreen";
+import CertificatesScreen from "../screens/certificates/CertificatesScreen";
+import AssistantScreen from "../screens/assistant/AssistantScreen";
+import SearchScreen from "../screens/search/SearchScreen";
+import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
@@ -52,6 +57,11 @@ const MarksStackScreen = singleScreenStack("MarksHome", "Marks", MarksScreen);
 const PayrollStackScreen = singleScreenStack("PayrollHome", "Payroll", PayrollScreen);
 const ReportsStackScreen = singleScreenStack("ReportsHome", "Reports", ReportsScreen);
 const SettingsStackScreen = singleScreenStack("SettingsHome", "Institution Settings", SettingsScreen);
+const ReportCardStackScreen = singleScreenStack("ReportCardHome", "Report Card", ReportCardScreen);
+const CertificatesStackScreen = singleScreenStack("CertificatesHome", "Certificates", CertificatesScreen);
+const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", AssistantScreen);
+const SearchStackScreen = singleScreenStack("SearchHome", "Search", SearchScreen);
+const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Access", PortalAccessScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -66,8 +76,13 @@ const BESPOKE: {
   Component: React.ComponentType<any>;
 }[] = [
   { name: "Dashboard", title: "Dashboard", icon: "Db", group: "Overview", feature: "dashboard", Component: DashboardStackScreen },
+  { name: "Search", title: "Search", icon: "Sr", group: "Overview", feature: "dashboard", Component: SearchStackScreen },
+  { name: "Assistant", title: "Assistant", icon: "Ai", group: "Overview", feature: "dashboard", Component: AssistantStackScreen },
   { name: "Attendance", title: "Attendance", icon: "At", group: "Academics", feature: "attendance", Component: AttendanceStackScreen },
   { name: "Marks", title: "Marks", icon: "Mk", group: "Academics", feature: "marks", Component: MarksStackScreen },
+  { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
+  { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
+  { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
   { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },

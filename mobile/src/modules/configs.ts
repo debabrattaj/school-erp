@@ -41,6 +41,7 @@ export const studentsModule: ModuleConfig = {
     { key: "guardian_phone", label: "Guardian Phone", type: "phone" },
     { key: "guardian_email", label: "Guardian Email", type: "email" },
     { key: "blood_group", label: "Blood Group", type: "text" },
+    { key: "photo_url", label: "Photo", type: "photo" },
     { key: "medical_notes", label: "Medical Notes", type: "textarea" },
     { key: "allergies", label: "Allergies", type: "textarea" },
   ],
@@ -159,7 +160,18 @@ export const feesModule: ModuleConfig = {
     { key: "payment_status", label: "Status" },
   ],
   formFields: [
-    { key: "student_id", label: "Student ID", type: "number", required: true },
+    {
+      key: "student_id",
+      label: "Student",
+      type: "reference",
+      required: true,
+      reference: {
+        endpoint: "/students",
+        searchFields: ["first_name", "last_name", "admission_no"],
+        labelFields: ["first_name", "last_name"],
+        subtitleFields: ["admission_no", "class_name"],
+      },
+    },
     { key: "fee_type", label: "Fee Type", type: "text", required: true },
     { key: "total_amount", label: "Total Amount", type: "number", required: true },
     { key: "paid_amount", label: "Paid Amount", type: "number" },

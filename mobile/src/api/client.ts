@@ -25,6 +25,15 @@ export async function setApiBase(url: string) {
   await AsyncStorage.setItem(API_BASE_KEY, url);
 }
 
+/**
+ * The base URL without awaiting storage, for render-path use such as resolving
+ * an <Image> source. Falls back to the default until `getApiBase()` has run
+ * once — which the auth bootstrap does before any screen renders.
+ */
+export function getApiBaseSync() {
+  return cachedBaseUrl || DEFAULT_API_BASE_URL;
+}
+
 export async function getToken() {
   return AsyncStorage.getItem(TOKEN_KEY);
 }

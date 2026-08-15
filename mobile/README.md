@@ -19,10 +19,19 @@ Parent/Student portal; this app also covers staff-facing modules.
   `#F7F6FE` canvas, 18px cards, pill buttons, violet-tinted shadows), and the
   drawer uses the same nine groups, in the same order, as the web sidebar
   (`frontend/src/components/Sidebar.jsx`), with matching module labels.
-- **Bespoke staff screens**: Dashboard (summary stats), Attendance (mark a whole
-  class for a date), Marks (enter marks by exam + subject), Payroll (generate a
-  month's payslips, mark paid), Reports (catalog-driven builder: pick source,
-  dimension and measure, results as bar rows), Institution Settings.
+- **Bespoke staff screens**: Dashboard (summary stats), Global Search (students,
+  teachers, classes, exams — taps through to the record), AI Assistant (chat over
+  `/chatbot/ask` with tappable suggestions), Attendance (mark a whole class for a
+  date), Marks (enter marks by exam + subject), Report Card (pick student + exam →
+  PDF), Certificates (bonafide, transfer certificate, transcript, ID card PDFs),
+  Portal Access (link parent/student accounts to student records), Payroll
+  (generate a month's payslips, mark paid), Reports (catalog-driven builder: pick
+  source, dimension and measure, results as bar rows), Institution Settings.
+- **Photo upload and record pickers** — image fields pick from the library or
+  camera and upload to `/uploads/`; foreign keys (student, teacher, class, exam,
+  route, …) are chosen from a searchable list instead of typing a numeric ID.
+- **Sortable lists** — every CRUD list sorts by any of its columns (tap to
+  toggle ascending → descending → off) alongside search.
 - **44 CRUD modules** (list, search, detail, create, edit, delete), grouped in the
   drawer. Most are auto-derived from the deployed OpenAPI schema
   (`src/modules/generated.ts`) and then curated:
@@ -38,26 +47,32 @@ Parent/Student portal; this app also covers staff-facing modules.
   - **Student Life** — Counseling, Enrichment, Compliance, Student Services,
     Infirmary Visits, Intl. Documents
   - **Admin** — Master Data, Message Templates
-- **Parent/Student portal**: My Children → per-child Profile, Attendance, Marks,
-  Fees (with UPI payment: opens the deep link in any UPI app, then records the
-  reference/UTR back to the school) — full feature parity with the old native
-  Android app.
+- **Parent/Student portal**: My Children → per-child **Profile, Attendance, Marks,
+  Fees** (with UPI payment: opens the deep link in any UPI app, then records the
+  reference/UTR back to the school), **Timetable** (day-by-day, breaks included),
+  **Homework** (with due-date urgency and attachments), **Tests** (status and
+  scores) and **Messages** (two-way thread with the school).
 
 ## Known gaps
 
-Web pages with no mobile equivalent yet:
-
-- **Report Card** generation, and the **AI assistant** (chatbot)
-- **Portal Access** (linking parent accounts to students)
-- **Leads** and **Certificates**
-- Layout builders (student profile / module layout designers)
-- Global **search**, and file/photo **uploads**
+- **Layout builders** (student-profile and module layout designers) are not
+  planned for mobile — they are drag-and-drop canvases that need a pointer and a
+  wide viewport. Configure layouts on the web; mobile forms honour the result.
+- **Taking an online test** is view-only on mobile (status and score); attempts
+  still happen on the web portal.
+- **Leads** is a public marketing capture endpoint with no staff-facing page on
+  either client.
 - Multi-step flows that stay web-only: admissions **convert-to-student**,
-  academic-year **promotion runs**, bulk import/export, and PDF downloads
-  (timetable, payslips, receipts, report cards)
+  academic-year **promotion runs**, and **bulk CSV import/export**.
+- The web's list pages additionally offer column show/hide, saved filters and
+  bulk selection; mobile lists have search and sorting.
 
-The web's list pages also have column sorting, column show/hide, saved filters
-and bulk selection; mobile lists currently offer search only.
+### File handling
+
+PDF and image endpoints are authenticated, so they can't simply be handed to the
+browser. `src/api/files.ts` downloads them with the session headers into the app
+cache and then opens the OS share sheet, which is also how the user saves,
+prints or forwards a document. Uploads go the other way through the same module.
 
 Relational fields (student, teacher, class) are entered as numeric IDs rather
 than searchable pickers — the main UX follow-up.

@@ -3,7 +3,56 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { api, ApiError } from "../../api/client";
 import { ModuleConfig, FormFieldConfig } from "../../modules/types";
 import { AppTextInput, Field, LoadingView, PrimaryButton } from "../../components/Common";
+import PhotoField from "../../components/PhotoField";
+import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { colors, spacing } from "../../theme/theme";
+
+/**
+ * A foreign key entered by picking the actual record, rather than typing the
+ * numeric ID the API wants. Shows the chosen record's label once picked; on an
+ * existing record the stored ID is shown until the user picks a new one.
+ */
+function ReferenceField({
+  field,
+  value,
+  onChange,
+  open,
+  setOpen,
+}: {
+  field: FormFieldConfig;
+  value: string;
+  onChange: (v: string) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const ref = field.reference!;
+  const [label, setLabel] = useState<string | null>(null);
+  const compose = (item: any, keys: string[]) =>
+    keys.map((k) => item[k]).filter(Boolean).join(" ").trim();
+
+  return (
+    <>
+      <PickerButton
+        label={field.label}
+        value={label || (value ? `#${value}` : null)}
+        onPress={() => setOpen(true)}
+      />
+      <RecordPicker<any>
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={`Choose ${field.label.toLowerCase()}`}
+        endpoint={ref.endpoint}
+        labelFor={(it) => compose(it, ref.labelFields) || `#${it.id}`}
+        subtitleFor={ref.subtitleFields ? (it) => compose(it, ref.subtitleFields!) : undefined}
+        searchFields={ref.searchFields}
+        onPick={(it) => {
+          onChange(String(it.id));
+          setLabel(compose(it, ref.labelFields) || `#${it.id}`);
+        }}
+      />
+    </>
+  );
+}
 
 function SelectField({ field, value, onChange }: { field: FormFieldConfig; value: string; onChange: (v: string) => void }) {
   return (
@@ -31,6 +80,8 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only one picker modal is open at a time; this holds which field owns it.
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -66,7 +117,9 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
     config.formFields.forEach((f) => {
       const raw = values[f.key];
       if (raw === undefined || raw === "") return;
-      payload[f.key] = f.type === "number" ? Number(raw) : raw;
+      // A reference holds a foreign key, so it goes out as a number like any
+      // other numeric field — not as the string the text input produced.
+      payload[f.key] = f.type === "number" || f.type === "reference" ? Number(raw) : raw;
     });
     try {
       if (isEdit) {
@@ -90,6 +143,16 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
         <Field key={f.key} label={f.required ? `${f.label} *` : f.label}>
           {f.type === "select" && f.options ? (
             <SelectField field={f} value={values[f.key] || ""} onChange={(v) => setField(f.key, v)} />
+          ) : f.type === "photo" ? (
+            <PhotoField value={values[f.key]} onChange={(url) => setField(f.key, url)} />
+          ) : f.type === "reference" && f.reference ? (
+            <ReferenceField
+              field={f}
+              value={values[f.key] || ""}
+              onChange={(v) => setField(f.key, v)}
+              open={pickerFor === f.key}
+              setOpen={(open) => setPickerFor(open ? f.key : null)}
+            />
           ) : (
             <AppTextInput
               value={values[f.key] || ""}

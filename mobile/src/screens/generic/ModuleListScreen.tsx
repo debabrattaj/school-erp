@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { ModuleConfig } from "../../modules/types";
@@ -8,11 +8,28 @@ import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
 
+/** Values may be numbers, dates or text; compare accordingly so 10 > 9. */
+function compareValues(a: unknown, b: unknown) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1; // blanks sort last regardless of direction
+  if (b == null) return -1;
+
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && String(a).trim() !== "" && String(b).trim() !== "") {
+    return na - nb;
+  }
+  return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
+}
+
 export default function ModuleListScreen({ config, navigation }: { config: ModuleConfig; navigation: any }) {
   const { user } = useAuth();
   const [items, setItems] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDesc, setSortDesc] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const canManage = hasAccess(user?.permissions, config.feature, "manage");
 
   const load = useCallback(async () => {
@@ -31,11 +48,45 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
     }, [load])
   );
 
-  const filtered = (items || []).filter((item) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return config.searchFields.some((f) => String(item[f] ?? "").toLowerCase().includes(q));
-  });
+  // Columns the user can sort by: whatever the module lists, plus its title.
+  const sortableColumns = useMemo(() => {
+    const cols = [{ key: config.titleField, label: config.title.replace(/s$/, "") }, ...config.listColumns];
+    const seen = new Set<string>();
+    return cols.filter((c) => (seen.has(c.key) ? false : (seen.add(c.key), true)));
+  }, [config]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const rows = (items || []).filter((item) =>
+      q ? config.searchFields.some((f) => String(item[f] ?? "").toLowerCase().includes(q)) : true
+    );
+
+    if (!sortKey) return rows;
+    // Copy first: sort mutates, and `items` is state.
+    return rows.slice().sort((a, b) => {
+      const result = compareValues(a[sortKey], b[sortKey]);
+      return sortDesc ? -result : result;
+    });
+  }, [items, search, config.searchFields, sortKey, sortDesc]);
+
+  function toggleSort(key: string) {
+    if (sortKey === key) {
+      // Third tap clears the sort and returns to server order.
+      if (sortDesc) {
+        setSortKey(null);
+        setSortDesc(false);
+      } else {
+        setSortDesc(true);
+      }
+    } else {
+      setSortKey(key);
+      setSortDesc(false);
+    }
+  }
+
+  const activeSortLabel = sortKey
+    ? sortableColumns.find((c) => c.key === sortKey)?.label ?? sortKey
+    : null;
 
   return (
     <View style={styles.container}>
@@ -53,15 +104,44 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
         )}
       </View>
 
+      <View style={styles.sortRow}>
+        <Pressable onPress={() => setShowSort((v) => !v)} style={styles.sortToggle}>
+          <Text style={styles.sortToggleText}>
+            {activeSortLabel ? `Sorted by ${activeSortLabel} ${sortDesc ? "↓" : "↑"}` : "Sort"}
+          </Text>
+        </Pressable>
+        {items ? <Text style={styles.count}>{visible.length} records</Text> : null}
+      </View>
+
+      {showSort && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortChips}>
+          {sortableColumns.map((col) => {
+            const active = sortKey === col.key;
+            return (
+              <Pressable
+                key={col.key}
+                onPress={() => toggleSort(col.key)}
+                style={[styles.sortChip, active && styles.sortChipActive]}
+              >
+                <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                  {col.label}
+                  {active ? (sortDesc ? " ↓" : " ↑") : ""}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
       {items === null && !error ? (
         <LoadingView />
       ) : error ? (
         <ErrorView message={error} onRetry={load} />
-      ) : filtered.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyView message={`No ${config.title.toLowerCase()} found.`} />
       ) : (
         <FlatList
-          data={filtered}
+          data={visible}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: spacing(4) }}
           renderItem={({ item }) => {
@@ -117,6 +197,35 @@ const styles = StyleSheet.create({
     ...elevation.sm,
   },
   addButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 14 },
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing(4),
+    paddingBottom: spacing(2),
+  },
+  sortToggle: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(1.5),
+    backgroundColor: colors.surface,
+  },
+  sortToggleText: { ...type.caption, color: colors.primary, fontWeight: "700" },
+  count: { ...type.caption, color: colors.textMuted },
+  sortChips: { paddingHorizontal: spacing(4), paddingBottom: spacing(2), gap: spacing(2) },
+  sortChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(1.5),
+    backgroundColor: colors.surface,
+  },
+  sortChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  sortChipText: { ...type.caption, color: colors.text },
+  sortChipTextActive: { color: colors.onPrimary, fontWeight: "700" },
   row: {
     flexDirection: "row",
     alignItems: "center",
