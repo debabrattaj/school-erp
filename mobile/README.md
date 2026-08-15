@@ -14,9 +14,15 @@ Parent/Student portal; this app also covers staff-facing modules.
   the web frontend's nav), so an Admin, Teacher, Accounts user, etc. each see only
   what they're allowed to. Parent/Student accounts land on a dedicated portal
   instead of the staff drawer.
+- **SaaS design language shared with the web app** — `src/theme/theme.ts` ports the
+  `--saas-*` tokens from `frontend/src/styles.css` 1:1 (violet `#5B4FE9` primary,
+  `#F7F6FE` canvas, 18px cards, pill buttons, violet-tinted shadows), and the
+  drawer uses the same nine groups, in the same order, as the web sidebar
+  (`frontend/src/components/Sidebar.jsx`), with matching module labels.
 - **Bespoke staff screens**: Dashboard (summary stats), Attendance (mark a whole
-  class for a date), Marks (enter marks by exam + subject), Settings (school
-  profile / academic / fee / grading config).
+  class for a date), Marks (enter marks by exam + subject), Payroll (generate a
+  month's payslips, mark paid), Reports (catalog-driven builder: pick source,
+  dimension and measure, results as bar rows), Institution Settings.
 - **44 CRUD modules** (list, search, detail, create, edit, delete), grouped in the
   drawer. Most are auto-derived from the deployed OpenAPI schema
   (`src/modules/generated.ts`) and then curated:
@@ -39,15 +45,19 @@ Parent/Student portal; this app also covers staff-facing modules.
 
 ## Known gaps
 
-Backend areas with no mobile screen yet:
+Web pages with no mobile equivalent yet:
 
-- **Payroll** (salary structures, payslip generation)
+- **Report Card** generation, and the **AI assistant** (chatbot)
+- **Portal Access** (linking parent accounts to students)
 - **Leads** and **Certificates**
-- **Reports** / report-card generation and the **AI chatbot**
-- Global **search**, and file **uploads**
-- Multi-step flows that are web-only: admissions **convert-to-student**,
+- Layout builders (student profile / module layout designers)
+- Global **search**, and file/photo **uploads**
+- Multi-step flows that stay web-only: admissions **convert-to-student**,
   academic-year **promotion runs**, bulk import/export, and PDF downloads
   (timetable, payslips, receipts, report cards)
+
+The web's list pages also have column sorting, column show/hide, saved filters
+and bulk selection; mobile lists currently offer search only.
 
 Relational fields (student, teacher, class) are entered as numeric IDs rather
 than searchable pickers — the main UX follow-up.

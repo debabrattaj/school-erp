@@ -16,13 +16,21 @@ export interface ListColumnConfig {
 }
 
 /** Drawer sections, in the order they appear. */
+/**
+ * Same groups, in the same order, as the web sidebar's GROUP_ORDER
+ * (`frontend/src/components/Sidebar.jsx`), so a user moving between the two
+ * clients finds each module filed where they expect it.
+ */
 export const MODULE_GROUPS = [
+  "Overview",
+  "Finance & Operations",
   "Academics",
-  "People",
-  "Finance",
-  "Student Life",
-  "Facilities",
-  "Admin",
+  "Students",
+  "Admissions",
+  "Student Wellbeing",
+  "Communication & Portal",
+  "People & Access",
+  "Reports & Administration",
 ] as const;
 
 export type ModuleGroup = (typeof MODULE_GROUPS)[number];

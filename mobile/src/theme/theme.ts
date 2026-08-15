@@ -1,20 +1,26 @@
 import { Platform } from "react-native";
 
+/**
+ * Ported 1:1 from the web app's SaaS tokens (`frontend/src/styles.css` `:root`,
+ * the `--saas-*` custom properties) so both clients read as the same product.
+ * Keep these in sync when the web palette changes.
+ */
 export const colors = {
-  primary: "#4F46E5",
-  primaryDark: "#4338CA",
-  primaryTint: "#EEF2FF",
-  primaryBorder: "#C7D2FE",
+  primary: "#5B4FE9", // --saas-primary
+  primaryDark: "#4A3FCF", // --saas-primary-hover
+  primaryTint: "#ECEBFD", // --saas-accent-soft
+  primaryBorder: "#CEC7EF", // --saas-border-strong
+  accent: "#6D5EF0", // --saas-accent
 
-  background: "#F8FAFC",
-  surface: "#FFFFFF",
-  surfaceAlt: "#F1F5F9",
+  background: "#F7F6FE", // --saas-bg
+  surface: "#FFFFFF", // --saas-surface
+  surfaceAlt: "#F2F0FC", // --saas-surface-soft
 
-  border: "#E2E8F0",
-  borderStrong: "#CBD5E1",
+  border: "#E5E2F7", // --saas-border
+  borderStrong: "#CEC7EF", // --saas-border-strong
 
-  text: "#0F172A",
-  textMuted: "#64748B",
+  text: "#14152B", // --saas-text
+  textMuted: "#64748B", // --saas-muted
   textFaint: "#94A3B8",
   onPrimary: "#FFFFFF",
 
@@ -28,10 +34,11 @@ export const colors = {
 
 export const spacing = (n: number) => n * 4;
 
+/** Card radius matches the web's 18px `.stat-card`; buttons are fully pilled. */
 export const radius = {
   sm: 8,
   md: 12,
-  lg: 16,
+  lg: 18,
   xl: 24,
   pill: 999,
 };
@@ -51,10 +58,10 @@ export const type = {
  * Elevation. iOS takes a soft spread shadow, Android only honours `elevation`,
  * so the two are declared separately rather than approximated with one.
  */
-const shadow = (y: number, blur: number, opacity: number, depth: number) =>
+const shadow = (y: number, blur: number, opacity: number, depth: number, tint = "#4C3CA0") =>
   Platform.select({
     ios: {
-      shadowColor: "#0F172A",
+      shadowColor: tint,
       shadowOffset: { width: 0, height: y },
       shadowOpacity: opacity,
       shadowRadius: blur,
@@ -63,11 +70,12 @@ const shadow = (y: number, blur: number, opacity: number, depth: number) =>
     default: {},
   }) as object;
 
+/** Mirrors --saas-shadow-sm / -md / -lg, including the violet-tinted cast. */
 export const elevation = {
   none: {},
-  sm: shadow(1, 2, 0.05, 1),
-  md: shadow(4, 10, 0.07, 3),
-  lg: shadow(10, 22, 0.1, 8),
+  sm: shadow(1, 2, 0.05, 1, "#101828"),
+  md: shadow(12, 28, 0.08, 3),
+  lg: shadow(22, 48, 0.14, 8),
 };
 
 /**

@@ -226,9 +226,10 @@ const styles = StyleSheet.create({
   tile: { alignItems: "center", justifyContent: "center" },
   tileText: { fontWeight: "800", letterSpacing: -0.3 },
 
+  // The web's `.eyebrow`: uppercase, violet, 11px/800, wide tracking.
   sectionLabel: {
     ...type.overline,
-    color: colors.textFaint,
+    color: colors.primary,
     marginTop: spacing(4),
     marginBottom: spacing(2),
   },
@@ -247,30 +248,38 @@ const styles = StyleSheet.create({
   },
   inputFocused: { borderColor: colors.primary, ...elevation.sm },
 
+  // Pill buttons matching the web's .primary-button / .secondary-button:
+  // 999px radius, 700 weight, 40px min height, violet glow on the primary.
   primaryButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing(3.5),
+    borderRadius: radius.pill,
+    minHeight: 44,
+    paddingVertical: spacing(3),
     paddingHorizontal: spacing(5),
     alignItems: "center",
     justifyContent: "center",
-    ...elevation.sm,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 3,
   },
   buttonDisabled: { opacity: 0.45 },
   buttonPressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
   primaryButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 15, letterSpacing: -0.1 },
 
   secondaryButton: {
-    borderRadius: radius.md,
-    paddingVertical: spacing(3.5),
+    borderRadius: radius.pill,
+    minHeight: 44,
+    paddingVertical: spacing(3),
     paddingHorizontal: spacing(5),
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.surface,
   },
-  secondaryButtonText: { color: colors.text, fontWeight: "600", fontSize: 15 },
+  secondaryButtonText: { color: colors.text, fontWeight: "700", fontSize: 15 },
 
   badge: {
     borderRadius: radius.pill,
