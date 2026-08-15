@@ -1,5 +1,5 @@
 import React from "react";
-import { createDrawerNavigator } from "@react-navigation/drawer";
+import { createDrawerNavigator, DrawerToggleButton } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StyleSheet, Text, View } from "react-native";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
@@ -16,10 +16,15 @@ const Drawer = createDrawerNavigator();
 const AttendanceStack = createNativeStackNavigator();
 const MarksStack = createNativeStackNavigator();
 
+// The drawer itself renders no header, so each stack's own header has to carry
+// the control that opens it — without this there is no way in but an edge
+// swipe, which Android's gesture navigation swallows as "back".
+const drawerButton = () => <DrawerToggleButton tintColor={colors.text} />;
+
 function AttendanceStackScreen() {
   return (
     <AttendanceStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }}>
-      <AttendanceStack.Screen name="AttendanceHome" component={AttendanceScreen} options={{ title: "Attendance", headerRight: () => <LogoutButton /> }} />
+      <AttendanceStack.Screen name="AttendanceHome" component={AttendanceScreen} options={{ title: "Attendance", headerLeft: drawerButton, headerRight: () => <LogoutButton /> }} />
     </AttendanceStack.Navigator>
   );
 }
@@ -27,7 +32,7 @@ function AttendanceStackScreen() {
 function MarksStackScreen() {
   return (
     <MarksStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }}>
-      <MarksStack.Screen name="MarksHome" component={MarksScreen} options={{ title: "Marks", headerRight: () => <LogoutButton /> }} />
+      <MarksStack.Screen name="MarksHome" component={MarksScreen} options={{ title: "Marks", headerLeft: drawerButton, headerRight: () => <LogoutButton /> }} />
     </MarksStack.Navigator>
   );
 }
@@ -36,7 +41,7 @@ const DashboardStack = createNativeStackNavigator();
 function DashboardStackScreen() {
   return (
     <DashboardStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }}>
-      <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} options={{ title: "Dashboard", headerRight: () => <LogoutButton /> }} />
+      <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} options={{ title: "Dashboard", headerLeft: drawerButton, headerRight: () => <LogoutButton /> }} />
     </DashboardStack.Navigator>
   );
 }

@@ -64,8 +64,12 @@ export default function LoginScreen() {
           <AppTextInput
             value={accountCode}
             onChangeText={setAccountCode}
-            autoCapitalize="characters"
-            placeholder="e.g. SPRINGDALE"
+            // Codes are matched exactly by the backend (tenant.get_account) and
+            // real ones are lowercase, so forcing capitals here made the field
+            // fight the user and produced a code that could not be found.
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="e.g. springdale"
           />
         </Field>
         <Field label="Email">
