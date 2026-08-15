@@ -122,7 +122,7 @@
   </url>
   <url>
     <loc>https://schoolment.com/blog/</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -263,6 +263,12 @@
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/how-ai-changed-school-management-systems/</loc>
+    <lastmod>2026-08-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://schoolment.com/blog/future-of-edtech-ai-school-administration/</loc>
