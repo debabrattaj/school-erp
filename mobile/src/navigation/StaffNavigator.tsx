@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StyleSheet, Text, View } from "react-native";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
 import AttendanceScreen from "../screens/attendance/AttendanceScreen";
 import MarksScreen from "../screens/marks/MarksScreen";
+import SettingsScreen from "../screens/settings/SettingsScreen";
 import { staffModules } from "../modules/configs";
 import { createModuleStack } from "./ModuleStack";
 import { useAuth } from "../auth/AuthContext";
@@ -41,6 +42,15 @@ function DashboardStackScreen() {
   );
 }
 
+const SettingsStack = createNativeStackNavigator();
+function SettingsStackScreen() {
+  return (
+    <SettingsStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }}>
+      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: "Settings", headerRight: () => <LogoutButton /> }} />
+    </SettingsStack.Navigator>
+  );
+}
+
 function DrawerLabel({ icon, title }: { icon: string; title: string }) {
   return (
     <View style={styles.labelRow}>
@@ -54,9 +64,15 @@ export default function StaffNavigator() {
   const { user } = useAuth();
   const canSee = (feature: string) => hasAccess(user?.permissions, feature, "view");
 
-  const moduleStacks = staffModules
-    .filter((m) => canSee(m.feature))
-    .map((m) => ({ config: m, Component: createModuleStack(m) }));
+  // Built once per session: createModuleStack returns a fresh component type, so
+  // rebuilding it on every render would remount every module stack.
+  const moduleStacks = useMemo(
+    () =>
+      staffModules
+        .filter((m) => canSee(m.feature))
+        .map((m) => ({ config: m, Component: createModuleStack(m) })),
+    [user?.permissions]
+  );
 
   return (
     <Drawer.Navigator screenOptions={{ headerShown: false, drawerActiveTintColor: colors.primary }}>
@@ -89,6 +105,13 @@ export default function StaffNavigator() {
           options={{ drawerLabel: () => <DrawerLabel icon={config.icon} title={config.title} /> }}
         />
       ))}
+      {canSee("settings") && (
+        <Drawer.Screen
+          name="Settings"
+          component={SettingsStackScreen}
+          options={{ drawerLabel: () => <DrawerLabel icon="⚙️" title="Settings" /> }}
+        />
+      )}
     </Drawer.Navigator>
   );
 }

@@ -5,7 +5,7 @@ to the existing FastAPI backend — no backend changes are required. This replac
 the earlier Kotlin/Compose-only Android app (`android/`), which covered only the
 Parent/Student portal; this app also covers staff-facing modules.
 
-## What's built (Phase 1)
+## What's built
 
 - **Auth** — school code + email + password login, TOTP MFA support, configurable
   API server URL (Login screen → **Server settings**). Session persisted locally.
@@ -14,23 +14,38 @@ Parent/Student portal; this app also covers staff-facing modules.
   the web frontend's nav), so an Admin, Teacher, Accounts user, etc. each see only
   what they're allowed to. Parent/Student accounts land on a dedicated portal
   instead of the staff drawer.
-- **Staff modules**: Dashboard (summary stats), Students, Teachers, Classes, Exams
-  (list/create/edit/delete), Attendance (mark by class + date), Marks (enter by
-  exam + subject), Fees (list/create/edit/delete).
+- **Bespoke staff screens**: Dashboard (summary stats), Attendance (mark a whole
+  class for a date), Marks (enter marks by exam + subject), Settings (school
+  profile / academic / fee / grading config).
+- **CRUD staff modules** (list, search, detail, create, edit, delete):
+  Students, Teachers, Classes, Exams, Fees, Accounting, Timetable, Homework,
+  Online Tests, Admissions, Communications, Student Services, Counseling,
+  Enrichment, Compliance, International Documents, Multi-Curriculum,
+  Academic Years, Hostel, Transport, Health Infirmary, Mess Management, Library,
+  Inventory, Alumni & Exit, Master Data, User Management.
 - **Parent/Student portal**: My Children → per-child Profile, Attendance, Marks,
   Fees (with UPI payment: opens the deep link in any UPI app, then records the
   reference/UTR back to the school) — full feature parity with the old native
   Android app.
 
-## What's not built yet
+## Known gaps
 
-The backend has ~30 modules (Admissions, Hostel, Transport, Library, Payroll,
-Communications, Counseling, Compliance, Health/Infirmary, Mess, Inventory,
-Alumni/Withdrawals, Timetable, Homework, Online Tests, Multi-Curriculum,
-International Documents, Master Data, User Management, Settings, Academic Years,
-Enrichment, Student Services, Accounting…). Only the highest-priority ones are
-implemented so far. Adding another CRUD module is mostly config, not new code —
-see **Adding a new module** below.
+Each CRUD module covers its primary record type. A few backend modules have
+secondary sub-resources or bespoke flows the app doesn't surface yet:
+
+- **Hostel** — blocks only (rooms, allocations not yet exposed).
+- **Transport** — routes only (vehicles, stops not yet exposed).
+- **Library** — books only (issue/return not yet exposed).
+- **Inventory** — items only (transactions, bulk issue not yet exposed).
+- **Mess** — menus only (mess attendance not yet exposed).
+- **Communications** — templates only (send logs not yet exposed).
+- **Online Tests** — test definitions only (questions, results not yet exposed).
+- **Payroll**, **Reports**, and the **AI chatbot** have no mobile screens yet.
+- Admissions **convert-to-student**, academic-year **promotion runs**, PDF/report
+  downloads, and file uploads are web-only for now.
+
+Relational fields (student, teacher, class) are entered as numeric IDs rather
+than pickers — a searchable reference picker is the main UX follow-up.
 
 ## Project layout
 
