@@ -65,6 +65,12 @@ p { margin: 0; }
   border-radius: var(--radius-sm);
 }
 .container { width: min(100% - 2.5rem, var(--maxw)); margin-inline: auto; }
+
+/* Line icons. Sized in em so each container's own font-size still drives them. */
+.icon {
+  width: 1.15em; height: 1.15em; flex: 0 0 auto;
+  display: inline-block; vertical-align: -.19em;
+}
 .eyebrow {
   display: inline-block;
   font-size: .75rem;
@@ -165,7 +171,7 @@ p { margin: 0; }
   color: var(--text); font-size: .92rem; font-weight: 500;
 }
 .nav-dropdown a:hover { background: var(--surface-2); color: var(--brand); }
-.nav-dropdown a .mod-icon { font-size: 1rem; }
+.nav-dropdown a .mod-icon { font-size: 1rem; color: var(--brand); display: inline-flex; }
 
 @media (max-width: 920px) {
   .nav-item { width: 100%; }
@@ -301,8 +307,10 @@ p { margin: 0; }
 .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
 .card-icon {
   width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center;
-  font-size: 1.35rem; background: var(--surface-2);
-  border: 1px solid var(--border); margin-bottom: 1rem;
+  font-size: 1.35rem; color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
+  margin-bottom: 1rem;
 }
 .card h3 { font-size: 1.075rem; margin-bottom: .5rem; }
 .card p { color: var(--muted); font-size: .96rem; }
@@ -549,7 +557,10 @@ p { margin: 0; }
 .feature-card h3 { font-size: 1.05rem; margin-bottom: .5rem; display: flex; align-items: center; gap: .55rem; }
 .feature-card h3 .f-icon {
   width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
-  background: var(--surface-2); border: 1px solid var(--border); font-size: 1rem; flex: 0 0 auto;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
+  font-size: 1rem; flex: 0 0 auto;
 }
 .feature-card p { color: var(--muted); font-size: .95rem; }
 
