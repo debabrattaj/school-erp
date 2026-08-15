@@ -3,8 +3,8 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { ModuleConfig } from "../../modules/types";
-import { AppTextInput, EmptyView, ErrorView, LoadingView } from "../../components/Common";
-import { colors, spacing } from "../../theme/theme";
+import { AppTextInput, EmptyView, ErrorView, LoadingView, Tile } from "../../components/Common";
+import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -64,22 +64,35 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
           data={filtered}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: spacing(4) }}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.row}
-              onPress={() => navigation.navigate(`${config.key}Detail`, { id: item.id })}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>
-                  {item[config.titleField]} {item.last_name ? item.last_name : ""}
-                </Text>
-                {config.subtitleField && item[config.subtitleField] ? (
-                  <Text style={styles.subtitle}>{item[config.subtitleField]}</Text>
-                ) : null}
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          )}
+          renderItem={({ item }) => {
+            const title = `${item[config.titleField] ?? ""} ${item.last_name ?? ""}`.trim();
+            const initials =
+              title
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((w: string) => w[0]?.toUpperCase())
+                .join("") || config.icon;
+            return (
+              <Pressable
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                onPress={() => navigation.navigate(`${config.key}Detail`, { id: item.id })}
+              >
+                <Tile label={initials} size={38} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {title || "Untitled"}
+                  </Text>
+                  {config.subtitleField && item[config.subtitleField] ? (
+                    <Text style={styles.subtitle} numberOfLines={1}>
+                      {item[config.subtitleField]}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
@@ -88,26 +101,37 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  searchRow: { flexDirection: "row", padding: spacing(4), gap: spacing(2) },
+  searchRow: {
+    flexDirection: "row",
+    paddingHorizontal: spacing(4),
+    paddingTop: spacing(3),
+    paddingBottom: spacing(2),
+    gap: spacing(2),
+  },
   searchInput: { flex: 1 },
   addButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing(4),
     justifyContent: "center",
+    ...elevation.sm,
   },
-  addButtonText: { color: "#fff", fontWeight: "700" },
+  addButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 14 },
   row: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing(3),
     backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing(4),
-    marginBottom: spacing(2.5),
+    borderRadius: radius.lg,
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(3.5),
+    marginBottom: spacing(2),
     borderWidth: 1,
     borderColor: colors.border,
+    ...elevation.sm,
   },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  chevron: { fontSize: 22, color: colors.textMuted },
+  rowPressed: { backgroundColor: colors.surfaceAlt, transform: [{ scale: 0.995 }] },
+  title: { ...type.heading, color: colors.text },
+  subtitle: { ...type.caption, color: colors.textMuted, marginTop: 2, fontWeight: "500" },
+  chevron: { fontSize: 22, color: colors.textFaint },
 });

@@ -1,15 +1,16 @@
 import React from "react";
 import { createDrawerNavigator, DrawerToggleButton } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { StyleSheet, Text, View } from "react-native";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
 import AttendanceScreen from "../screens/attendance/AttendanceScreen";
 import MarksScreen from "../screens/marks/MarksScreen";
 import { staffModules } from "../modules/configs";
+import { MODULE_GROUPS, ModuleConfig } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
+import DrawerContent from "./DrawerContent";
 import { useAuth } from "../auth/AuthContext";
 import { hasAccess } from "../auth/types";
-import { colors, spacing } from "../theme/theme";
+import { colors } from "../theme/theme";
 import LogoutButton from "./LogoutButton";
 
 const Drawer = createDrawerNavigator();
@@ -46,13 +47,14 @@ function DashboardStackScreen() {
   );
 }
 
-function DrawerLabel({ icon, title }: { icon: string; title: string }) {
-  return (
-    <View style={styles.labelRow}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.labelText}>{title}</Text>
-    </View>
-  );
+/**
+ * Modules are ordered by their drawer group so the sectioned drawer renders
+ * each heading once, in MODULE_GROUPS order, rather than interleaved.
+ */
+function byGroupOrder(a: ModuleConfig, b: ModuleConfig) {
+  const ga = MODULE_GROUPS.indexOf(a.group);
+  const gb = MODULE_GROUPS.indexOf(b.group);
+  return ga === gb ? a.title.localeCompare(b.title) : ga - gb;
 }
 
 export default function StaffNavigator() {
@@ -61,29 +63,38 @@ export default function StaffNavigator() {
 
   const moduleStacks = staffModules
     .filter((m) => canSee(m.feature))
+    .slice()
+    .sort(byGroupOrder)
     .map((m) => ({ config: m, Component: createModuleStack(m) }));
 
   return (
-    <Drawer.Navigator screenOptions={{ headerShown: false, drawerActiveTintColor: colors.primary }}>
+    <Drawer.Navigator
+      drawerContent={(props) => <DrawerContent {...props} />}
+      screenOptions={{
+        headerShown: false,
+        drawerType: "front",
+        drawerStyle: { width: 312 },
+      }}
+    >
       {canSee("dashboard") && (
         <Drawer.Screen
           name="Dashboard"
           component={DashboardStackScreen}
-          options={{ drawerLabel: () => <DrawerLabel icon="📊" title="Dashboard" /> }}
+          options={{ drawerLabel: "Dashboard", drawerIcon: "Db", drawerGroup: "Overview" } as any}
         />
       )}
       {canSee("attendance") && (
         <Drawer.Screen
           name="Attendance"
           component={AttendanceStackScreen}
-          options={{ drawerLabel: () => <DrawerLabel icon="🗓️" title="Attendance" /> }}
+          options={{ drawerLabel: "Attendance", drawerIcon: "At", drawerGroup: "Overview" } as any}
         />
       )}
       {canSee("marks") && (
         <Drawer.Screen
           name="Marks"
           component={MarksStackScreen}
-          options={{ drawerLabel: () => <DrawerLabel icon="📈" title="Marks" /> }}
+          options={{ drawerLabel: "Marks", drawerIcon: "Mk", drawerGroup: "Overview" } as any}
         />
       )}
       {moduleStacks.map(({ config, Component }) => (
@@ -91,15 +102,15 @@ export default function StaffNavigator() {
           key={config.key}
           name={config.key}
           component={Component}
-          options={{ drawerLabel: () => <DrawerLabel icon={config.icon} title={config.title} /> }}
+          options={
+            {
+              drawerLabel: config.title,
+              drawerIcon: config.icon,
+              drawerGroup: config.group,
+            } as any
+          }
         />
       ))}
     </Drawer.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  labelRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing(1) },
-  icon: { fontSize: 18, marginRight: spacing(3) },
-  labelText: { fontSize: 15, fontWeight: "600", color: colors.text },
-});

@@ -1,9 +1,11 @@
 import { ModuleConfig } from "./types";
+import * as generated from "./generated";
 
 export const studentsModule: ModuleConfig = {
   key: "students",
   title: "Students",
-  icon: "🎓",
+  icon: "St",
+  group: "People",
   feature: "students",
   endpoint: "/students",
   titleField: "first_name",
@@ -50,7 +52,8 @@ export const studentsModule: ModuleConfig = {
 export const teachersModule: ModuleConfig = {
   key: "teachers",
   title: "Teachers",
-  icon: "🧑‍🏫",
+  icon: "Te",
+  group: "People",
   feature: "teachers",
   endpoint: "/teachers",
   titleField: "name",
@@ -86,7 +89,8 @@ export const teachersModule: ModuleConfig = {
 export const classesModule: ModuleConfig = {
   key: "classes",
   title: "Classes",
-  icon: "🏫",
+  icon: "Cl",
+  group: "Academics",
   feature: "classes",
   endpoint: "/classes",
   titleField: "class_name",
@@ -112,7 +116,8 @@ export const classesModule: ModuleConfig = {
 export const examsModule: ModuleConfig = {
   key: "exams",
   title: "Exams",
-  icon: "📝",
+  icon: "Ex",
+  group: "Academics",
   feature: "exams",
   endpoint: "/exams",
   titleField: "exam_name",
@@ -140,7 +145,8 @@ export const examsModule: ModuleConfig = {
 export const feesModule: ModuleConfig = {
   key: "fees",
   title: "Fees",
-  icon: "💰",
+  icon: "Fe",
+  group: "Finance",
   feature: "fees",
   endpoint: "/fees",
   titleField: "fee_type",
@@ -168,4 +174,11 @@ export const feesModule: ModuleConfig = {
   allowDelete: true,
 };
 
-export const staffModules: ModuleConfig[] = [studentsModule, teachersModule, classesModule, examsModule, feesModule];
+export const staffModules: ModuleConfig[] = [
+  studentsModule,
+  teachersModule,
+  classesModule,
+  examsModule,
+  feesModule,
+  ...Object.values(generated).filter((m): m is ModuleConfig => typeof m === "object" && m !== null && "endpoint" in m),
+];

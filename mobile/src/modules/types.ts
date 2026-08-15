@@ -15,10 +15,24 @@ export interface ListColumnConfig {
   primary?: boolean;
 }
 
+/** Drawer sections, in the order they appear. */
+export const MODULE_GROUPS = [
+  "Academics",
+  "People",
+  "Finance",
+  "Student Life",
+  "Facilities",
+  "Admin",
+] as const;
+
+export type ModuleGroup = (typeof MODULE_GROUPS)[number];
+
 export interface ModuleConfig {
   key: string;
   title: string;
+  /** Short monogram shown on the drawer/list tile. */
   icon: string;
+  group: ModuleGroup;
   feature: string;
   endpoint: string;
   titleField: string;

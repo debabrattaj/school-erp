@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth, ApiError } from "../auth/AuthContext";
 import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
-import { colors, spacing } from "../theme/theme";
+import { colors, elevation, radius, spacing, type } from "../theme/theme";
 import { DEFAULT_API_BASE_URL, getApiBase, setApiBase } from "../api/client";
 
 export default function LoginScreen() {
@@ -57,9 +57,15 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>School ERP</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <View style={styles.brand}>
+          <View style={styles.logo}>
+            <Text style={styles.logoText}>S</Text>
+          </View>
+          <Text style={styles.title}>School ERP</Text>
+          <Text style={styles.subtitle}>Sign in to continue</Text>
+        </View>
 
+        <View style={styles.card}>
         <Field label="School code">
           <AppTextInput
             value={accountCode}
@@ -119,6 +125,7 @@ export default function LoginScreen() {
             <SecondaryButton title="Save" onPress={saveServerUrl} style={{ marginTop: spacing(2) }} />
           </Field>
         )}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -126,8 +133,39 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, justifyContent: "center", padding: spacing(6) },
-  title: { fontSize: 30, fontWeight: "800", color: colors.primaryDark, textAlign: "center" },
-  subtitle: { fontSize: 15, color: colors.textMuted, textAlign: "center", marginBottom: spacing(8) },
-  error: { color: colors.danger, marginBottom: spacing(3), textAlign: "center" },
+  container: { flexGrow: 1, justifyContent: "center", padding: spacing(5) },
+
+  brand: { alignItems: "center", marginBottom: spacing(6) },
+  logo: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing(3),
+    ...elevation.md,
+  },
+  logoText: { color: colors.onPrimary, fontSize: 26, fontWeight: "800" },
+  title: { ...type.display, color: colors.text, textAlign: "center" },
+  subtitle: { ...type.body, color: colors.textMuted, textAlign: "center", marginTop: spacing(1) },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing(5),
+    ...elevation.md,
+  },
+  error: {
+    ...type.label,
+    color: colors.danger,
+    backgroundColor: colors.dangerTint,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(2),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(3),
+    textAlign: "center",
+  },
 });
