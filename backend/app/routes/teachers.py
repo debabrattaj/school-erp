@@ -1,14 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
+from app.security import require_roles
 from app import models, schemas
 
 router = APIRouter(
     prefix="/teachers",
     tags=["Teachers"]
 )
+
+BULK_IMPORT_COLUMNS = [
+    "employee_no",
+    "name",
+    "email",
+    "phone",
+    "gender",
+    "department",
+    "subject",
+    "assigned_class",
+    "qualification",
+    "joining_date",
+    "employment_type",
+    "salary_grade",
+    "address",
+]
 
 
 def get_teacher_display_name(teacher: models.Teacher):
@@ -76,6 +95,99 @@ def sync_class_teacher_from_teacher(db: Session, db_teacher: models.Teacher):
     else:
         db_teacher.is_class_teacher = False
         db_teacher.class_id = None
+
+
+@router.get("/bulk-import-template")
+def bulk_import_template(
+    current_user: models.User = Depends(require_roles(["Admin", "Principal"]))
+):
+    return csv_template_response(
+        BULK_IMPORT_COLUMNS,
+        {
+            "employee_no": "EMP2026101",
+            "name": "Priya Sharma",
+            "email": "priya.sharma@example.com",
+            "phone": "9876543210",
+            "gender": "Female",
+            "department": "Science",
+            "subject": "Physics",
+            "assigned_class": "10-A",
+            "qualification": "M.Sc, B.Ed",
+            "joining_date": "2026-06-01",
+            "employment_type": "Full Time",
+            "salary_grade": "Grade 3",
+            "address": "12 Park Street, Bhubaneswar",
+        },
+        "teachers_import_template.csv",
+    )
+
+
+@router.post("/bulk-import")
+def bulk_import_teachers(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(["Admin", "Principal"])),
+):
+    rows, unknown_columns = read_csv_upload(file, BULK_IMPORT_COLUMNS)
+
+    seen_employee_nos = set()
+    seen_emails = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        employee_no = cleaned.get("employee_no")
+        if not employee_no:
+            errors.append({"row": row_index, "error": "employee_no is required"})
+            continue
+        if not cleaned.get("name"):
+            errors.append({"row": row_index, "error": "name is required"})
+            continue
+
+        if employee_no in seen_employee_nos:
+            errors.append({"row": row_index, "error": f"Duplicate employee_no in file: {employee_no}"})
+            continue
+        if db.query(models.Teacher).filter(models.Teacher.employee_no == employee_no).first():
+            errors.append({"row": row_index, "error": f"employee_no already exists: {employee_no}"})
+            continue
+
+        email = cleaned.get("email")
+        if email:
+            if email in seen_emails:
+                errors.append({"row": row_index, "error": f"Duplicate email in file: {email}"})
+                continue
+            if db.query(models.Teacher).filter(models.Teacher.email == email).first():
+                errors.append({"row": row_index, "error": f"email already exists: {email}"})
+                continue
+
+        try:
+            validated = schemas.TeacherCreate(**cleaned)
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        seen_employee_nos.add(employee_no)
+        if email:
+            seen_emails.add(email)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(models.Teacher(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.get("/", response_model=list[schemas.TeacherResponse])

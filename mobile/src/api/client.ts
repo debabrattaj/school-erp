@@ -1,8 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Emulator alias for host localhost; override at runtime from the login screen's
-// "Server settings", same pattern as the native Android app this replaces.
-export const DEFAULT_API_BASE_URL = "http://10.0.2.2:8000";
+// The live backend on cPanel — the same origin the admin frontend is built
+// against (VITE_API_BASE_URL in .cpanel.yml). No trailing slash: request paths
+// are concatenated onto this as-is. Override at runtime from the login screen's
+// "Server settings" (e.g. http://10.0.2.2:8000 to reach a local backend from the
+// Android emulator), same pattern as the native Android app this replaces.
+export const DEFAULT_API_BASE_URL = "https://schoolment.com/school-erp";
 
 const TOKEN_KEY = "school_erp_token";
 const ACCOUNT_CODE_KEY = "school_erp_account_code";

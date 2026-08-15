@@ -19,6 +19,45 @@
 # This file does NOT create the Cron Job that fires run_scheduled_fees.py —
 # that's a one-time manual step in cPanel's Cron Jobs page (see SETUP.md
 # "Scheduled fee auto-generation" -> "Wiring it up in cPanel").
+#
+# The marketing site (landing-page/) is plain static HTML/CSS/JS — no build
+# step, no Node process. It deploys by mirroring landing-page/ straight into
+# the domain's document root with rsync --delete, so the docroot always ends
+# up an exact copy of what's in git (anything removed from landing-page/ is
+# removed from the live docroot too). PUBLIC_HTML below MUST be changed to
+# schoolment.com's real document root before this runs — see SETUP.md
+# "Marketing site deployment" for how to find it and for the --delete caveat.
+#
+# CRITICAL: PUBLIC_HTML is NOT exclusive to the marketing site. Known
+# subdirectories that must stay excluded:
+#   - school-admin/  — the admin app frontend. This is ALSO the document
+#                      root of the login.schoolment.com subdomain, and is
+#                      where frontend/'s build output gets deployed below.
+#   - school-erp/    — Passenger routing stub for the backend Python App,
+#                      mounted at schoolment.com/school-erp (App Root is
+#                      elsewhere, at repositories/school-erp/backend, but
+#                      cPanel still creates this path stub under the docroot)
+#   - nodebuild/     — docroot of the nodebuild.schoolment.com subdomain,
+#                      used only to provision the Node/npm build environment
+#                      for frontend/ (see SETUP.md §17), never started as a
+#                      live app
+#   - .well-known/   — SSL/ACME verification files
+#   - cgi-bin/       — cPanel's own cgi-bin
+# --delete will erase any of these the next time this runs if they're not
+# excluded (this has already happened once to school-admin — see git
+# history / SETUP.md §16). If anything else ever gets added under
+# $PUBLIC_HTML outside of landing-page/'s own files, add it to --exclude
+# here BEFORE the next deploy, not after.
+#
+# frontend/ (the admin app) is a Vite/React SPA — no live Node process, just
+# npm/node available (via the nodebuild.schoolment.com Node App's nodevenv)
+# to run `npm ci && npm run build`, then the static dist/ output is rsynced
+# into school-admin/. Built with base='/' (Vite's default) since
+# login.schoolment.com's docroot IS school-admin/ directly — the app is
+# meant to be reached at that subdomain's root, not at a /school-admin/
+# subpath under the main domain (see frontend/vite.config.js). See
+# SETUP.md §18 for the full explanation, the nodevenv path, and the CORS
+# setting this depends on.
 ---
 deployment:
   tasks:
@@ -28,3 +67,9 @@ deployment:
     - cd $DEPLOYPATH/backend && python manage_migrations.py upgrade head
     - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
+    - export PUBLIC_HTML=/home/schoolm1/public_html
+    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' --exclude='nodebuild' --exclude='school-erp' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+    - source /home/schoolm1/nodevenv/repositories/school-erp/frontend/20/bin/activate
+    - cd $DEPLOYPATH/frontend && npm ci
+    - cd $DEPLOYPATH/frontend && VITE_API_BASE_URL=https://schoolment.com/school-erp npm run build
+    - /usr/bin/rsync -a --delete --exclude='.well-known' $DEPLOYPATH/frontend/dist/ $PUBLIC_HTML/school-admin/

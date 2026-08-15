@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import SchoolClass, SchoolSettings, User
 from app.schemas import (
@@ -14,6 +16,8 @@ router = APIRouter(
     prefix="/classes",
     tags=["Academic Structure"]
 )
+
+BULK_IMPORT_COLUMNS = ["class_name", "section", "room_no", "academic_year"]
 
 def get_class_teacher_label(teacher):
     name = teacher.name or "Unknown Teacher"
@@ -110,6 +114,89 @@ def get_classes(
         SchoolClass.class_name,
         SchoolClass.section
     ).all()
+
+
+@router.get("/bulk-import-template")
+def bulk_import_template(
+    current_user: User = Depends(require_roles(["Admin", "Principal"]))
+):
+    return csv_template_response(
+        BULK_IMPORT_COLUMNS,
+        {
+            "class_name": "8",
+            "section": "A",
+            "room_no": "204",
+            "academic_year": "2026-27",
+        },
+        "classes_import_template.csv",
+    )
+
+
+@router.post("/bulk-import")
+def bulk_import_classes(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    rows, unknown_columns = read_csv_upload(file, BULK_IMPORT_COLUMNS)
+
+    seen = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        class_name = cleaned.get("class_name")
+        section = cleaned.get("section")
+        if not class_name:
+            errors.append({"row": row_index, "error": "class_name is required"})
+            continue
+        if not section:
+            errors.append({"row": row_index, "error": "section is required"})
+            continue
+
+        key = (class_name.strip().lower(), section.strip().lower())
+        if key in seen:
+            errors.append({"row": row_index, "error": f"Duplicate class/section in file: {class_name} {section}"})
+            continue
+        if (
+            db.query(models.SchoolClass)
+            .filter(models.SchoolClass.class_name == class_name, models.SchoolClass.section == section)
+            .first()
+        ):
+            errors.append({"row": row_index, "error": f"Class with this section already exists: {class_name} {section}"})
+            continue
+
+        try:
+            validated = schemas.SchoolClassCreate(**cleaned)
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        seen.add(key)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(models.SchoolClass(
+                class_name=validated.class_name,
+                section=validated.section,
+                room_no=validated.room_no,
+                academic_year=validated.academic_year,
+            ))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.get("/{class_id}", response_model=SchoolClassResponse)

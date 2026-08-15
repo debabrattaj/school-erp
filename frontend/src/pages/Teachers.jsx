@@ -5,6 +5,7 @@ import {
   Edit,
   PlusCircle,
   Eye,
+  Upload,
   X,
   GraduationCap,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import {
   deleteAllModuleCustomFields,
 } from "../services/moduleCustomFieldService";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 
 const MODULE_NAME = "Teachers";
 
@@ -264,6 +266,7 @@ export default function Teachers() {
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
   const [layout, setLayout] = useState(repairTeacherLayout(fallbackTeacherLayout));
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const [dropdownValues, setDropdownValues] = useState({});
   const [formData, setFormData] = useState(emptyTeacherForm);
@@ -954,12 +957,32 @@ export default function Teachers() {
         </div>
 
         <div className="module-header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload size={17} />
+            Import CSV
+          </button>
           <button type="button" className="primary-button" onClick={handleAddTeacher}>
             <PlusCircle size={18} />
             Add Teacher
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Teachers"
+          description="Upload a CSV file to create multiple teachers at once."
+          templateUrl="/teachers/bulk-import-template"
+          templateFilename="teachers_import_template.csv"
+          importUrl="/teachers/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadTeachers}
+        />
+      )}
 
       <section className="summary-strip report-summary-grid">
         <div className="summary-card">

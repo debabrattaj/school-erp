@@ -1,13 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import LibraryBook, LibraryIssue, Student, User
 from app.schemas import LibraryBookCreate, LibraryBookResponse, LibraryIssueCreate, LibraryIssueResponse
 from app.security import require_roles
 
 router = APIRouter(prefix="/library", tags=["Library"])
+
+BOOK_BULK_IMPORT_COLUMNS = [
+    "accession_no",
+    "title",
+    "author",
+    "category",
+    "publisher",
+    "isbn",
+    "total_copies",
+    "shelf_no",
+    "remarks",
+]
 
 
 def get_or_404(db: Session, model, record_id: int, label: str):
@@ -70,6 +84,104 @@ def create_book(
         raise HTTPException(status_code=400, detail="Accession number already exists")
     db.refresh(book)
     return book
+
+
+@router.get("/books/bulk-import-template")
+def bulk_import_books_template(
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    return csv_template_response(
+        BOOK_BULK_IMPORT_COLUMNS,
+        {
+            "accession_no": "ACC-1001",
+            "title": "Wings of Fire",
+            "author": "A.P.J. Abdul Kalam",
+            "category": "Biography",
+            "publisher": "Universities Press",
+            "isbn": "9788173711466",
+            "total_copies": "3",
+            "shelf_no": "B-12",
+            "remarks": "",
+        },
+        "library_books_import_template.csv",
+    )
+
+
+@router.post("/books/bulk-import")
+def bulk_import_books(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    rows, unknown_columns = read_csv_upload(file, BOOK_BULK_IMPORT_COLUMNS)
+
+    seen = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        accession_no = cleaned.get("accession_no")
+        if not accession_no:
+            errors.append({"row": row_index, "error": "accession_no is required"})
+            continue
+        if not cleaned.get("title"):
+            errors.append({"row": row_index, "error": "title is required"})
+            continue
+
+        if accession_no in seen:
+            errors.append({"row": row_index, "error": f"Duplicate accession_no in file: {accession_no}"})
+            continue
+        if db.query(LibraryBook).filter(LibraryBook.accession_no == accession_no).first():
+            errors.append({"row": row_index, "error": f"Accession number already exists: {accession_no}"})
+            continue
+
+        try:
+            total_copies = int(cleaned["total_copies"]) if cleaned.get("total_copies") else 1
+        except ValueError:
+            errors.append({"row": row_index, "error": "total_copies must be a whole number"})
+            continue
+
+        try:
+            validated = LibraryBookCreate(
+                accession_no=accession_no,
+                title=cleaned["title"],
+                author=cleaned.get("author"),
+                category=cleaned.get("category"),
+                publisher=cleaned.get("publisher"),
+                isbn=cleaned.get("isbn"),
+                total_copies=total_copies,
+                available_copies=total_copies,
+                shelf_no=cleaned.get("shelf_no"),
+                remarks=cleaned.get("remarks"),
+            )
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        if validated.total_copies < 0:
+            errors.append({"row": row_index, "error": "Copies cannot be negative"})
+            continue
+
+        seen.add(accession_no)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(LibraryBook(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.put("/books/{book_id}", response_model=LibraryBookResponse)

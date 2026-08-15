@@ -5,12 +5,14 @@ import {
   Edit,
   PlusCircle,
   Trash2,
+  Upload,
   UserCheck,
 } from "lucide-react";
 
 import API from "../api";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 
 const emptyBlockForm = {
   block_name: "",
@@ -64,6 +66,7 @@ function getStudentName(student) {
 
 export default function Hostel() {
   const [activeTab, setActiveTab] = useState("blocks");
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [blocks, setBlocks] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [allocations, setAllocations] = useState([]);
@@ -499,7 +502,27 @@ export default function Hostel() {
                 <h3>{editing.type === "room" ? "Edit Hostel Room" : "Add Hostel Room"}</h3>
                 <p>Set room capacity and keep bed availability accurate.</p>
               </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowBulkImport(true)}
+              >
+                <Upload size={17} />
+                Import CSV
+              </button>
             </div>
+
+            {showBulkImport && (
+              <BulkImportModal
+                title="Bulk Import Hostel Rooms"
+                description="Upload a CSV file to create multiple rooms at once. The hostel block must already exist — create it on the Blocks tab first."
+                templateUrl="/hostel/rooms/bulk-import-template"
+                templateFilename="hostel_rooms_import_template.csv"
+                importUrl="/hostel/rooms/bulk-import"
+                onClose={() => setShowBulkImport(false)}
+                onImported={loadPageData}
+              />
+            )}
 
             <form className="classic-form" onSubmit={saveRoom}>
               <div className="form-grid">

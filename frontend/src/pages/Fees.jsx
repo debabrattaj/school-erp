@@ -9,6 +9,7 @@ import {
   Trash2,
   PlusCircle,
   Eye,
+  Upload,
   X,
   Wallet,
   Settings2,
@@ -17,8 +18,10 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { isFeatureEnabled } from "../auth";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyFeeForm = {
@@ -212,6 +215,7 @@ export default function Fees() {
   const [academicYears, setAcademicYears] = useState([]);
   const [classOptionsMaster, setClassOptionsMaster] = useState([]);
   const [feeStructures, setFeeStructures] = useState([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const [formData, setFormData] = useState(emptyFeeForm);
   const [editingId, setEditingId] = useState(null);
@@ -224,6 +228,7 @@ export default function Fees() {
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
   const [editingStructureId, setEditingStructureId] = useState(null);
+  const feeAutoGenEnabled = isFeatureEnabled("fee_auto_generation");
 
   const [showGenerationHistory, setShowGenerationHistory] = useState(false);
   const [generationRuns, setGenerationRuns] = useState([]);
@@ -1401,18 +1406,32 @@ export default function Fees() {
               <div className="form-grid">
                 <div className="form-field">
                   <label>Auto-generate on a schedule</label>
-                  <label className="switch-row">
+                  <label
+                    className="switch-row"
+                    title={
+                      feeAutoGenEnabled
+                        ? undefined
+                        : "The platform owner hasn't enabled automatic fee generation for this school yet."
+                    }
+                  >
                     <input
                       type="checkbox"
                       name="auto_generate"
                       checked={structureForm.auto_generate}
+                      disabled={!feeAutoGenEnabled}
                       onChange={handleStructureFormChange}
                     />
                     <span>{structureForm.auto_generate ? "On" : "Off"}</span>
                   </label>
                   <small>
-                    When on, this fee is billed automatically to every matching
-                    student — no one needs to run "Add Fee for Class" by hand.
+                    {feeAutoGenEnabled ? (
+                      <>
+                        When on, this fee is billed automatically to every matching
+                        student — no one needs to run "Add Fee for Class" by hand.
+                      </>
+                    ) : (
+                      "Disabled by platform owner — ask them to enable automatic fee generation for this school first."
+                    )}
                   </small>
                 </div>
 
@@ -1504,11 +1523,33 @@ export default function Fees() {
                 <h3>Configured Fee Structures ({feeStructures.length})</h3>
               </div>
 
-              <button type="button" className="secondary-button" onClick={openGenerationHistory}>
-                <History size={17} />
-                Auto-Generation History
-              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Upload size={17} />
+                  Import CSV
+                </button>
+                <button type="button" className="secondary-button" onClick={openGenerationHistory}>
+                  <History size={17} />
+                  Auto-Generation History
+                </button>
+              </div>
             </div>
+
+            {showBulkImport && (
+              <BulkImportModal
+                title="Bulk Import Fee Structures"
+                description="Upload a CSV file to create multiple fee structures at once. Auto-generation stays off for imported rows — turn it on per structure afterward."
+                templateUrl="/fee-structures/bulk-import-template"
+                templateFilename="fee_structures_import_template.csv"
+                importUrl="/fee-structures/bulk-import"
+                onClose={() => setShowBulkImport(false)}
+                onImported={loadFeeStructures}
+              />
+            )}
 
             <div className="table-wrapper">
               <table className="classic-table">

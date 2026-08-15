@@ -17,12 +17,21 @@ Parent/Student portal; this app also covers staff-facing modules.
 - **Bespoke staff screens**: Dashboard (summary stats), Attendance (mark a whole
   class for a date), Marks (enter marks by exam + subject), Settings (school
   profile / academic / fee / grading config).
-- **CRUD staff modules** (list, search, detail, create, edit, delete):
-  Students, Teachers, Classes, Exams, Fees, Accounting, Timetable, Homework,
-  Online Tests, Admissions, Communications, Student Services, Counseling,
-  Enrichment, Compliance, International Documents, Multi-Curriculum,
-  Academic Years, Hostel, Transport, Health Infirmary, Mess Management, Library,
-  Inventory, Alumni & Exit, Master Data, User Management.
+- **44 CRUD modules** (list, search, detail, create, edit, delete), grouped in the
+  drawer. Most are auto-derived from the deployed OpenAPI schema
+  (`src/modules/generated.ts`) and then curated:
+  - **People** — Students, Teachers, Users, Roles, Enrollments, Admissions,
+    Admission Stages, Admission Tests, Alumni & Exits
+  - **Academics** — Classes, Class Subjects, Class Exam Mapping, Subjects,
+    Curricula, Exams, Exam Components, Exam Templates, Timetable, Homework,
+    Online Tests, Academic Years
+  - **Finance** — Fees, Fee Structures, Accounting
+  - **Facilities** — Hostel Blocks, Hostel Rooms, Room Allocations, Routes, Stops,
+    Vehicles, Transport Assignments, Library Books, Book Issues, Inventory,
+    Mess Menus, Mess Attendance
+  - **Student Life** — Counseling, Enrichment, Compliance, Student Services,
+    Infirmary Visits, Intl. Documents
+  - **Admin** — Master Data, Message Templates
 - **Parent/Student portal**: My Children → per-child Profile, Attendance, Marks,
   Fees (with UPI payment: opens the deep link in any UPI app, then records the
   reference/UTR back to the school) — full feature parity with the old native
@@ -30,22 +39,18 @@ Parent/Student portal; this app also covers staff-facing modules.
 
 ## Known gaps
 
-Each CRUD module covers its primary record type. A few backend modules have
-secondary sub-resources or bespoke flows the app doesn't surface yet:
+Backend areas with no mobile screen yet:
 
-- **Hostel** — blocks only (rooms, allocations not yet exposed).
-- **Transport** — routes only (vehicles, stops not yet exposed).
-- **Library** — books only (issue/return not yet exposed).
-- **Inventory** — items only (transactions, bulk issue not yet exposed).
-- **Mess** — menus only (mess attendance not yet exposed).
-- **Communications** — templates only (send logs not yet exposed).
-- **Online Tests** — test definitions only (questions, results not yet exposed).
-- **Payroll**, **Reports**, and the **AI chatbot** have no mobile screens yet.
-- Admissions **convert-to-student**, academic-year **promotion runs**, PDF/report
-  downloads, and file uploads are web-only for now.
+- **Payroll** (salary structures, payslip generation)
+- **Leads** and **Certificates**
+- **Reports** / report-card generation and the **AI chatbot**
+- Global **search**, and file **uploads**
+- Multi-step flows that are web-only: admissions **convert-to-student**,
+  academic-year **promotion runs**, bulk import/export, and PDF downloads
+  (timetable, payslips, receipts, report cards)
 
 Relational fields (student, teacher, class) are entered as numeric IDs rather
-than pickers — a searchable reference picker is the main UX follow-up.
+than searchable pickers — the main UX follow-up.
 
 ## Project layout
 

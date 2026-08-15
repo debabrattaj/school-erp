@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import InventoryItem, InventoryTransaction, Student, User
 from app.schemas import (
@@ -16,6 +18,18 @@ from app.schemas import (
 from app.security import require_roles
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
+
+ITEM_BULK_IMPORT_COLUMNS = [
+    "item_name",
+    "item_code",
+    "category",
+    "unit",
+    "quantity_available",
+    "reorder_level",
+    "unit_price",
+    "location",
+    "remarks",
+]
 
 OUT_TYPES = {"Stock Out", "Issue", "Purchase"}
 IN_TYPES = {"Stock In", "Return"}
@@ -103,6 +117,94 @@ def create_item(
         raise HTTPException(status_code=400, detail="Item code already exists")
     db.refresh(item)
     return item
+
+
+@router.get("/items/bulk-import-template")
+def bulk_import_items_template(
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    return csv_template_response(
+        ITEM_BULK_IMPORT_COLUMNS,
+        {
+            "item_name": "A4 Paper Ream",
+            "item_code": "STA-001",
+            "category": "Stationery",
+            "unit": "pcs",
+            "quantity_available": "50",
+            "reorder_level": "10",
+            "unit_price": "250",
+            "location": "Store Room 1",
+            "remarks": "",
+        },
+        "inventory_items_import_template.csv",
+    )
+
+
+@router.post("/items/bulk-import")
+def bulk_import_items(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    rows, unknown_columns = read_csv_upload(file, ITEM_BULK_IMPORT_COLUMNS)
+
+    seen_codes = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        item_name = cleaned.get("item_name")
+        if not item_name:
+            errors.append({"row": row_index, "error": "item_name is required"})
+            continue
+
+        item_code = cleaned.get("item_code")
+        if item_code:
+            if item_code in seen_codes:
+                errors.append({"row": row_index, "error": f"Duplicate item_code in file: {item_code}"})
+                continue
+            if db.query(InventoryItem).filter(InventoryItem.item_code == item_code).first():
+                errors.append({"row": row_index, "error": f"Item code already exists: {item_code}"})
+                continue
+
+        try:
+            validated = InventoryItemCreate(
+                item_name=item_name,
+                item_code=item_code,
+                category=cleaned.get("category"),
+                unit=cleaned.get("unit") or "pcs",
+                quantity_available=float(cleaned["quantity_available"]) if cleaned.get("quantity_available") else 0,
+                reorder_level=float(cleaned["reorder_level"]) if cleaned.get("reorder_level") else 0,
+                unit_price=float(cleaned["unit_price"]) if cleaned.get("unit_price") else 0,
+                location=cleaned.get("location"),
+                remarks=cleaned.get("remarks"),
+            )
+        except (ValidationError, ValueError) as exc:
+            message = exc.errors()[0]["msg"] if isinstance(exc, ValidationError) else "quantity_available, reorder_level and unit_price must be numbers"
+            errors.append({"row": row_index, "error": message})
+            continue
+
+        if item_code:
+            seen_codes.add(item_code)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            db.add(InventoryItem(**validated.model_dump()))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.put("/items/{item_id}", response_model=InventoryItemResponse)

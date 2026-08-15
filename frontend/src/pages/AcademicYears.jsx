@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus, CheckCircle2, History, Lock, Send, Settings2, Star, X } from "lucide-react";
 
 import API from "../api";
+import { isFeatureEnabled } from "../auth";
 import { getMasterValues } from "../services/masterDataService";
 
 const emptyYearForm = {
@@ -72,6 +73,7 @@ export default function AcademicYears() {
   const [scheduleYearId, setScheduleYearId] = useState(null);
   const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const promotionAutoGenEnabled = isFeatureEnabled("promotion_auto_generation");
   const [showPromotionHistory, setShowPromotionHistory] = useState(false);
   const [promotionRuns, setPromotionRuns] = useState([]);
   const [promotionRunsLoading, setPromotionRunsLoading] = useState(false);
@@ -526,19 +528,33 @@ export default function AcademicYears() {
             <div className="form-grid">
               <div className="form-field">
                 <label>Auto-promote on a schedule</label>
-                <label className="switch-row">
+                <label
+                  className="switch-row"
+                  title={
+                    promotionAutoGenEnabled
+                      ? undefined
+                      : "The platform owner hasn't enabled automatic promotion for this school yet."
+                  }
+                >
                   <input
                     type="checkbox"
                     name="auto_promote_enabled"
                     checked={scheduleForm.auto_promote_enabled}
+                    disabled={!promotionAutoGenEnabled}
                     onChange={handleScheduleFormChange}
                   />
                   <span>{scheduleForm.auto_promote_enabled ? "On" : "Off"}</span>
                 </label>
                 <small>
-                  When on, every active student in this year is promoted,
-                  detained, or graduated automatically on the date below —
-                  using the same suggestion logic as "Suggest from Results".
+                  {promotionAutoGenEnabled ? (
+                    <>
+                      When on, every active student in this year is promoted,
+                      detained, or graduated automatically on the date below —
+                      using the same suggestion logic as "Suggest from Results".
+                    </>
+                  ) : (
+                    "Disabled by platform owner — ask them to enable automatic promotion for this school first."
+                  )}
                 </small>
               </div>
 

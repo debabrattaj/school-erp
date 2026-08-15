@@ -468,3 +468,208 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
 ```
 
 Test with `--dry-run` first, same as §9.
+
+## 16. Marketing site deployment
+
+`landing-page/` is the schoolment.com marketing site — plain static
+HTML/CSS/JS (no npm, no build step, no Node process). It deploys through the
+same cPanel Git Version Control repo as the backend, via the extra task at
+the bottom of `.cpanel.yml`:
+
+```
+- export PUBLIC_HTML=/home/schoolm1/public_html
+- /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+```
+
+`rsync --delete` mirrors `landing-page/` into the docroot exactly — anything
+removed from `landing-page/` in git disappears from the live site on the
+next deploy too, not just anything added or changed. `.well-known`,
+`cgi-bin`, and `school-admin` are excluded so this never deletes SSL/ACME
+verification files, cPanel's own cgi-bin, or the admin app frontend.
+
+**`PUBLIC_HTML` is shared with other things — the exclude list must cover
+all of them, always.** The document root isn't exclusive to the marketing
+site: the admin app frontend is deployed to `$PUBLIC_HTML/school-admin/`,
+separately from this git-based flow. The first version of this task didn't
+exclude `school-admin/`, and running it deleted the entire admin frontend
+(everything under it except `.well-known`) on 2026-08-13 — recovered by
+rebuilding and re-uploading `frontend/`'s dist. If anything else ever gets
+deployed under `$PUBLIC_HTML` outside of `landing-page/`'s own files, add it
+to `--exclude` in `.cpanel.yml` *before* the next deploy, not after.
+
+**Before this will work, `PUBLIC_HTML` must point at schoolment.com's real
+document root** — `/home/schoolm1/public_html` is only correct if
+schoolment.com is the account's primary domain. If it's an addon domain or
+subdomain instead, cPanel → **Domains** shows its actual document root
+(usually something like `/home/schoolm1/public_html/schoolment.com` or
+`/home/schoolm1/schoolment.com`) — update the `export PUBLIC_HTML=` line in
+`.cpanel.yml` to match before deploying, or the site will land in the wrong
+place (or the deploy will fail if the path doesn't exist).
+
+### Deploying
+
+Same two options as the backend, since it's the same repo and the same
+Git Version Control checkout:
+
+- **cPanel UI**: Git Version Control page → **Update from Remote**, then
+  **Deploy HEAD Commit**. Runs the backend steps and the marketing-site
+  rsync in one go, since they're both tasks in the same `.cpanel.yml`.
+- **SSH**, if you'd rather not click through the UI:
+
+```bash
+export DEPLOYPATH=/home/schoolm1/repositories/school-erp/ && \
+cd $DEPLOYPATH && git pull origin main && \
+export PUBLIC_HTML=/home/schoolm1/public_html && \
+rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+```
+
+(This is the static-site half only — see §9 "Wiring it up in cPanel" for the
+full command that also updates backend dependencies and runs migrations.)
+
+No cron job, no restart file, no virtualenv — it's static files, so once
+they're copied into the docroot they're live immediately.
+
+## 17. cPanel gotcha: recreating the Python App overwrites `passenger_wsgi.py`
+
+If the backend's Python App registration (`schoolment.com/school-erp` in
+cPanel → Setup Python App) is ever destroyed and recreated — e.g. to
+recover from a broken/orphaned registration — **cPanel silently overwrites
+`backend/passenger_wsgi.py`** with its own generic boilerplate:
+
+```python
+import imp
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+wsgi = imp.load_source('wsgi', 'passenger_wsgi.py')
+application = wsgi.application
+```
+
+That boilerplate is broken on its own terms: it tries to load
+`passenger_wsgi.py` as a module named `wsgi` *from within
+`passenger_wsgi.py` itself*, which re-executes the whole file, hits the
+same line again, and recurses until Python gives up
+(`RecursionError: maximum recursion depth exceeded`). Every request 500s
+because the app can't even be imported — this happened live on
+2026-08-13, recovered by just restoring the tracked file:
+
+```bash
+cd /home/schoolm1/repositories/school-erp
+git status                           # confirms backend/passenger_wsgi.py shows modified
+git checkout -- backend/passenger_wsgi.py
+touch backend/tmp/restart.txt
+```
+
+The real `passenger_wsgi.py` (committed in git) bridges FastAPI's ASGI app
+to the WSGI interface Passenger expects, via `sync_asgi.py`'s
+`make_wsgi_app()` — see both files' docstrings. **If the Python App is ever
+destroyed and recreated again, re-run the `git checkout` above immediately
+after** — don't assume the file survived just because Create succeeded
+without an error.
+
+To verify `passenger_wsgi.py` is actually working (not just present) after
+any change to the Python App registration, reproduce Passenger's own call
+directly rather than trusting a browser 500 page or manual `uvicorn`/`python
+-c "from app.main import app"` runs — those don't exercise
+`passenger_wsgi.py` at all and will look healthy even when it's broken:
+
+```python
+import io, sys, traceback
+sys.path.insert(0, "/home/schoolm1/repositories/school-erp/backend")
+import passenger_wsgi
+
+environ = {
+    "REQUEST_METHOD": "GET", "PATH_INFO": "/docs", "SCRIPT_NAME": "",
+    "QUERY_STRING": "", "CONTENT_TYPE": "", "CONTENT_LENGTH": "",
+    "SERVER_NAME": "schoolment.com", "SERVER_PORT": "443",
+    "SERVER_PROTOCOL": "HTTP/1.1", "wsgi.version": (1, 0),
+    "wsgi.url_scheme": "https", "wsgi.input": io.BytesIO(b""),
+    "wsgi.errors": sys.stderr, "wsgi.multithread": False,
+    "wsgi.multiprocess": False, "wsgi.run_once": False,
+}
+captured = {}
+def start_response(status, headers, exc_info=None):
+    captured["status"] = status
+
+try:
+    body = b"".join(passenger_wsgi.application(environ, start_response))
+    print("SUCCESS", captured["status"], body[:200])
+except Exception:
+    traceback.print_exc()
+```
+
+A clean `SUCCESS 200 OK` means Passenger's actual code path works; a
+traceback shows the real error directly, which log-hunting often doesn't
+(this server had no `stderr.log` or per-domain `error_log` at all for this
+app — the traceback only surfaces by reproducing the call directly like
+this).
+
+## 18. Admin app (frontend/) build + deploy in cPanel
+
+`frontend/` (the Vite/React admin app — the actual login/dashboard portal,
+distinct from the marketing site) builds and deploys through the same
+cPanel Git Version Control flow as everything else, via the last two tasks
+in `.cpanel.yml`. Unlike the backend, it never runs as a live Node
+process — Node/npm are only needed to *build* it (`npm ci && npm run
+build`), and the resulting static `dist/` output is rsynced into
+`school-admin/`, same as any other static site.
+
+**Where the Node environment comes from.** A dedicated `nodebuild.schoolment.com`
+subdomain was created (cPanel → Domains → Create A New Domain) purely to
+get a "Setup Node.js App" entry provisioned:
+
+- Application root: `repositories/school-erp/frontend`
+- Node.js version: 20.x (Vite 8 + React 19 need 20.19+/22.12+; pick the
+  highest available)
+- Application URL: `nodebuild.schoolment.com` (its own dedicated,
+  previously-unused subdomain — **do not** point this at `schoolment.com`,
+  `login.schoolment.com`, or any domain that already serves real content;
+  cPanel's Node App setup takes over the *entire* target domain's routing,
+  not just a subpath, which nearly repointed `login.schoolment.com` away
+  from the admin app during setup)
+- The app itself is left **stopped** — nothing should ever serve live
+  traffic through it, it exists only so its nodevenv (`npm`/`node`) is
+  available for `.cpanel.yml`'s build task to `source`.
+
+If this Node App entry is ever recreated, the exact `source .../activate`
+path depends on the Node version chosen — get it from the app's detail
+page in Setup Node.js App and update `.cpanel.yml` to match. `nodebuild/`
+(the subdomain's docroot, physically `$PUBLIC_HTML/nodebuild` since it's
+nested inside the same account) is directory-listable from both
+`nodebuild.schoolment.com/` and `schoolment.com/nodebuild/` — harmless
+(nothing sensitive lives there), but worth locking down with an empty
+`index.html` or `Options -Indexes` off if it bothers you.
+
+**Where it's actually served.** `login.schoolment.com`'s document root
+*is* `$PUBLIC_HTML/school-admin` directly — that's the real, canonical URL
+for the admin app, not a `/school-admin/` path under the main domain
+(which is also technically reachable, since `school-admin/` is physically
+nested inside `public_html/`, but isn't the intended access point). This
+is why the build does **not** set `VITE_BASE_PATH`: Vite's default
+`base: '/'` is correct for a subdomain-root deployment. Setting it to
+`/school-admin/` would break asset loading on `login.schoolment.com`,
+since the HTML would reference `/school-admin/assets/...` from a docroot
+that's already *inside* `school-admin/` — see `frontend/vite.config.js`'s
+comment for the subpath case this option exists for, which doesn't apply
+here.
+
+**`VITE_API_BASE_URL`** is set to `https://schoolment.com/school-erp` at
+build time (the backend Python App's real URL — see §17) and baked
+directly into the built JS as `axios`'s `baseURL` (`frontend/src/api.js`,
+`platformApi.js`) — there's no proxy or rewrite involved, so this must be
+the exact public API URL.
+
+**Before this works end to end, confirm backend CORS allows the admin
+app's origin.** The backend's `CORS_ALLOWED_ORIGINS` env var (in
+`backend/.env` on the server) needs `https://login.schoolment.com` in its
+comma-separated list, or the deployed frontend's API calls will be
+blocked by the browser even though the backend itself is healthy. This
+wasn't verified as part of the initial build+deploy task setup — check
+it before assuming a blank/broken-looking admin app is a build problem
+rather than a CORS one.
+
+**`school-admin/.well-known` must survive this too** — same reasoning as
+the marketing-site rsync, it holds SSL/ACME files and is excluded from
+the `dist/` → `school-admin/` sync for the same reason.
