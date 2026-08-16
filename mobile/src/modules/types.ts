@@ -3,6 +3,8 @@ export type FieldType =
   | "number"
   | "email"
   | "date"
+  /** Clock time, "HH:MM". */
+  | "time"
   | "select"
   | "textarea"
   | "phone"
@@ -26,6 +28,11 @@ export interface FormFieldConfig {
     labelFields: string[];
     subtitleFields?: string[];
   };
+  /**
+   * Rendered read-only. Reserved for fields a school has not had switched on —
+   * the value still shows, but cannot be edited from the app.
+   */
+  disabled?: boolean;
 }
 
 export interface ListColumnConfig {
