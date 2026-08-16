@@ -1524,6 +1524,12 @@ class OnlineTest(Base):
     starts_at = Column(DateTime, nullable=True)
     ends_at = Column(DateTime, nullable=True)
 
+    # Anti-copying: serve each student a different question/option order. The
+    # order is derived from the attempt id (see portal._shuffled_for_attempt),
+    # so it stays stable if a student reloads mid-attempt.
+    shuffle_questions = Column(Boolean, nullable=False, default=False)
+    shuffle_options = Column(Boolean, nullable=False, default=False)
+
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
     teacher_name_snapshot = Column(String, nullable=True)
 
@@ -1559,6 +1565,11 @@ class OnlineTestAttempt(Base):
     score = Column(Float, nullable=True)
     max_score = Column(Float, nullable=True)  # snapshotted total at submission time
     status = Column(String, nullable=False, default="In Progress")  # In Progress, Submitted
+
+    # Why the attempt closed without the student pressing Submit: "time_expired"
+    # (past duration_minutes) or "window_closed" (past the test's ends_at).
+    # NULL means the student submitted normally.
+    auto_submitted_reason = Column(String, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("test_id", "student_id", name="uq_online_test_attempt_student"),
