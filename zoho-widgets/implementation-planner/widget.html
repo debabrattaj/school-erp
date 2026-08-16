@@ -1,0 +1,5043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implementation Planner</title>
+
+<script src="https://live.zwidgets.com/js-sdk/1.1/ZohoEmbededAppSDK.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
+
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<style>
+
+/* =========================================================
+   1. DESIGN TOKENS
+========================================================= */
+
+:root{
+    --bg:#f4f6fb;
+    --bg-accent:radial-gradient(1200px 500px at 12% -8%, #e8ecff 0%, rgba(232,236,255,0) 62%),
+                radial-gradient(900px 420px at 92% -12%, #e4f5ff 0%, rgba(228,245,255,0) 60%);
+
+    --surface:#ffffff;
+    --surface-2:#f8fafc;
+    --surface-3:#f1f5f9;
+    --surface-inset:#fbfcfe;
+
+    --border:#e5e9f0;
+    --border-strong:#d5dce7;
+
+    --text:#0f172a;
+    --text-muted:#64748b;
+    --text-soft:#94a3b8;
+
+    --primary:#4f46e5;
+    --primary-hover:#4338ca;
+    --primary-soft:#eef2ff;
+    --primary-border:#c7d2fe;
+
+    --success:#059669;
+    --success-soft:#ecfdf5;
+    --danger:#e11d48;
+    --danger-soft:#fff1f2;
+    --warning:#d97706;
+    --info:#0284c7;
+
+    --radius-xs:6px;
+    --radius-sm:8px;
+    --radius:12px;
+    --radius-lg:16px;
+    --radius-pill:999px;
+
+    --shadow-xs:0 1px 2px rgba(15,23,42,.06);
+    --shadow-sm:0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-md:0 10px 26px -14px rgba(15,23,42,.22), 0 2px 6px rgba(15,23,42,.05);
+    --shadow-lg:0 28px 60px -28px rgba(15,23,42,.40);
+
+    --ring:0 0 0 3px rgba(79,70,229,.16);
+
+    --font:"Inter","Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+
+    --topbar-h:64px;
+}
+
+/* =========================================================
+   2. BASE
+========================================================= */
+
+*{box-sizing:border-box}
+
+html,body{
+    margin:0;
+    padding:0;
+}
+
+body{
+    font-family:var(--font);
+    font-size:14px;
+    line-height:1.5;
+    color:var(--text);
+    background-color:var(--bg);
+    background-image:var(--bg-accent);
+    background-repeat:no-repeat;
+    -webkit-font-smoothing:antialiased;
+}
+
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-0.01em;color:var(--text)}
+p{margin:0}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+    background:#cbd5e1;
+    border:2px solid transparent;
+    background-clip:content-box;
+    border-radius:var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8;background-clip:content-box}
+
+/* =========================================================
+   3. APP SHELL
+========================================================= */
+
+.app{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+.topbar{
+    position:sticky;
+    top:0;
+    z-index:60;
+
+    display:flex;
+    align-items:center;
+    gap:22px;
+
+    height:var(--topbar-h);
+    padding:0 22px;
+
+    background:rgba(255,255,255,.94);
+    backdrop-filter:saturate(180%) blur(14px);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid var(--border);
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    flex-shrink:0;
+}
+
+.brand-mark{
+    width:36px;
+    height:36px;
+    border-radius:10px;
+
+    display:grid;
+    place-items:center;
+
+    background:linear-gradient(140deg,#6366f1,#4338ca);
+    color:#fff;
+
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.04em;
+
+    box-shadow:0 4px 12px -4px rgba(79,70,229,.7);
+}
+
+.brand-text{display:flex;flex-direction:column;line-height:1.25}
+
+.brand-title{
+    font-size:15px;
+    font-weight:650;
+    letter-spacing:-0.01em;
+}
+
+.brand-sub{
+    font-size:11.5px;
+    color:var(--text-soft);
+}
+
+.record-chips{
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    flex:1;
+    min-width:0;
+    overflow-x:auto;
+    scrollbar-width:none;
+}
+
+.record-chips::-webkit-scrollbar{display:none}
+
+.chip{
+    display:inline-flex;
+    align-items:baseline;
+    gap:7px;
+
+    padding:6px 12px;
+    border-radius:var(--radius-pill);
+
+    background:var(--surface-3);
+    border:1px solid var(--border);
+
+    white-space:nowrap;
+    max-width:280px;
+}
+
+.chip-label{
+    font-size:10.5px;
+    font-weight:650;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-soft);
+}
+
+.chip-value{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:180px;
+}
+
+.topbar-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+}
+
+.content{
+    flex:1;
+    width:100%;
+    max-width:1680px;
+    margin:0 auto;
+    padding:22px 22px 26px;
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+/* =========================================================
+   4. BUTTONS
+========================================================= */
+
+.btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+
+    height:38px;
+    padding:0 15px;
+
+    border:1px solid transparent;
+    border-radius:var(--radius-sm);
+
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    white-space:nowrap;
+
+    cursor:pointer;
+    transition:background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .12s ease, color .16s ease;
+}
+
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+
+.btn-primary{
+    background:var(--primary);
+    color:#fff;
+    box-shadow:0 1px 2px rgba(15,23,42,.10), 0 6px 16px -10px rgba(79,70,229,.9);
+}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+
+.btn-secondary{
+    background:var(--surface);
+    color:var(--text);
+    border-color:var(--border-strong);
+    box-shadow:var(--shadow-xs);
+}
+.btn-secondary:hover:not(:disabled){background:var(--surface-2);border-color:#c3cdda}
+
+.btn-ghost{
+    background:transparent;
+    color:var(--text-muted);
+    border-color:transparent;
+}
+.btn-ghost:hover:not(:disabled){background:var(--surface-3);color:var(--text)}
+
+.btn-subtle{
+    background:var(--primary-soft);
+    color:var(--primary);
+    border-color:var(--primary-border);
+}
+.btn-subtle:hover:not(:disabled){background:#e3e8ff}
+
+.btn-sm{height:32px;padding:0 12px;font-size:12.5px}
+
+.btn:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+    box-shadow:none;
+}
+
+.btn-primary:disabled{background:#aab0d8;color:#fff}
+
+.btn-icon{
+    display:inline-flex;
+    font-size:15px;
+    line-height:1;
+}
+
+/* Add-phase button keeps its own accent */
+.add-milestone-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+
+    height:38px;
+    padding:0 16px;
+
+    border:none;
+    border-radius:var(--radius-sm);
+
+    background:linear-gradient(140deg,#6366f1,#4338ca);
+    color:#fff;
+
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    white-space:nowrap;
+
+    cursor:pointer;
+    box-shadow:0 1px 2px rgba(15,23,42,.10), 0 8px 18px -12px rgba(79,70,229,1);
+    transition:filter .16s ease, box-shadow .16s ease, transform .12s ease;
+}
+
+.add-milestone-btn::before{
+    content:"+";
+    font-size:15px;
+    font-weight:700;
+    line-height:1;
+}
+
+.add-milestone-btn:hover{filter:brightness(1.06);box-shadow:0 1px 2px rgba(15,23,42,.10), 0 12px 22px -12px rgba(79,70,229,1)}
+.add-milestone-btn:active{transform:translateY(1px)}
+
+/* =========================================================
+   5. FORM CONTROLS
+========================================================= */
+
+.field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+}
+
+.field-label{
+    font-size:11px;
+    font-weight:650;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--text-soft);
+}
+
+.input,
+.select{
+    height:38px;
+    padding:0 12px;
+
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm);
+    background:var(--surface);
+
+    font-family:inherit;
+    font-size:13.5px;
+    color:var(--text);
+
+    transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.input::placeholder{color:var(--text-soft)}
+
+.input:hover,
+.select:hover{border-color:#c3cdda}
+
+.input:focus,
+.select:focus{
+    outline:none;
+    border-color:var(--primary);
+    box-shadow:var(--ring);
+}
+
+.select{
+    appearance:none;
+    -webkit-appearance:none;
+    padding-right:32px;
+    cursor:pointer;
+
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M6 8l4 4 4-4'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 9px center;
+    background-size:16px;
+}
+
+.field-w-sm{width:132px}
+.field-w-md{width:176px}
+.field-w-lg{width:210px}
+
+/* Date inputs get a calendar affordance */
+.input-date{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='1.7' stroke-linecap='round'><rect x='3' y='5' width='18' height='16' rx='2'/><path d='M3 10h18M8 3v4M16 3v4'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    background-size:16px;
+    padding-right:34px;
+    cursor:pointer;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+}
+
+input[type=number]{-moz-appearance:textfield}
+
+input[type="file"]:hover{cursor:pointer}
+
+/* =========================================================
+   6. CARDS
+========================================================= */
+
+.card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-sm);
+    overflow:hidden;
+}
+
+.card-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:18px;
+    flex-wrap:wrap;
+
+    padding:16px 18px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,var(--surface) 0%,var(--surface-inset) 100%);
+}
+
+.card-heading{display:flex;flex-direction:column;gap:3px;min-width:0}
+
+.card-title{
+    display:flex;
+    align-items:center;
+    gap:9px;
+
+    font-size:15px;
+    font-weight:650;
+}
+
+.card-sub{
+    font-size:12.5px;
+    color:var(--text-muted);
+}
+
+.card-actions{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.card-body{padding:16px 18px 18px}
+.card-body-flush{padding:0}
+
+.count-badge{
+    display:inline-flex;
+    align-items:center;
+
+    height:20px;
+    padding:0 8px;
+    border-radius:var(--radius-pill);
+
+    background:var(--primary-soft);
+    color:var(--primary);
+    border:1px solid var(--primary-border);
+
+    font-size:11px;
+    font-weight:650;
+    letter-spacing:.02em;
+}
+
+/* =========================================================
+   7. STAT TILES
+========================================================= */
+
+.stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(212px,1fr));
+    gap:14px;
+}
+
+.stat{
+    position:relative;
+    overflow:hidden;
+
+    padding:15px 16px;
+
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-xs);
+}
+
+.stat::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:3px;
+    background:var(--primary);
+    opacity:.85;
+}
+
+.stat-2::before{background:#0ea5e9}
+.stat-3::before{background:#14b8a6}
+.stat-4::before{background:#f59e0b}
+
+.stat-label{
+    font-size:11px;
+    font-weight:650;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-soft);
+}
+
+.stat-value{
+    margin-top:6px;
+    font-size:24px;
+    font-weight:680;
+    letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums;
+}
+
+.stat-meta{
+    margin-top:3px;
+    font-size:12px;
+    color:var(--text-muted);
+}
+
+/* =========================================================
+   8. TOOLBAR
+========================================================= */
+
+.toolbar{
+    display:flex;
+    align-items:flex-end;
+    gap:14px;
+    flex-wrap:wrap;
+
+    padding:14px 18px;
+    background:var(--surface-inset);
+    border-bottom:1px solid var(--border);
+}
+
+.toolbar-group{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+}
+
+.toolbar-divider{
+    width:1px;
+    align-self:stretch;
+    background:var(--border);
+    margin:2px 2px;
+}
+
+.toolbar-spacer{flex:1}
+
+/* Colour swatch picker */
+.swatch-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    height:38px;
+    padding:0 8px;
+
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm);
+}
+
+.swatch{
+    width:22px;
+    height:22px;
+    padding:0;
+
+    border:1px solid rgba(15,23,42,.14);
+    border-radius:var(--radius-xs);
+
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .16s ease;
+}
+
+.swatch:hover{transform:translateY(-1px)}
+.swatch:focus-visible{outline:none;box-shadow:var(--ring)}
+
+.swatch.is-active{
+    box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
+}
+
+.sr-only{
+    position:absolute;
+    width:1px;height:1px;
+    padding:0;margin:-1px;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    white-space:nowrap;
+    border:0;
+}
+
+/* =========================================================
+   9. TABLES
+========================================================= */
+
+.table-wrap{
+    max-height:560px;
+    overflow:auto;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+}
+
+.table-wrap-inset{
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+}
+
+table{
+    border-collapse:separate;
+    border-spacing:0;
+    width:max-content;
+    min-width:100%;
+}
+
+th,td{
+    border-bottom:1px solid var(--border);
+    border-right:1px solid var(--border);
+    text-align:center;
+    height:34px;
+    font-size:12px;
+}
+
+th{
+    background:var(--surface-3);
+    font-weight:650;
+    font-size:11px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    white-space:nowrap;
+}
+
+#milestoneTable thead th,
+#resourceTable thead th{
+    position:sticky;
+    top:0;
+    z-index:5;
+    box-shadow:inset 0 -1px 0 var(--border);
+}
+
+#milestoneTable thead th.milestone-drag-col,
+#milestoneTable thead th.milestone-col,
+#resourceTable thead th.resource-drag-col,
+#resourceTable thead th.resource-col,
+#resourceTable thead th.resource-action-col{
+    z-index:7;
+}
+
+#milestoneTable tbody tr:hover td:not(.milestone-col):not(.drag-handle),
+#resourceTable tbody tr:hover td:not(.resource-col):not(.resource-action-col):not(.drag-handle){
+    background:rgba(79,70,229,.035);
+}
+
+td{cursor:pointer}
+
+th.separator,
+td.separator{
+    border-right:1px solid var(--border-strong) !important;
+}
+
+/* ---- Milestone table columns ---- */
+
+#milestoneTable td:not(.milestone-col):not(.drag-handle),
+#milestoneTable th:not(.milestone-col):not(.milestone-drag-col){
+    width:40px;
+    min-width:40px;
+    max-width:40px;
+}
+
+.milestone-drag-col,
+#milestoneTable tbody td.drag-handle{
+    position:sticky;
+    left:0;
+    z-index:4;
+
+    width:36px;
+    min-width:36px;
+    max-width:36px;
+
+    background:var(--surface-2);
+}
+
+.milestone-col{
+    position:sticky;
+    left:36px;
+    z-index:3;
+
+    /* 36 (drag) + 556 = 592, matching the resource grid's frozen block */
+    width:556px;
+    min-width:556px;
+    max-width:556px;
+
+    text-align:left;
+    padding:0 0 0 12px;
+
+    background:var(--surface-2);
+
+    /* divider drawn inside the box so the action zone can end exactly on
+       the frozen-block edge, like .resource-action-col does */
+    border-right:0;
+    box-shadow:inset -1px 0 0 var(--border-strong);
+}
+
+/* ---- Resource table columns ---- */
+
+#resourceTable td:not(.resource-col):not(.resource-action-col):not(.drag-handle):not(.total-col),
+#resourceTable th:not(.resource-col):not(.resource-action-col):not(.resource-drag-col):not(.total-col){
+    width:40px;
+    min-width:40px;
+    max-width:40px;
+}
+
+.resource-drag-col,
+#resourceTable tbody td.drag-handle{
+    position:sticky;
+    left:0;
+    z-index:4;
+
+    width:36px;
+    min-width:36px;
+    max-width:36px;
+
+    background:var(--surface-2);
+}
+
+/* frozen headers carry long labels — give them a little more room */
+#resourceTable thead th.resource-col{letter-spacing:.01em}
+
+.resource-col{
+    position:sticky;
+    z-index:4;
+    background:var(--surface-2);
+    overflow:hidden;
+    text-align:left;
+    padding:0 4px;
+}
+
+/* Type */
+.resource-col:nth-child(2){left:36px;width:84px;min-width:84px;max-width:84px}
+/* Grade */
+.resource-col:nth-child(3){left:120px;width:66px;min-width:66px;max-width:66px}
+/* Designation */
+.resource-col:nth-child(4){left:186px;width:146px;min-width:146px;max-width:146px}
+/* Technology / Skillset */
+.resource-col:nth-child(5){left:332px;width:156px;min-width:156px;max-width:156px}
+
+.resource-action-col{
+    position:sticky;
+    left:488px;
+    z-index:4;
+
+    width:104px;
+    min-width:104px;
+    max-width:104px;
+
+    background:var(--surface-2);
+    border-right:1px solid var(--border-strong);
+    padding:0;
+}
+
+.total-col{
+    width:70px;
+    min-width:70px;
+    max-width:70px;
+
+    background:var(--surface-inset);
+    font-weight:680;
+    font-variant-numeric:tabular-nums;
+    color:var(--text);
+}
+
+/* In-table controls */
+
+.resource-col select,
+.milestone-actions select{
+    width:100%;
+    height:28px;
+
+    border:1px solid transparent;
+    border-radius:var(--radius-xs);
+    background:transparent;
+
+    font-family:inherit;
+    font-size:12px;
+    color:var(--text);
+
+    appearance:none;
+    -webkit-appearance:none;
+
+    padding:0 17px 0 7px;
+    cursor:pointer;
+
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M6 8l4 4 4-4'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 1px center;
+    background-size:13px;
+
+    transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.resource-col select:hover,
+.milestone-actions select:hover{
+    border-color:var(--border-strong);
+    background-color:var(--surface);
+}
+
+.resource-col select:focus,
+.milestone-actions select:focus{
+    outline:none;
+    border-color:var(--primary);
+    background-color:var(--surface);
+    box-shadow:var(--ring);
+}
+
+.resource-col select:disabled{
+    color:var(--text-soft);
+    cursor:not-allowed;
+    background-image:none;
+}
+
+.milestone-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+/* Same footprint as .resource-action-col so the +/- buttons in both
+   grids land on exactly the same x positions */
+.milestone-action-group,
+.resource-action-group{
+    flex:0 0 104px;
+    width:104px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+}
+
+/* Empty slot standing in for the resource grid's clone button */
+.row-btn-spacer{
+    width:24px;
+    height:24px;
+    flex:0 0 24px;
+}
+
+.milestone-actions select{
+    flex:1;
+    height:30px;
+    font-size:12.5px;
+    font-weight:550;
+}
+
+#resourceTable .skill-input{
+    width:100% !important;
+    height:28px;
+
+    border:1px solid transparent;
+    border-radius:var(--radius-xs);
+    background:transparent;
+
+    font-family:inherit;
+    font-size:12px;
+    color:var(--text);
+
+    padding:0 7px;
+    transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+#resourceTable .skill-input::placeholder{color:var(--text-soft)}
+
+#resourceTable .skill-input:hover{
+    border-color:var(--border-strong);
+    background-color:var(--surface);
+}
+
+#resourceTable .skill-input:focus{
+    outline:none;
+    border-color:var(--primary);
+    background-color:var(--surface);
+    box-shadow:var(--ring);
+}
+
+#resourceTable td input[type="number"]{
+    width:34px !important;
+    height:26px;
+
+    font-family:inherit;
+    font-size:12px;
+    font-variant-numeric:tabular-nums;
+    color:var(--text);
+
+    border:1px solid transparent;
+    border-radius:var(--radius-xs);
+    background:transparent;
+    text-align:center;
+
+    padding:0;
+    margin:0;
+    box-shadow:none;
+    transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+#resourceTable td input[type="number"]:hover{
+    border-color:var(--border-strong);
+    background-color:var(--surface);
+}
+
+#resourceTable td input[type="number"]:focus{
+    outline:none;
+    border-color:var(--primary);
+    background-color:var(--surface);
+    box-shadow:var(--ring);
+}
+
+/* Row action buttons (+ / clone / -) */
+
+.row-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    width:24px;
+    height:24px;
+    min-width:24px;
+    padding:0;
+
+    border:1px solid transparent;
+    border-radius:var(--radius-xs);
+
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+    line-height:1;
+
+    color:#fff;
+    cursor:pointer;
+    transition:filter .15s ease, transform .12s ease, box-shadow .15s ease;
+}
+
+.row-btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.row-btn:active{transform:translateY(0)}
+.row-btn:focus-visible{outline:none;box-shadow:var(--ring)}
+
+.row-add{background:var(--success)}
+.row-delete{background:var(--danger)}
+
+/* Timeline colours */
+
+.color-yellow{background:#fde68a !important}
+.color-blue{background:#93c5fd !important}
+.color-orange{background:#fdba74 !important}
+.color-green{background:#86efac !important}
+.color-purple{background:#c4b5fd !important}
+.color-red{background:#ef4444 !important}
+
+.selected-cell{
+    background:#fef3c7 !important;
+    box-shadow:inset 0 0 0 2px #f59e0b;
+}
+
+/* Drag handles */
+
+tr[draggable="true"]{cursor:grab}
+tr[draggable="true"]:active{cursor:grabbing}
+
+.drag-handle{
+    cursor:grab;
+    font-size:13px;
+    color:var(--text-soft);
+    user-select:none;
+    transition:color .15s ease, background .15s ease;
+}
+
+.drag-handle:hover{color:var(--primary);background:var(--primary-soft)}
+.drag-handle:active{cursor:grabbing}
+
+.dragging{
+    opacity:.55;
+    background:var(--primary-soft) !important;
+}
+
+#milestoneTable tbody tr,
+#resourceTable tbody tr{
+    transition:background .15s ease, opacity .15s ease;
+}
+
+/* =========================================================
+   10. EFFORT TABLE
+========================================================= */
+
+.effort-container{
+    max-width:560px;
+    max-height:none;
+    overflow:visible;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+}
+
+#effortTable{
+    width:100%;
+    min-width:0;
+    background:var(--surface);
+}
+
+#effortTable th{
+    padding:9px 12px;
+    background:var(--surface-3);
+    color:var(--text-muted);
+    text-align:left;
+}
+
+#effortTable td{
+    padding:6px 10px;
+    font-size:13px;
+    text-align:center;
+    color:var(--text);
+}
+
+#effortTable td:first-child{text-align:left;width:auto}
+#effortTable td:nth-child(2){white-space:nowrap;width:96px}
+#effortTable td:nth-child(3){
+    width:92px;
+    font-variant-numeric:tabular-nums;
+    font-weight:600;
+}
+
+#effortTable tr:last-child td{
+    border-bottom:none;
+    background:var(--surface-inset);
+    font-weight:680;
+}
+
+#effortTable tr:last-child td:first-child::before{
+    content:"Total";
+    color:var(--text-muted);
+}
+
+#effortTable td:last-child{border-right:none}
+#effortTable th:last-child{border-right:none}
+
+#effortTable input{
+    height:28px;
+
+    border:1px solid transparent;
+    border-radius:var(--radius-xs);
+    background:transparent;
+
+    font-family:inherit;
+    font-size:13px;
+    color:var(--text);
+    text-align:center;
+
+    padding:0 6px;
+    transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+#effortTable input:hover{border-color:var(--border-strong);background:var(--surface)}
+
+#effortTable input:focus{
+    outline:none;
+    border-color:var(--primary);
+    background:var(--surface);
+    box-shadow:var(--ring);
+}
+
+.effort-percent-input{
+    width:52px !important;
+    font-variant-numeric:tabular-nums;
+}
+
+.effort-percent-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:1px;
+}
+
+#effortTable td:nth-child(2) span{
+    color:var(--text-soft);
+    font-size:12px;
+}
+
+.field-label{white-space:nowrap}
+
+.effort-name-wrap{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.effort-name-wrap input{
+    flex:1;
+    min-width:0;
+    text-align:left !important;
+}
+
+/* =========================================================
+   11. SUMMARY TABLE
+========================================================= */
+
+.summary-container{
+    max-width:760px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+}
+
+#summaryTable{
+    width:100%;
+    min-width:0;
+}
+
+#summaryTable th,
+#summaryTable td{
+    padding:9px 14px;
+    font-size:13px;
+    text-align:left;
+    height:auto;
+}
+
+#summaryTable th:nth-child(3),
+#summaryTable th:nth-child(4),
+#summaryTable td:nth-child(3),
+#summaryTable td:nth-child(4){
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+    width:130px;
+}
+
+#summaryTable td{cursor:default}
+#summaryTable tr:last-child td{border-bottom:none}
+#summaryTable th:last-child,
+#summaryTable td:last-child{border-right:none}
+
+#summaryTable tbody tr:last-child td{
+    background:var(--surface-inset) !important;
+    font-weight:680;
+}
+
+.empty-hint{
+    padding:14px 4px 2px;
+    font-size:12.5px;
+    color:var(--text-soft);
+}
+
+/* Selected-sum pill */
+
+#selectedSumContainer{
+    width:fit-content;
+    margin:12px 18px 0;
+    padding:7px 13px;
+
+    background:var(--primary-soft);
+    border:1px solid var(--primary-border);
+    border-radius:var(--radius-pill);
+
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--primary);
+}
+
+#selectedSum{font-variant-numeric:tabular-nums}
+
+/* =========================================================
+   12. ACTION BAR + STEPS
+========================================================= */
+
+.actionbar{
+    position:sticky;
+    bottom:0;
+    z-index:55;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    flex-wrap:wrap;
+
+    padding:12px 22px;
+
+    background:rgba(255,255,255,.9);
+    backdrop-filter:saturate(180%) blur(12px);
+    -webkit-backdrop-filter:saturate(180%) blur(12px);
+    border-top:1px solid var(--border);
+}
+
+.steps{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.step{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+
+    padding:5px 11px;
+    border-radius:var(--radius-pill);
+
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-soft);
+    white-space:nowrap;
+
+    transition:background .18s ease, color .18s ease;
+}
+
+.step-num{
+    display:grid;
+    place-items:center;
+
+    width:18px;
+    height:18px;
+    border-radius:50%;
+
+    background:var(--surface-3);
+    color:var(--text-soft);
+
+    font-size:10.5px;
+    font-weight:700;
+}
+
+.step.is-active{
+    background:var(--primary-soft);
+    color:var(--primary);
+}
+
+.step.is-active .step-num{
+    background:var(--primary);
+    color:#fff;
+}
+
+.step.is-done{
+    background:var(--success-soft);
+    color:var(--success);
+}
+
+.step.is-done .step-num{
+    background:var(--success);
+    color:#fff;
+    font-size:0;
+}
+
+.step.is-done .step-num::after{
+    content:"✓";
+    font-size:11px;
+}
+
+.step-arrow{
+    color:var(--text-soft);
+    font-size:12px;
+    opacity:.7;
+}
+
+.actionbar-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+/* =========================================================
+   13. HELP TOOLTIP
+========================================================= */
+
+.instruction-hover{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    cursor:help;
+}
+
+.info-icon{
+    width:16px;
+    height:16px;
+    fill:var(--text-soft);
+    stroke:none;
+    transition:fill .18s ease, transform .18s ease;
+}
+
+.info-icon .info-i{fill:#fff}
+
+.instruction-hover:hover .info-icon{
+    fill:var(--primary);
+    transform:scale(1.08);
+}
+
+.instruction-tooltip{
+    position:absolute;
+    top:26px;
+    left:-6px;
+
+    background:#0f172a;
+    color:#e2e8f0;
+
+    padding:11px 13px;
+    border-radius:var(--radius-sm);
+
+    font-size:12px;
+    font-weight:450;
+    line-height:1.65;
+    letter-spacing:0;
+    text-transform:none;
+
+    width:290px;
+
+    opacity:0;
+    transform:translateY(-6px);
+    pointer-events:none;
+
+    box-shadow:var(--shadow-lg);
+    transition:opacity .2s ease, transform .2s ease;
+    z-index:9999;
+}
+
+.instruction-tooltip b{color:#fff}
+
+.instruction-hover:hover .instruction-tooltip{
+    opacity:1;
+    transform:translateY(0);
+}
+
+.instruction-tooltip::after{
+    content:"";
+    position:absolute;
+    bottom:100%;
+    left:14px;
+
+    border-width:6px;
+    border-style:solid;
+    border-color:transparent transparent #0f172a transparent;
+}
+
+/* =========================================================
+   14. TOAST + LOADER + MODAL
+========================================================= */
+
+.toast-message{
+    position:fixed;
+    top:22px;
+    right:22px;
+    z-index:99999;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    max-width:380px;
+    padding:13px 18px;
+
+    background:#0f172a;
+    color:#fff;
+    border-radius:var(--radius);
+
+    font-size:13.5px;
+    font-weight:550;
+    line-height:1.45;
+    text-align:left;
+
+    box-shadow:var(--shadow-lg);
+
+    opacity:0;
+    transform:translateY(-10px) scale(.98);
+    pointer-events:none;
+    transition:opacity .28s ease, transform .28s ease;
+}
+
+.toast-message::before{
+    content:"";
+    flex:0 0 auto;
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#34d399;
+    box-shadow:0 0 0 4px rgba(52,211,153,.22);
+}
+
+.toast-show{
+    opacity:1;
+    transform:translateY(0) scale(1);
+}
+
+#loaderOverlay{
+    position:fixed;
+    inset:0;
+    z-index:99999;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+
+    background:rgba(244,246,251,.72);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+
+    visibility:hidden;
+}
+
+.loader{
+    width:38px;
+    height:38px;
+    border:3px solid var(--primary-border);
+    border-top-color:var(--primary);
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+}
+
+.loader-text{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-muted);
+}
+
+@keyframes spin{
+    to{transform:rotate(360deg)}
+}
+
+.modal-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:99999;
+
+    align-items:center;
+    justify-content:center;
+
+    padding:20px;
+
+    background:rgba(15,23,42,.42);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+}
+
+.modal{
+    width:100%;
+    max-width:400px;
+
+    background:var(--surface);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);
+    overflow:hidden;
+
+    animation:modal-in .2s ease;
+}
+
+@keyframes modal-in{
+    from{opacity:0;transform:translateY(8px) scale(.98)}
+    to{opacity:1;transform:none}
+}
+
+.modal-head{
+    padding:18px 20px 0;
+}
+
+.modal-title{font-size:16px;font-weight:650}
+
+.modal-sub{
+    margin-top:4px;
+    font-size:12.5px;
+    color:var(--text-muted);
+}
+
+.modal-body{padding:16px 20px 4px}
+
+.modal-foot{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+
+    padding:16px 20px 20px;
+}
+
+.modal .input{width:100%}
+
+/* =========================================================
+   15. FLATPICKR THEME
+========================================================= */
+
+.flatpickr-calendar{
+    border-radius:var(--radius) !important;
+    box-shadow:var(--shadow-lg) !important;
+    border:1px solid var(--border) !important;
+    font-family:var(--font) !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover{
+    background:var(--primary) !important;
+    border-color:var(--primary) !important;
+}
+
+.flatpickr-day:hover{background:var(--primary-soft) !important}
+
+/* =========================================================
+   16. RESPONSIVE
+========================================================= */
+
+@media (max-width:900px){
+    .topbar{height:auto;padding:12px 16px;flex-wrap:wrap}
+    .record-chips{order:3;width:100%;flex:0 0 auto}
+    .content{padding:16px 14px 20px}
+    .card-head{align-items:flex-start}
+    .actionbar{padding:12px 14px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- =========================================================
+     TOP BAR
+========================================================= -->
+
+<header class="topbar">
+
+    <div class="brand">
+        <div class="brand-mark">IP</div>
+        <div class="brand-text">
+            <span class="brand-title">Implementation Planner</span>
+            <span class="brand-sub">Effort &middot; Timeline &middot; Resourcing</span>
+        </div>
+    </div>
+
+    <div class="record-chips">
+
+        <div class="chip">
+            <span class="chip-label">Opportunity</span>
+            <span class="chip-value" id="opportunityName">-</span>
+        </div>
+
+        <div class="chip">
+            <span class="chip-label">Proposal</span>
+            <span class="chip-value" id="proposalName">-</span>
+        </div>
+
+        <div class="chip">
+            <span class="chip-label">Quote</span>
+            <span class="chip-value" id="quoteName">-</span>
+        </div>
+
+    </div>
+
+    <div class="topbar-actions">
+
+        <button class="btn btn-ghost btn-sm" onclick="reloadWidget()">
+            <span class="btn-icon">&#8635;</span> Reload
+        </button>
+
+        <button class="btn btn-secondary btn-sm" onclick="closeWidget()">
+            Close
+        </button>
+
+    </div>
+
+</header>
+
+<main class="content">
+
+<!-- =========================================================
+     STAT TILES
+========================================================= -->
+
+<section class="stat-grid">
+
+    <div class="stat">
+        <div class="stat-label">Total effort</div>
+        <div class="stat-value" id="statEffort">0</div>
+        <div class="stat-meta">person-days across all phases</div>
+    </div>
+
+    <div class="stat stat-2">
+        <div class="stat-label">Plan duration</div>
+        <div class="stat-value" id="statDuration">52</div>
+        <div class="stat-meta" id="statDurationMeta">weeks in timeline</div>
+    </div>
+
+    <div class="stat stat-3">
+        <div class="stat-label">Resources</div>
+        <div class="stat-value" id="statResources">0</div>
+        <div class="stat-meta" id="statResourcesMeta">0 onsite &middot; 0 offshore</div>
+    </div>
+
+    <div class="stat stat-4">
+        <div class="stat-label">Planned mandays</div>
+        <div class="stat-value" id="statMandays">0</div>
+        <div class="stat-meta" id="statMandaysMeta">0 onsite &middot; 0 offshore</div>
+    </div>
+
+</section>
+
+<!-- =========================================================
+     EFFORT
+========================================================= -->
+
+<section class="card">
+
+    <div class="card-head">
+
+        <div class="card-heading">
+            <h2 class="card-title">Total project effort</h2>
+            <p class="card-sub">
+                Enter the build effort in days &mdash; every other phase is derived from its share.
+            </p>
+        </div>
+
+        <div class="card-actions">
+
+            <div class="field field-w-lg">
+                <label class="field-label" for="developmentPhase">Development phase &middot; days</label>
+                <input
+                    class="input"
+                    type="number"
+                    id="developmentPhase"
+                    placeholder="e.g. 120"
+                    min="0"
+                    step="1"
+                    oninput="generateEffortTable()"
+                />
+            </div>
+
+            <button class="btn btn-subtle" onclick="addEffortRow()">
+                Add effort line
+            </button>
+
+        </div>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="table-wrap effort-container">
+            <table id="effortTable">
+                <thead>
+                    <tr>
+                        <th>Phase</th>
+                        <th>Share</th>
+                        <th>Effort (days)</th>
+                    </tr>
+                </thead>
+                <tbody id="effortBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =========================================================
+     MILESTONES
+========================================================= -->
+
+<section class="card">
+
+    <div class="card-head">
+
+        <div class="card-heading">
+            <h2 class="card-title">Implementation milestones</h2>
+            <p class="card-sub">
+                Pick a colour, then click or drag across the timeline to paint a phase.
+            </p>
+        </div>
+
+        <div class="card-actions">
+            <button class="add-milestone-btn" onclick="openMilestoneModal()">
+                Add Project Phase
+            </button>
+        </div>
+
+    </div>
+
+    <div class="toolbar">
+
+        <div class="toolbar-group">
+
+            <div class="field field-w-sm">
+                <label class="field-label" for="viewMode">View</label>
+                <select class="select" id="viewMode" onchange="changeViewMode()">
+                    <option value="week">Week wise</option>
+                    <option value="month">Month wise</option>
+                </select>
+            </div>
+
+            <div class="field field-w-md">
+                <label class="field-label" for="startDate">Start date</label>
+                <input class="input input-date" type="text" id="startDate" placeholder="Select start date">
+            </div>
+
+            <div class="field field-w-md">
+                <label class="field-label" for="endDate">End date</label>
+                <input class="input input-date" type="text" id="endDate" placeholder="Select end date">
+            </div>
+
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group">
+
+            <div class="field">
+                <span class="field-label">Paint colour</span>
+
+                <div class="swatch-row" id="swatchRow">
+                    <button type="button" class="swatch is-active" style="background:#fde68a" data-color="color-yellow" onclick="selectPaintColor('color-yellow')" title="Yellow"></button>
+                    <button type="button" class="swatch" style="background:#93c5fd" data-color="color-blue" onclick="selectPaintColor('color-blue')" title="Blue"></button>
+                    <button type="button" class="swatch" style="background:#fdba74" data-color="color-orange" onclick="selectPaintColor('color-orange')" title="Orange"></button>
+                    <button type="button" class="swatch" style="background:#86efac" data-color="color-green" onclick="selectPaintColor('color-green')" title="Green"></button>
+                    <button type="button" class="swatch" style="background:#c4b5fd" data-color="color-purple" onclick="selectPaintColor('color-purple')" title="Purple"></button>
+                    <button type="button" class="swatch" style="background:#ef4444" data-color="color-red" onclick="selectPaintColor('color-red')" title="Red"></button>
+                </div>
+
+                <select id="colorPicker" class="sr-only" tabindex="-1" aria-hidden="true">
+                    <option value="color-yellow" selected>Yellow</option>
+                    <option value="color-blue">Blue</option>
+                    <option value="color-orange">Orange</option>
+                    <option value="color-green">Green</option>
+                    <option value="color-purple">Purple</option>
+                    <option value="color-red">Red</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group">
+
+            <div class="field field-w-lg">
+                <label class="field-label" for="versionDropdown">Saved version</label>
+                <select class="select" id="versionDropdown" onchange="loadVersion()">
+                    <option>Select Version</option>
+                </select>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="table-wrap">
+        <table id="milestoneTable">
+            <thead id="milestoneHead"></thead>
+            <tbody id="milestoneBody"></tbody>
+        </table>
+    </div>
+
+</section>
+
+<!-- =========================================================
+     RESOURCE PLANNING
+========================================================= -->
+
+<section class="card">
+
+    <div class="card-head">
+
+        <div class="card-heading">
+
+            <h2 class="card-title">
+                Resource planning
+
+                <span class="instruction-hover">
+                    <svg class="info-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <rect class="info-i" x="11" y="10" width="2" height="7"></rect>
+                        <circle class="info-i" cx="12" cy="7" r="1.2"></circle>
+                    </svg>
+
+                    <span class="instruction-tooltip">
+                        <b>Shortcuts</b><br>
+                        1. Ctrl + drag to select multiple cells.<br>
+                        2. Click and drag from inside a cell to copy its value across.<br>
+                        3. Save first, then generate the summary &mdash; Push to CRM unlocks after that.
+                    </span>
+                </span>
+
+            </h2>
+
+            <p class="card-sub">
+                Allocate up to 5 people per column, per row. Totals update as you type.
+            </p>
+
+        </div>
+
+    </div>
+
+    <div class="table-wrap">
+        <table id="resourceTable">
+            <thead id="resourceHead"></thead>
+            <tbody id="resourceBody"></tbody>
+        </table>
+    </div>
+
+    <div id="selectedSumContainer" style="display:none;">
+        Selected sum: <span id="selectedSum">0</span>
+    </div>
+
+</section>
+
+<!-- =========================================================
+     SUMMARY
+========================================================= -->
+
+<section class="card">
+
+    <div class="card-head">
+
+        <div class="card-heading">
+            <h2 class="card-title">Resource summary</h2>
+            <p class="card-sub">
+                Grouped by grade, designation and skillset &mdash; this is what gets pushed to the quote.
+            </p>
+        </div>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="summary-container">
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th>Row Labels</th>
+                        <th>Skills / Tech</th>
+                        <th>Onsite Total</th>
+                        <th>Offshore Total</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <p class="empty-hint" id="summaryHint">
+            Save the plan, then generate the summary to refresh these numbers.
+        </p>
+
+    </div>
+
+</section>
+
+</main>
+
+<!-- =========================================================
+     ACTION BAR
+========================================================= -->
+
+<footer class="actionbar">
+
+    <ol class="steps">
+        <li class="step is-active" id="step1"><span class="step-num">1</span> Save plan</li>
+        <span class="step-arrow">&rsaquo;</span>
+        <li class="step" id="step2"><span class="step-num">2</span> Generate summary</li>
+        <span class="step-arrow">&rsaquo;</span>
+        <li class="step" id="step3"><span class="step-num">3</span> Push to CRM</li>
+    </ol>
+
+    <div class="actionbar-controls">
+
+        <input class="input field-w-lg" id="versionName" placeholder="Name this plan before saving"/>
+
+        <button class="btn btn-secondary" onclick="saveVersion()">Save</button>
+
+        <button class="btn btn-secondary" id="summaryBtn" onclick="generateSummary(true)" disabled>
+            Generate Summary
+        </button>
+
+        <button class="btn btn-primary" id="pushBtn" onclick="pushToSubform()" disabled>
+            Push to CRM
+        </button>
+
+    </div>
+
+</footer>
+
+</div>
+
+<!-- =========================================================
+     OVERLAYS
+========================================================= -->
+
+<div id="toast" class="toast-message">Version Saved</div>
+
+<div id="loaderOverlay">
+    <div class="loader"></div>
+    <div class="loader-text">Working&hellip;</div>
+</div>
+
+<div id="milestoneModal" class="modal-backdrop">
+
+    <div class="modal">
+
+        <div class="modal-head">
+            <h3 class="modal-title">Add new milestone</h3>
+            <p class="modal-sub">It is added to the shared picklist and to every milestone row.</p>
+        </div>
+
+        <div class="modal-body">
+            <input
+                class="input"
+                type="text"
+                id="newMilestoneInput"
+                placeholder="Enter milestone name"
+            />
+        </div>
+
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="closeMilestoneModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveCustomMilestone()">Save milestone</button>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    
+let currentViewMode = "week"
+let actionHistory = []
+let maxHistory = 500
+let isCtrlPressed = false
+let selectedCells = []
+let isSelecting = false
+let isVersionSaved = false
+let isSummaryGenerated = false
+let isDragging = false
+let dragValue = null
+
+
+let datalist = document.createElement("datalist")
+datalist.id = "skillSuggestions"
+document.body.appendChild(datalist)
+
+let weeks = 52
+let months = []
+let recordId=null
+let mouseDown=false
+
+let milestoneBody=document.getElementById("milestoneBody")
+let resourceBody=document.getElementById("resourceBody")
+
+let milestoneOptions=[
+"Preparation","Requirement Gathering","Design Signoff",
+"ERP Configuration","Development & UT","SIT",
+"Load Testing","UAT","Go-live",
+]
+
+let typeOptions=["Offshore","Onsite"]
+
+let gradeOptions=[
+"G0",
+"G1.1",
+"G1.2",
+"G1.3",
+"G2.1",
+"G2.2",
+"G3.1",
+"G3.1",
+"G3.2",
+"G3.2",
+"G3.3",
+"G3.4",
+"G1.3.LC",
+"G2.1.LC",
+"G2.2.LC",
+"G3.1.LC",
+"G3.1.LC",
+"G3.2.LC",
+"G3.4.LC"
+]
+
+let roleOptions=[
+"Trainee",
+"Associate Consultant",
+"Consultant", 
+"Senior Consultant",
+"Lead", 
+"Associate Architect",
+"Architect",
+"Manager",
+"Senior Manager",
+"Senior Architect",
+"Delivery Manager",
+"Delivery Head"
+]
+
+/* =========================================
+   Grade → Role
+========================================= */
+
+const gradeToRoleMap = {
+    "G0": "Trainee",
+    "G1.1": "Associate Consultant",
+    "G1.2": "Consultant",
+    "G1.3": "Senior Consultant",
+    "G2.1": "Lead",
+    "G2.2": "Associate Architect",
+    "G3.1": "Architect",
+    "G3.2": "Senior Architect",
+    "G3.3": "Delivery Manager",
+    "G3.4": "Delivery Head",
+
+    "G1.3.LC": "Senior Consultant",
+    "G2.1.LC": "Lead",
+    "G2.2.LC": "Associate Architect",
+    "G3.1.LC": "Architect",
+    "G3.2.LC": "Senior Architect",
+    "G3.4.LC": "Delivery Head"
+}
+
+/* =========================================
+   Role → Grade
+========================================= */
+
+const roleToGradeMap = {
+    "Trainee": "G0",
+    "Associate Consultant": "G1.1",
+    "Consultant": "G1.2",
+    "Senior Consultant": "G1.3",
+    "Lead": "G2.1",
+    "Associate Architect": "G2.2",
+    "Architect": "G3.1",
+    "Manager": "G3.1",
+    "Senior Manager": "G3.2",
+    "Senior Architect": "G3.2",
+    "Delivery Manager": "G3.3",
+    "Delivery Head": "G3.4"
+}
+
+let skillOptions = [
+    "Java",
+    "Node.js",
+    "React",
+    "Angular",
+    "PHP",
+    "Python",
+    "AWS",
+    "DevOps",
+    "Zoho",
+    "Salesforce",
+    "SAP",
+    "Oracle",
+    "Testing",
+    "Data Engineering",
+    "AI/ML"
+]
+
+let effortRows = [
+    { name: "Build, UT", percent: 40 },
+    { name: "Requirement Gathering and Design", percent: 10 },
+    { name: "SIT", percent: 15 },
+    { name: "UAT", percent: 10 },
+    { name: "Cutover, Go Live, Hypercare", percent: 15 },
+    { name: "PM Effort", percent: 0 },
+    { name: "Documentation", percent: 10 }
+]
+
+document.body.onmousedown=()=>mouseDown=true
+document.body.onmouseup=()=>mouseDown=false
+
+document.addEventListener("click", function(e){
+
+    let resourceTable = document.getElementById("resourceTable")
+
+    // If click is OUTSIDE resource table → clear
+    if(!resourceTable.contains(e.target)){
+        clearSelection()
+    }
+
+})
+
+document.addEventListener("keydown", function(e){
+    if(e.ctrlKey){
+        isCtrlPressed = true
+    }
+})
+
+document.addEventListener("keyup", function(e){
+    isCtrlPressed = false
+})
+
+let startPicker = flatpickr("#startDate", {
+    dateFormat: "d M, Y",
+    onChange: function(selectedDates){
+        handleDateChange()
+    }
+})
+
+let endPicker = flatpickr("#endDate", {
+    dateFormat: "d M, Y",
+    onChange: function(selectedDates){
+        handleDateChange()
+    }
+})
+
+
+function generateEffortTable(){
+
+    let devEffort =
+        Number(document.getElementById("developmentPhase").value || 0)
+
+    let tbody =
+        document.getElementById("effortBody")
+
+    tbody.innerHTML = ""
+
+    let totalPercent = 0
+    let totalEffort = 0
+
+    effortRows.forEach((r, index)=>{
+
+        let effort =
+            r.percent === 0
+            ? 0
+            : devEffort * r.percent / 40
+
+        totalPercent += Number(r.percent || 0)
+        totalEffort += effort
+
+        let tr = document.createElement("tr")
+
+  tr.innerHTML = `
+    <td>
+        <div class="effort-name-wrap">
+            <input 
+                type="text" 
+                value="${r.name}" 
+                onchange="updateEffortName(${index}, this.value)"
+            />
+
+            <button class="row-btn row-add" onclick="addEffortRowAfter(${index})">+</button>
+
+            <button class="row-btn row-delete" onclick="deleteEffortRow(${index})">-</button>
+        </div>
+    </td>
+
+    <td>
+        <div class="effort-percent-wrap">
+            <input 
+                class="effort-percent-input"
+                type="number" 
+                value="${r.percent}" 
+                min="0"
+                max="100"
+                step="0.5"
+                onchange="updateEffortPercent(${index}, this.value)"
+            /><span>%</span>
+        </div>
+    </td>
+
+    <td>${formatEffort(effort)}</td>
+`
+
+        tbody.appendChild(tr)
+
+    })
+
+    let totalRow = document.createElement("tr")
+    totalRow.style.fontWeight = "bold"
+
+    totalRow.innerHTML = `
+    <td></td>
+    <td>${formatEffort(totalPercent)}%</td>
+    <td>${formatEffort(totalEffort)}</td>
+`
+
+    tbody.appendChild(totalRow)
+
+    updateStats()
+}
+
+/* rounds away floating point noise for display */
+function formatEffort(value){
+
+    let n = Number(value || 0)
+
+    return Number(n.toFixed(2))
+}
+
+
+function updateEffortName(index, value){
+
+    effortRows[index].name = value
+
+    markAsDirty()
+}
+
+function updateEffortPercent(index, value){
+
+    effortRows[index].percent = Number(value || 0)
+
+    generateEffortTable()
+
+    markAsDirty()
+}
+
+function addEffortRow(){
+
+    effortRows.push({
+        name: "New Effort",
+        percent: 0
+    })
+
+    generateEffortTable()
+
+    markAsDirty()
+}
+
+function deleteEffortRow(index){
+
+    if(effortRows.length === 1){
+        showToast("At least one effort row required")
+        return
+    }
+
+    effortRows.splice(index, 1)
+
+    generateEffortTable()
+    markAsDirty()
+}
+
+function addEffortRowAfter(index){
+
+    effortRows.splice(index + 1, 0, {
+        name: "New Effort",
+        percent: 0
+    })
+
+    generateEffortTable()
+    markAsDirty()
+}
+
+function changeViewMode(){
+
+    currentViewMode =
+        document.getElementById("viewMode").value
+
+    // SAVE EXISTING DATA
+    let data = collectData()
+
+    // CLEAR TABLES
+    milestoneBody.innerHTML = ""
+    resourceBody.innerHTML = ""
+
+    // BUILD NEW HEADERS
+    buildHeaders()
+
+    /* =========================
+       RESTORE MILESTONES
+    ========================= */
+
+    data.milestoneRows.forEach(r=>{
+
+        let row = createMilestoneRow()
+
+        milestoneBody.appendChild(row)
+
+        row.querySelector("select").value =
+            r.milestone
+
+        let cells =
+            row.querySelectorAll("td")
+
+        let totalCols =
+            getPlanningColumns()
+
+        for(let i=0; i<totalCols; i++){
+
+            let targetCell = cells[i + 2]
+
+            if(targetCell){
+                targetCell.className =
+                    r.colors[i] || ""
+            }
+        }
+    })
+
+    /* =========================
+       RESTORE RESOURCES
+    ========================= */
+
+    data.resourceRows.forEach(r=>{
+
+        let row = createResourceRow()
+
+        resourceBody.appendChild(row)
+
+        let selects =
+            row.querySelectorAll("select")
+
+        selects[0].value = r.type || ""
+        selects[1].value = r.grade || ""
+        selects[2].value = r.role || ""
+
+        let skillInput =
+            row.querySelector(".skill-input")
+
+        if(skillInput){
+            skillInput.value = r.skill || ""
+        }
+
+        let inputs =
+            row.querySelectorAll(
+                'input[type="number"]'
+            )
+
+        let totalCols =
+            getPlanningColumns()
+
+        for(let i=0; i<totalCols; i++){
+
+            if(inputs[i]){
+                inputs[i].value =
+                    r.numbers[i] || ""
+            }
+        }
+
+        updateRowTotal(row)
+
+    })
+
+    generateSummary()
+    markAsDirty()
+
+    showToast(
+        currentViewMode === "month"
+        ? "Month Wise View"
+        : "Week Wise View"
+    )
+}
+
+function closeWidget(){
+
+ZOHO.CRM.UI.Popup.closeReload()
+.then(function(data){
+    console.log(data)
+})
+}
+
+function saveResourceState(input){
+
+    actionHistory.push({
+        type: "resource",
+        input: input,
+        previousValue: input.value
+    })
+
+    if(actionHistory.length > maxHistory){
+        actionHistory.shift()
+    }
+}
+
+function undoLastAction(){
+
+    if(actionHistory.length === 0){
+        showToast("Nothing to undo")
+        return
+    }
+
+    let last = actionHistory.pop()
+
+    if(last.type === "paint"){
+        last.cell.className = last.previousClass
+    }
+
+    if(last.type === "resource"){
+        last.input.value = last.previousValue
+
+        let row = last.input.closest("tr")
+        if(row) updateRowTotal(row)
+    }
+
+    showToast("Undo applied")
+}
+
+function clearSelection(){
+    selectedCells.forEach(inp=>{
+        let cell = inp.closest("td")
+        if(cell){
+            cell.classList.remove("selected-cell")
+        }
+    })
+
+    selectedCells = []
+    document.getElementById("selectedSum").innerText = 0
+
+    // ✅ Hide when nothing selected
+    document.getElementById("selectedSumContainer").style.display = "none"
+}
+
+function enableRowDrag(tbody){
+
+let draggedRow = null
+
+tbody.addEventListener("dragstart", (e)=>{
+
+    // ✅ ONLY allow drag from handle
+    if(!e.target.classList.contains("drag-handle")) return
+
+    draggedRow = e.target.closest("tr")
+})
+
+tbody.addEventListener("dragover", (e)=>{
+    e.preventDefault()
+
+    if(!draggedRow) return
+
+    let targetRow = e.target.closest("tr")
+    if(!targetRow || targetRow === draggedRow) return
+
+    let rect = targetRow.getBoundingClientRect()
+    let offset = e.clientY - rect.top
+
+    if(offset > rect.height / 2){
+        targetRow.after(draggedRow)
+    }else{
+        targetRow.before(draggedRow)
+    }
+})
+
+tbody.addEventListener("drop", ()=>{
+    draggedRow = null
+    disablePushButton()
+})
+}
+
+function markAsDirty(){
+    isVersionSaved = false
+    isSummaryGenerated = false
+    updateActionButtons()
+    updateStats()
+}
+
+function updateActionButtons(){
+    const summaryBtn = document.getElementById("summaryBtn")
+    const pushBtn = document.getElementById("pushBtn")
+
+    if(summaryBtn){
+        summaryBtn.disabled = !isVersionSaved
+    }
+
+    if(pushBtn){
+        pushBtn.disabled = !(isVersionSaved && isSummaryGenerated)
+    }
+
+    updateSteps()
+}
+
+/* =========================================
+   Save → Summary → Push progress indicator
+========================================= */
+
+function updateSteps(){
+
+    setStepState(
+        "step1",
+        isVersionSaved ? "is-done" : "is-active"
+    )
+
+    setStepState(
+        "step2",
+        isSummaryGenerated
+        ? "is-done"
+        : (isVersionSaved ? "is-active" : "")
+    )
+
+    setStepState(
+        "step3",
+        (isVersionSaved && isSummaryGenerated) ? "is-active" : ""
+    )
+}
+
+function setStepState(id, state){
+
+    let el = document.getElementById(id)
+
+    if(!el) return
+
+    el.classList.remove("is-active", "is-done")
+
+    if(state){
+        el.classList.add(state)
+    }
+}
+
+/* =========================================
+   Header stat tiles
+========================================= */
+
+function updateStats(){
+
+    let statEffort = document.getElementById("statEffort")
+
+    if(!statEffort) return
+
+    /* ---- effort ---- */
+
+    let devEffort =
+        Number(
+            document.getElementById("developmentPhase")?.value || 0
+        )
+
+    let totalEffort = 0
+
+    effortRows.forEach(r=>{
+        if(r.percent){
+            totalEffort += devEffort * r.percent / 40
+        }
+    })
+
+    statEffort.innerText = formatEffort(totalEffort)
+
+    /* ---- duration ---- */
+
+    let columns = getPlanningColumns()
+
+    document.getElementById("statDuration").innerText = columns
+
+    document.getElementById("statDurationMeta").innerText =
+        currentViewMode === "month"
+        ? "months in timeline"
+        : "weeks in timeline"
+
+    /* ---- resources + mandays ---- */
+
+    let onsiteRows = 0
+    let offshoreRows = 0
+    let onsiteDays = 0
+    let offshoreDays = 0
+
+    resourceBody.querySelectorAll("tr").forEach(row=>{
+
+        let type = row.querySelector("select")?.value
+        let total = Number(row.lastChild?.innerText || 0)
+
+        if(type === "Onsite"){
+            onsiteRows++
+            onsiteDays += total
+        }else{
+            offshoreRows++
+            offshoreDays += total
+        }
+
+    })
+
+    document.getElementById("statResources").innerText =
+        onsiteRows + offshoreRows
+
+    document.getElementById("statResourcesMeta").innerText =
+        onsiteRows + " onsite · " + offshoreRows + " offshore"
+
+    document.getElementById("statMandays").innerText =
+        formatEffort(onsiteDays + offshoreDays)
+
+    document.getElementById("statMandaysMeta").innerText =
+        formatEffort(onsiteDays) + " onsite · " +
+        formatEffort(offshoreDays) + " offshore"
+
+}
+
+/* =========================================
+   Timeline colour swatches
+========================================= */
+
+function selectPaintColor(color){
+
+    let picker = document.getElementById("colorPicker")
+
+    if(picker){
+        picker.value = color
+    }
+
+    document.querySelectorAll("#swatchRow .swatch").forEach(btn=>{
+
+        btn.classList.toggle(
+            "is-active",
+            btn.dataset.color === color
+        )
+
+    })
+
+}
+
+// Backward compatible helper for older calls
+function updatePushButton(){
+    updateActionButtons()
+}
+
+function disablePushButton(){
+    markAsDirty()
+}
+
+function getWeeksFromDates(startDate, endDate){
+
+    let diffTime = endDate - startDate
+    let diffDays = diffTime / (1000 * 60 * 60 * 24)
+
+    let w = Math.ceil(diffDays / 7)
+    if(w <= 0) w = 1
+
+    return w
+}
+
+function calculateWeeksFromDates(startDate, endDate){
+
+    if(endDate < startDate){
+        showToast("Invalid date range")
+        return
+    }
+
+    /* SAVE CURRENT DATA */
+    let existingData = collectData()
+
+    /* CALCULATE WEEKS */
+    let diffTime = endDate - startDate
+    let diffDays = diffTime / (1000 * 60 * 60 * 24)
+
+    weeks = Math.ceil(diffDays / 7)
+
+    if(weeks <= 0){
+        weeks = 1
+    }
+
+    /* CLEAR TABLES */
+    milestoneBody.innerHTML = ""
+    resourceBody.innerHTML = ""
+
+    /* REBUILD HEADERS */
+    buildHeaders()
+
+    /* ===== RESTORE MILESTONES ===== */
+
+    existingData.milestoneRows.forEach(r=>{
+
+        let row = createMilestoneRow()
+
+        milestoneBody.appendChild(row)
+
+        row.querySelector("select").value = r.milestone
+
+        let cells = row.querySelectorAll("td")
+
+        r.colors.forEach((cls,i)=>{
+
+            // skip drag + milestone column
+            let targetCell = cells[i + 2]
+
+            if(targetCell){
+                targetCell.className = cls
+            }
+
+        })
+
+    })
+
+    /* ===== RESTORE RESOURCES ===== */
+
+    existingData.resourceRows.forEach(r=>{
+
+            let row = createResourceRow()
+
+            resourceBody.appendChild(row)
+
+            let selects = row.querySelectorAll("select")
+
+            selects[0].value = r.type || ""
+            selects[1].value = r.grade || ""
+            selects[2].value = r.role || ""
+
+            // restore skill separately
+            let skillInput = row.querySelector(".skill-input")
+            if(skillInput){
+                skillInput.value = r.skill || ""
+            }
+
+            // restore only week/month number inputs
+            let numberInputs =
+            row.querySelectorAll('input[type="number"]')
+
+            let totalCols =
+                getPlanningColumns()
+
+            for(let i = 0; i < totalCols; i++){
+
+                if(numberInputs[i]){
+                    numberInputs[i].value =
+                        r.numbers[i] || ""
+                }
+            }
+
+            skillInput =
+                row.querySelector(".skill-input")
+
+            if(skillInput){
+                skillInput.value = r.skill || ""
+            }
+
+            updateRowTotal(row)
+
+            // LC grade type lock
+            updateTypeBasedOnGrade(
+                r.grade,
+                selects[0]
+            )
+
+    })
+
+    generateSummary()
+    markAsDirty()
+
+    showToast("Weeks updated to " + weeks)
+}
+
+/* =========================================
+   LC grades are always Onsite and locked
+   (used when rebuilding rows after a date /
+   view-mode change)
+========================================= */
+
+function updateTypeBasedOnGrade(grade, typeSelect){
+
+    if(!typeSelect) return
+
+    if(grade && String(grade).includes(".LC")){
+        typeSelect.value = "Onsite"
+        typeSelect.disabled = true
+    }else{
+        typeSelect.disabled = false
+    }
+
+}
+
+function handleDateChange(){
+
+    let startDate = startPicker.selectedDates[0]
+    let endDate = endPicker.selectedDates[0]
+
+    if(startDate && endDate){
+        calculateWeeksFromDates(startDate, endDate)
+    }
+}
+
+function showLoader(){
+document.getElementById("loaderOverlay").style.visibility="visible"
+}
+
+function hideLoader(){
+document.getElementById("loaderOverlay").style.visibility="hidden"
+}
+
+
+function getCalendarMonthsFromDates(){
+
+    let startDate = startPicker?.selectedDates[0]
+    let endDate = endPicker?.selectedDates[0]
+
+    if(!startDate || !endDate){
+        return Math.ceil(weeks / 4)
+    }
+
+    let months =
+        (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+        (endDate.getMonth() - startDate.getMonth()) +
+        1
+
+    if(months <= 0){
+        months = 1
+    }
+
+    return months
+}
+
+function getPlanningColumns(){
+
+    if(currentViewMode === "month"){
+        return getCalendarMonthsFromDates()
+    }
+
+    return weeks
+}
+
+function buildHeaders(){
+
+    if(currentViewMode === "month"){
+        buildMonthHeaders()
+    }else{
+        buildWeekHeaders()
+    }
+
+}
+
+
+function buildMonthHeaders(){
+
+    let mHead = document.getElementById("milestoneHead")
+    let rHead = document.getElementById("resourceHead")
+
+    mHead.innerHTML = ""
+    rHead.innerHTML = ""
+
+    let monthCount = getPlanningColumns()
+
+    /* =========================================
+       MILESTONE HEADER
+    ========================================= */
+
+    let row1 = document.createElement("tr")
+    row1.className = "sticky-head"
+
+    let dragHead2 = document.createElement("th")
+    dragHead2.className = "milestone-drag-col"
+    row1.appendChild(dragHead2)
+
+    let col = document.createElement("th")
+    col.className = "milestone-col"
+    col.innerText = "Implementation Milestones"
+
+    row1.appendChild(col)
+
+    // ✅ CORRECT
+    for(let i = 1; i <= monthCount; i++){
+
+        let th = document.createElement("th")
+
+        th.innerText = "M" + i
+
+        row1.appendChild(th)
+
+    }
+
+    mHead.appendChild(row1)
+
+    /* =========================================
+       RESOURCE HEADER
+    ========================================= */
+
+    let rRow = document.createElement("tr")
+
+    rRow.className = "sticky-head"
+
+    let dragHead = document.createElement("th")
+
+    dragHead.className = "resource-drag-col"
+
+    rRow.appendChild(dragHead)
+
+    let headers = [
+        "Type",
+        "Grade",
+        "Designation",
+        "Technology / Skillset"
+    ]
+
+    headers.forEach(text => {
+
+        let th = document.createElement("th")
+
+        th.innerText = text
+
+        th.className = "resource-col"
+
+        rRow.appendChild(th)
+
+    })
+
+    let actionHead = document.createElement("th")
+
+    actionHead.className = "resource-action-col"
+
+    rRow.appendChild(actionHead)
+
+    // ✅ CORRECT
+    for(let i = 1; i <= monthCount; i++){
+
+        let th = document.createElement("th")
+
+        th.innerText = "M" + i
+
+        rRow.appendChild(th)
+
+    }
+
+    let total = document.createElement("th")
+
+    total.className = "total-col"
+
+    total.innerText = "Total"
+
+    rRow.appendChild(total)
+
+    rHead.appendChild(rRow)
+}
+
+
+
+function buildWeekHeaders(){
+
+let mHead=document.getElementById("milestoneHead")
+let rHead=document.getElementById("resourceHead")
+
+mHead.innerHTML=""
+rHead.innerHTML=""
+
+/* -------- Milestone Header -------- */
+
+let row1=document.createElement("tr")
+row1.className="sticky-head"
+
+let dragHead2 = document.createElement("th")
+dragHead2.innerText = ""
+dragHead2.className = "milestone-drag-col"
+row1.appendChild(dragHead2)
+
+let col=document.createElement("th")
+col.className="milestone-col"
+col.innerText="Implementation Milestones"
+row1.appendChild(col)
+
+for(let i=1;i<=getPlanningColumns();i++){
+
+let th=document.createElement("th")
+th.innerText = "W" + i
+
+if(i%4==0) th.classList.add("separator")
+
+row1.appendChild(th)
+
+}
+
+mHead.appendChild(row1)
+
+
+/* -------- Resource Header -------- */
+
+let rRow=document.createElement("tr")
+rRow.className="sticky-head"
+
+let dragHead = document.createElement("th")
+dragHead.innerText = ""
+dragHead.className = "resource-drag-col"
+rRow.appendChild(dragHead)
+
+let c1=document.createElement("th")
+c1.innerText="Type"
+c1.className="resource-col"
+
+let c2=document.createElement("th")
+c2.innerText="Grade"
+c2.className="resource-col"
+
+let c3=document.createElement("th")
+c3.innerText="Designation"
+c3.className="resource-col"
+
+
+let c4=document.createElement("th")
+c4.innerText="Technology / Skillset"
+c4.className="resource-col"
+
+
+rRow.appendChild(c1)
+rRow.appendChild(c2)
+rRow.appendChild(c3)
+rRow.appendChild(c4)
+
+let actionHead=document.createElement("th")
+actionHead.innerText=""
+actionHead.className="resource-action-col"
+
+rRow.appendChild(actionHead)
+
+
+for(let i=1;i<=getPlanningColumns();i++){
+
+let th=document.createElement("th")
+th.innerText = "W" + i
+
+if(i%4==0) th.classList.add("separator")
+
+rRow.appendChild(th)
+
+}
+
+/* TOTAL COLUMN */
+
+let total=document.createElement("th")
+total.className="total-col"
+total.innerText="Total"
+
+rRow.appendChild(total)
+
+rHead.appendChild(rRow)
+
+}
+
+
+function paint(){
+
+    let color=document.getElementById("colorPicker").value
+
+    savePaintState(this)
+
+    if(this.classList.contains(color)){
+        this.classList.remove(color)
+    }else{
+        this.classList.remove(
+            "color-yellow",
+            "color-blue",
+            "color-orange",
+            "color-green",
+            "color-purple",
+            "color-red"
+        )
+        this.classList.add(color)
+    }
+
+    markAsDirty();   // ✅ IMPORTANT
+}
+
+/* save paint state*/
+
+function savePaintState(cell){
+
+    actionHistory.push({
+        type: "paint",
+        cell: cell,
+        previousClass: cell.className
+    })
+
+    if(actionHistory.length > maxHistory){
+        actionHistory.shift()
+    }
+}
+
+/* milestone color cells */
+
+function createTimelineCell(i){
+
+let cell=document.createElement("td")
+
+if(i%4==0) cell.classList.add("separator")
+
+cell.addEventListener("mousedown",paint)
+
+cell.addEventListener("mouseover",function(){
+if(mouseDown) paint.call(this)
+})
+
+return cell
+}
+
+/* resource input cells */
+
+function createResourceInputCell(i,row){
+
+let cell=document.createElement("td")
+
+if(i%4==0) cell.classList.add("separator")
+
+let input=document.createElement("input")
+input.type="number"
+input.min="0"
+input.max="5"
+input.step="0.5"
+input.value=""
+
+input.style.width="32px"
+input.style.border="none"
+input.style.textAlign="center"
+input.style.background="transparent"
+
+input.addEventListener("mousedown",function(e){
+
+    if(isCtrlPressed){
+        isDragging = false
+        return
+    }
+
+    saveResourceState(this)
+    isDragging = true
+
+    let value = Number(this.value || 0)
+    dragValue = value > 5 ? 5 : value
+})
+
+input.addEventListener("mouseover",function(){
+
+    if(isDragging){
+
+        saveResourceState(this)
+
+        let val = Number(dragValue || 0)
+        if(val > 5) val = 5
+
+        this.value = val
+        updateRowTotal(row)
+        markAsDirty()
+    }
+})
+
+document.addEventListener("mouseup",function(){
+    isDragging = false
+})
+
+input.oninput = () => {
+    updateRowTotal(row)
+    markAsDirty()
+}
+
+input.addEventListener("change", function(){
+
+    let value = Number(this.value || 0)
+
+    if(value > 5){
+        value = 5
+        showToast("Maximum allowed value is 5")
+    }
+
+    if(value < 0){
+        value = 0
+    }
+
+    value = Math.round(value * 2) / 2
+
+    this.value = value
+
+    updateRowTotal(row)
+    markAsDirty()
+})
+
+cell.addEventListener("mousedown", function(e){
+
+    if(!isCtrlPressed) return
+
+    isSelecting = true
+
+    let inp = this.querySelector("input")
+    if(!inp) return
+
+    if(!this.classList.contains("selected-cell")){
+        this.classList.add("selected-cell")
+        selectedCells.push(inp)
+    }
+
+    updateSelectedSum()
+
+    e.preventDefault()
+})
+
+cell.addEventListener("mouseover", function(){
+
+    if(!isSelecting || !isCtrlPressed) return
+
+    let inp = this.querySelector("input")
+    if(!inp) return
+
+    if(!this.classList.contains("selected-cell")){
+        this.classList.add("selected-cell")
+        selectedCells.push(inp)
+        updateSelectedSum()
+    }
+})
+
+document.addEventListener("mouseup", function(){
+    isSelecting = false
+})
+
+cell.appendChild(input)
+return cell
+}
+
+function updateSelectedSum(){
+
+    let total = 0
+
+    selectedCells.forEach(inp=>{
+        total += Number(inp.value || 0)
+    })
+
+    document.getElementById("selectedSum").innerText = total
+
+    // ✅ Show only if selection exists
+    let container = document.getElementById("selectedSumContainer")
+    container.style.display = selectedCells.length > 0 ? "block" : "none"
+}
+
+function createDropdown(options){
+
+let select=document.createElement("select")
+select.onchange = markAsDirty;
+
+options.forEach(v=>{
+let o=document.createElement("option")
+o.value=v
+o.text=v
+select.appendChild(o)
+})
+
+return select
+
+}
+
+/* milestone row */
+
+function createMilestoneRow(){
+
+let row=document.createElement("tr")
+row.dataset.table = "milestone"
+row.draggable = false
+
+// ➕ DRAG HANDLE CELL
+let dragCell = document.createElement("td")
+dragCell.innerText = "☰"
+dragCell.className = "drag-handle"
+dragCell.style.cursor = "grab"
+dragCell.title = "Drag to reorder"
+dragCell.draggable = true
+
+row.appendChild(dragCell)
+
+
+let td=document.createElement("td")
+td.className="milestone-col"
+
+let container=document.createElement("div")
+container.className="milestone-actions"
+
+/* dropdown */
+
+/* milestone dropdown */
+
+/******** DRAG HANDLE ********/
+
+let select=createDropdown(milestoneOptions)
+
+
+/* + button */
+
+let addBtn=document.createElement("button")
+addBtn.innerText="+"
+addBtn.className="row-btn row-add"
+
+addBtn.onclick=function(){
+
+let newRow=createMilestoneRow()
+milestoneBody.insertBefore(newRow,row.nextSibling)
+markAsDirty()
+
+}
+
+/* - button */
+
+let deleteBtn=document.createElement("button")
+deleteBtn.innerText="-"
+deleteBtn.className="row-btn row-delete"
+
+deleteBtn.onclick=function(){
+
+if(milestoneBody.children.length===1){
+showToast("At least one milestone required")
+return
+}
+
+row.remove()
+markAsDirty()
+
+}
+
+let actionGroup=document.createElement("div")
+actionGroup.className="milestone-action-group"
+
+let spacer=document.createElement("span")
+spacer.className="row-btn-spacer"
+
+actionGroup.appendChild(addBtn)
+actionGroup.appendChild(spacer)
+actionGroup.appendChild(deleteBtn)
+
+container.appendChild(select)
+container.appendChild(actionGroup)
+
+td.appendChild(container)
+
+row.appendChild(td)
+
+/* timeline cells */
+
+for(let i=1;i<=getPlanningColumns();i++){
+row.appendChild(createTimelineCell(i))
+}
+
+
+return row
+}
+
+function addMilestoneRow(){
+
+let row=createMilestoneRow()
+
+milestoneBody.appendChild(row)
+
+}
+
+/* resource row */
+
+function createResourceRow(){
+
+let row=document.createElement("tr")
+row.dataset.table = "resource"
+row.draggable = false
+
+// ✅ DRAG HANDLE
+let dragCell = document.createElement("td")
+dragCell.innerText = "☰"
+dragCell.className = "drag-handle"
+dragCell.draggable = true
+dragCell.title = "Drag to reorder"
+row.appendChild(dragCell)
+
+/* =========================================
+   Type
+========================================= */
+
+let type=document.createElement("td")
+type.className="resource-col"
+
+let typeSelect = createDropdown(typeOptions)
+
+type.appendChild(typeSelect)
+
+/* =========================================
+   Grade
+========================================= */
+
+let grade=document.createElement("td")
+grade.className="resource-col"
+
+let gradeSelect = createDropdown(gradeOptions)
+
+grade.appendChild(gradeSelect)
+
+/* =========================================
+   Role
+========================================= */
+
+let role=document.createElement("td")
+role.className="resource-col"
+
+let roleSelect = createDropdown(roleOptions)
+
+role.appendChild(roleSelect)
+
+/* =========================================
+   Skill / Technology
+========================================= */
+
+let skill=document.createElement("td")
+skill.className="resource-col"
+
+let skillInput = document.createElement("input")
+
+skillInput.type = "text"
+skillInput.className = "skill-input"
+skillInput.setAttribute("list","skillSuggestions")
+
+skillInput.addEventListener("input", async function(){
+
+    console.log("Typing:", this.value);
+
+
+    let keyword = this.value.trim()
+
+    if(keyword.length < 2){
+        return
+    }
+
+    await loadSkills(keyword)
+
+})
+
+skillInput.type = "text"
+skillInput.placeholder = "Skill"
+skillInput.style.width = "160px"
+
+skillInput.setAttribute("list","skillSuggestions")
+
+skillInput.addEventListener("input", markAsDirty)
+
+skill.appendChild(skillInput)
+
+
+
+/* =========================================
+   Prevent infinite loop
+========================================= */
+
+let isAutoUpdating = false
+
+/* =========================================
+   Grade → Role
+========================================= */
+
+gradeSelect.addEventListener("change", function(){
+
+    if(isAutoUpdating) return
+
+    isAutoUpdating = true
+
+    let roleValue =
+        gradeToRoleMap[this.value]
+
+    if(roleValue){
+        roleSelect.value = roleValue
+    }
+
+    // ✅ LC grades automatically become Onsite
+    if(this.value.includes(".LC")){
+    typeSelect.value = "Onsite"
+    typeSelect.disabled = true
+    }else{
+        typeSelect.disabled = false
+    }
+
+    isAutoUpdating = false
+
+    markAsDirty()
+})
+
+/* =========================================
+   Role → Grade
+========================================= */
+
+roleSelect.addEventListener("change", function(){
+
+    if(isAutoUpdating) return
+
+    isAutoUpdating = true
+
+    let gradeValue =
+        roleToGradeMap[this.value]
+
+    if(gradeValue){
+        gradeSelect.value = gradeValue
+
+        // ✅ Also handle LC logic after role change
+        if(gradeValue.includes(".LC")){
+            typeSelect.value = "Onsite"
+        }
+    }
+
+    isAutoUpdating = false
+
+    markAsDirty()
+})
+
+/* =========================================
+   Action column
+========================================= */
+
+let action=document.createElement("td")
+action.className="resource-action-col"
+
+let container=document.createElement("div")
+container.className="resource-action-group"
+
+/* + button */
+
+let addBtn=document.createElement("button")
+addBtn.innerText="+"
+addBtn.className="row-btn row-add"
+
+addBtn.onclick=function(){
+
+    let newRow=createResourceRow()
+    resourceBody.insertBefore(newRow,row.nextSibling)
+    markAsDirty()
+
+}
+
+/* - button */
+
+let deleteBtn=document.createElement("button")
+deleteBtn.innerText="-"
+deleteBtn.className="row-btn row-delete"
+
+deleteBtn.onclick=function(){
+
+    if(resourceBody.children.length===1){
+        showToast("At least one resource required")
+        return
+    }
+
+    row.remove()
+    markAsDirty()
+
+}
+
+/* Clone button */
+
+let cloneBtn = document.createElement("button")
+cloneBtn.innerText = "⧉"
+cloneBtn.className = "row-btn"
+cloneBtn.style.background = "#0ea5e9"
+cloneBtn.title = "Clone Row"
+
+cloneBtn.onclick = function(){
+    cloneResourceRow(row)
+}
+
+container.appendChild(addBtn)
+container.appendChild(cloneBtn)
+container.appendChild(deleteBtn)
+
+action.appendChild(container)
+
+/* =========================================
+   Append columns
+========================================= */
+
+row.appendChild(type)
+row.appendChild(grade)
+row.appendChild(role)
+row.appendChild(skill)
+row.appendChild(action)
+
+/* =========================================
+   Weekly inputs
+========================================= */
+
+for(let i=1;i<=getPlanningColumns();i++){
+    row.appendChild(createResourceInputCell(i,row))
+}
+
+/* =========================================
+   Total column
+========================================= */
+
+let total=document.createElement("td")
+total.className="total-col"
+total.innerText="0"
+
+row.appendChild(total)
+
+return row
+}
+
+
+async function loadSkills(keyword){
+
+     console.log("Searching:", keyword);
+
+    try{
+
+        let response =
+            await ZOHO.CRM.FUNCTIONS.execute(
+                "searchSkills",
+                {
+                    arguments: JSON.stringify({
+                        search: keyword
+                    })
+                }
+            )
+
+            console.log("Skill search response:", response.details.output)
+
+        let skills =
+            JSON.parse(response.details.output)
+
+        let datalist =
+            document.getElementById("skillSuggestions")
+
+        datalist.innerHTML = ""
+
+        skills.forEach(skill=>{
+
+            let option =
+                document.createElement("option")
+
+            option.value =
+                skill.Name || skill
+
+            datalist.appendChild(option)
+
+        })
+
+    }catch(e){
+
+        console.error(e)
+
+    }
+
+}
+
+
+function addResourceRow(){
+
+let row=createResourceRow()
+
+resourceBody.appendChild(row)
+
+}
+
+/* collect table data */
+
+function collectData(){
+
+let milestoneRows=[]
+let resourceRows=[]
+
+milestoneBody.querySelectorAll("tr").forEach(row=>{
+
+    let select = row.querySelector("select").value
+
+    let colors = []   // ✅ FIX: define array
+
+    let totalCols = getPlanningColumns()
+
+    row.querySelectorAll("td").forEach((cell,i)=>{
+        if(i > 1 && i <= totalCols){
+            colors.push(cell.className)
+        }
+    })
+
+    milestoneRows.push({
+        milestone: select,
+        colors: colors
+    })
+
+})
+
+resourceBody.querySelectorAll("tr").forEach(row=>{
+
+let selects=row.querySelectorAll("select")
+
+let numbers=[]
+
+row.querySelectorAll('input[type="number"]').forEach(inp=>{
+numbers.push(inp.value || "")
+})
+
+let skillValue =
+    row.querySelector(".skill-input")?.value || ""
+
+resourceRows.push({
+    type: selects[0].value,
+    grade: selects[1].value,
+    role: selects[2].value,
+    skill: skillValue,
+    numbers
+})
+
+})
+
+let startDate = startPicker?.selectedDates[0]
+let endDate = endPicker?.selectedDates[0]
+
+return{
+    milestoneRows,
+    resourceRows,
+    /* save dynamic milestone list */
+    milestoneOptions,
+    startDate: startDate ? startDate.toISOString() : null,
+    endDate: endDate ? endDate.toISOString() : null
+}
+
+}
+
+/*Clone Function*/
+function cloneResourceRow(sourceRow){
+
+    let newRow = createResourceRow()
+
+    // --- Copy dropdowns ---
+    let sourceSelects = sourceRow.querySelectorAll("select")
+    let newSelects = newRow.querySelectorAll("select")
+
+    newSelects[0].value = sourceSelects[0].value
+    newSelects[1].value = sourceSelects[1].value
+    newSelects[2].value = sourceSelects[2].value
+
+    newRow.querySelector(".skill-input").value =
+        sourceRow.querySelector(".skill-input").value
+
+    // --- Copy weekly inputs ---
+    let sourceInputs = sourceRow.querySelectorAll('input[type="number"]')
+    let newInputs = newRow.querySelectorAll('input[type="number"]')
+
+    sourceInputs.forEach((inp, i)=>{
+        newInputs[i].value = inp.value
+    })
+
+    // --- Update total ---
+    updateRowTotal(newRow)
+
+    // --- Insert below ---
+    resourceBody.insertBefore(newRow, sourceRow.nextSibling)
+
+    markAsDirty()
+}
+
+/* Show Toast alert*/
+
+function showToast(message){
+
+let toast=document.getElementById("toast")
+
+toast.innerText=message
+toast.classList.add("toast-show")
+
+setTimeout(()=>{
+toast.classList.remove("toast-show")
+},4000)
+
+}
+
+/* save planner version */
+
+async function saveVersion(){
+
+let versionName=document.getElementById("versionName").value.trim()
+
+if(versionName === ""){
+    showToast("Please Enter Project Plan Name")
+    return
+}
+
+try{
+
+    let data=collectData()
+
+    let json=JSON.stringify(data,null,2)
+
+    let blob=new Blob([json],{type:"application/json"})
+
+    let today = new Date()
+
+    let formattedDate = today.toLocaleDateString("en-US",{
+        month:"short",
+        day:"2-digit",
+        year:"numeric"
+    })
+
+    let time = today.toLocaleTimeString("en-US",{
+        hour:"2-digit",
+        minute:"2-digit",
+        hour12:false
+    }).replace(":","-")
+
+    let fileName = versionName + "_" + formattedDate + "_" + time + ".json"
+
+    await ZOHO.CRM.API.attachFile({
+        Entity:"Pricing",
+        RecordID:recordId,
+        File:{
+            Name:fileName,
+            Content:blob
+        }
+    })
+
+    showToast("Version Saved Successfully")
+    loadVersions()
+
+    isVersionSaved = true
+    isSummaryGenerated = false
+    updateActionButtons()   // ✅ Save enables Generate Summary only
+
+}catch(e){
+
+    console.error(e)
+    showToast("Error saving version")
+
+    isVersionSaved = false
+    isSummaryGenerated = false
+    updateActionButtons()   // ❌ keep Generate Summary and Push disabled
+
+}
+}
+
+
+/* LOAD VERSIONS FROM CRM FUNCTION */
+
+async function loadVersions(){
+
+try{
+
+console.log(recordId)
+let response = await ZOHO.CRM.FUNCTIONS.execute("getPlannerAttachments",{
+arguments:JSON.stringify({
+recordId: String(Array.isArray(recordId) ? recordId[0] : recordId)
+})
+});
+
+let output = response.details.output;
+
+if(!output){
+console.warn("No versions returned");
+return;
+}
+
+let files = JSON.parse(output);
+
+let drop=document.getElementById("versionDropdown");
+drop.innerHTML="<option>Select Version</option>";
+
+files.forEach(f=>{
+
+let op=document.createElement("option");
+op.value=f.file_id;
+op.text = f.name.replace(".json","");
+
+drop.appendChild(op);
+
+});
+
+}catch(e){
+
+console.error("Error loading versions",e);
+
+}
+
+}
+
+
+/* LOAD VERSION USING getFile */
+
+async function loadVersion(){
+
+isVersionSaved = false
+isSummaryGenerated = false
+updateActionButtons()
+
+/* ✅ CLEAR DATE RANGE */
+if(startPicker) startPicker.clear()
+if(endPicker) endPicker.clear()
+
+
+let fileId=document.getElementById("versionDropdown").value
+
+
+if(fileId === "Select Version"){
+milestoneBody.innerHTML=""
+resourceBody.innerHTML=""
+createMilestoneRow()
+createResourceRow()
+return
+}
+
+if(!fileId) return
+
+showLoader()
+
+try{
+
+var config={id:fileId}
+
+let response=await ZOHO.CRM.API.getFile(config)
+
+let text=await response.text()
+
+let data=JSON.parse(text)
+
+loadTables(data)
+
+showToast("Selected Version Loaded ")
+
+}catch(e){
+
+console.error(e)
+showToast("Error loading version")
+
+}
+
+hideLoader()
+
+}
+
+/* populate tables */
+
+function loadTables(data){
+
+/* -------- STEP 1: RESET EVERYTHING -------- */
+milestoneBody.innerHTML=""
+resourceBody.innerHTML=""
+
+/* -------- STEP 2: RESTORE DATE + SET WEEKS -------- */
+
+if(data.startDate && data.endDate){
+
+    let startDate = new Date(data.startDate)
+    let endDate = new Date(data.endDate)
+
+    // ✅ Set picker UI
+    if(startPicker) startPicker.setDate(startDate, true)
+	if(endPicker) endPicker.setDate(endDate, true)
+
+    // ✅ Calculate weeks WITHOUT touching UI
+    weeks = getWeeksFromDates(startDate, endDate)
+
+}else{
+    weeks = 52
+}
+
+/* restore milestone options */
+
+if(data.milestoneOptions && Array.isArray(data.milestoneOptions)){
+
+    milestoneOptions = data.milestoneOptions
+
+}
+
+/* -------- STEP 3: BUILD HEADERS (CRITICAL) -------- */
+// buildHeaders() is called inside changeViewMode() which is triggered on date load to ensure correct number of columns based on weeks
+
+/* -------- STEP 4: LOAD DATA -------- */
+
+/* milestones */
+data.milestoneRows.forEach(r=>{
+
+    let row = createMilestoneRow()
+    milestoneBody.appendChild(row)
+
+    row.querySelector("select").value = r.milestone
+
+   let totalCols = getPlanningColumns()
+
+    row.querySelectorAll("td").forEach((cell,i)=>{
+
+        if(i <= 1) return
+
+        let dataIndex = i - 2
+
+        if(dataIndex >= totalCols) return
+
+        cell.className = r.colors[dataIndex] || ""
+
+    })
+
+})
+
+/* resources */
+data.resourceRows.forEach(r=>{
+
+    let row = createResourceRow()
+    resourceBody.appendChild(row)
+
+    let selects = row.querySelectorAll("select")
+
+    selects[0].value = r.type
+    selects[1].value = r.grade
+    selects[2].value = r.role
+
+    let skillInput =
+        row.querySelector(".skill-input")
+
+    if(skillInput){
+        skillInput.value = r.skill || ""
+    }
+
+    let inputs = row.querySelectorAll('input[type="number"]')
+
+    inputs.forEach((inp,i)=>{
+        inp.value = r.numbers[i] || ""
+    })
+
+    updateRowTotal(row)
+
+})
+
+updateStats()
+
+}
+
+/* export json */
+function updateRowTotal(row){
+
+let total=0
+
+row.querySelectorAll('input[type="number"]').forEach(inp=>{
+total+=Number(inp.value||0)
+})
+
+row.lastChild.innerText=total
+
+}
+
+function generateSummary(enablePushAfterGenerate = false){
+
+let summary={}
+let tbody=document.querySelector("#summaryTable tbody")
+tbody.innerHTML=""
+
+resourceBody.querySelectorAll("tr").forEach(row=>{
+
+    let selects=row.querySelectorAll("select")
+
+    let type=selects[0].value
+    let grade=selects[1].value
+    let role=selects[2].value
+    let skills =
+    row.querySelector(".skill-input")?.value || ""
+
+    let key = grade + "|" + role + "|" + skills
+
+    let total = Number(row.lastChild.innerText || 0)
+
+    if(!summary[key]){
+        summary[key] = {
+            grade: grade,
+            role: role,
+            skill: skills,
+            onsite: 0,
+            offshore: 0
+        }
+    }
+
+    if(type === "Onsite"){
+        summary[key].onsite += total
+    }else{
+        summary[key].offshore += total
+    }
+
+})
+
+let grandOnsite = 0
+let grandOffshore = 0
+
+for(let k in summary){
+
+    let item = summary[k]
+
+    let tr = document.createElement("tr")
+
+    let td1 = document.createElement("td")
+    td1.innerText = item.grade + " " + item.role
+
+    let td2 = document.createElement("td")
+    td2.innerText = item.skill
+
+    let td3 = document.createElement("td")
+    td3.innerText = item.onsite
+
+    let td4 = document.createElement("td")
+    td4.innerText = item.offshore
+
+    grandOnsite += item.onsite
+    grandOffshore += item.offshore
+
+    tr.appendChild(td1)
+    tr.appendChild(td2)
+    tr.appendChild(td3)
+    tr.appendChild(td4)
+
+    tbody.appendChild(tr)
+}
+
+/* GRAND TOTAL */
+
+let tr=document.createElement("tr")
+tr.style.fontWeight="bold"
+tr.style.background="#e2e8f0"
+
+let td1=document.createElement("td")
+td1.innerText="Grand Total"
+
+let td2=document.createElement("td")
+td2.innerText=""
+
+let td3=document.createElement("td")
+td3.innerText=grandOnsite
+
+let td4=document.createElement("td")
+td4.innerText=grandOffshore
+
+tr.appendChild(td1)
+tr.appendChild(td2)
+tr.appendChild(td3)
+tr.appendChild(td4)
+
+tbody.appendChild(tr)
+
+if(enablePushAfterGenerate){
+    isSummaryGenerated = true
+    updateActionButtons()
+}
+
+updateStats()
+
+let hint = document.getElementById("summaryHint")
+
+if(hint){
+    hint.style.display =
+        tbody.children.length > 1 ? "none" : "block"
+}
+
+}
+
+/*Export as Pdf*/
+
+async function exportPDF(){
+
+let versionName=document.getElementById("versionName").value.trim()
+
+if(versionName===""){
+showToast("Please Enter Project plan Name")
+return
+}
+
+showLoader()
+
+const { jsPDF } = window.jspdf
+let doc=new jsPDF("l","pt","a4")
+
+/* -------- convert inputs & selects to text temporarily -------- */
+
+function convertInputsToText(table){
+
+/* handle inputs */
+
+let inputs=table.querySelectorAll("input")
+
+inputs.forEach(input=>{
+
+let span=document.createElement("span")
+span.innerText=input.value
+span.style.fontSize="12px"
+
+input.dataset.original="true"
+span.dataset.temp="true"
+
+input.style.display="none"
+
+input.parentNode.appendChild(span)
+
+})
+
+
+/* handle dropdowns */
+
+let selects=table.querySelectorAll("select")
+
+selects.forEach(select=>{
+
+let span=document.createElement("span")
+span.innerText=select.options[select.selectedIndex]?.text || ""
+span.style.fontSize="12px"
+
+select.dataset.original="true"
+span.dataset.temp="true"
+
+select.style.display="none"
+
+select.parentNode.appendChild(span)
+
+})
+
+}
+
+function restoreInputs(table){
+
+/* restore inputs */
+
+table.querySelectorAll("input").forEach(input=>{
+input.style.display=""
+})
+
+/* restore selects */
+
+table.querySelectorAll("select").forEach(select=>{
+select.style.display=""
+})
+
+/* remove temporary spans */
+
+table.querySelectorAll("span[data-temp]").forEach(span=>{
+span.remove()
+})
+
+}
+
+/* -------- capture table -------- */
+
+async function addTable(tableId,title){
+
+let table=document.getElementById(tableId)
+
+convertInputsToText(table)
+
+await new Promise(r=>setTimeout(r,200))
+
+let canvas=await html2canvas(table,{
+scale:1
+})
+
+let img=canvas.toDataURL("image/jpeg",0.7)
+
+let pageWidth=doc.internal.pageSize.getWidth()
+
+let imgWidth=pageWidth-40
+let imgHeight=canvas.height*imgWidth/canvas.width
+
+doc.text(title,20,20)
+
+doc.addImage(img,"JPEG",20,40,imgWidth,imgHeight)
+
+doc.addPage()
+
+restoreInputs(table)
+
+}
+
+/* -------- export both tables -------- */
+
+await addTable("milestoneTable","Milestone Plan")
+
+await addTable("resourceTable","Resource Plan")
+
+/* -------- file name -------- */
+
+let today=new Date()
+
+let formattedDate=today.toLocaleDateString("en-US",{
+month:"short",
+day:"2-digit",
+year:"numeric"
+})
+
+
+let time = today.toLocaleTimeString("en-US",{
+hour:"2-digit",
+minute:"2-digit",
+hour12:false
+}).replace(":","-")
+let fileName=versionName+"_"+formattedDate+"_"+time+".pdf"
+
+let blob=doc.output("blob")
+
+await ZOHO.CRM.API.attachFile({
+
+Entity:"Pricing",
+RecordID:recordId,
+
+File:{
+Name:fileName,
+Content:blob
+}
+
+})
+
+hideLoader()
+
+showToast("PDF Saved Successfully")
+
+}
+
+/*Fetch Record Details*/
+
+async function exportExcel(){
+
+let versionName =
+    document.getElementById("versionName")
+    .value
+    .trim()
+
+if(versionName === ""){
+
+    showToast("Please Enter Project plan Name")
+
+    return
+}
+
+showLoader()
+
+try{
+
+    /* =====================================================
+       CREATE WORKBOOK
+    ===================================================== */
+
+    let wb = XLSX.utils.book_new()
+
+    /* =====================================================
+       MILESTONE SHEET
+    ===================================================== */
+
+    let milestoneData = []
+
+    let milestoneHeader = [
+        "Implementation Milestones"
+    ]
+
+    for(let i=1;i<=getPlanningColumns();i++){
+        milestoneHeader.push("W"+i)
+    }
+
+    milestoneData.push(milestoneHeader)
+
+    /* =====================================================
+       BUILD DATA
+    ===================================================== */
+
+    milestoneBody.querySelectorAll("tr")
+    .forEach(row=>{
+
+        let rowData = []
+
+        /* milestone name */
+
+        rowData.push(
+            row.querySelector("select").value
+        )
+
+        /* week colors */
+
+        let cells =
+            row.querySelectorAll("td")
+
+        cells.forEach((cell,i)=>{
+
+            // Skip drag + milestone column
+            if(i <= 1) return
+
+            let colorValue = ""
+
+            if(cell.classList.contains("color-yellow")){
+                colorValue = "YELLOW"
+            }
+
+            else if(cell.classList.contains("color-blue")){
+                colorValue = "BLUE"
+            }
+
+            else if(cell.classList.contains("color-orange")){
+                colorValue = "ORANGE"
+            }
+
+            else if(cell.classList.contains("color-green")){
+                colorValue = "GREEN"
+            }
+
+            else if(cell.classList.contains("color-purple")){
+                colorValue = "PURPLE"
+            }
+
+            else if(cell.classList.contains("color-red")){
+                colorValue = "RED"
+            }
+
+            rowData.push(colorValue)
+
+        })
+
+        milestoneData.push(rowData)
+
+    })
+
+    /* =====================================================
+       CREATE SHEET
+    ===================================================== */
+
+    let milestoneSheet =
+        XLSX.utils.aoa_to_sheet(
+            milestoneData
+        )
+
+    /* =====================================================
+       APPLY EXCEL COLORS
+    ===================================================== */
+
+    milestoneBody.querySelectorAll("tr")
+    .forEach((row,rowIndex)=>{
+
+        let cells =
+            row.querySelectorAll("td")
+
+        cells.forEach((cell,cellIndex)=>{
+
+            if(cellIndex <= 1){
+                return
+            }
+
+            let excelRow = rowIndex + 1
+            let excelCol = cellIndex - 1
+
+            let address =
+                XLSX.utils.encode_cell({
+                    r:excelRow,
+                    c:excelCol
+                })
+
+            if(!milestoneSheet[address]){
+
+                milestoneSheet[address] = {
+                    t:"s",
+                    v:""
+                }
+
+            }
+
+            let bgColor = null
+
+            if(cell.classList.contains("color-yellow")){
+                bgColor = "FDE68A"
+            }
+
+            else if(cell.classList.contains("color-blue")){
+                bgColor = "93C5FD"
+            }
+
+            else if(cell.classList.contains("color-orange")){
+                bgColor = "FDBA74"
+            }
+
+            else if(cell.classList.contains("color-green")){
+                bgColor = "86EFAC"
+            }
+
+            else if(cell.classList.contains("color-purple")){
+                bgColor = "C4B5FD"
+            }
+
+            else if(cell.classList.contains("color-red")){
+                bgColor = "EF4444"
+            }
+
+            if(bgColor){
+
+                milestoneSheet[address].s = {
+
+                    fill:{
+                        patternType:"solid",
+                        fgColor:{
+                            rgb:bgColor
+                        }
+                    },
+
+                    /* HIDE TEXT */
+                    font:{
+                        color:{
+                            rgb:bgColor
+                        }
+                    },
+
+                    alignment:{
+                        horizontal:"center",
+                        vertical:"center"
+                    }
+
+                }
+
+            }
+
+        })
+
+    })
+
+    milestoneSheet["!cols"] = [
+        {wch:40},
+        ...Array(weeks).fill({wch:8})
+    ]
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        milestoneSheet,
+        "Milestones"
+    )
+
+    /* =====================================================
+       RESOURCE SHEET
+    ===================================================== */
+
+    let resourceData = []
+
+    let resourceHeader = [
+        "Type",
+        "Grade",
+        "Role",
+        "Technology / Skillset"
+    ]
+
+    for(let i=1;i<=getPlanningColumns();i++){
+        resourceHeader.push("W"+i)
+    }
+
+    resourceHeader.push("Total")
+
+    resourceData.push(resourceHeader)
+
+    resourceBody.querySelectorAll("tr")
+    .forEach(row=>{
+
+        let rowData = []
+
+        let selects =
+            row.querySelectorAll("select")
+
+        rowData.push(selects[0].value)
+        rowData.push(selects[1].value)
+        rowData.push(selects[2].value)
+        rowData.push(
+            row.querySelector(".skill-input")?.value || ""
+)
+
+        row.querySelectorAll('input[type="number"]')
+        .forEach(inp=>{
+
+            rowData.push(inp.value || "")
+
+        })
+
+        rowData.push(
+            row.lastChild.innerText
+        )
+
+        resourceData.push(rowData)
+
+    })
+
+    let resourceSheet =
+        XLSX.utils.aoa_to_sheet(
+            resourceData
+        )
+
+ resourceSheet["!cols"] = [
+    {wch:12},
+    {wch:12},
+    {wch:25},
+    {wch:28},
+    ...Array(weeks).fill({wch:6}),
+    {wch:10}
+]
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        resourceSheet,
+        "Resources"
+    )
+
+    /* =====================================================
+       SUMMARY SHEET
+    ===================================================== */
+
+    generateSummary()
+
+    let summaryData = []
+
+   summaryData.push([
+    "Row Labels",
+    "Skills / Tech",
+    "Onsite Total",
+    "Offshore Total"
+])
+
+    document.querySelectorAll(
+        "#summaryTable tbody tr"
+    ).forEach(row=>{
+
+        let cols =
+            row.querySelectorAll("td")
+
+        let rowData = []
+
+        cols.forEach(td=>{
+            rowData.push(td.innerText)
+        })
+
+        summaryData.push(rowData)
+
+    })
+
+    let summarySheet =
+        XLSX.utils.aoa_to_sheet(
+            summaryData
+        )
+
+   summarySheet["!cols"] = [
+    {wch:35},
+    {wch:25},
+    {wch:18},
+    {wch:18}
+]
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        summarySheet,
+        "Summary"
+    )
+
+    /* =====================================================
+       FILE NAME
+    ===================================================== */
+
+    let today = new Date()
+
+    let formattedDate =
+        today.toLocaleDateString(
+            "en-US",
+            {
+                month:"short",
+                day:"2-digit",
+                year:"numeric"
+            }
+        )
+
+    let time =
+        today.toLocaleTimeString(
+            "en-US",
+            {
+                hour:"2-digit",
+                minute:"2-digit",
+                hour12:false
+            }
+        ).replace(":","-")
+
+    let fileName =
+        versionName + "_" +
+        formattedDate + "_" +
+        time + ".xlsx"
+
+    /* =====================================================
+       GENERATE FILE
+    ===================================================== */
+
+    let excelBuffer =
+        XLSX.write(wb,{
+            bookType:"xlsx",
+            type:"array"
+        })
+
+    let blob = new Blob(
+        [excelBuffer],
+        {
+            type:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+    )
+
+    /* =====================================================
+       ATTACH TO CRM
+    ===================================================== */
+
+    await ZOHO.CRM.API.attachFile({
+
+        Entity:"Pricing",
+
+        RecordID:recordId,
+
+        File:{
+            Name:fileName,
+            Content:blob
+        }
+
+    })
+
+    hideLoader()
+
+    showToast(
+        "Excel Saved Successfully"
+    )
+
+}catch(e){
+
+    console.error(e)
+
+    hideLoader()
+
+    showToast(
+        "Error exporting Excel"
+    )
+
+}
+}
+
+
+async function fetchRecordDetails(){
+
+try{
+
+let response = await ZOHO.CRM.API.getRecord({
+Entity:"Pricing",
+RecordID:recordId
+})
+<!-- console.log(response) -->
+/* 🔴 SAFETY CHECK */
+if(!response || !response.data || !response.data.length){
+console.warn("No record data found")
+return
+}
+
+let data = response.data[0]
+
+
+/* SAFE ACCESS */
+let quoteName = data.Name || ""
+let opportunityName = data.Opportunity?.name || "— Not Linked —"
+let proposalName = data.Proposal?.name || "- Not Linked -"
+
+/* SET UI */
+document.getElementById("proposalName").innerText = proposalName
+document.getElementById("opportunityName").innerText = opportunityName
+document.getElementById("quoteName").innerText = quoteName
+
+}catch(e){
+
+console.error("Error fetching record", e)
+
+}
+
+}
+
+
+/*Push to Quote CRM*/
+
+async function pushToSubform(){
+
+showLoader()
+
+try{
+
+let rows=[]
+
+/* collect summary table data */
+
+document.querySelectorAll("#summaryTable tbody tr").forEach(row=>{
+
+let cols=row.querySelectorAll("td")
+
+if(cols.length < 2) return
+
+let label = cols[0].innerText
+let skillsets = cols[1].innerText
+let onsite = cols[2].innerText
+let offshore = cols[3].innerText
+
+/* skip Grand Total row */
+if(label==="Grand Total") return
+
+rows.push({
+Grade_Designation: label,
+Onsite_Mandays: Number(onsite),
+Offshore_Mandays: Number(offshore),
+SkillSet_Technology: skillsets,
+Table_Altered: true  // ✅ IMPORTANT FLAG
+})
+
+})
+
+/* update CRM record */
+
+console.log("recordId:", recordId); 
+console.log("rows to push:", rows);
+await ZOHO.CRM.API.updateRecord({
+Entity:"Pricing",
+APIData:{
+id: String(Array.isArray(recordId) ? recordId[0] : recordId),
+RLS: rows,   // 👈 subform API name
+Table_Altered: true  
+},
+trigger: ["workflow"]
+})
+
+hideLoader()
+showToast("Summary pushed to Quote successfully. Click Close to see the updates in CRM.")
+
+}catch(e){
+
+console.error(e)
+hideLoader()
+showToast("Error pushing data")
+
+}
+
+}
+
+/* init widget */
+
+async function reloadWidget(){
+
+    await loadMilestones()
+
+    /* RESET TABLES */
+    milestoneBody.innerHTML = ""
+    resourceBody.innerHTML = ""
+
+    /* RESET VARIABLES */
+    weeks = 52
+
+    isVersionSaved = false
+    isSummaryGenerated = false
+    updateActionButtons()
+
+    selectedCells = []
+    actionHistory = []
+
+    /* RESET INPUTS */
+
+    document.getElementById("versionName").value = ""
+
+    document.getElementById("versionDropdown").selectedIndex = 0
+
+    /* RESET DATES */
+
+    if(startPicker){
+        startPicker.clear()
+        startPicker.input.disabled = false
+    }
+
+    if(endPicker){
+        endPicker.clear()
+        endPicker.input.disabled = false
+    }
+
+    /* REBUILD */
+
+    buildHeaders()
+
+    addMilestoneRow()
+
+    addResourceRow()
+
+    generateSummary()
+
+    showToast("Widget Reloaded")
+
+}
+
+function openMilestoneModal(){
+
+    document.getElementById("milestoneModal").style.display = "flex"
+
+    document.getElementById("newMilestoneInput").value = ""
+}
+
+function closeMilestoneModal(){
+
+    document.getElementById("milestoneModal").style.display = "none"
+}
+
+async function saveCustomMilestone(){
+
+    let input = document.getElementById("newMilestoneInput")
+
+    let value = input.value.trim()
+
+    if(!value){
+        showToast("Enter milestone name")
+        return
+    }
+
+    /* Duplicate Check */
+    let exists = milestoneOptions.some(
+        m => m.trim().toLowerCase() === value.toLowerCase()
+    )
+
+    if(exists){
+        showToast("Milestone already exists")
+        return
+    }
+
+    try{
+
+        /* Save to CRM Picklist / Master Module */
+        let response =
+            await ZOHO.CRM.FUNCTIONS.execute(
+                "addMilestone",
+                {
+                    arguments: JSON.stringify({
+                        milestone: value
+                    })
+                }
+            )
+
+        let output = JSON.parse(response.details.output);
+
+        console.log(output);
+
+        let code = output.global_picklists?.[0]?.code;
+
+        console.log("Add Milestone code:", code);
+        if(code !== "SUCCESS"){
+            showToast("Failed to add milestone")
+            return
+        }
+
+        /* Update local list */
+        milestoneOptions.push(value)
+
+        /* Update all existing dropdowns */
+        document
+            .querySelectorAll("#milestoneBody select")
+            .forEach(select => {
+
+                let option =
+                    document.createElement("option")
+
+                option.value = value
+                option.text = value
+
+                select.appendChild(option)
+
+            })
+
+        markAsDirty()
+
+        closeMilestoneModal()
+
+        showToast("Milestone added successfully")
+
+    }catch(e){
+
+        console.error(e)
+
+        showToast("Error saving milestone")
+
+    }
+}
+
+
+async function loadMilestones(){
+
+    try{
+
+        let response =
+            await ZOHO.CRM.FUNCTIONS.execute(
+                "getMilestones",
+                {
+                    arguments: JSON.stringify({})
+                }
+            )
+        console.log("Milestones response:", response.details.output)
+        let result =
+            JSON.parse(response.details.output)
+        
+        milestoneOptions = []
+
+        result.forEach(item=>{
+
+            milestoneOptions.push(
+                item.Name || item
+            )
+
+        })
+
+        console.log(
+            "Milestones Loaded",
+            milestoneOptions
+        )
+
+    }catch(e){
+
+        console.error(
+            "Error loading milestones",
+            e
+        )
+
+    }
+
+}
+
+
+ZOHO.embeddedApp.on("PageLoad",async function(data){
+
+recordId=data.EntityId
+
+ZOHO.CRM.UI.Resize({height:"1200",width:"1300"})
+await loadMilestones()
+buildHeaders()
+generateEffortTable()
+fetchRecordDetails()
+// createMilestoneRow()
+addMilestoneRow()
+addResourceRow()
+loadVersions()
+
+enableRowDrag(milestoneBody)
+enableRowDrag(resourceBody)
+
+isVersionSaved = false
+isSummaryGenerated = false
+updateActionButtons()
+
+})
+
+document.addEventListener("keydown", function(e){
+    if(e.ctrlKey && e.key === "z"){
+        undoLastAction()
+        e.preventDefault()
+    }
+})
+
+
+
+ZOHO.embeddedApp.init()
+
+</script>
+
+</body>
+</html>
