@@ -373,6 +373,119 @@ listing is a review aid rather than an anti-copying measure.
 These are integrity fixes to the base module, **not** part of the paid
 add-on — they apply to every school that has the module at all.
 
+## 13b. Biometric attendance (add-on)
+
+Punch data from physical terminals (fingerprint / face / RFID), turned into
+`Attendance` rows. `backend/app/biometric.py` holds the logic,
+`backend/app/routes/biometric.py` the endpoints, `backend/run_biometric_sync.py`
+the scheduled puller.
+
+**Sold separately.** `DEFAULT_FEATURES["biometric_attendance"]` is `False`; the
+platform owner enables it per school in the Platform Console ("Biometric
+Attendance (add-on)"). The gate covers the device ingest endpoint as well as
+the staff routes, so a school whose subscription lapses stops accepting punches
+rather than continuing to collect data it is no longer entitled to hold.
+
+### The three ingest routes, and what "pull" can actually reach
+
+A terminal on a school LAN has a private address and **cannot be dialled from
+this server**. That constraint decides the whole design:
+
+| Mode | Who initiates | Use when |
+|---|---|---|
+| `push` | Terminal / vendor middleware POSTs to `/biometric/ingest` | The device can make outbound HTTP calls (most ZKTeco / eSSL units) |
+| `pull` | `run_biometric_sync.py` GETs `pull_endpoint` | The vendor has an internet-reachable cloud API |
+| agent | A script inside the school reads the device and POSTs to `/biometric/ingest` | LAN-only device that cannot push |
+
+`push` and the agent share one endpoint, so there is a single ingest path to
+reason about. Registering a device with `mode="pull"` and no reachable
+`pull_endpoint` will simply fail every run — that is the case that needs an
+agent instead.
+
+### Device authentication
+
+A terminal cannot hold a login session, so each device gets a random bearer
+token. Only the SHA-256 hash is stored; the plaintext is returned **once**, at
+registration or rotation, and cannot be retrieved afterwards — reissue with
+`POST /biometric/devices/{id}/rotate-token`, which invalidates the old one
+immediately. Devices send:
+
+```
+X-Device-Serial: <serial_number>
+X-Device-Token:  <token>
+X-School-Code:   <account_code>
+```
+
+`X-School-Code` is required because there is no JWT to carry the tenant; the
+shared resolver already honours that header for unauthenticated requests.
+
+### Ingest is idempotent
+
+Terminals retry, and each pull window deliberately overlaps the last by
+`LOOKBACK_HOURS` (48) to close gaps left by a missed run. `BiometricPunch.dedupe_key`
+hashes (device, user, second, direction), so a repeat is counted as a duplicate
+and dropped. Re-POSTing a batch is always safe.
+
+Punches are stored **before** they are interpreted. A punch from someone with
+no enrollment mapping is kept, not discarded, and is attributed retroactively
+when the mapping is added (`relink_unmatched_punches`). Raw punches are also
+what allow attendance to be recomputed after correcting a mapping, without
+asking the device for history it may no longer hold.
+
+### Enrollment mapping
+
+`BiometricEnrollment` maps a device-side user id to a student or teacher.
+`device_id = NULL` means "on every terminal", which is the normal case where one
+roster is pushed to all devices; a row naming a specific device wins over the
+NULL one, so a single terminal that numbers people differently can be corrected
+without disturbing the rest.
+
+### Deriving attendance — deliberately conservative
+
+`POST /biometric/derive` turns a day's punches into `Attendance` rows, and is
+safe to re-run (it will not duplicate). Rules live in
+`BiometricAttendanceConfig`, and every default is the cautious one:
+
+- `derive_attendance` defaults **off** — punches are collected and visible, but
+  nothing is written to attendance. Run a terminal alongside manual marking
+  until you trust it, then switch this on.
+- `overwrite_manual` defaults **off** — a mark made by a teacher is left alone.
+  The job tags its own rows with a `Biometric:` remark prefix, and that prefix
+  is how it tells its own work from a human's.
+- `absent_if_no_punch` defaults **off** — otherwise a terminal that quietly
+  stopped reporting would mark the entire school absent.
+- `late_after` / `half_day_before` are unset by default: first punch after
+  `late_after` is Late, last punch before `half_day_before` is Half Day.
+
+### Wiring the puller
+
+Only needed if some device uses `mode="pull"`. Add a cPanel Cron Job the same
+way as the other schedulers:
+
+```
+cd /home/schoolm1/repositories/school-erp/backend && \
+  /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/python \
+  run_biometric_sync.py >> /home/schoolm1/logs/biometric_sync.log 2>&1
+```
+
+`--dry-run` fetches and reports without writing. A device that is unreachable or
+misconfigured records a Failed `BiometricSyncRun` and the loop continues to the
+next device rather than aborting the run.
+
+Vendor APIs that do not return a plain JSON list need their own adapter: add it
+to `FETCHERS` in `run_biometric_sync.py`, keyed by `BiometricDevice.vendor`.
+The shipped `fetch_generic_json` covers list-returning JSON APIs with optional
+header auth.
+
+### Privacy
+
+Biometric identifiers of minors are sensitive personal data under the DPDP Act.
+Note that this module stores the **device-side user id and punch times only** —
+it never receives or stores fingerprint or face templates, which stay on the
+terminal. That is a meaningful limit on exposure, but consent and retention
+obligations for the attendance data still apply and are a legal question, not a
+technical one.
+
 ## 14. Scheduled year-end promotion
 
 `AcademicYear` (`/academic-years`) can process year-end promotion itself

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Any
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 
 # =========================
@@ -2216,3 +2216,64 @@ class OnlineTestAttemptResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Biometric attendance ----------------
+
+
+class BiometricDeviceCreate(BaseModel):
+    name: str
+    serial_number: str
+    location: Optional[str] = None
+    vendor: Optional[str] = None
+    mode: str = "push"  # push | pull
+    pull_endpoint: Optional[str] = None
+    pull_config: Optional[dict] = None
+
+
+class BiometricDeviceUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    vendor: Optional[str] = None
+    mode: Optional[str] = None
+    is_active: Optional[bool] = None
+    pull_endpoint: Optional[str] = None
+    pull_config: Optional[dict] = None
+
+
+class BiometricEnrollmentCreate(BaseModel):
+    device_user_id: str
+    # None = applies on every device (the usual case: one roster pushed to all).
+    device_id: Optional[int] = None
+    student_id: Optional[int] = None
+    teacher_id: Optional[int] = None
+
+
+class BiometricPunchIn(BaseModel):
+    """One raw read. Field names are aliased loosely in biometric.ingest_punches
+    because vendors disagree on what to call these."""
+
+    device_user_id: Optional[str] = None
+    user_id: Optional[str] = None
+    timestamp: Optional[Any] = None
+    punched_at: Optional[Any] = None
+    time: Optional[Any] = None
+    direction: Optional[Any] = None
+    punch_type: Optional[Any] = None
+
+
+class BiometricIngestRequest(BaseModel):
+    punches: list[BiometricPunchIn] = []
+
+
+class BiometricConfigUpdate(BaseModel):
+    derive_attendance: Optional[bool] = None
+    late_after: Optional[time] = None
+    half_day_before: Optional[time] = None
+    absent_if_no_punch: Optional[bool] = None
+    overwrite_manual: Optional[bool] = None
+
+
+class BiometricDeriveRequest(BaseModel):
+    target_date: Optional[date] = None
+    academic_year: Optional[str] = None

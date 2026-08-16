@@ -69,6 +69,11 @@ DEFAULT_FEATURES = {
     # require_feature("online_tests") on the staff and portal routes, not just
     # by hiding the sidebar entry.
     "online_tests": False,
+    # Sold separately: biometric attendance (device registry, punch ingest and
+    # attendance derivation). Off until the platform owner enables it, and the
+    # gate covers the device ingest endpoint too, so a lapsed school stops
+    # accepting punches rather than collecting data it can no longer store.
+    "biometric_attendance": False,
     # Off by default: the platform owner must switch each of these on per
     # school via the Platform Console before the matching cron script will
     # actually act on that school's data — a school's own Admin can still
