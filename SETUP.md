@@ -768,10 +768,58 @@ this).
 
 ## 18. Admin app (frontend/) build + deploy in cPanel
 
-`frontend/` (the Vite/React admin app — the actual login/dashboard portal,
-distinct from the marketing site) builds and deploys through the same
-cPanel Git Version Control flow as everything else, via the last two tasks
-in `.cpanel.yml`. Unlike the backend, it never runs as a live Node
+> **This app is NOT built on the server.** The build tasks were removed from
+> `.cpanel.yml` after three separate hard limits of the shared CloudLinux
+> account made a server-side build impossible. Build it elsewhere and upload
+> `dist/` by hand — see "Why the build was moved off-server" below.
+
+### Deploying the admin app
+
+1. Build wherever Node runs properly (a laptop, CI, any normal host):
+
+   ```bash
+   cd frontend
+   VITE_API_BASE_URL=https://schoolment.com/school-erp npm run build
+   ```
+
+2. Upload the **contents** of `frontend/dist/` into
+   `public_html/school-admin/`, replacing what's there.
+
+   **Include the hidden `.htaccess`.** File managers and zip tools routinely
+   skip dotfiles. Without it every deep link (`/platform-login`, and any
+   route reached by refresh rather than in-app navigation) returns 404,
+   because React Router's routes have no matching file on disk. This has
+   already caught us once.
+
+3. Nothing to restart — it's static files.
+
+### Why the build was moved off-server
+
+Each of these is a limit of the hosting account, not a misconfiguration:
+
+1. **Node too old for Vite 8.** Its `rolldown` bundler needs Node >= 20.19;
+   the host caps at 20.18.3. Genuinely fixed, by downgrading to Vite 5 —
+   that part was solvable.
+2. **LVE process cap.** esbuild's Go runtime could not spawn its threads:
+   `failed to create new OS thread (have 17 already; errno=11)`.
+3. **LVE memory cap.** The build then died on
+   `WebAssembly.instantiate(): Out of memory: Cannot allocate Wasm memory`.
+
+The tasks were **removed** rather than left in to fail, because a failing
+task aborts the entire deploy: cPanel marks the deployment failed and never
+updates "Last Deployed", even though the backend, the tenant migrations and
+the marketing site had all already applied. That made every deploy look
+broken when only the last step was.
+
+If this account ever moves to a host without LVE limits, the build tasks can
+go straight back in — the Vite 5 toolchain itself is fine, and builds in
+under 10 seconds on ordinary hardware.
+
+### Historical note
+
+Previously `frontend/` built and deployed through the same cPanel Git
+Version Control flow as everything else, via the last tasks in
+`.cpanel.yml`. Unlike the backend, it never runs as a live Node
 process — Node/npm are only needed to *build* it (`npm ci && npm run
 build`), and the resulting static `dist/` output is rsynced into
 `school-admin/`, same as any other static site.
