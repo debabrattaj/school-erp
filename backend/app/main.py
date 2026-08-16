@@ -42,6 +42,7 @@ from app.routes import platform
 from app.routes import payroll
 from app.routes import homework
 from app.routes import online_tests
+from app.routes import biometric
 from app.routes import leads
 from app.tenant import init_tenant_registry
 from app.routes import (
@@ -1163,6 +1164,7 @@ app.include_router(fee_structures.router)
 app.include_router(payroll.router)
 app.include_router(homework.router)
 app.include_router(online_tests.router)
+app.include_router(biometric.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)
