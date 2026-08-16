@@ -67,6 +67,7 @@ import ReportCard from "./pages/ReportCard";
 import Payroll from "./pages/Payroll";
 import Homework from "./pages/Homework";
 import OnlineTests from "./pages/OnlineTests";
+import Biometric from "./pages/Biometric";
 
 const MOBILE_BREAKPOINT = 900;
 
@@ -261,6 +262,17 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <OnlineTests />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/biometric"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal"]}>
+              <ProtectedLayout>
+                <Biometric />
               </ProtectedLayout>
             </ProtectedRoute>
           }
