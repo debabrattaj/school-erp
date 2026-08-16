@@ -21,6 +21,8 @@ const emptyTestForm = {
   description: "",
   duration_minutes: "",
   teacher_id: "",
+  shuffle_questions: false,
+  shuffle_options: false,
 };
 
 const emptyQuestionForm = {
@@ -84,8 +86,8 @@ export default function OnlineTests() {
   }, []);
 
   function handleTestChange(e) {
-    const { name, value } = e.target;
-    setTestForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setTestForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
   function handleAddTest() {
@@ -106,6 +108,8 @@ export default function OnlineTests() {
       description: test.description || "",
       duration_minutes: test.duration_minutes || "",
       teacher_id: test.teacher_id || "",
+      shuffle_questions: Boolean(test.shuffle_questions),
+      shuffle_options: Boolean(test.shuffle_options),
     });
     setMessage("");
     setPageMode("form");
@@ -122,6 +126,8 @@ export default function OnlineTests() {
       description: testForm.description.trim() || null,
       duration_minutes: testForm.duration_minutes ? Number(testForm.duration_minutes) : null,
       teacher_id: testForm.teacher_id ? Number(testForm.teacher_id) : null,
+      shuffle_questions: Boolean(testForm.shuffle_questions),
+      shuffle_options: Boolean(testForm.shuffle_options),
     };
     if (!payload.class_name) {
       setMessage("Class is required.");
@@ -329,6 +335,28 @@ export default function OnlineTests() {
               <div className="form-field">
                 <label>Description</label>
                 <textarea name="description" value={testForm.description} onChange={handleTestChange} rows={3} />
+              </div>
+              <div className="form-field">
+                <label>Anti-copying</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="shuffle_questions"
+                    checked={testForm.shuffle_questions}
+                    onChange={handleTestChange}
+                  />
+                  Shuffle question order per student
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="shuffle_options"
+                    checked={testForm.shuffle_options}
+                    onChange={handleTestChange}
+                  />
+                  Shuffle answer options per student
+                </label>
+                <small>Each student gets a different order, kept stable if they reload.</small>
               </div>
             </div>
             <div className="form-actions">

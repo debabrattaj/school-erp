@@ -64,7 +64,11 @@ DEFAULT_FEATURES = {
     "timetable": True,
     "payroll": True,
     "homework": True,
-    "online_tests": True,
+    # Sold separately: off until the platform owner switches it on for a
+    # school in the Platform Console. Enforced server-side by
+    # require_feature("online_tests") on the staff and portal routes, not just
+    # by hiding the sidebar entry.
+    "online_tests": False,
     # Off by default: the platform owner must switch each of these on per
     # school via the Platform Console before the matching cron script will
     # actually act on that school's data — a school's own Admin can still
@@ -197,6 +201,31 @@ def is_feature_enabled(account_code: str, feature_key: str) -> bool:
     except HTTPException:
         return False
     return get_feature_map(account["id"]).get(feature_key, False)
+
+
+def require_feature(feature_key: str):
+    """Route dependency: 403 unless the platform owner enabled this module.
+
+    Module flags used to be enforced only by hiding the entry in the sidebar,
+    which left the endpoints themselves reachable — a school that hadn't been
+    given a module could still drive it directly through the API. Any module
+    that is optional or sold separately should gate its routes on this so the
+    flag is a real entitlement check rather than a UI hint.
+
+    Resolves the account the same way tenant routing does, so it agrees with
+    whichever database the request is actually being served from.
+    """
+
+    def _check(request: Request):
+        account_code = get_account_code_from_request(request)
+        if not is_feature_enabled(account_code, feature_key):
+            raise HTTPException(
+                status_code=403,
+                detail="This module is not enabled for your school.",
+            )
+        return True
+
+    return _check
 
 
 def get_account_code_from_request(request: Request):

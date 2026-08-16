@@ -3,8 +3,11 @@ import { QrCode, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
 import API from "../api";
-import { getUser } from "../auth";
+import { getUser, isFeatureEnabled } from "../auth";
 
+// Online Tests is sold separately, so its tab only exists for schools the
+// platform owner has enabled it for. The server enforces this too -- hiding
+// the tab alone would leave the endpoints reachable.
 const TABS = [
   ["summary", "Summary"],
   ["attendance", "Attendance"],
@@ -12,10 +15,10 @@ const TABS = [
   ["fees", "Fees"],
   ["timetable", "Timetable"],
   ["homework", "Homework"],
-  ["tests", "Online Tests"],
+  ["tests", "Online Tests", "online_tests"],
   ["messages", "Messages"],
   ["history", "History"],
-];
+].filter(([, , feature]) => !feature || isFeatureEnabled(feature));
 
 function parseUtc(value) {
   if (!value) return null;
@@ -189,9 +192,11 @@ export default function Portal() {
       });
       setTestAnswers(initialAnswers);
 
-      if (data.attempt.status === "In Progress" && data.test.duration_minutes) {
-        const startedAt = parseUtc(data.attempt.started_at);
-        const deadline = startedAt.getTime() + data.test.duration_minutes * 60000;
+      // The server computes the deadline (the earlier of the attempt's duration
+      // and the test's closing time) and enforces it, so trust its value rather
+      // than recomputing one here that could disagree.
+      if (data.attempt.status === "In Progress" && data.attempt.deadline) {
+        const deadline = parseUtc(data.attempt.deadline).getTime();
         setTimeLeftSeconds(Math.max(0, Math.round((deadline - Date.now()) / 1000)));
       } else {
         setTimeLeftSeconds(null);
@@ -208,8 +213,21 @@ export default function Portal() {
     loadOnlineTests(selectedId);
   }
 
-  function selectAnswer(questionId, option) {
+  async function selectAnswer(questionId, option) {
     setTestAnswers((prev) => ({ ...prev, [questionId]: option }));
+
+    // Persist as the student goes. The server grades a timed-out attempt on
+    // what it has saved, so an answer that never reached it doesn't count --
+    // this is what stops a slow connection at the deadline costing marks.
+    if (!activeOnlineTest || activeOnlineTest.attempt.status !== "In Progress") return;
+    try {
+      await API.post(
+        `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/answer`,
+        { question_id: questionId, selected_option: option }
+      );
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "That answer could not be saved — check your connection."));
+    }
   }
 
   async function submitOnlineTest() {
@@ -734,6 +752,12 @@ export default function Portal() {
               {activeOnlineTest.attempt.status === "Submitted" && (
                 <div className="message-box">
                   Score: {activeOnlineTest.attempt.score} / {activeOnlineTest.attempt.max_score}
+                  {activeOnlineTest.attempt.auto_submitted_reason === "time_expired" && (
+                    <div>This test was submitted automatically because the time ran out. Answers saved before then were marked.</div>
+                  )}
+                  {activeOnlineTest.attempt.auto_submitted_reason === "window_closed" && (
+                    <div>This test closed before it was submitted. Answers saved before it closed were marked.</div>
+                  )}
                 </div>
               )}
 

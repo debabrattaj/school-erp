@@ -2157,6 +2157,8 @@ class OnlineTestBase(BaseModel):
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     teacher_id: Optional[int] = None
+    shuffle_questions: bool = False
+    shuffle_options: bool = False
 
 
 class OnlineTestCreate(OnlineTestBase):
@@ -2175,6 +2177,8 @@ class OnlineTestUpdate(BaseModel):
     ends_at: Optional[datetime] = None
     teacher_id: Optional[int] = None
     status: Optional[str] = None
+    shuffle_questions: Optional[bool] = None
+    shuffle_options: Optional[bool] = None
 
 
 class OnlineTestResponse(OnlineTestBase):
@@ -2208,6 +2212,7 @@ class OnlineTestAttemptResponse(BaseModel):
     score: Optional[float] = None
     max_score: Optional[float] = None
     status: str
+    auto_submitted_reason: Optional[str] = None
 
     class Config:
         from_attributes = True

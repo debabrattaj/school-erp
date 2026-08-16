@@ -321,10 +321,57 @@ Tests" tab in `Portal.jsx`.
 - **Only the `Student` role can start or submit an attempt** — a linked
   `Parent` account can view the test list and, once submitted, the
   reviewed result, but can't take the test on the student's behalf.
-- Submitting doesn't hard-block on the timer having run out server-side;
-  the frontend's countdown auto-submits at zero, but a slow network
-  round-trip on the way in shouldn't lock a student out of their own
-  answers.
+
+### Sold separately: the `online_tests` entitlement
+
+This module is **off by default** (`DEFAULT_FEATURES["online_tests"] = False`
+in `app/tenant.py`). The platform owner switches it on per school in the
+Platform Console ("Online Exam (add-on)"), exactly like the automation flags.
+
+The check is enforced **server-side**, not just by hiding the menu entry:
+`require_feature("online_tests")` (`app/tenant.py`) sits on the
+`/online-tests` router as a whole and on each of the four student-facing
+`/portal/students/{id}/online-tests*` routes, which share the portal router
+with everything else and so are gated individually. A school without the
+entitlement gets a 403 from the API, not merely a hidden tab. Reach for the
+same dependency for any future module that is optional or paid — a flag that
+only hides UI is not an entitlement.
+
+### Timer and window enforcement
+
+The deadline for an attempt is the **earlier** of `started_at +
+duration_minutes` and the test's own `ends_at` (`_attempt_deadline` in
+`portal.py`). It is enforced on the server, in two places:
+
+- **On submit** — past the deadline (plus `SUBMIT_GRACE_SECONDS`, 60s, to
+  absorb clock skew and network latency) the submitted payload is *refused*
+  and the attempt is scored on what was already saved.
+- **On open** — an attempt left running past its deadline is closed when it
+  is next loaded, rather than resumed. So walking away and coming back the
+  next day does not buy extra time.
+
+Either path stamps `OnlineTestAttempt.auto_submitted_reason`
+(`time_expired` or `window_closed`), which the portal shows to the student
+and which distinguishes an auto-closed attempt from a normal submission.
+
+**This is why answers are saved as the student goes.** `POST
+/portal/students/{id}/online-tests/{test_id}/answer` upserts one answer at a
+time (ungraded — grading happens once, in `_grade_attempt`). Without it,
+refusing a late payload would score a timed-out student on an empty sheet.
+Any change to the submit path must keep that pairing intact.
+
+### Shuffling
+
+`OnlineTest.shuffle_questions` / `shuffle_options` (both default off) reorder
+questions and MCQ options per student. The order is seeded from the attempt
+id (`_shuffled_for_attempt`), so it is stable across reloads within one
+attempt but differs between students; option shuffling additionally salts
+with the question id so the two orderings don't correlate. The original
+order is restored once the attempt is submitted, since at that point the
+listing is a review aid rather than an anti-copying measure.
+
+These are integrity fixes to the base module, **not** part of the paid
+add-on — they apply to every school that has the module at all.
 
 ## 14. Scheduled year-end promotion
 
