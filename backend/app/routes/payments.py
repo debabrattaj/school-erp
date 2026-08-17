@@ -51,15 +51,26 @@ def get_config(
     they are -- they are write-only once saved."""
     settings = db.query(models.SchoolSettings).first()
     if not settings:
-        return {"enabled": False, "provider": None, "key_id": None,
+        return {"enabled": False, "mode": None, "provider": None, "key_id": None,
                 "has_secret": False, "has_webhook_secret": False}
+
+    config = payments.get_gateway_config(db)
     return {
-        "enabled": payments.is_gateway_enabled(db),
-        "provider": settings.payment_provider,
-        "key_id": settings.payment_key_id,
+        "enabled": config is not None,
+        # route  = fees flow through the platform's account and the gateway
+        #          transfers this school's share automatically
+        # direct = this school's own merchant account
+        "mode": config["mode"] if config else None,
+        "provider": config["provider"] if config else settings.payment_provider,
+        # Publishable key only. In route mode this is the platform's, which is
+        # safe to expose -- it is what the checkout widget needs.
+        "key_id": config["key_id"] if config else settings.payment_key_id,
         "has_secret": bool(settings.payment_key_secret),
         "has_webhook_secret": bool(settings.payment_webhook_secret),
         "supported_providers": sorted(payments.PROVIDERS.keys()),
+        # Read-only here: both are set by the platform owner.
+        "linked_account_id": settings.razorpay_linked_account_id,
+        "platform_commission_percent": float(settings.platform_commission_percent or 0),
     }
 
 

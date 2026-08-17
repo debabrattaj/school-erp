@@ -1,4 +1,5 @@
-"""add payment_orders table and per-school gateway credentials on school_settings
+"""add payment_orders table, per-school gateway credentials and Route split
+fields on school_settings
 
 Revision ID: f2a3b4c5d6e7
 Revises: e1f2a3b4c5d6
@@ -28,9 +29,22 @@ def upgrade() -> None:
             "payment_key_id",
             "payment_key_secret",
             "payment_webhook_secret",
+            # Route: the school's linked account at the platform's gateway.
+            "razorpay_linked_account_id",
         ):
             if name not in columns:
                 op.add_column("school_settings", sa.Column(name, sa.String(), nullable=True))
+
+        if "platform_commission_percent" not in columns:
+            op.add_column(
+                "school_settings",
+                sa.Column(
+                    "platform_commission_percent",
+                    sa.Float(),
+                    nullable=False,
+                    server_default="0",
+                ),
+            )
 
     if "payment_orders" not in tables:
         op.create_table(
@@ -67,6 +81,8 @@ def downgrade() -> None:
     if "school_settings" in tables:
         columns = {col["name"] for col in inspector.get_columns("school_settings")}
         for name in (
+            "platform_commission_percent",
+            "razorpay_linked_account_id",
             "payment_webhook_secret",
             "payment_key_secret",
             "payment_key_id",

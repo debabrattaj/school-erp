@@ -394,3 +394,166 @@ def test_order_creation_fails_clearly_when_gateway_not_configured(client, db_ses
     if settings:
         settings.payment_provider = previous
         db_session.commit()
+
+
+# ---------------- Razorpay Route (split payments) ----------------
+
+
+@pytest.fixture()
+def route_mode(db_session, monkeypatch):
+    """Platform credentials in the environment + a linked account on the school.
+
+    This is the model the platform actually runs: parents pay into the
+    platform's merchant account and the gateway forwards each school's share.
+    """
+    from app.models import SchoolSettings
+
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_platform_key")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "rzp_platform_secret")
+    monkeypatch.setenv("RAZORPAY_WEBHOOK_SECRET", WEBHOOK_SECRET)
+
+    settings = db_session.query(SchoolSettings).first()
+    created = False
+    if not settings:
+        settings = SchoolSettings(school_name="Route School", currency="INR")
+        db_session.add(settings)
+        created = True
+    previous = (settings.razorpay_linked_account_id, settings.platform_commission_percent)
+    settings.razorpay_linked_account_id = "acc_SCHOOL123"
+    settings.platform_commission_percent = 2.0
+    db_session.commit()
+
+    yield settings
+
+    if created:
+        db_session.delete(settings)
+    else:
+        settings.razorpay_linked_account_id, settings.platform_commission_percent = previous
+    db_session.commit()
+
+
+def test_split_always_reconciles_to_the_charged_amount():
+    """School share + commission must equal the order exactly. A stray paisa
+    means a transfer larger than its order, which the gateway rejects."""
+    from app.payments import split_amounts, to_minor_units
+
+    for total, pct in [(5000, 2), (1000, 0), (999.99, 2.5), (1, 3), (100, 100), (12345.67, 7.5)]:
+        school, commission = split_amounts(total, pct)
+        assert school + commission == to_minor_units(total), f"{total} @ {pct}%"
+        assert school >= 0 and commission >= 0
+
+
+def test_commission_percent_is_clamped():
+    """A nonsense rate must not produce a negative share for the school."""
+    from app.payments import split_amounts
+
+    assert split_amounts(1000, -5) == (100000, 0)
+    assert split_amounts(1000, 150) == (0, 100000)
+
+
+def test_route_mode_is_selected_and_uses_platform_credentials(db_session, route_mode):
+    from app.payments import get_gateway_config
+
+    config = get_gateway_config(db_session)
+    assert config["mode"] == "route"
+    assert config["key_id"] == "rzp_platform_key"
+    assert config["linked_account_id"] == "acc_SCHOOL123"
+    assert config["commission_percent"] == 2.0
+
+
+def test_route_order_carries_a_transfer_to_the_school(db_session, route_mode, monkeypatch):
+    """The split has to be on the order itself — that is what makes the gateway
+    move the school's share under its own licence, instead of the platform
+    collecting everything and paying out by hand."""
+    from app import payments
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"id": "order_ROUTE1", "amount": 500000}
+
+    def fake_post(url, auth=None, json=None, timeout=None):
+        captured["auth"] = auth
+        captured["body"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(payments.httpx, "post", fake_post)
+
+    fee = _make_fee(db_session, total=5000.0)
+    payments.create_order_for_fee(db_session, fee)
+
+    assert captured["auth"] == ("rzp_platform_key", "rzp_platform_secret")
+    transfers = captured["body"]["transfers"]
+    assert len(transfers) == 1
+    assert transfers[0]["account"] == "acc_SCHOOL123"
+    # 5000 at 2% -> school keeps 4900.00, platform keeps 100.00
+    assert transfers[0]["amount"] == 490000
+    assert transfers[0]["on_hold"] is False
+    assert captured["body"]["amount"] == 500000
+
+
+def test_direct_mode_sends_no_transfer(db_session, gateway, monkeypatch):
+    """A school on its own merchant account keeps everything — no split."""
+    from app import payments
+
+    monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
+    monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"id": "order_DIRECT1", "amount": 200000}
+
+    def fake_post(url, auth=None, json=None, timeout=None):
+        captured["auth"] = auth
+        captured["body"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(payments.httpx, "post", fake_post)
+
+    fee = _make_fee(db_session, total=2000.0)
+    payments.create_order_for_fee(db_session, fee)
+
+    assert captured["auth"] == (KEY_ID, KEY_SECRET)
+    assert "transfers" not in captured["body"]
+
+
+def test_route_wins_over_a_schools_own_keys(db_session, gateway, route_mode):
+    """With both configured, the platform's arrangement is the one that runs."""
+    from app.payments import get_gateway_config
+
+    assert get_gateway_config(db_session)["mode"] == "route"
+
+
+def test_config_exposes_mode_but_still_no_secrets(client, auth, route_mode):
+    resp = client.get("/payments/config", headers=auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert body["mode"] == "route"
+    assert body["key_id"] == "rzp_platform_key"
+    assert body["platform_commission_percent"] == 2.0
+    assert "rzp_platform_secret" not in json.dumps(body)
+
+
+def test_school_admin_cannot_change_its_own_commission(client, auth, db_session, route_mode):
+    """Commission is what the school pays the platform, so no route a school
+    administrator can reach may alter it."""
+    resp = client.put(
+        "/payments/config",
+        json={"platform_commission_percent": 0, "razorpay_linked_account_id": "acc_ATTACKER"},
+        headers=auth,
+    )
+    assert resp.status_code in (200, 400)
+
+    db_session.refresh(route_mode)
+    assert route_mode.platform_commission_percent == 2.0, "commission must be untouched"
+    assert route_mode.razorpay_linked_account_id == "acc_SCHOOL123", "linked account must be untouched"

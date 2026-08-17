@@ -566,6 +566,99 @@ class FeatureUpdateRequest(BaseModel):
     features: dict[str, bool]
 
 
+class PayoutUpdateRequest(BaseModel):
+    """Razorpay Route settings for one school."""
+
+    razorpay_linked_account_id: str | None = None
+    platform_commission_percent: float | None = None
+
+
+def _tenant_settings_session(account_id: int):
+    """Open a session on one school's own database.
+
+    Route settings live in the tenant's SchoolSettings (which is under Alembic,
+    unlike the central registry), but they are platform-owned data -- hence
+    reaching into the tenant from here rather than exposing them on a route a
+    school administrator could call.
+    """
+    db = CentralSessionLocal()
+    try:
+        account = db.query(SchoolAccount).filter(SchoolAccount.id == account_id).first()
+        if not account:
+            raise HTTPException(status_code=404, detail="School account not found")
+        database_url = account.database_url
+    finally:
+        db.close()
+
+    factory = get_school_session_factory(database_url)
+    return factory()
+
+
+@router.get("/schools/{account_id}/payout")
+def get_school_payout(
+    account_id: int,
+    owner: PlatformAdmin = Depends(require_platform_owner),
+):
+    """This school's Route configuration."""
+    school_db = _tenant_settings_session(account_id)
+    try:
+        settings = school_db.query(models.SchoolSettings).first()
+        if not settings:
+            return {"configured": False, "razorpay_linked_account_id": None,
+                    "platform_commission_percent": 0.0}
+        return {
+            "configured": bool(settings.razorpay_linked_account_id),
+            "razorpay_linked_account_id": settings.razorpay_linked_account_id,
+            "platform_commission_percent": float(settings.platform_commission_percent or 0),
+        }
+    finally:
+        school_db.close()
+
+
+@router.put("/schools/{account_id}/payout")
+def update_school_payout(
+    account_id: int,
+    payload: PayoutUpdateRequest,
+    owner: PlatformAdmin = Depends(require_platform_owner),
+):
+    """Set a school's linked account and the platform's commission on it.
+
+    Platform-owner only, deliberately: commission is what the school pays us,
+    so it must not be reachable from any route a school's own admin can call.
+    """
+    if payload.platform_commission_percent is not None:
+        pct = float(payload.platform_commission_percent)
+        if pct < 0 or pct > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Commission must be between 0 and 100 percent.",
+            )
+
+    school_db = _tenant_settings_session(account_id)
+    try:
+        settings = school_db.query(models.SchoolSettings).first()
+        if not settings:
+            raise HTTPException(
+                status_code=400,
+                detail="This school has no settings row yet -- it must complete setup first.",
+            )
+
+        if payload.razorpay_linked_account_id is not None:
+            value = payload.razorpay_linked_account_id.strip()
+            settings.razorpay_linked_account_id = value or None
+        if payload.platform_commission_percent is not None:
+            settings.platform_commission_percent = float(payload.platform_commission_percent)
+
+        school_db.commit()
+        return {
+            "configured": bool(settings.razorpay_linked_account_id),
+            "razorpay_linked_account_id": settings.razorpay_linked_account_id,
+            "platform_commission_percent": float(settings.platform_commission_percent or 0),
+        }
+    finally:
+        school_db.close()
+
+
 @router.put("/schools/{account_id}/features")
 def update_school_features(
     account_id: int,

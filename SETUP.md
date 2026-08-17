@@ -133,6 +133,85 @@ In CI/production just `pip install pytest` and run `python -m pytest`.
 - After the first deploy, run `python manage_migrations.py upgrade head`
   against the production registry to bring every tenant DB to the latest schema.
 
+## 8b. Online fee collection (payment gateway)
+
+Fees could always be *recorded*; this is what lets them be *collected*.
+`backend/app/payments.py` holds the logic, `backend/app/routes/payments.py`
+the endpoints.
+
+### How the money actually flows
+
+The platform runs **Razorpay Route**. Parents pay into the *platform's*
+merchant account and Razorpay transfers each school's share straight to that
+school's linked account, keeping the platform's commission behind.
+
+This is not an arbitrary choice. Collecting parents' money into the platform's
+own account and then paying schools out by hand would make the platform a
+**payment aggregator**, which in India requires RBI authorisation. With Route
+the gateway performs the split under its own licence, so the platform never
+holds funds it is not licensed to hold. Confirm the specifics with Razorpay
+and your accountant — this note is an explanation of the design, not legal
+advice.
+
+A second mode, `direct`, exists for a school that brings its own merchant
+account: it supplies its own key id and secret and money never touches the
+platform. Route wins when both are configured.
+
+### Setting it up
+
+**Platform, once** — in `backend/.env`:
+
+```
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxx
+RAZORPAY_WEBHOOK_SECRET=xxxxxxxx
+```
+
+Deliberately environment variables, not database rows: these are the
+credentials every school's fees flow through.
+
+Then point the Razorpay dashboard webhook at
+`https://<your-domain>/school-erp/payments/webhook`, subscribed to
+`payment.captured` and `payment.failed`.
+
+**Per school** — the school completes Razorpay KYC to get a linked account
+(`acc_XXXXXXXX`), then the platform owner sets it in the Platform Console:
+
+```
+PUT /platform/schools/{account_id}/payout
+{"razorpay_linked_account_id": "acc_XXXXXXXX", "platform_commission_percent": 2.0}
+```
+
+Platform-owner only, deliberately: commission is what the school pays the
+platform, so no route a school administrator can reach may alter it. There is
+a test asserting exactly that.
+
+### What protects the money
+
+- **Webhook signatures are verified over the raw request bytes.** The endpoint
+  reads the body before parsing — re-serialising the JSON changes the bytes and
+  the digest would never match. Without this check anyone could mark any fee
+  paid.
+- **Settlement is idempotent.** Gateways retry, and the browser callback can
+  arrive for the same payment, so crediting twice would show a guardian as
+  having overpaid.
+- **Credit follows our own order record, never the callback's amount**, so a
+  tampered payload cannot over-settle a fee.
+- **Checkout signatures are bound to one order/payment pair**, so a captured
+  signature cannot be replayed against a different fee.
+- **The split is computed in paise and by subtraction**, so the school's share
+  and the commission always add back to exactly the amount charged. Rounding
+  each half separately would leave a stray paisa, and the gateway rejects a
+  transfer larger than its order.
+- Unknown orders and non-capture events are acknowledged but ignored rather
+  than erroring — a non-2xx makes the gateway retry an event we deliberately
+  skipped, forever.
+
+### Without it
+
+If no gateway is configured, nothing breaks: the existing UPI deep-link and
+manual UTR confirmation flow is untouched and remains the fallback.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

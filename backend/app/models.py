@@ -72,6 +72,14 @@ class SchoolSettings(Base):
     payment_key_id = Column(String, nullable=True)
     payment_key_secret = Column(String, nullable=True)
     payment_webhook_secret = Column(String, nullable=True)
+
+    # Route (split payments): parents pay into the PLATFORM's merchant account
+    # and the gateway transfers this school's share to its own linked account,
+    # keeping the platform's commission behind. Both fields are set by the
+    # platform owner only -- a school setting its own commission would be
+    # letting it decide what it pays us.
+    razorpay_linked_account_id = Column(String, nullable=True)   # acc_XXXXXXXX
+    platform_commission_percent = Column(Float, nullable=False, default=0)
     late_fee_rule = Column(String, nullable=True)
 
     # Assessment
