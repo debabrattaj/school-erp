@@ -2,14 +2,26 @@ export type FieldType =
   | "text"
   | "number"
   | "email"
+  /** Masked entry for credentials. */
+  | "password"
   | "date"
+  /** `HH:MM` clock time, entered with a time picker. */
+  | "time"
   | "select"
   | "textarea"
   | "phone"
   /** Pick/capture an image, upload it, store the returned URL. */
   | "photo"
   /** Numeric foreign key chosen from another module's records. */
-  | "reference";
+  | "reference"
+  /**
+   * A text value chosen from another module's records — e.g. `class_name`
+   * picked from the Classes list. Stores the record's display value, not its id,
+   * because that is what these denormalised columns hold.
+   */
+  | "lookup"
+  /** A value chosen from a Master Data category (Gender, House, Section, …). */
+  | "masterSelect";
 
 export interface FormFieldConfig {
   key: string;
@@ -26,6 +38,16 @@ export interface FormFieldConfig {
     labelFields: string[];
     subtitleFields?: string[];
   };
+  /** For `lookup` fields: which module to pick from, and which value to store. */
+  lookup?: {
+    endpoint: string;
+    /** The field whose value is saved (e.g. "class_name"). */
+    valueField: string;
+    searchFields: string[];
+    subtitleFields?: string[];
+  };
+  /** For `masterSelect` fields: the Master Data category to offer. */
+  masterCategory?: string;
 }
 
 export interface ListColumnConfig {

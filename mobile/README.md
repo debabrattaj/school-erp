@@ -27,9 +27,22 @@ Parent/Student portal; this app also covers staff-facing modules.
   Portal Access (link parent/student accounts to student records), Payroll
   (generate a month's payslips, mark paid), Reports (catalog-driven builder: pick
   source, dimension and measure, results as bar rows), Institution Settings.
-- **Photo upload and record pickers** — image fields pick from the library or
-  camera and upload to `/uploads/`; foreign keys (student, teacher, class, exam,
-  route, …) are chosen from a searchable list instead of typing a numeric ID.
+- **Typed form inputs, not free text** — every field renders the control its data
+  deserves:
+  - `date` / `time` → native picker (46 date and 6 time fields)
+  - `select` → fixed options, taken from the backend's own `VALID_*` lists so a
+    saved value can't be rejected with a 400 (68 fields)
+  - `lookup` → picks a value from **another module's records** — `class_name` from
+    Classes, `subject` from Subjects, `class_teacher` from Teachers (40 fields)
+  - `masterSelect` → values from a **Master Data** category — Gender, House,
+    Section, Blood Group, Department, Academic Year… (27 fields)
+  - `reference` → foreign keys picked from a searchable record list rather than
+    typing a numeric ID (31 fields)
+  - `photo` → pick from library or camera, uploaded to `/uploads/`
+  - `password` → masked, no autocorrect
+
+  Lookup and master-data pickers are searchable and also accept a typed value, so
+  a missing Master Data entry never blocks a form.
 - **Sortable lists** — every CRUD list sorts by any of its columns (tap to
   toggle ascending → descending → off) alongside search.
 - **44 CRUD modules** (list, search, detail, create, edit, delete), grouped in the

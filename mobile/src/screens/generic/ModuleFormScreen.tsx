@@ -4,8 +4,74 @@ import { api, ApiError } from "../../api/client";
 import { ModuleConfig, FormFieldConfig } from "../../modules/types";
 import { AppTextInput, Field, LoadingView, PrimaryButton } from "../../components/Common";
 import PhotoField from "../../components/PhotoField";
+import DateField from "../../components/DateField";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import ValuePicker, { useLookupChoices, useMasterChoices } from "../../components/ValuePicker";
 import { colors, spacing } from "../../theme/theme";
+
+/**
+ * A text column whose values come from another module's records — e.g.
+ * `class_name` offered from the Classes list. Stores the value, not an id.
+ */
+function LookupField({
+  field,
+  value,
+  onChange,
+  open,
+  setOpen,
+}: {
+  field: FormFieldConfig;
+  value: string;
+  onChange: (v: string) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const cfg = field.lookup!;
+  const { choices, error } = useLookupChoices(cfg.endpoint, cfg.valueField, cfg.subtitleFields, open);
+  return (
+    <>
+      <PickerButton label={field.label} value={value || null} onPress={() => setOpen(true)} />
+      <ValuePicker
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={`Choose ${field.label.toLowerCase()}`}
+        choices={choices}
+        error={error}
+        onPick={onChange}
+      />
+    </>
+  );
+}
+
+/** A value from a Master Data category, managed under Master Data on the web. */
+function MasterSelectField({
+  field,
+  value,
+  onChange,
+  open,
+  setOpen,
+}: {
+  field: FormFieldConfig;
+  value: string;
+  onChange: (v: string) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const { choices, error } = useMasterChoices(field.masterCategory!, open);
+  return (
+    <>
+      <PickerButton label={field.label} value={value || null} onPress={() => setOpen(true)} />
+      <ValuePicker
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={`Choose ${field.label.toLowerCase()}`}
+        choices={choices}
+        error={error}
+        onPick={onChange}
+      />
+    </>
+  );
+}
 
 /**
  * A foreign key entered by picking the actual record, rather than typing the
@@ -145,6 +211,28 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
             <SelectField field={f} value={values[f.key] || ""} onChange={(v) => setField(f.key, v)} />
           ) : f.type === "photo" ? (
             <PhotoField value={values[f.key]} onChange={(url) => setField(f.key, url)} />
+          ) : f.type === "date" || f.type === "time" ? (
+            <DateField
+              value={values[f.key]}
+              mode={f.type === "time" ? "time" : "date"}
+              onChange={(v) => setField(f.key, v)}
+            />
+          ) : f.type === "lookup" && f.lookup ? (
+            <LookupField
+              field={f}
+              value={values[f.key] || ""}
+              onChange={(v) => setField(f.key, v)}
+              open={pickerFor === f.key}
+              setOpen={(open) => setPickerFor(open ? f.key : null)}
+            />
+          ) : f.type === "masterSelect" && f.masterCategory ? (
+            <MasterSelectField
+              field={f}
+              value={values[f.key] || ""}
+              onChange={(v) => setField(f.key, v)}
+              open={pickerFor === f.key}
+              setOpen={(open) => setPickerFor(open ? f.key : null)}
+            />
           ) : f.type === "reference" && f.reference ? (
             <ReferenceField
               field={f}
@@ -159,7 +247,9 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
               onChangeText={(v) => setField(f.key, v)}
               placeholder={f.placeholder}
               keyboardType={f.type === "number" ? "numeric" : f.type === "phone" ? "phone-pad" : f.type === "email" ? "email-address" : "default"}
-              autoCapitalize={f.type === "email" ? "none" : "sentences"}
+              autoCapitalize={f.type === "email" || f.type === "password" ? "none" : "sentences"}
+              autoCorrect={f.type !== "password"}
+              secureTextEntry={f.type === "password"}
               multiline={f.type === "textarea"}
               numberOfLines={f.type === "textarea" ? 3 : 1}
               style={f.type === "textarea" ? styles.textarea : undefined}
