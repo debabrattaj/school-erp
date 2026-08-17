@@ -43,46 +43,6 @@ Nothing extra is required to get a working dataset locally — the app will use
 these as-is. If you want a clean slate, delete the `.db` files before first run
 and let `Base.metadata.create_all()` / `seed.py` recreate them.
 
-## 3b. Bulk demo data (seed_bulk.py)
-
-Fills every module with demo records so screens aren't empty when demoing or
-when testing pagination, filters and sorting against realistic volumes.
-
-```bash
-cd backend
-python seed_bulk.py --dry-run          # show current counts, change nothing
-python seed_bulk.py --count 100 --yes  # top every module up to 100 rows
-python seed_bulk.py --purge --yes      # remove only what this script created
-```
-
-**It refuses to run without `--yes`,** and always prints the database URL it
-resolved first — read that line before confirming. Pointing it at a tenant
-with real students in it would mix hundreds of fake records into live data.
-
-- **Idempotent.** It counts what a table already has and creates only the
-  shortfall, so running it twice adds nothing the second time, and existing
-  real data is left alone rather than duplicated.
-- **Reversible.** Every generated row carries `[bulk-seed]` in a text column,
-  and `--purge` deletes on that marker, so it removes its own rows and nothing
-  else. Child tables with no free-text column (payslips, salary structures,
-  online-test questions) are cleared by following the link to a deleted parent
-   — SQLite does not enforce `ON DELETE CASCADE` unless `PRAGMA foreign_keys`
-  is on, so that sweep is explicit rather than left to the database.
-- **Classes and Subjects survive a purge** on purpose: they are reference data
-  the rest of the app points at, and a re-seed reuses them.
-
-Two deliberate departures from "100 of everything":
-
-- **Institution Settings and Biometric Attendance Rules stay single rows.**
-  They are configuration, not lists — 100 of either is meaningless.
-- **Sections run A–I.** A real school runs A–C, but 12 grades × 3 sections
-  caps Classes at 36, short of a 100 target. Students and exams are still
-  assigned within A–C so the data reads normally.
-
-This is separate from `seed_full_data.py`, which is a one-shot script building
-a single internally-consistent demo school. Use that one for a realistic
-narrative; use this one for volume.
-
 ## 4. Database migrations (Alembic)
 
 The tenant school schema (`app/models.py`) is managed by Alembic. Because each
