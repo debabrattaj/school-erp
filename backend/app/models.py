@@ -63,6 +63,15 @@ class SchoolSettings(Base):
     currency = Column(String, nullable=True, default="INR")
     receipt_prefix = Column(String, nullable=True, default="REC")
     upi_id = Column(String, nullable=True)
+
+    # Online payment gateway, per school -- each collects into its own merchant
+    # account, so these cannot be one platform-wide environment variable.
+    # The two secrets are write-only through the API: they are set and never
+    # read back, the same way biometric device tokens are handled.
+    payment_provider = Column(String, nullable=True)      # razorpay
+    payment_key_id = Column(String, nullable=True)
+    payment_key_secret = Column(String, nullable=True)
+    payment_webhook_secret = Column(String, nullable=True)
     late_fee_rule = Column(String, nullable=True)
 
     # Assessment
@@ -1745,3 +1754,36 @@ class BiometricAttendanceConfig(Base):
     overwrite_manual = Column(Boolean, nullable=False, default=False)
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PaymentOrder(Base):
+    """One attempt to collect a fee through the gateway.
+
+    Kept separate from Fee so a fee can have several attempts against it (a
+    failed card, then a successful UPI) without losing the history, and so a
+    retried webhook can be matched to the exact order it belongs to.
+    """
+
+    __tablename__ = "payment_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fee_id = Column(Integer, ForeignKey("fees.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    provider = Column(String, nullable=False)
+    # The gateway's own id. Unique so a duplicate webhook cannot create a
+    # second order row for the same collection.
+    order_id = Column(String, nullable=False, index=True)
+    payment_id = Column(String, nullable=True, index=True)
+
+    amount = Column(Float, nullable=False)
+    currency = Column(String, nullable=False, default="INR")
+    status = Column(String, nullable=False, default="Created")  # Created, Paid, Failed
+    method = Column(String, nullable=True)  # upi, card, netbanking...
+
+    paid_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_payment_order_gateway_id"),
+    )
