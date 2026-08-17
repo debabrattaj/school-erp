@@ -371,6 +371,9 @@ class FeeResponse(FeeBase):
     id: int
     due_amount: float
     payment_status: str
+    # Discount applied; total_amount stays the gross figure so a receipt can
+    # show what was charged and what was waived, not just the net.
+    concession_amount: float = 0
 
     class Config:
         from_attributes = True

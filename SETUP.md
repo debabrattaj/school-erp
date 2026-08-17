@@ -212,6 +212,57 @@ a test asserting exactly that.
 If no gateway is configured, nothing breaks: the existing UPI deep-link and
 manual UTR confirmation flow is untouched and remains the fallback.
 
+## 8c. Fee concessions and scholarships
+
+Discounts on fees — sibling rates, staff wards, merit scholarships, RTE,
+financial aid. `backend/app/concessions.py` holds the arithmetic,
+`backend/app/routes/concessions.py` the endpoints.
+
+Two levels, on purpose:
+
+- **Scheme** — what the school offers ("Sibling 10%", "Staff Ward 50%").
+- **Grant** — that scheme given to one student, with an approval trail.
+
+Granting is a two-step affair (request, then approve) because a concession is
+money the school chooses not to collect, and who authorised it has to be
+answerable afterwards. **Only an Approved grant discounts anything** — a
+request awaiting a decision never quietly reduces a bill.
+
+### How it lands on a fee
+
+`Fee.total_amount` stays the gross figure and `Fee.concession_amount` records
+the discount, so a receipt can show what was charged *and* what was waived
+rather than only the net. `calculate_fee_status` takes concession as an
+optional third argument defaulting to zero, so the seven call sites that
+predate this keep their exact previous behaviour.
+
+New fees resolve a student's approved concessions automatically. Approving a
+grant also re-prices that student's existing unpaid fees — approving a
+scholarship that only affects *future* fees is rarely what anyone means.
+
+### Rules worth knowing
+
+- **Percentages apply to the original amount, not one after another.** Two 50%
+  schemes come to 100%, which is what "half for staff, half for siblings"
+  means to a school, and it makes the result independent of the order grants
+  come back in.
+- **Discounts are capped at the fee.** Stacked schemes can zero a fee but can
+  never turn it into a credit. `preview` reports `capped: true` when they
+  would have gone past, since that means the school is giving away more than
+  it is charging.
+- **Part-paid fees are skipped, not re-priced.** Reducing a fee money has
+  already gone against would leave a credit balance the app has no way to
+  represent, so those are reported for a human to settle.
+- **A scheme scoped to one fee type leaves the others alone** — a tuition
+  concession must not silently discount transport.
+- **Validity windows** stop a one-year scholarship from discounting next
+  year's fees on its own.
+- **A granted scheme cannot be deleted**, only deactivated: deleting would
+  orphan the record of why a student's fees were reduced.
+
+`POST /concessions/recalculate` re-applies everything across unpaid fees, for
+repairing history after a scheme's rate is corrected.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

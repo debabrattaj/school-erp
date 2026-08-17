@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Fee, Student, SchoolSettings, User
+from app import concessions
 from app.notifications import notify_guardian_fee_added
 from app.payment_links import verify_payment_link_token
 from app.routes.fee_structures import resolve_class_structures
@@ -62,8 +63,18 @@ def get_settings(db: Session):
     return settings
 
 
-def calculate_fee_status(total_amount: float, paid_amount: float):
-    due_amount = total_amount - paid_amount
+def calculate_fee_status(total_amount: float, paid_amount: float, concession_amount: float = 0):
+    """Outstanding amount and status for a fee.
+
+    concession_amount defaults to zero so the seven call sites that predate
+    concessions keep their exact previous behaviour; only callers holding a Fee
+    row pass it. What a guardian owes is total minus the discount, so a fee
+    fully covered by a scholarship reads as Paid with nothing outstanding
+    rather than sitting Unpaid forever.
+    """
+    payable = (total_amount or 0) - (concession_amount or 0)
+    payable = max(payable, 0)
+    due_amount = round(payable - (paid_amount or 0), 2)
 
     if due_amount <= 0:
         return 0, "Paid"
@@ -131,9 +142,18 @@ def create_fee(
 
     validate_fee_amounts(fee.fee_type, fee.total_amount, fee.paid_amount)
 
+    academic_year = fee.academic_year or get_settings(db).academic_year
+    # Any approved concession the student holds is applied at creation, so a
+    # scholarship does not depend on someone remembering to discount by hand.
+    concession_amount = concessions.discount_for_fee(
+        db, fee.student_id, fee.total_amount,
+        fee_type=fee.fee_type, academic_year=academic_year,
+    )
+
     due_amount, payment_status = calculate_fee_status(
         fee.total_amount,
-        fee.paid_amount
+        fee.paid_amount,
+        concession_amount,
     )
 
     receipt_no = fee.receipt_no
@@ -144,7 +164,8 @@ def create_fee(
     new_fee = Fee(
         student_id=fee.student_id,
         fee_type=fee.fee_type,
-        academic_year=fee.academic_year or get_settings(db).academic_year,
+        concession_amount=concession_amount,
+        academic_year=academic_year,
         class_id=fee.class_id or student.class_id,
         class_name_snapshot=fee.class_name_snapshot or student.class_name,
         section_snapshot=fee.section_snapshot or student.section,

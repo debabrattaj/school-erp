@@ -264,6 +264,10 @@ class Fee(Base):
     section_snapshot = Column(String, nullable=True)
 
     total_amount = Column(Float, nullable=False)
+    # Discount granted on this fee. The amount actually payable is
+    # total_amount - concession_amount; see calculate_fee_status. Defaults to
+    # zero so every fee written before concessions existed is unaffected.
+    concession_amount = Column(Float, nullable=False, default=0)
     paid_amount = Column(Float, default=0)
     due_amount = Column(Float, default=0)
 
@@ -1795,3 +1799,80 @@ class PaymentOrder(Base):
     __table_args__ = (
         UniqueConstraint("order_id", name="uq_payment_order_gateway_id"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Fee concessions and scholarships
+#
+# Two levels on purpose. A scheme is what the school offers ("Sibling 10%",
+# "Staff Ward 50%", "RTE 100%"); a grant is that scheme given to one student,
+# with its own approval trail. Waiving fees is giving away money, so who
+# approved what has to be answerable later.
+# ---------------------------------------------------------------------------
+
+
+class ConcessionScheme(Base):
+    """A discount the school offers."""
+
+    __tablename__ = "concession_schemes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    category = Column(String, nullable=True)  # Sibling, Staff Ward, Merit, RTE, Financial Aid
+
+    discount_type = Column(String, nullable=False, default="percent")  # percent | fixed
+    discount_value = Column(Float, nullable=False, default=0)
+
+    # NULL means it applies to every fee type. Set it to narrow a scheme to
+    # tuition only, so a transport fee isn't quietly discounted too.
+    applies_to_fee_type = Column(String, nullable=True)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_concession_scheme_code"),
+    )
+
+
+class StudentConcession(Base):
+    """A scheme granted to one student, with its approval trail.
+
+    Only a grant in the Approved state ever reduces a fee. A request sitting
+    unapproved must not silently discount anything, which is the whole reason
+    the status column exists rather than the grant being immediate.
+    """
+
+    __tablename__ = "student_concessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    scheme_id = Column(Integer, ForeignKey("concession_schemes.id", ondelete="RESTRICT"), nullable=False, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+
+    # Optional per-student override of the scheme's rate, for a negotiated
+    # amount. NULL means "use whatever the scheme says".
+    discount_type = Column(String, nullable=True)
+    discount_value = Column(Float, nullable=True)
+
+    status = Column(String, nullable=False, default="Requested", index=True)
+    # Requested, Approved, Rejected, Revoked
+
+    reason = Column(Text, nullable=True)
+    requested_by = Column(String, nullable=True)
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    decided_by = Column(String, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    # Optional window. Outside it the grant does not apply, so a one-year
+    # scholarship stops discounting next year's fees on its own.
+    valid_from = Column(Date, nullable=True)
+    valid_to = Column(Date, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
