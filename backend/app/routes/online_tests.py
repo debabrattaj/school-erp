@@ -29,8 +29,16 @@ from app.schemas import (
     OnlineTestUpdate,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/online-tests", tags=["Online Tests"])
+# Online Tests is sold separately and ships disabled. The entitlement check
+# sits on the router itself so every route below inherits it -- including any
+# added later, which is the point of putting it here rather than per-route.
+router = APIRouter(
+    prefix="/online-tests",
+    tags=["Online Tests"],
+    dependencies=[Depends(require_feature("online_tests"))],
+)
 
 MANAGERS = ["Admin", "Principal", "Teacher"]
 VALID_STATUSES = ("Draft", "Published", "Closed")
@@ -67,6 +75,8 @@ def _test_to_response(db: Session, test: OnlineTest) -> OnlineTestResponse:
         ends_at=test.ends_at,
         teacher_id=test.teacher_id,
         status=test.status,
+        shuffle_questions=bool(test.shuffle_questions),
+        shuffle_options=bool(test.shuffle_options),
         teacher_name_snapshot=test.teacher_name_snapshot,
         total_marks=sum(q.marks or 0 for q in questions),
         question_count=len(questions),

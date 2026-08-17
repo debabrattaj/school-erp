@@ -23,6 +23,9 @@ function getApiErrorMessage(error, fallback) {
 export default function Homework() {
   const [assignments, setAssignments] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
@@ -57,10 +60,34 @@ export default function Homework() {
     }
   }
 
+  // Sourced from their own modules rather than typed in, so homework can only
+  // be assigned to a class/section that actually exists.
+  async function loadPickLists() {
+    const [classesRes, subjectsRes, yearsRes] = await Promise.allSettled([
+      API.get("/classes/"),
+      API.get("/subjects/"),
+      API.get("/academic-years/"),
+    ]);
+    setClasses(classesRes.status === "fulfilled" ? classesRes.value.data || [] : []);
+    setSubjects(subjectsRes.status === "fulfilled" ? subjectsRes.value.data || [] : []);
+    setAcademicYears(yearsRes.status === "fulfilled" ? yearsRes.value.data || [] : []);
+  }
+
   useEffect(() => {
     loadAssignments();
     loadTeachers();
+    loadPickLists();
   }, []);
+
+  const classNames = [...new Set(classes.map((c) => c.class_name).filter(Boolean))];
+  const sectionsForClass = [
+    ...new Set(
+      classes
+        .filter((c) => c.class_name === formData.class_name)
+        .map((c) => c.section)
+        .filter(Boolean)
+    ),
+  ];
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -173,19 +200,54 @@ export default function Homework() {
         <div className="form-grid">
           <div className="form-field">
             <label>Class *</label>
-            <input type="text" name="class_name" value={formData.class_name} onChange={handleChange} placeholder="e.g. 5" required />
+            <select
+              name="class_name"
+              value={formData.class_name}
+              onChange={(e) => {
+                handleChange(e);
+                // The previous section may not exist in the new class.
+                setFormData((prev) => ({ ...prev, section: "" }));
+              }}
+              required
+            >
+              <option value="">Select Class</option>
+              {classNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            {!classNames.length && <small>No classes set up yet — add them under Classes.</small>}
           </div>
           <div className="form-field">
             <label>Section</label>
-            <input type="text" name="section" value={formData.section} onChange={handleChange} placeholder="e.g. A (blank = all sections)" />
+            <select name="section" value={formData.section} onChange={handleChange} disabled={!formData.class_name}>
+              <option value="">All sections</option>
+              {sectionsForClass.map((section) => (
+                <option key={section} value={section}>{section}</option>
+              ))}
+            </select>
+            <small>{formData.class_name ? "Blank covers every section." : "Pick a class first."}</small>
           </div>
           <div className="form-field">
             <label>Academic Year</label>
-            <input type="text" name="academic_year" value={formData.academic_year} onChange={handleChange} placeholder="2026-27" />
+            <select name="academic_year" value={formData.academic_year} onChange={handleChange}>
+              <option value="">Select Academic Year</option>
+              {academicYears.map((year) => (
+                <option key={year.id} value={year.name}>{year.name}</option>
+              ))}
+            </select>
           </div>
           <div className="form-field">
             <label>Subject</label>
-            <input type="text" name="subject" value={formData.subject} onChange={handleChange} />
+            <select name="subject" value={formData.subject} onChange={handleChange}>
+              <option value="">Select Subject</option>
+              {subjects
+                .filter((subject) => subject.is_active !== false)
+                .map((subject) => (
+                  <option key={subject.id} value={subject.subject_name}>
+                    {subject.subject_name}
+                  </option>
+                ))}
+            </select>
           </div>
           <div className="form-field">
             <label>Teacher</label>

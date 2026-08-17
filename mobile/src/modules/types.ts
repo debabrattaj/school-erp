@@ -2,10 +2,8 @@ export type FieldType =
   | "text"
   | "number"
   | "email"
-  /** Masked entry for credentials. */
-  | "password"
   | "date"
-  /** `HH:MM` clock time, entered with a time picker. */
+  /** Clock time, "HH:MM". */
   | "time"
   | "select"
   | "textarea"
@@ -21,7 +19,9 @@ export type FieldType =
    */
   | "lookup"
   /** A value chosen from a Master Data category (Gender, House, Section, …). */
-  | "masterSelect";
+  | "masterSelect"
+  /** Masked entry for credentials. */
+  | "password";
 
 export interface FormFieldConfig {
   key: string;
@@ -48,6 +48,11 @@ export interface FormFieldConfig {
   };
   /** For `masterSelect` fields: the Master Data category to offer. */
   masterCategory?: string;
+  /**
+   * Rendered read-only. Reserved for fields a school has not had switched on —
+   * the value still shows, but cannot be edited from the app.
+   */
+  disabled?: boolean;
 }
 
 export interface ListColumnConfig {

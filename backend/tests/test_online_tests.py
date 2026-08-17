@@ -18,6 +18,45 @@ def db_session(client):
         session.close()
 
 
+def _set_online_tests_enabled(enabled: bool):
+    """Flip the online_tests entitlement the same way the Platform Console does."""
+    from app.tenant import CentralSessionLocal, get_account
+    from app.tenant_models import SchoolFeature
+
+    account = get_account("default")
+    db = CentralSessionLocal()
+    try:
+        row = (
+            db.query(SchoolFeature)
+            .filter(
+                SchoolFeature.account_id == account["id"],
+                SchoolFeature.feature_key == "online_tests",
+            )
+            .first()
+        )
+        if row:
+            row.is_enabled = enabled
+        else:
+            db.add(SchoolFeature(
+                account_id=account["id"], feature_key="online_tests", is_enabled=enabled,
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture(autouse=True)
+def online_tests_enabled(client):
+    """Online Tests is sold separately and ships disabled, so every test in this
+    module has to switch it on first -- exactly as a real school would need the
+    platform owner to. test_online_tests_blocked_when_module_disabled turns it
+    back off to prove the gate bites.
+    """
+    _set_online_tests_enabled(True)
+    yield
+    _set_online_tests_enabled(False)
+
+
 def _make_student(db, **overrides):
     from app.models import Student
     defaults = dict(
@@ -231,3 +270,202 @@ def test_online_test_requires_manager_role(client, db_session):
 
     resp = client.post("/online-tests/", json={"class_name": "X", "title": "Nope"}, headers=parent_auth)
     assert resp.status_code == 403
+
+
+# ---------------- Strictness: server-side deadline, saved answers, shuffle ----------------
+
+
+def _backdate_attempt(db, test_id, student_id, minutes):
+    """Move an attempt's start time into the past so its deadline has passed."""
+    from datetime import datetime, timedelta
+    from app.models import OnlineTestAttempt
+
+    attempt = (
+        db.query(OnlineTestAttempt)
+        .filter(OnlineTestAttempt.test_id == test_id, OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    attempt.started_at = datetime.utcnow() - timedelta(minutes=minutes)
+    db.commit()
+    return attempt
+
+
+def test_answers_save_mid_attempt_and_survive_reload(client, auth, linked_student):
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student)
+    test_id, q1_id = test["id"], questions[0]["id"]
+
+    client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/answer",
+                       json={"question_id": q1_id, "selected_option": "4"}, headers=student_auth)
+    assert resp.status_code == 200, resp.text
+
+    # Reloading an in-progress attempt returns what was saved, still ungraded.
+    resp = client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    body = resp.json()
+    assert body["attempt"]["status"] == "In Progress"
+    q1 = next(q for q in body["questions"] if q["id"] == q1_id)
+    assert q1["selected_option"] == "4"
+    assert q1["is_correct"] is None
+    assert "correct_option" not in q1
+
+
+def test_late_submission_is_refused_and_graded_on_saved_answers(client, auth, linked_student, db_session):
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student, duration=30)
+    test_id, q1_id, q2_id = test["id"], questions[0]["id"], questions[1]["id"]
+
+    client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    # Saved in time: q1 correct (2 marks).
+    client.post(f"/portal/students/{student.id}/online-tests/{test_id}/answer",
+                json={"question_id": q1_id, "selected_option": "4"}, headers=student_auth)
+
+    _backdate_attempt(db_session, test_id, student.id, minutes=45)
+
+    # Submitting q2 after the deadline must not earn its mark.
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/submit", json={
+        "answers": [
+            {"question_id": q1_id, "selected_option": "4"},
+            {"question_id": q2_id, "selected_option": "True"},
+        ],
+    }, headers=student_auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "Submitted"
+    assert body["auto_submitted_reason"] == "time_expired"
+    assert body["score"] == 2  # only the answer saved before the deadline counted
+    assert body["max_score"] == 3
+
+
+def test_expired_attempt_is_closed_when_reopened(client, auth, linked_student, db_session):
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student, duration=10)
+    test_id = test["id"]
+
+    client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    _backdate_attempt(db_session, test_id, student.id, minutes=20)
+
+    resp = client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    assert resp.status_code == 200, resp.text
+    attempt = resp.json()["attempt"]
+    assert attempt["status"] == "Submitted"
+    assert attempt["auto_submitted_reason"] == "time_expired"
+
+    # And it can't be answered any more.
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/answer",
+                       json={"question_id": questions[0]["id"], "selected_option": "4"}, headers=student_auth)
+    assert resp.status_code == 400
+
+
+def test_submission_after_ends_at_is_flagged_window_closed(client, auth, linked_student, db_session):
+    from datetime import datetime, timedelta
+
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student)
+    test_id = test["id"]
+
+    client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+
+    from app.models import OnlineTest
+    row = db_session.query(OnlineTest).filter(OnlineTest.id == test_id).first()
+    row.ends_at = datetime.utcnow() - timedelta(hours=1)
+    db_session.commit()
+
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/submit", json={
+        "answers": [{"question_id": questions[0]["id"], "selected_option": "4"}],
+    }, headers=student_auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["auto_submitted_reason"] == "window_closed"
+    assert resp.json()["score"] == 0
+
+
+def test_untimed_test_still_submits_normally(client, auth, linked_student):
+    """No duration and no ends_at means no deadline -- nothing to enforce."""
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student)
+    test_id = test["id"]
+
+    client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/submit", json={
+        "answers": [
+            {"question_id": questions[0]["id"], "selected_option": "4"},
+            {"question_id": questions[1]["id"], "selected_option": "True"},
+        ],
+    }, headers=student_auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["score"] == 3
+    assert body["auto_submitted_reason"] is None
+
+
+def test_shuffle_is_stable_within_an_attempt(client, auth, db_session):
+    student = _make_student(db_session)
+    student_user, student_auth = _make_student_auth(client, db_session, student)
+    _link(client, auth, student_user.id, student.id)
+
+    resp = client.post("/online-tests/", json={
+        "class_name": student.class_name, "section": student.section,
+        "title": "Shuffled Quiz", "shuffle_questions": True, "shuffle_options": True,
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    test = resp.json()
+    assert test["shuffle_questions"] is True
+    assert test["shuffle_options"] is True
+
+    for i in range(6):
+        client.post(f"/online-tests/{test['id']}/questions", json={
+            "question_type": "mcq_single", "question_text": f"Q{i}?",
+            "options": [f"{i}a", f"{i}b", f"{i}c", f"{i}d"], "correct_option": f"{i}a",
+        }, headers=auth)
+    client.put(f"/online-tests/{test['id']}", json={"status": "Published"}, headers=auth)
+
+    first = client.get(f"/portal/students/{student.id}/online-tests/{test['id']}", headers=student_auth).json()
+    second = client.get(f"/portal/students/{student.id}/online-tests/{test['id']}", headers=student_auth).json()
+
+    order_1 = [q["id"] for q in first["questions"]]
+    order_2 = [q["id"] for q in second["questions"]]
+    assert order_1 == order_2, "a reload must not reshuffle mid-attempt"
+    assert sorted(order_1) == sorted(set(order_1)), "shuffle must not drop or duplicate questions"
+    assert len(order_1) == 6
+
+    opts_1 = [q["options"] for q in first["questions"]]
+    opts_2 = [q["options"] for q in second["questions"]]
+    assert opts_1 == opts_2
+    for q in first["questions"]:
+        assert sorted(q["options"]) == sorted(set(q["options"]))
+        assert len(q["options"]) == 4
+
+
+def test_online_tests_blocked_when_module_disabled(client, auth, linked_student):
+    """With the entitlement off, the endpoints are unreachable -- not merely
+    hidden in the sidebar. Covers both the staff router and the student portal.
+    """
+    student, student_auth = linked_student
+    test, questions = _create_published_test(client, auth, student)
+    test_id = test["id"]
+
+    _set_online_tests_enabled(False)
+
+    resp = client.get("/online-tests/", headers=auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.post("/online-tests/", json={"class_name": student.class_name, "title": "Nope"}, headers=auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.get(f"/online-tests/{test_id}/results", headers=auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.get(f"/portal/students/{student.id}/online-tests", headers=student_auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.get(f"/portal/students/{student.id}/online-tests/{test_id}", headers=student_auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/answer",
+                       json={"question_id": questions[0]["id"], "selected_option": "4"}, headers=student_auth)
+    assert resp.status_code == 403, resp.text
+
+    resp = client.post(f"/portal/students/{student.id}/online-tests/{test_id}/submit",
+                       json={"answers": []}, headers=student_auth)
+    assert resp.status_code == 403, resp.text

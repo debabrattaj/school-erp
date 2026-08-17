@@ -321,10 +321,170 @@ Tests" tab in `Portal.jsx`.
 - **Only the `Student` role can start or submit an attempt** — a linked
   `Parent` account can view the test list and, once submitted, the
   reviewed result, but can't take the test on the student's behalf.
-- Submitting doesn't hard-block on the timer having run out server-side;
-  the frontend's countdown auto-submits at zero, but a slow network
-  round-trip on the way in shouldn't lock a student out of their own
-  answers.
+
+### Sold separately: the `online_tests` entitlement
+
+This module is **off by default** (`DEFAULT_FEATURES["online_tests"] = False`
+in `app/tenant.py`). The platform owner switches it on per school in the
+Platform Console ("Online Exam (add-on)"), exactly like the automation flags.
+
+The check is enforced **server-side**, not just by hiding the menu entry:
+`require_feature("online_tests")` (`app/tenant.py`) sits on the
+`/online-tests` router as a whole and on each of the four student-facing
+`/portal/students/{id}/online-tests*` routes, which share the portal router
+with everything else and so are gated individually. A school without the
+entitlement gets a 403 from the API, not merely a hidden tab. Reach for the
+same dependency for any future module that is optional or paid — a flag that
+only hides UI is not an entitlement.
+
+### Timer and window enforcement
+
+The deadline for an attempt is the **earlier** of `started_at +
+duration_minutes` and the test's own `ends_at` (`_attempt_deadline` in
+`portal.py`). It is enforced on the server, in two places:
+
+- **On submit** — past the deadline (plus `SUBMIT_GRACE_SECONDS`, 60s, to
+  absorb clock skew and network latency) the submitted payload is *refused*
+  and the attempt is scored on what was already saved.
+- **On open** — an attempt left running past its deadline is closed when it
+  is next loaded, rather than resumed. So walking away and coming back the
+  next day does not buy extra time.
+
+Either path stamps `OnlineTestAttempt.auto_submitted_reason`
+(`time_expired` or `window_closed`), which the portal shows to the student
+and which distinguishes an auto-closed attempt from a normal submission.
+
+**This is why answers are saved as the student goes.** `POST
+/portal/students/{id}/online-tests/{test_id}/answer` upserts one answer at a
+time (ungraded — grading happens once, in `_grade_attempt`). Without it,
+refusing a late payload would score a timed-out student on an empty sheet.
+Any change to the submit path must keep that pairing intact.
+
+### Shuffling
+
+`OnlineTest.shuffle_questions` / `shuffle_options` (both default off) reorder
+questions and MCQ options per student. The order is seeded from the attempt
+id (`_shuffled_for_attempt`), so it is stable across reloads within one
+attempt but differs between students; option shuffling additionally salts
+with the question id so the two orderings don't correlate. The original
+order is restored once the attempt is submitted, since at that point the
+listing is a review aid rather than an anti-copying measure.
+
+These are integrity fixes to the base module, **not** part of the paid
+add-on — they apply to every school that has the module at all.
+
+## 13b. Biometric attendance (add-on)
+
+Punch data from physical terminals (fingerprint / face / RFID), turned into
+`Attendance` rows. `backend/app/biometric.py` holds the logic,
+`backend/app/routes/biometric.py` the endpoints, `backend/run_biometric_sync.py`
+the scheduled puller.
+
+**Sold separately.** `DEFAULT_FEATURES["biometric_attendance"]` is `False`; the
+platform owner enables it per school in the Platform Console ("Biometric
+Attendance (add-on)"). The gate covers the device ingest endpoint as well as
+the staff routes, so a school whose subscription lapses stops accepting punches
+rather than continuing to collect data it is no longer entitled to hold.
+
+### The three ingest routes, and what "pull" can actually reach
+
+A terminal on a school LAN has a private address and **cannot be dialled from
+this server**. That constraint decides the whole design:
+
+| Mode | Who initiates | Use when |
+|---|---|---|
+| `push` | Terminal / vendor middleware POSTs to `/biometric/ingest` | The device can make outbound HTTP calls (most ZKTeco / eSSL units) |
+| `pull` | `run_biometric_sync.py` GETs `pull_endpoint` | The vendor has an internet-reachable cloud API |
+| agent | A script inside the school reads the device and POSTs to `/biometric/ingest` | LAN-only device that cannot push |
+
+`push` and the agent share one endpoint, so there is a single ingest path to
+reason about. Registering a device with `mode="pull"` and no reachable
+`pull_endpoint` will simply fail every run — that is the case that needs an
+agent instead.
+
+### Device authentication
+
+A terminal cannot hold a login session, so each device gets a random bearer
+token. Only the SHA-256 hash is stored; the plaintext is returned **once**, at
+registration or rotation, and cannot be retrieved afterwards — reissue with
+`POST /biometric/devices/{id}/rotate-token`, which invalidates the old one
+immediately. Devices send:
+
+```
+X-Device-Serial: <serial_number>
+X-Device-Token:  <token>
+X-School-Code:   <account_code>
+```
+
+`X-School-Code` is required because there is no JWT to carry the tenant; the
+shared resolver already honours that header for unauthenticated requests.
+
+### Ingest is idempotent
+
+Terminals retry, and each pull window deliberately overlaps the last by
+`LOOKBACK_HOURS` (48) to close gaps left by a missed run. `BiometricPunch.dedupe_key`
+hashes (device, user, second, direction), so a repeat is counted as a duplicate
+and dropped. Re-POSTing a batch is always safe.
+
+Punches are stored **before** they are interpreted. A punch from someone with
+no enrollment mapping is kept, not discarded, and is attributed retroactively
+when the mapping is added (`relink_unmatched_punches`). Raw punches are also
+what allow attendance to be recomputed after correcting a mapping, without
+asking the device for history it may no longer hold.
+
+### Enrollment mapping
+
+`BiometricEnrollment` maps a device-side user id to a student or teacher.
+`device_id = NULL` means "on every terminal", which is the normal case where one
+roster is pushed to all devices; a row naming a specific device wins over the
+NULL one, so a single terminal that numbers people differently can be corrected
+without disturbing the rest.
+
+### Deriving attendance — deliberately conservative
+
+`POST /biometric/derive` turns a day's punches into `Attendance` rows, and is
+safe to re-run (it will not duplicate). Rules live in
+`BiometricAttendanceConfig`, and every default is the cautious one:
+
+- `derive_attendance` defaults **off** — punches are collected and visible, but
+  nothing is written to attendance. Run a terminal alongside manual marking
+  until you trust it, then switch this on.
+- `overwrite_manual` defaults **off** — a mark made by a teacher is left alone.
+  The job tags its own rows with a `Biometric:` remark prefix, and that prefix
+  is how it tells its own work from a human's.
+- `absent_if_no_punch` defaults **off** — otherwise a terminal that quietly
+  stopped reporting would mark the entire school absent.
+- `late_after` / `half_day_before` are unset by default: first punch after
+  `late_after` is Late, last punch before `half_day_before` is Half Day.
+
+### Wiring the puller
+
+Only needed if some device uses `mode="pull"`. Add a cPanel Cron Job the same
+way as the other schedulers:
+
+```
+cd /home/schoolm1/repositories/school-erp/backend && \
+  /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/python \
+  run_biometric_sync.py >> /home/schoolm1/logs/biometric_sync.log 2>&1
+```
+
+`--dry-run` fetches and reports without writing. A device that is unreachable or
+misconfigured records a Failed `BiometricSyncRun` and the loop continues to the
+next device rather than aborting the run.
+
+Vendor APIs that do not return a plain JSON list need their own adapter: add it
+to `FETCHERS` in `run_biometric_sync.py`, keyed by `BiometricDevice.vendor`.
+The shipped `fetch_generic_json` covers list-returning JSON APIs with optional
+header auth.
+
+### Privacy
+
+Biometric identifiers of minors are sensitive personal data under the DPDP Act.
+Note that this module stores the **device-side user id and punch times only** —
+it never receives or stores fingerprint or face templates, which stay on the
+terminal. That is a meaningful limit on exposure, but consent and retention
+obligations for the attendance data still apply and are a legal question, not a
+technical one.
 
 ## 14. Scheduled year-end promotion
 
@@ -608,10 +768,58 @@ this).
 
 ## 18. Admin app (frontend/) build + deploy in cPanel
 
-`frontend/` (the Vite/React admin app — the actual login/dashboard portal,
-distinct from the marketing site) builds and deploys through the same
-cPanel Git Version Control flow as everything else, via the last two tasks
-in `.cpanel.yml`. Unlike the backend, it never runs as a live Node
+> **This app is NOT built on the server.** The build tasks were removed from
+> `.cpanel.yml` after three separate hard limits of the shared CloudLinux
+> account made a server-side build impossible. Build it elsewhere and upload
+> `dist/` by hand — see "Why the build was moved off-server" below.
+
+### Deploying the admin app
+
+1. Build wherever Node runs properly (a laptop, CI, any normal host):
+
+   ```bash
+   cd frontend
+   VITE_API_BASE_URL=https://schoolment.com/school-erp npm run build
+   ```
+
+2. Upload the **contents** of `frontend/dist/` into
+   `public_html/school-admin/`, replacing what's there.
+
+   **Include the hidden `.htaccess`.** File managers and zip tools routinely
+   skip dotfiles. Without it every deep link (`/platform-login`, and any
+   route reached by refresh rather than in-app navigation) returns 404,
+   because React Router's routes have no matching file on disk. This has
+   already caught us once.
+
+3. Nothing to restart — it's static files.
+
+### Why the build was moved off-server
+
+Each of these is a limit of the hosting account, not a misconfiguration:
+
+1. **Node too old for Vite 8.** Its `rolldown` bundler needs Node >= 20.19;
+   the host caps at 20.18.3. Genuinely fixed, by downgrading to Vite 5 —
+   that part was solvable.
+2. **LVE process cap.** esbuild's Go runtime could not spawn its threads:
+   `failed to create new OS thread (have 17 already; errno=11)`.
+3. **LVE memory cap.** The build then died on
+   `WebAssembly.instantiate(): Out of memory: Cannot allocate Wasm memory`.
+
+The tasks were **removed** rather than left in to fail, because a failing
+task aborts the entire deploy: cPanel marks the deployment failed and never
+updates "Last Deployed", even though the backend, the tenant migrations and
+the marketing site had all already applied. That made every deploy look
+broken when only the last step was.
+
+If this account ever moves to a host without LVE limits, the build tasks can
+go straight back in — the Vite 5 toolchain itself is fine, and builds in
+under 10 seconds on ordinary hardware.
+
+### Historical note
+
+Previously `frontend/` built and deployed through the same cPanel Git
+Version Control flow as everything else, via the last tasks in
+`.cpanel.yml`. Unlike the backend, it never runs as a live Node
 process — Node/npm are only needed to *build* it (`npm ci && npm run
 build`), and the resulting static `dist/` output is rsynced into
 `school-admin/`, same as any other static site.

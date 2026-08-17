@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,7 @@ from app import models, schemas
 from app.models import User
 from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
+from app.tenant import require_feature
 
 router = APIRouter(
     prefix="/portal",
@@ -594,6 +596,11 @@ def portal_send_message(
 
 # ---------------- Online tests ----------------
 
+# Online Tests is sold separately. The portal router is shared with every
+# other portal endpoint, so the entitlement check is attached per route
+# here rather than to the router as a whole (see routes/online_tests.py).
+ONLINE_TEST_GATE = [Depends(require_feature("online_tests"))]
+
 
 def _online_test_is_open(test: models.OnlineTest) -> bool:
     if test.status != "Published":
@@ -606,8 +613,59 @@ def _online_test_is_open(test: models.OnlineTest) -> bool:
     return True
 
 
-def _question_public(question: models.OnlineTestQuestion, reveal_answer: bool = False):
+# Slack allowed past a deadline before a submission is treated as late. The
+# browser auto-submits the instant its countdown hits zero, so the request still
+# has to survive network latency and any clock skew between client and server.
+SUBMIT_GRACE_SECONDS = 60
+
+
+def _attempt_deadline(test: models.OnlineTest, attempt: models.OnlineTestAttempt):
+    """When this attempt stops accepting answers, or None if it never does.
+
+    Two independent limits apply and the earlier one wins: the per-attempt
+    duration (counted from when the student first opened the test) and the
+    test's own ends_at window.
+    """
+    deadline = None
+    if test.duration_minutes and attempt.started_at:
+        deadline = attempt.started_at + timedelta(minutes=test.duration_minutes)
+    if test.ends_at and (deadline is None or test.ends_at < deadline):
+        deadline = test.ends_at
+    return deadline
+
+
+def _expiry_reason(test: models.OnlineTest, attempt: models.OnlineTestAttempt) -> str:
+    """Which of the two limits closed the attempt, for the teacher's benefit."""
+    if test.duration_minutes and attempt.started_at:
+        duration_deadline = attempt.started_at + timedelta(minutes=test.duration_minutes)
+        if test.ends_at and test.ends_at < duration_deadline:
+            return "window_closed"
+        return "time_expired"
+    return "window_closed"
+
+
+def _shuffled_for_attempt(items: list, attempt_id: int, salt: int = 0) -> list:
+    """Deterministically reorder items for one attempt.
+
+    Seeded from the attempt id so a student who reloads mid-test sees the same
+    order they started with, while two students sitting the same test get
+    different orders. Never call this with the attempt id alone for both the
+    question list and the option lists -- pass a per-question salt so the two
+    orderings don't correlate.
+    """
+    ordered = list(items)
+    random.Random(f"{attempt_id}:{salt}").shuffle(ordered)
+    return ordered
+
+
+def _question_public(
+    question: models.OnlineTestQuestion,
+    reveal_answer: bool = False,
+    shuffle_options_for_attempt: int | None = None,
+):
     options = json.loads(question.options) if question.options else None
+    if options and shuffle_options_for_attempt is not None:
+        options = _shuffled_for_attempt(options, shuffle_options_for_attempt, salt=question.id)
     data = {
         "id": question.id,
         "question_type": question.question_type,
@@ -621,7 +679,85 @@ def _question_public(question: models.OnlineTestQuestion, reveal_answer: bool = 
     return data
 
 
-@router.get("/students/{student_id}/online-tests")
+def _grade_attempt(
+    db: Session,
+    test_id: int,
+    attempt: models.OnlineTestAttempt,
+    reason: str | None = None,
+    submitted_at: datetime | None = None,
+):
+    """Close and score an attempt from the answers already persisted for it.
+
+    Grading always reads the saved OnlineTestAnswer rows rather than a request
+    payload, so an attempt that times out is scored on the work the student had
+    actually saved — not zeroed for never having pressed Submit.
+    """
+    questions = (
+        db.query(models.OnlineTestQuestion)
+        .filter(models.OnlineTestQuestion.test_id == test_id)
+        .all()
+    )
+    saved = {
+        a.question_id: a
+        for a in db.query(models.OnlineTestAnswer)
+        .filter(models.OnlineTestAnswer.attempt_id == attempt.id)
+        .all()
+    }
+
+    total_score = 0.0
+    max_score = 0.0
+    for question in questions:
+        max_score += question.marks or 0
+        answer = saved.get(question.id)
+        selected = answer.selected_option if answer else None
+        is_correct = selected is not None and selected == question.correct_option
+        marks_awarded = (question.marks or 0) if is_correct else 0
+        total_score += marks_awarded
+
+        if answer:
+            answer.is_correct = is_correct
+            answer.marks_awarded = marks_awarded
+        else:
+            db.add(models.OnlineTestAnswer(
+                attempt_id=attempt.id,
+                question_id=question.id,
+                selected_option=None,
+                is_correct=False,
+                marks_awarded=0,
+            ))
+
+    attempt.status = "Submitted"
+    attempt.submitted_at = submitted_at or datetime.utcnow()
+    attempt.score = total_score
+    attempt.max_score = max_score
+    attempt.auto_submitted_reason = reason
+
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+
+def _expire_attempt_if_due(db: Session, test: models.OnlineTest, attempt: models.OnlineTestAttempt):
+    """Close an in-progress attempt that has run past its deadline.
+
+    Called whenever an attempt is loaded, so a student who leaves a test open
+    and comes back later finds it closed at the deadline rather than resumable.
+    """
+    if attempt.status == "Submitted":
+        return attempt
+    deadline = _attempt_deadline(test, attempt)
+    if deadline and datetime.utcnow() > deadline + timedelta(seconds=SUBMIT_GRACE_SECONDS):
+        return _grade_attempt(
+            db,
+            test.id,
+            attempt,
+            reason=_expiry_reason(test, attempt),
+            submitted_at=deadline,
+        )
+    return attempt
+
+
+@router.get("/students/{student_id}/online-tests", dependencies=ONLINE_TEST_GATE)
 def portal_list_online_tests(
     student_id: int,
     db: Session = Depends(get_db),
@@ -671,7 +807,7 @@ def portal_list_online_tests(
     return results
 
 
-@router.get("/students/{student_id}/online-tests/{test_id}")
+@router.get("/students/{student_id}/online-tests/{test_id}", dependencies=ONLINE_TEST_GATE)
 def portal_get_online_test(
     student_id: int,
     test_id: int,
@@ -709,15 +845,29 @@ def portal_get_online_test(
         db.commit()
         db.refresh(attempt)
 
+    # An attempt left open past its deadline is closed here rather than resumed.
+    attempt = _expire_attempt_if_due(db, test, attempt)
+
     questions = db.query(models.OnlineTestQuestion).filter(
         models.OnlineTestQuestion.test_id == test_id
     ).order_by(models.OnlineTestQuestion.sort_order).all()
 
     submitted = attempt.status == "Submitted"
-    answers_by_question = {}
-    if submitted:
-        for answer in db.query(models.OnlineTestAnswer).filter(models.OnlineTestAnswer.attempt_id == attempt.id).all():
-            answers_by_question[answer.question_id] = answer
+
+    # Answers are saved as the student goes, so they're read back for an
+    # in-progress attempt too -- reloading mid-test restores the selections.
+    answers_by_question = {
+        answer.question_id: answer
+        for answer in db.query(models.OnlineTestAnswer)
+        .filter(models.OnlineTestAnswer.attempt_id == attempt.id)
+        .all()
+    }
+
+    # Shuffling is a review aid once the test is over, not an anti-copying
+    # measure, so the original order comes back after submission.
+    if test.shuffle_questions and not submitted:
+        questions = _shuffled_for_attempt(questions, attempt.id)
+    shuffle_options_for = attempt.id if (test.shuffle_options and not submitted) else None
 
     return {
         "test": {
@@ -726,6 +876,7 @@ def portal_get_online_test(
             "subject": test.subject,
             "description": test.description,
             "duration_minutes": test.duration_minutes,
+            "ends_at": test.ends_at,
         },
         "attempt": {
             "id": attempt.id,
@@ -734,10 +885,16 @@ def portal_get_online_test(
             "submitted_at": attempt.submitted_at,
             "score": attempt.score,
             "max_score": attempt.max_score,
+            "auto_submitted_reason": attempt.auto_submitted_reason,
+            "deadline": _attempt_deadline(test, attempt),
         },
         "questions": [
             {
-                **_question_public(q, reveal_answer=submitted),
+                **_question_public(
+                    q,
+                    reveal_answer=submitted,
+                    shuffle_options_for_attempt=shuffle_options_for,
+                ),
                 "selected_option": answers_by_question[q.id].selected_option if q.id in answers_by_question else None,
                 "is_correct": answers_by_question[q.id].is_correct if q.id in answers_by_question else None,
             }
@@ -746,7 +903,75 @@ def portal_get_online_test(
     }
 
 
-@router.post("/students/{student_id}/online-tests/{test_id}/submit")
+@router.post("/students/{student_id}/online-tests/{test_id}/answer", dependencies=ONLINE_TEST_GATE)
+def portal_save_online_test_answer(
+    student_id: int,
+    test_id: int,
+    payload: schemas.OnlineTestAnswerSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Save a single answer mid-attempt, before the student submits.
+
+    Without this the server holds nothing until Submit arrives, so enforcing the
+    timer would mean scoring a timed-out student on an empty answer sheet.
+    """
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can answer this test")
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="No attempt found for this test — open it first")
+
+    attempt = _expire_attempt_if_due(db, test, attempt)
+    if attempt.status == "Submitted":
+        raise HTTPException(status_code=400, detail="This test is no longer open for answers")
+
+    question = (
+        db.query(models.OnlineTestQuestion)
+        .filter(
+            models.OnlineTestQuestion.id == payload.question_id,
+            models.OnlineTestQuestion.test_id == test_id,
+        )
+        .first()
+    )
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found on this test")
+
+    answer = (
+        db.query(models.OnlineTestAnswer)
+        .filter(
+            models.OnlineTestAnswer.attempt_id == attempt.id,
+            models.OnlineTestAnswer.question_id == question.id,
+        )
+        .first()
+    )
+    if answer:
+        answer.selected_option = payload.selected_option
+    else:
+        # Left ungraded on purpose -- grading happens once, at _grade_attempt.
+        db.add(models.OnlineTestAnswer(
+            attempt_id=attempt.id,
+            question_id=question.id,
+            selected_option=payload.selected_option,
+            is_correct=None,
+            marks_awarded=0,
+        ))
+
+    db.commit()
+    return {"saved": True, "question_id": question.id}
+
+
+@router.post("/students/{student_id}/online-tests/{test_id}/submit", dependencies=ONLINE_TEST_GATE)
 def portal_submit_online_test(
     student_id: int,
     test_id: int,
@@ -768,41 +993,65 @@ def portal_submit_online_test(
     if attempt.status == "Submitted":
         raise HTTPException(status_code=400, detail="This test has already been submitted")
 
-    questions = {
-        q.id: q
-        for q in db.query(models.OnlineTestQuestion).filter(models.OnlineTestQuestion.test_id == test_id).all()
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    # Past the deadline the payload is refused outright -- otherwise the timer
+    # is only ever a client-side suggestion. The attempt is still scored, on
+    # whatever the student had saved before time ran out.
+    deadline = _attempt_deadline(test, attempt)
+    if deadline and datetime.utcnow() > deadline + timedelta(seconds=SUBMIT_GRACE_SECONDS):
+        attempt = _grade_attempt(
+            db,
+            test_id,
+            attempt,
+            reason=_expiry_reason(test, attempt),
+            submitted_at=deadline,
+        )
+        return {
+            "id": attempt.id,
+            "status": attempt.status,
+            "score": attempt.score,
+            "max_score": attempt.max_score,
+            "auto_submitted_reason": attempt.auto_submitted_reason,
+        }
+
+    valid_question_ids = {
+        q.id
+        for q in db.query(models.OnlineTestQuestion.id)
+        .filter(models.OnlineTestQuestion.test_id == test_id)
+        .all()
     }
-    selected_by_question = {a.question_id: a.selected_option for a in payload.answers}
+    saved = {
+        a.question_id: a
+        for a in db.query(models.OnlineTestAnswer)
+        .filter(models.OnlineTestAnswer.attempt_id == attempt.id)
+        .all()
+    }
+    for submitted_answer in payload.answers:
+        if submitted_answer.question_id not in valid_question_ids:
+            continue
+        answer = saved.get(submitted_answer.question_id)
+        if answer:
+            answer.selected_option = submitted_answer.selected_option
+        else:
+            db.add(models.OnlineTestAnswer(
+                attempt_id=attempt.id,
+                question_id=submitted_answer.question_id,
+                selected_option=submitted_answer.selected_option,
+                is_correct=None,
+                marks_awarded=0,
+            ))
+    db.flush()
 
-    total_score = 0.0
-    max_score = 0.0
-    for question in questions.values():
-        max_score += question.marks or 0
-        selected = selected_by_question.get(question.id)
-        is_correct = selected is not None and selected == question.correct_option
-        marks_awarded = (question.marks or 0) if is_correct else 0
-        total_score += marks_awarded
-
-        db.add(models.OnlineTestAnswer(
-            attempt_id=attempt.id,
-            question_id=question.id,
-            selected_option=selected,
-            is_correct=is_correct,
-            marks_awarded=marks_awarded,
-        ))
-
-    attempt.status = "Submitted"
-    attempt.submitted_at = datetime.utcnow()
-    attempt.score = total_score
-    attempt.max_score = max_score
-
-    db.commit()
-    db.refresh(attempt)
+    attempt = _grade_attempt(db, test_id, attempt)
     return {
         "id": attempt.id,
         "status": attempt.status,
         "score": attempt.score,
         "max_score": attempt.max_score,
+        "auto_submitted_reason": attempt.auto_submitted_reason,
     }
 
 

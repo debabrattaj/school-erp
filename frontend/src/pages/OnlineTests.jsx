@@ -21,6 +21,8 @@ const emptyTestForm = {
   description: "",
   duration_minutes: "",
   teacher_id: "",
+  shuffle_questions: false,
+  shuffle_options: false,
 };
 
 const emptyQuestionForm = {
@@ -38,6 +40,9 @@ function getApiErrorMessage(error, fallback) {
 export default function OnlineTests() {
   const [tests, setTests] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [searchText, setSearchText] = useState("");
@@ -78,14 +83,43 @@ export default function OnlineTests() {
     }
   }
 
+  // Class, section, subject and academic year all come from their own modules
+  // rather than being typed in, so a test can only ever be attached to a class
+  // that exists — a typo here would otherwise hide the test from every student.
+  async function loadPickLists() {
+    const [classesRes, subjectsRes, yearsRes] = await Promise.allSettled([
+      API.get("/classes/"),
+      API.get("/subjects/"),
+      API.get("/academic-years/"),
+    ]);
+    setClasses(classesRes.status === "fulfilled" ? classesRes.value.data || [] : []);
+    setSubjects(subjectsRes.status === "fulfilled" ? subjectsRes.value.data || [] : []);
+    setAcademicYears(yearsRes.status === "fulfilled" ? yearsRes.value.data || [] : []);
+  }
+
   useEffect(() => {
     loadTests();
     loadTeachers();
+    loadPickLists();
   }, []);
 
+  // Distinct class names, in the order the Classes module lists them.
+  const classNames = [...new Set(classes.map((c) => c.class_name).filter(Boolean))];
+
+  // Sections offered by the chosen class. Blank stays available and means
+  // "every section", which is how the backend already treats a null section.
+  const sectionsForClass = [
+    ...new Set(
+      classes
+        .filter((c) => c.class_name === testForm.class_name)
+        .map((c) => c.section)
+        .filter(Boolean)
+    ),
+  ];
+
   function handleTestChange(e) {
-    const { name, value } = e.target;
-    setTestForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setTestForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
   function handleAddTest() {
@@ -106,6 +140,8 @@ export default function OnlineTests() {
       description: test.description || "",
       duration_minutes: test.duration_minutes || "",
       teacher_id: test.teacher_id || "",
+      shuffle_questions: Boolean(test.shuffle_questions),
+      shuffle_options: Boolean(test.shuffle_options),
     });
     setMessage("");
     setPageMode("form");
@@ -122,6 +158,8 @@ export default function OnlineTests() {
       description: testForm.description.trim() || null,
       duration_minutes: testForm.duration_minutes ? Number(testForm.duration_minutes) : null,
       teacher_id: testForm.teacher_id ? Number(testForm.teacher_id) : null,
+      shuffle_questions: Boolean(testForm.shuffle_questions),
+      shuffle_options: Boolean(testForm.shuffle_options),
     };
     if (!payload.class_name) {
       setMessage("Class is required.");
@@ -295,19 +333,59 @@ export default function OnlineTests() {
             <div className="form-grid">
               <div className="form-field">
                 <label>Class *</label>
-                <input type="text" name="class_name" value={testForm.class_name} onChange={handleTestChange} placeholder="e.g. 8" required />
+                <select
+                  name="class_name"
+                  value={testForm.class_name}
+                  onChange={(e) => {
+                    handleTestChange(e);
+                    // The old section may not exist in the newly-chosen class.
+                    setTestForm((prev) => ({ ...prev, section: "" }));
+                  }}
+                  required
+                >
+                  <option value="">Select Class</option>
+                  {classNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                {!classNames.length && <small>No classes set up yet — add them under Classes.</small>}
               </div>
               <div className="form-field">
                 <label>Section</label>
-                <input type="text" name="section" value={testForm.section} onChange={handleTestChange} placeholder="blank = all sections" />
+                <select
+                  name="section"
+                  value={testForm.section}
+                  onChange={handleTestChange}
+                  disabled={!testForm.class_name}
+                >
+                  <option value="">All sections</option>
+                  {sectionsForClass.map((section) => (
+                    <option key={section} value={section}>{section}</option>
+                  ))}
+                </select>
+                <small>{testForm.class_name ? "Blank covers every section." : "Pick a class first."}</small>
               </div>
               <div className="form-field">
                 <label>Academic Year</label>
-                <input type="text" name="academic_year" value={testForm.academic_year} onChange={handleTestChange} placeholder="2026-27" />
+                <select name="academic_year" value={testForm.academic_year} onChange={handleTestChange}>
+                  <option value="">Select Academic Year</option>
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.name}>{year.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="form-field">
                 <label>Subject</label>
-                <input type="text" name="subject" value={testForm.subject} onChange={handleTestChange} />
+                <select name="subject" value={testForm.subject} onChange={handleTestChange}>
+                  <option value="">Select Subject</option>
+                  {subjects
+                    .filter((subject) => subject.is_active !== false)
+                    .map((subject) => (
+                      <option key={subject.id} value={subject.subject_name}>
+                        {subject.subject_name}
+                      </option>
+                    ))}
+                </select>
               </div>
               <div className="form-field">
                 <label>Teacher</label>
@@ -329,6 +407,28 @@ export default function OnlineTests() {
               <div className="form-field">
                 <label>Description</label>
                 <textarea name="description" value={testForm.description} onChange={handleTestChange} rows={3} />
+              </div>
+              <div className="form-field">
+                <label>Anti-copying</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="shuffle_questions"
+                    checked={testForm.shuffle_questions}
+                    onChange={handleTestChange}
+                  />
+                  Shuffle question order per student
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="shuffle_options"
+                    checked={testForm.shuffle_options}
+                    onChange={handleTestChange}
+                  />
+                  Shuffle answer options per student
+                </label>
+                <small>Each student gets a different order, kept stable if they reload.</small>
               </div>
             </div>
             <div className="form-actions">

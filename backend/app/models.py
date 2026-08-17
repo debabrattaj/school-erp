@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, UniqueConstraint, Float, Date, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, UniqueConstraint, Float, Date, DateTime, Time
 from datetime import datetime
 
 
@@ -1524,6 +1524,12 @@ class OnlineTest(Base):
     starts_at = Column(DateTime, nullable=True)
     ends_at = Column(DateTime, nullable=True)
 
+    # Anti-copying: serve each student a different question/option order. The
+    # order is derived from the attempt id (see portal._shuffled_for_attempt),
+    # so it stays stable if a student reloads mid-attempt.
+    shuffle_questions = Column(Boolean, nullable=False, default=False)
+    shuffle_options = Column(Boolean, nullable=False, default=False)
+
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
     teacher_name_snapshot = Column(String, nullable=True)
 
@@ -1560,6 +1566,11 @@ class OnlineTestAttempt(Base):
     max_score = Column(Float, nullable=True)  # snapshotted total at submission time
     status = Column(String, nullable=False, default="In Progress")  # In Progress, Submitted
 
+    # Why the attempt closed without the student pressing Submit: "time_expired"
+    # (past duration_minutes) or "window_closed" (past the test's ends_at).
+    # NULL means the student submitted normally.
+    auto_submitted_reason = Column(String, nullable=True)
+
     __table_args__ = (
         UniqueConstraint("test_id", "student_id", name="uq_online_test_attempt_student"),
     )
@@ -1579,3 +1590,158 @@ class OnlineTestAnswer(Base):
     __table_args__ = (
         UniqueConstraint("attempt_id", "question_id", name="uq_online_test_answer_question"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Biometric attendance
+#
+# Punches arrive from physical terminals (fingerprint / face / RFID) by one of
+# three routes, all of which land in BiometricPunch:
+#
+#   push  - the terminal, or the vendor's middleware, POSTs to /biometric/ingest
+#   pull  - run_biometric_sync.py polls a vendor cloud API on a schedule
+#   agent - a script on the school's LAN reads the terminal and POSTs to the
+#           same /biometric/ingest endpoint as `push`
+#
+# The `agent` route exists because a terminal sitting on a school network has a
+# private address and cannot be dialled from this server; "pull" from our side
+# only works against an internet-reachable vendor API, never the device itself.
+# ---------------------------------------------------------------------------
+
+
+class BiometricDevice(Base):
+    """One physical terminal belonging to this school."""
+
+    __tablename__ = "biometric_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)                       # "Main Gate"
+    serial_number = Column(String, nullable=False, index=True)  # device self-identifies with this
+    location = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)                      # ZKTeco, eSSL, Mantra, ...
+
+    # push  -> device/agent calls us and we never call it
+    # pull  -> run_biometric_sync.py fetches from pull_endpoint on a schedule
+    mode = Column(String, nullable=False, default="push")
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # A terminal cannot hold a login session, so it authenticates with a long
+    # random bearer token instead. Only the hash is kept -- the plaintext is
+    # shown once, when the device is registered or its token is rotated.
+    auth_token_hash = Column(String, nullable=True)
+
+    # mode="pull" only: where to fetch from, plus any vendor-specific settings
+    # (API key, account id, device id on their side) as a JSON blob.
+    pull_endpoint = Column(String, nullable=True)
+    pull_config = Column(Text, nullable=True)
+
+    last_seen_at = Column(DateTime, nullable=True)   # last successful ingest from this device
+    last_sync_at = Column(DateTime, nullable=True)   # last completed pull run
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("serial_number", name="uq_biometric_device_serial"),
+    )
+
+
+class BiometricEnrollment(Base):
+    """Maps the id a terminal knows someone by to a student or teacher.
+
+    device_id NULL means "this mapping applies on every terminal", which is the
+    common case where one enrollment roster is pushed to all devices. A row
+    naming a specific device wins over a NULL one, so a single terminal that
+    numbers people differently can be corrected without touching the rest.
+    """
+
+    __tablename__ = "biometric_enrollments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("biometric_devices.id", ondelete="CASCADE"), nullable=True, index=True)
+    device_user_id = Column(String, nullable=False, index=True)
+
+    # Exactly one of these is set -- enforced in the route, since a CHECK
+    # constraint across two nullable FKs is awkward to migrate on SQLite.
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BiometricPunch(Base):
+    """One raw read from a terminal, kept verbatim.
+
+    Punches are stored before they are interpreted, so attendance can be
+    recomputed later (after fixing an enrollment mapping, say) without asking
+    the device for history it may no longer hold.
+    """
+
+    __tablename__ = "biometric_punches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("biometric_devices.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_user_id = Column(String, nullable=False, index=True)
+    punched_at = Column(DateTime, nullable=False, index=True)
+    direction = Column(String, nullable=True)  # in, out, or NULL when the device doesn't say
+    raw_payload = Column(Text, nullable=True)
+
+    # Terminals and agents retry, and a pull window usually overlaps the last
+    # one, so the same punch arrives repeatedly. This key makes ingest
+    # idempotent: a repeat is counted and dropped rather than double-recorded.
+    dedupe_key = Column(String, nullable=False, index=True)
+
+    # Resolved at ingest. Both NULL means no enrollment matched -- the punch is
+    # still kept, and is picked up once the mapping is added.
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("dedupe_key", name="uq_biometric_punch_dedupe"),
+    )
+
+
+class BiometricSyncRun(Base):
+    """Audit row per pull attempt, mirroring the *_generation_runs tables."""
+
+    __tablename__ = "biometric_sync_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("biometric_devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    run_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, nullable=False)  # Success, Failed
+    fetched_count = Column(Integer, default=0)
+    ingested_count = Column(Integer, default=0)
+    duplicate_count = Column(Integer, default=0)
+    unmatched_count = Column(Integer, default=0)
+    error_message = Column(String, nullable=True)
+
+
+class BiometricAttendanceConfig(Base):
+    """How punches turn into attendance rows. One row per school."""
+
+    __tablename__ = "biometric_attendance_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Turn raw punches into Attendance rows at all. Off means punches are still
+    # collected and visible, but nothing is written to attendance -- useful for
+    # running a terminal alongside manual marking before trusting it.
+    derive_attendance = Column(Boolean, nullable=False, default=False)
+
+    late_after = Column(Time, nullable=True)        # first punch after this -> Late
+    half_day_before = Column(Time, nullable=True)   # last punch before this -> Half Day
+
+    # Mark enrolled students with no punch at all that day as Absent. Off by
+    # default: a terminal that fails silently would otherwise mark a whole
+    # school absent.
+    absent_if_no_punch = Column(Boolean, nullable=False, default=False)
+
+    # Never overwrite a mark a teacher made by hand unless this is switched on.
+    overwrite_manual = Column(Boolean, nullable=False, default=False)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

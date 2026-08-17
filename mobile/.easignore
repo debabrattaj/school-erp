@@ -1,0 +1,46 @@
+# Files excluded from the tarball uploaded to EAS Build.
+#
+# EAS uses this file INSTEAD of .gitignore when it is present, so everything
+# that should stay out of the upload has to be listed here even if .gitignore
+# already covers it. Without this the archive came to 874 MB; the build server
+# installs dependencies and runs prebuild itself, so none of it was needed.
+
+# dependencies — reinstalled on the build server from package-lock.json
+node_modules/
+
+# generated native projects — EAS runs `expo prebuild` itself
+/android
+/ios
+.kotlin/
+
+# local Gradle/Android build output
+**/build/
+**/.gradle/
+**/.cxx/
+local.properties
+
+# Expo caches and web output
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# signing material — credentials live on the EAS server, never in the upload
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# local env files
+.env*.local
+
+# debug logs and editor noise
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.orig.*
+*.tsbuildinfo
+.DS_Store

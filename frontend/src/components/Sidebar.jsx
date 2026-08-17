@@ -21,6 +21,7 @@ import {
   Boxes,
   UserPlus,
   FileCheck,
+  Fingerprint,
   CalendarCheck,
   MessageCircle,
   LifeBuoy,
@@ -115,6 +116,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/online-tests",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "online_tests",
+      group: "Academics",
+    },
+    {
+      label: "Biometric",
+      icon: Fingerprint,
+      path: "/biometric",
+      roles: ["Admin", "Principal"],
+      feature: "biometric_attendance",
       group: "Academics",
     },
     {
