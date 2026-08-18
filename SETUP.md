@@ -541,6 +541,154 @@ syllabus and lesson plans for the same reason.
 Deleting a topic unlinks any lessons that referenced it but keeps the
 lessons: they happened.
 
+## 8g. Vehicle tracking
+
+Where the bus is, and whether that is where it should be.
+`backend/app/tracking.py` holds the logic, `backend/app/routes/tracking.py`
+the endpoints (`/transport-tracking/...`), and
+`backend/run_tracking_housekeeping.py` is the cron entrypoint.
+
+It builds on the existing transport module — routes, stops, vehicles and
+per-student assignments already exist. Stops gain `latitude`/`longitude`;
+everything else is new.
+
+### What you need before this does anything
+
+**This module has no hardware in it.** It defines how a tracker talks to the
+server; it does not talk to any particular tracker. You need one of:
+
+- a GPS tracker whose vendor cloud can POST to a webhook, or
+- a small relay on any always-on machine that reads the vendor's API and
+  POSTs here, or
+- a driver-phone app that posts its own position.
+
+Ingest is plain HTTPS with a device credential, which is the one thing every
+vendor and every phone can manage. Most trackers speak a binary protocol over
+a raw TCP socket, which shared cPanel hosting cannot listen on — so the relay
+shape is usually the practical answer, exactly as with the biometric module.
+
+### Trackers
+
+A `TrackerDevice` is bound to a vehicle and authenticates with a long random
+bearer token, since a tracker cannot hold a login session. **Only the hash is
+stored** — the plaintext is shown once, at registration or rotation, and
+there is no way to show it again. Rotating retires the old token immediately.
+
+An unknown device id and a wrong token return the identical error, so a
+caller cannot probe which device ids are real.
+
+### Ingest, and everything trackers do wrong
+
+`POST /transport-tracking/ingest` takes a batch, because trackers buffer while
+out of coverage and replay later — fifty backdated fixes is normal traffic,
+not an error. The batch is processed oldest-first so a replay rebuilds the
+trail in the order it happened.
+
+Refused, per fix:
+
+- **(0, 0)** — Null Island is what a tracker reports with no satellite lock.
+  A bus in the Gulf of Guinea is worse than a bus shown as unknown.
+- **Impossible coordinates.**
+- **A fix more than 15 minutes in the future** — a device with its clock set
+  wrong would otherwise sit at the top of "latest position" for ever.
+- **A vehicle-less tracker**, which has nowhere to put its fixes.
+
+**One bad fix does not fail the batch.** A relay that received a 400 would
+just resend the same bad point for ever, so the response reports
+`stored` / `duplicates` / `rejected` with reasons.
+
+Re-posting an identical fix is counted as a duplicate rather than stored
+again; a doubled fix reads as a bus standing still.
+
+### Two clocks
+
+`recorded_at` is the device's clock, `received_at` ours, and **latest position
+is by the device's clock**. Ordering by arrival time would let a tracker
+replaying an hour of buffered points drag the bus backwards along its own
+route.
+
+### Live, stale, or nothing
+
+Every position answer is labelled: `live`, `stale` (older than
+`stale_after_minutes`, default 10) or `no_data`, with an age in minutes.
+A tracker that went quiet twenty minutes ago tells you nothing about now, so
+its last known point is never presented as current.
+
+`GET /transport-tracking/devices/silent` lists active trackers that have
+stopped reporting — a dead tracker is what a parent notices first.
+
+### Trips and geofencing
+
+A `VehicleTrip` is one run: the morning pickup or the afternoon drop, one per
+vehicle per direction per day. **Two running trips for one vehicle are
+refused** — they would make every position report ambiguous, which is the one
+question this table answers.
+
+Fixes inside a stop's geofence (default 150 m) record an arrival, with the
+delay against the timetabled time. First arrival wins; a bus idling at a stop
+extends the departure time instead of logging a second arrival. Stops without
+coordinates are skipped rather than treated as being at (0, 0), so tracking
+degrades to manual for them instead of going wrong.
+
+Ending a trip flags every stop it never reached, as `stop_missed` alerts.
+That is done at the end rather than during the run, because a bus can be late
+without having missed anything.
+
+### Alerts
+
+`over_speed` (Critical), `late_arrival`, `stop_missed`, and `no_signal` —
+raised by the cron, at most once per tracker per day, so a tracker that has
+been dead all term does not produce an alert every hour. Alerts are
+acknowledged with who and when, not deleted.
+
+### Arrival estimates are estimates
+
+`GET /transport-tracking/vehicles/{id}/eta` returns a number **with its basis
+attached**: straight-line distance over recent average speed.
+
+This is **not a routing engine**. It does not know about roads, turns,
+traffic or the order of the remaining stops, and it reads low on a route that
+doubles back. Every response carries
+`"basis": "straight-line distance over recent average speed; not road
+routing"` so a UI cannot present it as a promise.
+
+The estimate is **null with a reason**, never a guess, when the stop has no
+coordinates, no position has been reported, the last fix is stale, or the bus
+is not moving.
+
+### Parents
+
+`GET /portal/students/{id}/bus` gives a parent their own child's bus, its
+position and the estimate for their own stop. It lives in the portal router
+and goes through `ensure_student_access` — the guard that already decides
+which children a parent may look at. Duplicating that check elsewhere is how
+a parent ends up able to follow another family's bus.
+
+The driver's personal mobile is deliberately **not** in that response.
+Staff-side records already hold it; publishing it to every parent on the
+route is a different decision from showing a bus on a map.
+
+### Retention
+
+Position history is purged past `retain_locations_days` (default 30). A bus
+reporting every ten seconds writes roughly eight thousand rows a day, and a
+continuous record of where a child's bus went, kept for ever, serves no
+operational purpose. Trips, stop events and alerts survive — those are the
+record schools need, and they hold no continuous trail.
+
+Add to cron:
+
+```
+0 2 * * * cd /home/USER/school-erp/backend && /home/USER/virtualenv/.../bin/python run_tracking_housekeeping.py >> logs/tracking.log 2>&1
+```
+
+`--dry-run` reports what it would purge and alert on without writing.
+
+Unlike the fee, promotion, exam and biometric schedulers this is **not**
+behind a platform feature flag: it is retention and hygiene for data already
+collected, and a school that stops paying for tracking should still have its
+old position history aged out.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

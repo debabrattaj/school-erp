@@ -753,6 +753,13 @@ class TransportStop(Base):
     stop_name = Column(String, nullable=False, index=True)
     pickup_time = Column(String, nullable=True)
     drop_time = Column(String, nullable=True)
+
+    # Set once a school geocodes its stops. Without them a stop simply has no
+    # geofence and its arrivals are recorded by hand -- tracking degrades to
+    # manual rather than placing the bus at (0, 0), which is in the Atlantic.
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     remarks = Column(String, nullable=True)
@@ -2277,4 +2284,194 @@ class LessonPlan(Base):
 
     created_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Vehicle tracking
+#
+# Built device-agnostic on purpose. Every tracker vendor speaks a different
+# protocol, and the one thing they all manage is an HTTP POST, so ingest is
+# an authenticated endpoint a tracker or an on-prem relay calls -- the same
+# shape the biometric module already uses for terminals.
+#
+# Distances here are straight-line (haversine), not road distance. That is
+# accurate enough to decide "the bus is at the stop" and is honestly labelled
+# as an estimate everywhere it is used for an arrival time.
+# ---------------------------------------------------------------------------
+
+
+class TrackerDevice(Base):
+    """A GPS unit or driver's phone reporting for one vehicle."""
+
+    __tablename__ = "tracker_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_uid = Column(String, nullable=False, index=True)  # device self-identifies with this
+    label = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+
+    vehicle_id = Column(
+        Integer, ForeignKey("transport_vehicles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # A tracker cannot hold a login session, so it authenticates with a long
+    # random bearer token. Only the hash is stored -- the plaintext is shown
+    # once, at registration or rotation.
+    auth_token_hash = Column(String, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    last_seen_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("device_uid", name="uq_tracker_device_uid"),)
+
+
+class VehicleTrip(Base):
+    """One run of one vehicle along a route: the morning pickup, or the drop."""
+
+    __tablename__ = "vehicle_trips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(
+        Integer, ForeignKey("transport_vehicles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    route_id = Column(
+        Integer, ForeignKey("transport_routes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    trip_date = Column(Date, nullable=False, index=True)
+    direction = Column(String, nullable=False, default="Pickup", index=True)  # Pickup, Drop
+    status = Column(String, nullable=False, default="Scheduled", index=True)
+    # Scheduled, Running, Completed, Cancelled
+
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    driver_name = Column(String, nullable=True)   # snapshot: drivers change
+    driver_phone = Column(String, nullable=True)
+
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        # One morning run per vehicle per day. Two would make "where is the
+        # bus" ambiguous, which is the only question this table answers.
+        UniqueConstraint("vehicle_id", "trip_date", "direction", name="uq_vehicle_trip_run"),
+    )
+
+
+class VehicleLocation(Base):
+    """One position report.
+
+    recorded_at is the device's clock, received_at ours. Both are kept because
+    trackers buffer while out of coverage and replay later: without the
+    distinction, a dump of old points would look like the bus teleporting
+    backwards.
+    """
+
+    __tablename__ = "vehicle_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(
+        Integer, ForeignKey("transport_vehicles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    device_id = Column(
+        Integer, ForeignKey("tracker_devices.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    trip_id = Column(
+        Integer, ForeignKey("vehicle_trips.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    recorded_at = Column(DateTime, nullable=False, index=True)
+    received_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    speed_kmph = Column(Float, nullable=True)
+    heading = Column(Float, nullable=True)
+    accuracy_m = Column(Float, nullable=True)
+
+    __table_args__ = (
+        # A tracker that retries a batch after a timeout must not double-log
+        # the same fix.
+        UniqueConstraint("vehicle_id", "recorded_at", name="uq_vehicle_location_fix"),
+    )
+
+
+class TripStopEvent(Base):
+    """When a trip actually reached a stop, against when it was meant to."""
+
+    __tablename__ = "trip_stop_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(
+        Integer, ForeignKey("vehicle_trips.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    stop_id = Column(
+        Integer, ForeignKey("transport_stops.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    arrived_at = Column(DateTime, nullable=True)
+    departed_at = Column(DateTime, nullable=True)
+    # geofence -> detected from position reports; manual -> entered by staff
+    detected_by = Column(String, nullable=False, default="geofence")
+    scheduled_time = Column(String, nullable=True)   # snapshot of the timetable string
+    delay_minutes = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("trip_id", "stop_id", name="uq_trip_stop_event"),
+    )
+
+
+class TransportAlert(Base):
+    """Something worth telling a human about: speeding, silence, a missed stop."""
+
+    __tablename__ = "transport_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(
+        Integer, ForeignKey("transport_vehicles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    trip_id = Column(
+        Integer, ForeignKey("vehicle_trips.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    alert_type = Column(String, nullable=False, index=True)
+    # over_speed, no_signal, stop_missed, late_arrival
+    severity = Column(String, nullable=False, default="Warning")   # Info, Warning, Critical
+    occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    detail = Column(Text, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
+    acknowledged_by = Column(String, nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TrackingConfig(Base):
+    """One row of school-wide tracking settings."""
+
+    __tablename__ = "tracking_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # How close counts as "at the stop". 150m is forgiving enough for consumer
+    # GPS in a built-up area without merging two stops on the same street.
+    geofence_radius_m = Column(Integer, nullable=False, default=150)
+    over_speed_kmph = Column(Integer, nullable=False, default=60)
+    # Silence past this is reported as an unknown position, never as "still
+    # where we last saw it".
+    stale_after_minutes = Column(Integer, nullable=False, default=10)
+    # Position history is a child's movement record; it does not need keeping
+    # for ever.
+    retain_locations_days = Column(Integer, nullable=False, default=30)
+
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

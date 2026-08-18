@@ -1,6 +1,6 @@
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -1187,3 +1187,78 @@ def delete_portal_link(
     db.delete(link)
     db.commit()
     return {"message": "Portal link removed"}
+
+
+# ---------------------------------------------------------------------------
+# Where is my child's bus
+#
+# Lives here rather than in the tracking router because this is the one
+# tracking view a parent may see, and ensure_student_access is the guard that
+# already decides which children a parent may look at. Duplicating that check
+# somewhere else is how a parent ends up able to follow another family's bus.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/students/{student_id}/bus")
+def student_bus(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """The bus this student is assigned to, where it is, and its next stop."""
+    from app import tracking as tracking_logic
+
+    ensure_student_access(db, current_user, student_id)
+
+    assignment = (
+        db.query(models.TransportAssignment)
+        .filter(
+            models.TransportAssignment.student_id == student_id,
+            models.TransportAssignment.status == "Active",
+        )
+        .first()
+    )
+    if not assignment:
+        return {"assigned": False, "reason": "This student does not use school transport."}
+
+    vehicle = (
+        db.query(models.TransportVehicle)
+        .filter(models.TransportVehicle.id == assignment.vehicle_id)
+        .first()
+    )
+    route = (
+        db.query(models.TransportRoute)
+        .filter(models.TransportRoute.id == assignment.route_id)
+        .first()
+    )
+    stop = (
+        db.query(models.TransportStop)
+        .filter(models.TransportStop.id == assignment.stop_id)
+        .first()
+    )
+
+    body = {
+        "assigned": True,
+        "route": route.route_name if route else None,
+        "stop": stop.stop_name if stop else None,
+        "vehicle_no": vehicle.vehicle_no if vehicle else None,
+        # Deliberately not the driver's personal mobile: the school's own
+        # record already holds it for staff, and publishing it to every parent
+        # on the route is a different decision from showing a bus on a map.
+        "attendant_name": vehicle.attendant_name if vehicle else None,
+    }
+
+    if not vehicle:
+        return {**body, "position": None,
+                "reason": "No vehicle is assigned to this route yet."}
+
+    body["position"] = tracking_logic.position_report(db, vehicle)
+    if stop:
+        body["eta"] = tracking_logic.eta_to_stop(db, vehicle.id, stop)
+
+    trip = tracking_logic.current_trip(db, vehicle.id, date.today())
+    body["trip"] = (
+        {"id": trip.id, "direction": trip.direction, "started_at": trip.started_at}
+        if trip else None
+    )
+    return body
