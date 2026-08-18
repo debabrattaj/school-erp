@@ -2015,3 +2015,143 @@ class SubstitutionAssignment(Base):
             name="uq_substitution_slot",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Gate register: visitors and gate passes
+#
+# One subsystem because there is one gate and one guard. The question the
+# register has to answer at 3pm is "who is on campus who should not be, and
+# who has left who should still be here" -- and that answer spans visitors
+# who came in and students who went out. Splitting them would put half the
+# answer in each of two screens.
+#
+# The safeguarding-critical path is a student leaving during school hours.
+# It fails closed: no approval, no release; and who collected the child is
+# recorded, not optional.
+# ---------------------------------------------------------------------------
+
+
+class BlockedVisitor(Base):
+    """Someone barred from campus.
+
+    Matched on phone and ID-proof number rather than name, because names are
+    not unique and a barred person will not helpfully re-use their spelling.
+    """
+
+    __tablename__ = "blocked_visitors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=True, index=True)
+    id_proof_number = Column(String, nullable=True, index=True)
+
+    reason = Column(Text, nullable=False)
+    blocked_by = Column(String, nullable=True)
+    blocked_at = Column(DateTime, default=datetime.utcnow)
+    # Lifting a block is a decision with a date, not a delete: the reason the
+    # person was barred is exactly what someone will want to read later.
+    is_active = Column(Boolean, nullable=False, default=True)
+    lifted_by = Column(String, nullable=True)
+    lifted_at = Column(DateTime, nullable=True)
+    lifted_note = Column(Text, nullable=True)
+
+
+class VisitorPass(Base):
+    """One outsider's visit, from the gate to the gate."""
+
+    __tablename__ = "visitor_passes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pass_no = Column(String, nullable=False, index=True)
+
+    visitor_name = Column(String, nullable=False)
+    phone = Column(String, nullable=True, index=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    visitor_type = Column(String, nullable=True)   # Parent, Vendor, Official, Alumni, Other
+    organisation = Column(String, nullable=True)
+
+    id_proof_type = Column(String, nullable=True)  # Aadhaar, Driving Licence, ...
+    id_proof_number = Column(String, nullable=True, index=True)
+    photo_url = Column(String, nullable=True)
+
+    purpose = Column(Text, nullable=True)
+    party_size = Column(Integer, nullable=False, default=1)
+    vehicle_number = Column(String, nullable=True)
+
+    # Who they came to see. Exactly one of these is normally set; a visit to
+    # no-one in particular (a delivery) is allowed and leaves all three null.
+    host_student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    host_teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
+    host_department = Column(String, nullable=True)
+
+    visit_date = Column(Date, nullable=False, index=True)
+    checked_in_at = Column(DateTime, nullable=True)
+    checked_out_at = Column(DateTime, nullable=True)
+    status = Column(String, nullable=False, default="Expected", index=True)
+    # Expected, In, Out, Denied
+
+    # Set when a visit is refused at the gate, so a denial is a record rather
+    # than a missing row.
+    denied_reason = Column(Text, nullable=True)
+
+    issued_by = Column(String, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("pass_no", name="uq_visitor_pass_no"),)
+
+
+class GatePass(Base):
+    """A student or staff member leaving campus during school hours.
+
+    Approval and release are deliberately separate columns: the person who
+    authorises a child to leave is rarely the person at the gate who hands
+    them over, and a register that cannot tell those two apart cannot answer
+    "who let this child go" afterwards.
+    """
+
+    __tablename__ = "gate_passes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pass_no = Column(String, nullable=False, index=True)
+
+    pass_type = Column(String, nullable=False, default="Student", index=True)  # Student, Staff
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    pass_date = Column(Date, nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    # A dental appointment comes back; going home sick does not. Stored so the
+    # gate knows whether an unreturned pass at close of day is a problem.
+    expected_return = Column(Boolean, nullable=False, default=False)
+    expected_return_at = Column(DateTime, nullable=True)
+
+    status = Column(String, nullable=False, default="Requested", index=True)
+    # Requested, Approved, Rejected, Out, Returned, Cancelled
+
+    approved_by = Column(String, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    # Who physically took the child. Required to release a student pass.
+    collected_by_name = Column(String, nullable=True)
+    collected_by_relation = Column(String, nullable=True)
+    collected_by_phone = Column(String, nullable=True)
+    collected_by_id_proof = Column(String, nullable=True)
+    # True when the guard confirmed the collector against the student's
+    # recorded contacts; false means released to someone unrecognised, which
+    # is allowed but is the thing an audit will look for.
+    collector_matched_contact = Column(Boolean, nullable=False, default=False)
+
+    released_by = Column(String, nullable=True)
+    released_at = Column(DateTime, nullable=True)
+    returned_at = Column(DateTime, nullable=True)
+    returned_recorded_by = Column(String, nullable=True)
+
+    remarks = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("pass_no", name="uq_gate_pass_no"),)

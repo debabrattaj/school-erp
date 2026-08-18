@@ -346,6 +346,96 @@ Assignment refuses three things outright:
 Admin, Principal and Teacher can read and raise requests. Only Admin and
 Principal approve, reject, or assign cover.
 
+## 8e. Gate register: visitors and gate passes
+
+Who came onto campus, and who left it during school hours.
+`backend/app/gatepass.py` holds the logic, `backend/app/routes/visitors.py`
+the endpoints (`/gate/...`).
+
+Both halves live behind one prefix because there is one gate and one person
+working it. The question the register exists to answer — *who is on campus
+who should not be, and who has left who should still be here* — spans
+visitors coming in and students going out, and deriving it in two places
+would let the two answers drift.
+
+### Visitors
+
+A walk-in is registered and admitted in one call (`check_in_now`, the
+default); a pre-registered appointment is created ahead of time and checked
+in on arrival. Passes are numbered `V-20260818-003` — short enough to read
+aloud over a radio, with a date prefix so the daily counter doesn't grow
+forever, and unique in the database so a race loses loudly rather than
+issuing the same number twice.
+
+`GET /gate/visitors/on-campus` is the list that matters: checked in, not yet
+checked out, **oldest first**, because the visit open longest is the one
+someone needs to chase before the gates close.
+
+Refusing entry writes a `Denied` row with a reason rather than leaving no
+record. A visit that never checked in cannot be checked out.
+
+### The blocked list
+
+People barred from campus. Matched on **phone and ID number, never on name** —
+names are not unique, and a barred person will not helpfully re-use their
+spelling. A block with neither a phone nor an ID number is refused at
+creation, since nothing at the gate could match it.
+
+Phone matching compares the last ten digits, so `+91 98765 43210`,
+`098765 43210` and `9876543210` are one person. Values shorter than ten
+digits are compared whole, so a four-digit extension cannot match the tail of
+somebody's mobile.
+
+Blocks are **lifted, not deleted** — why someone was barred is exactly what a
+later reader wants. A lift records who did it and why, and the original
+reason survives.
+
+### Gate passes — the safeguarding path
+
+A student or staff member leaving during school hours.
+`Requested → Approved | Rejected → Out → Returned`, or `Cancelled`.
+
+**Approval and release are separate columns on purpose.** The person who
+authorises a child to leave is rarely the person at the gate who hands them
+over, and a register that cannot tell those apart cannot answer "who let this
+child go" afterwards. Approval is open to class teachers as well as Admin and
+Principal; release is the desk.
+
+Releasing a student **fails closed** on both counts that matter:
+
+- an unapproved pass does not open the gate, and
+- a child is not released to an unnamed adult — the collector's name is
+  required, and a person on the blocked list cannot collect at all.
+
+`collector_matched_contact` records whether the collector is someone the
+school already holds — father, mother, guardian, the guardian's phone, or a
+linked portal parent. It is a **flag, not a rule**: schools really do release
+children to an uncle or a driver, and blocking that would only teach the gate
+to type the father's name in every time. Recording that the release was to
+someone unrecognised is the part an audit after an incident actually uses.
+
+**One live pass per person.** Two open passes for one student means the
+register cannot say whether they are on site, which is the one thing it is
+for. A new pass is allowed once the previous one is closed.
+
+### Who is off site
+
+`GET /gate/passes/still-out` is the roll-call list — everyone released and
+not yet returned, including one-way passes, because a fire roll call does not
+care why someone left.
+
+`overdue` is set only on passes that said they were **coming back**: a
+student sent home sick is not late. `GET /gate/summary` rolls the day up —
+visitors today, visitors on campus, students and staff out, overdue returns,
+active blocks.
+
+### Staffing the gate
+
+Gates are rarely staffed by an Admin or a Principal. The module is registered
+as a grantable permission (`gate_register`), so a school can create a custom
+"Security" or "Front Desk" role in User Management and grant it that one
+module. `staff_leave` and `fee_concessions` are grantable the same way.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a
