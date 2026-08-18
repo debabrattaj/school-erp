@@ -29,6 +29,20 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to choose a photo for student and staff records.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take a photo for student and staff records."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "31b082ce-b579-4eef-bc01-5869aab18f54"
+      }
     }
   }
 }

@@ -5,7 +5,7 @@ to the existing FastAPI backend — no backend changes are required. This replac
 the earlier Kotlin/Compose-only Android app (`android/`), which covered only the
 Parent/Student portal; this app also covers staff-facing modules.
 
-## What's built (Phase 1)
+## What's built
 
 - **Auth** — school code + email + password login, TOTP MFA support, configurable
   API server URL (Login screen → **Server settings**). Session persisted locally.
@@ -14,23 +14,81 @@ Parent/Student portal; this app also covers staff-facing modules.
   the web frontend's nav), so an Admin, Teacher, Accounts user, etc. each see only
   what they're allowed to. Parent/Student accounts land on a dedicated portal
   instead of the staff drawer.
-- **Staff modules**: Dashboard (summary stats), Students, Teachers, Classes, Exams
-  (list/create/edit/delete), Attendance (mark by class + date), Marks (enter by
-  exam + subject), Fees (list/create/edit/delete).
-- **Parent/Student portal**: My Children → per-child Profile, Attendance, Marks,
-  Fees (with UPI payment: opens the deep link in any UPI app, then records the
-  reference/UTR back to the school) — full feature parity with the old native
-  Android app.
+- **SaaS design language shared with the web app** — `src/theme/theme.ts` ports the
+  `--saas-*` tokens from `frontend/src/styles.css` 1:1 (violet `#5B4FE9` primary,
+  `#F7F6FE` canvas, 18px cards, pill buttons, violet-tinted shadows), and the
+  drawer uses the same nine groups, in the same order, as the web sidebar
+  (`frontend/src/components/Sidebar.jsx`), with matching module labels.
+- **Bespoke staff screens**: Dashboard (summary stats), Global Search (students,
+  teachers, classes, exams — taps through to the record), AI Assistant (chat over
+  `/chatbot/ask` with tappable suggestions), Attendance (mark a whole class for a
+  date), Marks (enter marks by exam + subject), Report Card (pick student + exam →
+  PDF), Certificates (bonafide, transfer certificate, transcript, ID card PDFs),
+  Portal Access (link parent/student accounts to student records), Payroll
+  (generate a month's payslips, mark paid), Reports (catalog-driven builder: pick
+  source, dimension and measure, results as bar rows), Institution Settings.
+- **Typed form inputs, not free text** — every field renders the control its data
+  deserves:
+  - `date` / `time` → native picker (46 date and 6 time fields)
+  - `select` → fixed options, taken from the backend's own `VALID_*` lists so a
+    saved value can't be rejected with a 400 (68 fields)
+  - `lookup` → picks a value from **another module's records** — `class_name` from
+    Classes, `subject` from Subjects, `class_teacher` from Teachers (40 fields)
+  - `masterSelect` → values from a **Master Data** category — Gender, House,
+    Section, Blood Group, Department, Academic Year… (27 fields)
+  - `reference` → foreign keys picked from a searchable record list rather than
+    typing a numeric ID (31 fields)
+  - `photo` → pick from library or camera, uploaded to `/uploads/`
+  - `password` → masked, no autocorrect
 
-## What's not built yet
+  Lookup and master-data pickers are searchable and also accept a typed value, so
+  a missing Master Data entry never blocks a form.
+- **Sortable lists** — every CRUD list sorts by any of its columns (tap to
+  toggle ascending → descending → off) alongside search.
+- **44 CRUD modules** (list, search, detail, create, edit, delete), grouped in the
+  drawer. Most are auto-derived from the deployed OpenAPI schema
+  (`src/modules/generated.ts`) and then curated:
+  - **People** — Students, Teachers, Users, Roles, Enrollments, Admissions,
+    Admission Stages, Admission Tests, Alumni & Exits
+  - **Academics** — Classes, Class Subjects, Class Exam Mapping, Subjects,
+    Curricula, Exams, Exam Components, Exam Templates, Timetable, Homework,
+    Online Tests, Academic Years
+  - **Finance** — Fees, Fee Structures, Accounting
+  - **Facilities** — Hostel Blocks, Hostel Rooms, Room Allocations, Routes, Stops,
+    Vehicles, Transport Assignments, Library Books, Book Issues, Inventory,
+    Mess Menus, Mess Attendance
+  - **Student Life** — Counseling, Enrichment, Compliance, Student Services,
+    Infirmary Visits, Intl. Documents
+  - **Admin** — Master Data, Message Templates
+- **Parent/Student portal**: My Children → per-child **Profile, Attendance, Marks,
+  Fees** (with UPI payment: opens the deep link in any UPI app, then records the
+  reference/UTR back to the school), **Timetable** (day-by-day, breaks included),
+  **Homework** (with due-date urgency and attachments), **Tests** (status and
+  scores) and **Messages** (two-way thread with the school).
 
-The backend has ~30 modules (Admissions, Hostel, Transport, Library, Payroll,
-Communications, Counseling, Compliance, Health/Infirmary, Mess, Inventory,
-Alumni/Withdrawals, Timetable, Homework, Online Tests, Multi-Curriculum,
-International Documents, Master Data, User Management, Settings, Academic Years,
-Enrichment, Student Services, Accounting…). Only the highest-priority ones are
-implemented so far. Adding another CRUD module is mostly config, not new code —
-see **Adding a new module** below.
+## Known gaps
+
+- **Layout builders** (student-profile and module layout designers) are not
+  planned for mobile — they are drag-and-drop canvases that need a pointer and a
+  wide viewport. Configure layouts on the web; mobile forms honour the result.
+- **Taking an online test** is view-only on mobile (status and score); attempts
+  still happen on the web portal.
+- **Leads** is a public marketing capture endpoint with no staff-facing page on
+  either client.
+- Multi-step flows that stay web-only: admissions **convert-to-student**,
+  academic-year **promotion runs**, and **bulk CSV import/export**.
+- The web's list pages additionally offer column show/hide, saved filters and
+  bulk selection; mobile lists have search and sorting.
+
+### File handling
+
+PDF and image endpoints are authenticated, so they can't simply be handed to the
+browser. `src/api/files.ts` downloads them with the session headers into the app
+cache and then opens the OS share sheet, which is also how the user saves,
+prints or forwards a document. Uploads go the other way through the same module.
+
+Relational fields (student, teacher, class) are entered as numeric IDs rather
+than searchable pickers — the main UX follow-up.
 
 ## Project layout
 

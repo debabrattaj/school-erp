@@ -1,4 +1,5 @@
 import React from "react";
+import { DrawerToggleButton } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ModuleConfig } from "../modules/types";
 import ModuleListScreen from "../screens/generic/ModuleListScreen";
@@ -19,7 +20,11 @@ export function createModuleStack(config: ModuleConfig) {
       >
         <Stack.Screen
           name={`${config.key}List`}
-          options={{ title: config.title }}
+          options={{
+            title: config.title,
+            // Only the stack's root opens the drawer; pushed screens keep the back arrow.
+            headerLeft: () => <DrawerToggleButton tintColor={colors.text} />,
+          }}
         >
           {(props) => <ModuleListScreen {...props} config={config} />}
         </Stack.Screen>
