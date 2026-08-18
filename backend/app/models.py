@@ -2155,3 +2155,126 @@ class GatePass(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("pass_no", name="uq_gate_pass_no"),)
+
+
+# ---------------------------------------------------------------------------
+# Syllabus tracking and lesson plans
+#
+# Both hang off ClassSubject, which already ties a class, a subject, an
+# academic year and a teacher together -- so a syllabus never has to restate
+# any of those, and cannot disagree with the timetable about who teaches what.
+#
+# The output worth having is not the plan document; it is the answer to
+# "which classes are behind, and by how much". Everything here is shaped to
+# make that computable rather than typed in by hand.
+# ---------------------------------------------------------------------------
+
+
+class SyllabusUnit(Base):
+    """A chapter or unit of a subject's syllabus for one class and year."""
+
+    __tablename__ = "syllabus_units"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_subject_id = Column(
+        Integer, ForeignKey("class_subjects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    sequence_no = Column(Integer, nullable=False, default=1)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # How long it is meant to take, and when. planned_end is what makes
+    # "behind schedule" a fact rather than an opinion.
+    planned_periods = Column(Integer, nullable=True)
+    planned_start = Column(Date, nullable=True)
+    planned_end = Column(Date, nullable=True, index=True)
+
+    # Derived from its topics and recomputed on every change, rather than set
+    # by hand -- a unit whose topics are all taught but which still reads
+    # "In Progress" is exactly the drift this module exists to prevent.
+    status = Column(String, nullable=False, default="Pending", index=True)
+    # Pending, In Progress, Completed
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SyllabusTopic(Base):
+    """One teachable item inside a unit, and whether it has been taught."""
+
+    __tablename__ = "syllabus_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    unit_id = Column(
+        Integer, ForeignKey("syllabus_units.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    sequence_no = Column(Integer, nullable=False, default=1)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    # Coverage is weighted by this, so a three-period topic counts for more
+    # than a one-period topic. Defaults to 1 so an unweighted syllabus still
+    # produces a sensible percentage.
+    planned_periods = Column(Integer, nullable=False, default=1)
+
+    status = Column(String, nullable=False, default="Pending", index=True)
+    # Pending, In Progress, Completed
+
+    # Stamped when the topic is first completed and kept: this is the record
+    # of when the class was actually taught, not of the last edit.
+    completed_on = Column(Date, nullable=True)
+    completed_by = Column(String, nullable=True)
+    periods_taken = Column(Integer, nullable=True)
+
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LessonPlan(Base):
+    """What a teacher intends to teach in one period, and what happened.
+
+    Linked to a syllabus topic where there is one, so marking a lesson
+    delivered can move the syllabus on. The link is optional because
+    revision periods, tests and activity lessons are real lessons that
+    belong to no topic.
+    """
+
+    __tablename__ = "lesson_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_subject_id = Column(
+        Integer, ForeignKey("class_subjects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
+    topic_id = Column(
+        Integer, ForeignKey("syllabus_topics.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    plan_date = Column(Date, nullable=False, index=True)
+    period_no = Column(Integer, nullable=True)
+
+    title = Column(String, nullable=False)
+    objectives = Column(Text, nullable=True)
+    teaching_method = Column(Text, nullable=True)
+    resources = Column(Text, nullable=True)
+    homework = Column(Text, nullable=True)
+
+    status = Column(String, nullable=False, default="Planned", index=True)
+    # Planned, Delivered, Deferred, Cancelled
+    delivered_at = Column(DateTime, nullable=True)
+    delivery_note = Column(Text, nullable=True)
+
+    # Weekly lesson plans are submitted for a head of department or principal
+    # to look over in most schools, so the review lives on the plan rather
+    # than in a separate approval queue.
+    review_status = Column(String, nullable=False, default="Pending", index=True)
+    # Pending, Approved, Changes Requested
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    review_note = Column(Text, nullable=True)
+
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

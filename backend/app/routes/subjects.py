@@ -327,10 +327,18 @@ def delete_class_subject(
         "Class subject mapping"
     )
 
+    # The syllabus and lesson plans hang off this mapping. SQLite does not act
+    # on their ON DELETE CASCADE unless foreign keys are enforced, so sweep
+    # them explicitly -- row ids get reused, and an orphaned unit would
+    # reappear under whichever mapping next takes this id.
+    from app import syllabus as syllabus_logic
+
+    removed = syllabus_logic.delete_syllabus_for(db, class_subject_id)
+
     db.delete(mapping)
     db.commit()
 
-    return {"message": "Class subject mapping deleted successfully"}
+    return {"message": "Class subject mapping deleted successfully", **removed}
 
 
 # ======================================================

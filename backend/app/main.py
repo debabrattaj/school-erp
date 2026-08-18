@@ -47,6 +47,7 @@ from app.routes import payments as payments_routes
 from app.routes import concessions as concessions_routes
 from app.routes import leave as leave_routes
 from app.routes import visitors as visitor_routes
+from app.routes import syllabus as syllabus_routes
 from app.routes import leads
 from app.tenant import init_tenant_registry
 from app.routes import (
@@ -1173,6 +1174,7 @@ app.include_router(payments_routes.router)
 app.include_router(concessions_routes.router)
 app.include_router(leave_routes.router)
 app.include_router(visitor_routes.router)
+app.include_router(syllabus_routes.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)

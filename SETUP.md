@@ -436,6 +436,111 @@ as a grantable permission (`gate_register`), so a school can create a custom
 "Security" or "Front Desk" role in User Management and grant it that one
 module. `staff_leave` and `fee_concessions` are grantable the same way.
 
+## 8f. Syllabus tracking and lesson plans
+
+`backend/app/syllabus.py` holds the arithmetic,
+`backend/app/routes/syllabus.py` the endpoints (`/syllabus/...`).
+
+Everything hangs off a **ClassSubject**, which already ties a class, a
+subject, an academic year and a teacher together — so a syllabus never
+restates any of those and cannot disagree with the timetable about who
+teaches what.
+
+The document is the easy part. The output worth having is the answer to
+*"which classes are behind, and by how much"*, so coverage is computed from
+what has actually been taught rather than typed in as a percentage by
+whoever is furthest behind.
+
+### Three levels
+
+- **Unit** — a chapter, with a sequence number, a period estimate and
+  optional planned start/end dates.
+- **Topic** — a teachable item inside a unit, with its own period estimate.
+- **Lesson plan** — one period: objectives, method, resources, homework,
+  optionally pointing at a topic.
+
+### How coverage is computed
+
+**Weighted by planned periods, not by counting topics.** A three-period topic
+is worth three times a one-period one; counting topics would let a teacher
+lead on coverage by teaching the short ones first. Units are weighted against
+each other the same way, using the unit's own period estimate where it has
+one and the sum of its topics otherwise. A missing or zero estimate falls
+back to 1, so an unweighted syllabus still produces a usable number instead
+of dividing by zero.
+
+**Unit status is derived, never typed.** A unit is Completed when all its
+topics are, In Progress when any has started, Pending otherwise —
+recomputed on every change. Setting it by hand only sticks on a unit with no
+topics at all (project work, revision blocks). A unit reading "Completed"
+while half its topics are untaught is exactly the drift this module exists to
+catch.
+
+### The completion stamp
+
+Completing a topic records **who taught it and when**, once. Re-saving an
+already-complete topic does not rewrite that date into today — the stamp is
+the record of when the class was actually taught, not of the last time
+somebody opened the form. Reopening a topic clears the stamp, since a
+completion date on something no longer complete is worse than none.
+
+A topic cannot be recorded as taught on a future date, and a lesson dated in
+the future cannot be marked delivered. Without that, coverage becomes a plan
+rather than a record.
+
+### Lessons and topics
+
+Delivering a lesson moves its topic to In Progress. It does **not** complete
+the topic unless asked (`complete_topic: true`): one topic usually spans
+several periods, and auto-completing on the first lesson would over-report
+coverage. A lesson pointing at another class-subject's topic is refused —
+it would quietly credit coverage to the wrong class.
+
+Lessons that did not happen are **deferred, not deleted**: a week of deferred
+lessons is the signal that a syllabus is slipping. A delivered lesson cannot
+be deleted at all.
+
+Lesson plans carry their own review (`Pending` / `Approved` /
+`Changes Requested`) with the reviewer and note, since weekly plans go to a
+head of department or principal in most schools.
+
+### Behind schedule
+
+`GET /syllabus/behind` is the list a head of school acts on: every
+class-subject with a unit past its planned end and unfinished, worst first,
+each with days late and how much is covered.
+
+`on_schedule` is **null**, not `true`, for a syllabus with no planned dates —
+reporting "on track" about a plan that has no schedule would be a made-up
+reassurance. `expected_percent` compares coverage against how far through the
+academic year the school is, and is null when that year has no dates on file
+rather than guessing a denominator that would make every class look precisely
+on target.
+
+### Reuse
+
+`POST /syllabus/clone` copies a syllabus onto another class-subject. Progress
+is reset — carrying last year's coverage over would claim work nobody has
+done — and planned dates are dropped, because last year's calendar would
+report the new class as months behind on its first day. Cloning onto a
+class-subject that already has units is refused rather than merged.
+
+### Deleting
+
+A unit that has been taught from cannot be deleted, and neither can a
+completed topic: both would erase the record of what was covered.
+
+Where deletion *is* allowed, children are swept explicitly. SQLite ignores
+`ON DELETE CASCADE` unless foreign-key enforcement is on, and this codebase
+queries explicitly rather than using ORM relationships, so nothing removes
+them on its own — and SQLite reuses row ids, so an orphaned topic can
+re-attach itself to the next unit created and report coverage for a class
+that was never taught it. Deleting a class-subject mapping now clears its
+syllabus and lesson plans for the same reason.
+
+Deleting a topic unlinks any lessons that referenced it but keeps the
+lessons: they happened.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a
