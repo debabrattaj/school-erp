@@ -1876,3 +1876,142 @@ class StudentConcession(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Staff leave and substitute cover
+#
+# One subsystem, not two: a class needs covering *because* its teacher is on
+# leave, so approving leave is what raises the cover requirement. Keeping them
+# apart would mean re-deriving "who is absent today" in a second place and
+# letting the two answers drift.
+# ---------------------------------------------------------------------------
+
+
+class LeaveType(Base):
+    """A category of leave, with its yearly entitlement."""
+
+    __tablename__ = "leave_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)          # Casual, Sick, Earned, Unpaid
+    annual_quota = Column(Float, nullable=False, default=0)
+
+    # Unpaid leave has no quota to exhaust, so it is allowed to go negative
+    # rather than being refused when the balance runs out.
+    is_paid = Column(Boolean, nullable=False, default=True)
+    allow_negative_balance = Column(Boolean, nullable=False, default=False)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("code", name="uq_leave_type_code"),)
+
+
+class LeaveBalance(Base):
+    """How much of one leave type a teacher has left this year.
+
+    Stored rather than derived so an opening balance carried over from a
+    previous system, or a manual adjustment, has somewhere to live.
+    """
+
+    __tablename__ = "leave_balances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
+    leave_type_id = Column(Integer, ForeignKey("leave_types.id", ondelete="CASCADE"), nullable=False, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+
+    entitled_days = Column(Float, nullable=False, default=0)
+    used_days = Column(Float, nullable=False, default=0)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "leave_type_id", "academic_year", name="uq_leave_balance_scope"),
+    )
+
+
+class LeaveRequest(Base):
+    """A teacher's application to be away.
+
+    Only an Approved request counts against a balance or raises cover. A
+    pending application must not consume entitlement, or a teacher who applies
+    speculatively loses days they never took.
+    """
+
+    __tablename__ = "leave_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
+    leave_type_id = Column(Integer, ForeignKey("leave_types.id", ondelete="RESTRICT"), nullable=False, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+
+    from_date = Column(Date, nullable=False, index=True)
+    to_date = Column(Date, nullable=False, index=True)
+    # Counted at approval and stored, so later changes to the working-day
+    # calendar cannot silently re-price leave already taken.
+    days = Column(Float, nullable=False, default=0)
+    is_half_day = Column(Boolean, nullable=False, default=False)
+
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="Requested", index=True)
+    # Requested, Approved, Rejected, Cancelled
+
+    decided_by = Column(String, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SubstitutionAssignment(Base):
+    """Cover for one period of one absent teacher on one date.
+
+    Raised automatically when leave is approved, from the absent teacher's
+    timetable, and left unassigned until someone picks a substitute. An
+    unassigned row is the point: it is the list of holes in tomorrow that
+    somebody has to fill.
+    """
+
+    __tablename__ = "substitution_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cover_date = Column(Date, nullable=False, index=True)
+
+    timetable_entry_id = Column(
+        Integer, ForeignKey("timetable_entries.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    leave_request_id = Column(
+        Integer, ForeignKey("leave_requests.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    absent_teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
+    substitute_teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    period_no = Column(Integer, nullable=True)
+    class_name = Column(String, nullable=True)
+    section = Column(String, nullable=True)
+    subject = Column(String, nullable=True)
+    room = Column(String, nullable=True)
+
+    status = Column(String, nullable=False, default="Unassigned", index=True)
+    # Unassigned, Assigned, Cancelled
+
+    assigned_by = Column(String, nullable=True)
+    assigned_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        # One cover row per period per absent teacher per day. Re-approving or
+        # re-running the raise step must not duplicate the hole.
+        UniqueConstraint(
+            "cover_date", "absent_teacher_id", "period_no",
+            name="uq_substitution_slot",
+        ),
+    )

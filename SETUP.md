@@ -263,6 +263,89 @@ scholarship that only affects *future* fees is rarely what anyone means.
 `POST /concessions/recalculate` re-applies everything across unpaid fees, for
 repairing history after a scheme's rate is corrected.
 
+## 8d. Staff leave and substitute cover
+
+Who is off, and who is standing in front of their class instead.
+`backend/app/leave.py` holds the logic, `backend/app/routes/leave.py` the
+endpoints (`/leave/...`).
+
+Built as one subsystem rather than two, because a class needs covering
+*because* its teacher is away. Approving leave is what raises the cover
+requirement; splitting them would mean deriving "who is absent today" in a
+second place and letting the two answers drift apart.
+
+### Leave types and balances
+
+A **leave type** is what the school offers — Casual, Sick, Earned, Unpaid —
+with an `annual_quota`, an `is_paid` flag, and `allow_negative_balance` for
+the types (unpaid, typically) that have no entitlement to exhaust.
+
+Balances are created lazily, per teacher, per type, per academic year, seeded
+from the type's quota. `GET /leave/balances?teacher_id=` returns entitled,
+used and remaining for every active type at once.
+
+**Days are counted in working days, not calendar days.** A Friday-to-Monday
+absence costs two days, not four — which is what staff expect and what the
+quota was set against. Working days come from School Settings
+(`working_days`, stored as a range like `Monday-Saturday`); anything
+unparseable falls back to Monday–Saturday rather than to the whole week,
+since counting Sunday would silently charge staff an extra day for every
+weekend they span. Half days are supported but must start and end on the same
+date.
+
+### The request lifecycle
+
+`Requested → Approved | Rejected | Cancelled`.
+
+- **Approve** deducts the balance *and* raises cover in the same transaction.
+  A type without `allow_negative_balance` is refused rather than quietly going
+  negative, and the error names the days remaining against the days asked for.
+- **Reject** refuses to touch an already-approved request — cancel it instead,
+  so the balance actually comes back.
+- **Cancel** restores the days and deletes cover slots that are still
+  unfilled. Cover already **assigned** is deliberately left alone: someone has
+  been told they are teaching that period, and silently un-telling them is
+  worse than an extra row for a human to clear.
+- **Overlapping requests are refused** while they are Requested or Approved. A
+  previously rejected or cancelled application is not a reason to block new
+  dates.
+
+### Cover
+
+Approving leave reads the absent teacher's timetable for every working day in
+the range and creates one `SubstitutionAssignment` per period they would have
+taught, carrying the class, section, subject and room across so the slot reads
+as a real gap rather than a foreign key.
+
+This is **idempotent** — keyed on (date, absent teacher, period), enforced by a
+`uq_substitution_slot` unique constraint as well as in code — so re-approving
+cannot duplicate the hole or wipe an assignment already made.
+
+`GET /leave/cover` defaults to today: the "holes in today" list.
+
+### Choosing a substitute
+
+`GET /leave/cover/{id}/candidates` returns **every** teacher, not only the free
+ones, each with `available` and an `unavailable_reason` — because a head of
+school filling a gap at 8am wants to see that the obvious candidate is
+unavailable, not have them silently missing from the list. Results sort
+available-first, then teachers who teach that subject, since a same-subject
+cover is worth more than a warm body.
+
+Assignment refuses three things outright:
+
+- the absent teacher covering their own class,
+- a teacher who is themselves on approved leave that day,
+- a teacher who is **busy** — and busy means both halves: already timetabled
+  for that period themselves, *or* already covering it for somebody else.
+  Missing either check produces a substitute standing in two classrooms at
+  once, which is the whole failure this feature exists to prevent.
+
+### Permissions
+
+Admin, Principal and Teacher can read and raise requests. Only Admin and
+Principal approve, reject, or assign cover.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

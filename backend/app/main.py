@@ -45,6 +45,7 @@ from app.routes import online_tests
 from app.routes import biometric
 from app.routes import payments as payments_routes
 from app.routes import concessions as concessions_routes
+from app.routes import leave as leave_routes
 from app.routes import leads
 from app.tenant import init_tenant_registry
 from app.routes import (
@@ -1169,6 +1170,7 @@ app.include_router(online_tests.router)
 app.include_router(biometric.router)
 app.include_router(payments_routes.router)
 app.include_router(concessions_routes.router)
+app.include_router(leave_routes.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)
