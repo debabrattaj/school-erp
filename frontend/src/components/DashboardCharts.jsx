@@ -1,20 +1,20 @@
 import { useId, useState } from "react";
 
-const INK_PRIMARY = "#172033";
-const INK_SECONDARY = "#52514e";
-const INK_MUTED = "#898781";
-const GRIDLINE = "#e4e2da";
-const SURFACE_GAP = "#ffffff";
+const INK_PRIMARY = "var(--text-strong)";
+const INK_SECONDARY = "var(--text-muted)";
+const INK_MUTED = "var(--text-muted)";
+const GRIDLINE = "var(--border)";
+const SURFACE_GAP = "var(--surface)";
 
 const STATUS = {
-  good: "#0ca30c",
-  warning: "#fab219",
-  serious: "#ec835a",
-  critical: "#d03b3b",
-  neutral: "#a7a49c",
+  good: "var(--success-600)",
+  warning: "var(--warning-600)",
+  serious: "var(--warning-600)",
+  critical: "var(--danger-600)",
+  neutral: "var(--text-subtle)",
 };
 
-const SEQUENTIAL_HUE = "#2a78d6";
+const SEQUENTIAL_HUE = "var(--primary)";
 
 /** Compact large numbers for axis ticks & on-mark labels (Indian K/L/Cr, which
  *  suits the INR default; small numbers pass through unchanged). */
@@ -170,7 +170,7 @@ export function RadialGauge({ percentage = 0, collected, due, formatMoney }) {
     <div className="chart-block">
       <div className="chart-gauge" style={{ position: "relative" }}>
         <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Fee collection ${pct}% of total`}>
-          <path d={arc(a0, 2 * Math.PI)} fill="none" stroke="#e6ecf5" strokeWidth={track} strokeLinecap="round" />
+          <path d={arc(a0, 2 * Math.PI)} fill="none" stroke="var(--brand-50)" strokeWidth={track} strokeLinecap="round" />
           <path d={arc(a0, a1)} fill="none" stroke={color} strokeWidth={track} strokeLinecap="round" />
           <text x={cx} y={cy - 26} textAnchor="middle" fontSize={34} fontWeight={800} fill={color}>
             {pct.toFixed(0)}%
@@ -192,7 +192,7 @@ export function RadialGauge({ percentage = 0, collected, due, formatMoney }) {
  * Change-over-time for a single measure (daily attendance %). Area+line, one
  * series so no legend; crosshair tooltip on hover; nulls break the line.
  */
-export function TrendArea({ data = [], color = "#5b4fe9", unit = "%", emptyText = "No trend data yet." }) {
+export function TrendArea({ data = [], color = "var(--primary)", unit = "%", emptyText = "No trend data yet." }) {
   const [hover, setHover] = useState(null);
   const gid = useId();
   const points = (data || []).map((d, i) => ({ ...d, i }));
@@ -376,7 +376,7 @@ export function AttendanceStackedBar({ present = 0, absent = 0, late = 0, excuse
 export function CollectionMeter({ percentage = 0, collected, due, formatMoney }) {
   const pct = Math.max(0, Math.min(100, Number(percentage) || 0));
   const severityColor = pct >= 80 ? STATUS.good : pct >= 50 ? STATUS.warning : STATUS.critical;
-  const trackColor = "#cde2fb";
+  const trackColor = "var(--brand-100)";
   const gid = useId();
 
   return (

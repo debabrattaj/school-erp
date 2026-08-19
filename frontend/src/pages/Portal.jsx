@@ -925,7 +925,7 @@ export default function Portal() {
               <p style={{ margin: "10px 0 2px", fontSize: "1.05rem" }}>
                 <strong>{upiPayment.details.amount}</strong>
               </p>
-              <p style={{ margin: 0, color: "#667085" }}>
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
                 to <strong>{upiPayment.details.upi_id}</strong>
                 {upiPayment.details.payee_name
                   ? ` (${upiPayment.details.payee_name})`
@@ -949,7 +949,7 @@ export default function Portal() {
                 onChange={(event) => setUpiReference(event.target.value)}
                 style={{ width: "100%", marginTop: 6 }}
               />
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#667085" }}>
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
                 After the payment succeeds in the UPI app, enter its reference
                 number here to record the fee as paid.
               </p>

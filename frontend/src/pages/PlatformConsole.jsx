@@ -327,7 +327,7 @@ export default function PlatformConsole() {
                             <td>{sub ? sub.plan_name : <span style={{ color: "var(--saas-muted)" }}>No plan</span>}</td>
                             <td>
                               {sub ? (
-                                <span style={{ color: sub.is_expired ? "#be123c" : sub.is_expiring_soon ? "#d97706" : "inherit", fontWeight: sub.is_expired || sub.is_expiring_soon ? 600 : 400 }}>
+                                <span style={{ color: sub.is_expired ? "var(--danger-600)" : sub.is_expiring_soon ? "var(--warning-600)" : "inherit", fontWeight: sub.is_expired || sub.is_expiring_soon ? 600 : 400 }}>
                                   {sub.days_left < 0 ? `Expired ${Math.abs(sub.days_left)}d ago` : `${sub.days_left}d left`}
                                 </span>
                               ) : "-"}
@@ -382,9 +382,9 @@ export default function PlatformConsole() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
                   {[
                     { label: "Total Revenue", value: fmt(billingSummary.total_revenue), color: "var(--saas-primary)" },
-                    { label: "Active Subscriptions", value: billingSummary.active_subscriptions, color: "#16a34a" },
-                    { label: "Expiring Soon (≤30d)", value: billingSummary.expiring_soon_count, color: "#d97706" },
-                    { label: "Expired", value: billingSummary.expired_count, color: "#be123c" },
+                    { label: "Active Subscriptions", value: billingSummary.active_subscriptions, color: "var(--success-600)" },
+                    { label: "Expiring Soon (≤30d)", value: billingSummary.expiring_soon_count, color: "var(--warning-600)" },
+                    { label: "Expired", value: billingSummary.expired_count, color: "var(--danger-600)" },
                   ].map((card) => (
                     <div key={card.label} className="form-panel" style={{ padding: "1rem 1.25rem", textAlign: "center" }}>
                       <div style={{ fontSize: "0.85rem", color: "var(--saas-muted)" }}>{card.label}</div>
@@ -399,7 +399,7 @@ export default function PlatformConsole() {
                   <div className="panel-header"><div><h3>Expiring Soon</h3></div></div>
                   <div className="table-wrapper"><table className="classic-table"><thead><tr><th>School</th><th>Plan</th><th>Expires</th><th>Days Left</th></tr></thead>
                     <tbody>{billingSummary.expiring_soon.map((s, i) => (
-                      <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td>{s.expiry_date?.slice(0, 10)}</td><td style={{ color: "#d97706", fontWeight: 600 }}>{s.days_left}</td></tr>
+                      <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td>{s.expiry_date?.slice(0, 10)}</td><td style={{ color: "var(--warning-600)", fontWeight: 600 }}>{s.days_left}</td></tr>
                     ))}</tbody></table></div>
                 </section>
               )}
@@ -409,7 +409,7 @@ export default function PlatformConsole() {
                   <div className="panel-header"><div><h3>Expired</h3></div></div>
                   <div className="table-wrapper"><table className="classic-table"><thead><tr><th>School</th><th>Plan</th><th>Overdue By</th></tr></thead>
                     <tbody>{billingSummary.expired.map((s, i) => (
-                      <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td style={{ color: "#be123c", fontWeight: 600 }}>{s.days_overdue} days</td></tr>
+                      <tr key={i}><td>{s.school_name}</td><td>{s.plan}</td><td style={{ color: "var(--danger-600)", fontWeight: 600 }}>{s.days_overdue} days</td></tr>
                     ))}</tbody></table></div>
                 </section>
               )}
@@ -449,7 +449,7 @@ export default function PlatformConsole() {
                       <tr key={s.id}>
                         <td>{s.school_name}</td><td>{s.plan_name}</td><td>{fmt(s.amount_paid, s.currency)}</td>
                         <td>{s.start_date?.slice(0, 10)}</td><td>{s.expiry_date?.slice(0, 10)}</td>
-                        <td style={{ color: s.is_expired ? "#be123c" : s.is_expiring_soon ? "#d97706" : "inherit", fontWeight: s.is_expired || s.is_expiring_soon ? 600 : 400 }}>
+                        <td style={{ color: s.is_expired ? "var(--danger-600)" : s.is_expiring_soon ? "var(--warning-600)" : "inherit", fontWeight: s.is_expired || s.is_expiring_soon ? 600 : 400 }}>
                           {s.days_left < 0 ? `${Math.abs(s.days_left)}d overdue` : `${s.days_left}d`}
                         </td>
                         <td>{s.payment_reference || "-"}</td><td>{s.status}</td>
@@ -519,7 +519,7 @@ export default function PlatformConsole() {
                       <tr key={n.id}>
                         <td>{n.created_at?.slice(0, 10)}</td>
                         <td>{n.school_name || "All Schools"}</td>
-                        <td><span style={{ color: n.notification_type === "urgent" ? "#be123c" : n.notification_type === "warning" ? "#d97706" : "inherit", fontWeight: n.notification_type !== "info" ? 600 : 400 }}>{n.notification_type}</span></td>
+                        <td><span style={{ color: n.notification_type === "urgent" ? "var(--danger-600)" : n.notification_type === "warning" ? "var(--warning-600)" : "inherit", fontWeight: n.notification_type !== "info" ? 600 : 400 }}>{n.notification_type}</span></td>
                         <td>{n.title}</td><td>{n.message}</td>
                       </tr>
                     ))}
@@ -567,11 +567,11 @@ export default function PlatformConsole() {
                     {auditLogs.map((log) => (
                       <tr key={log.id}>
                         <td>{log.created_at?.replace("T", " ").slice(0, 19) || "-"}</td>
-                        <td>{log.actor_email || <span style={{ color: "#94a3b8" }}>anonymous</span>}</td>
+                        <td>{log.actor_email || <span style={{ color: "var(--text-subtle)" }}>anonymous</span>}</td>
                         <td>{log.actor_role || "-"}</td>
                         <td>{log.account_code || "-"}</td>
                         <td><code style={{ fontSize: "0.8rem" }}>{log.method} {log.path}</code></td>
-                        <td><span style={{ color: log.status_code >= 400 ? "#be123c" : "#15803d", fontWeight: 600 }}>{log.status_code ?? "-"}</span></td>
+                        <td><span style={{ color: log.status_code >= 400 ? "var(--danger-600)" : "var(--success-600)", fontWeight: 600 }}>{log.status_code ?? "-"}</span></td>
                         <td>{log.client_ip || "-"}</td>
                       </tr>
                     ))}

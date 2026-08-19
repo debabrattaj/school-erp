@@ -466,7 +466,7 @@ export default function AcademicYears() {
                 <td>{year.start_date || "-"}</td>
                 <td>{year.end_date || "-"}</td>
                 <td>{year.status}</td>
-                <td>{year.is_current ? <CheckCircle2 size={17} color="#16a34a" /> : "-"}</td>
+                <td>{year.is_current ? <CheckCircle2 size={17} color="var(--success-600)" /> : "-"}</td>
                 <td>
                   {year.auto_promote_enabled ? (
                     <span className={year.auto_promoted_at ? "status active" : "status pending"}>

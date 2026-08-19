@@ -567,7 +567,7 @@ export default function Timetable() {
           </div>
         </div>
         {!classId ? (
-          <div style={{ padding: "1.5rem", color: "#64748b" }}>Select a class to view its timetable.</div>
+          <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>Select a class to view its timetable.</div>
         ) : (
           <div className="table-wrapper"><table className="classic-table">
             <thead>
@@ -580,16 +580,16 @@ export default function Timetable() {
               {rows.map((row) => (
                 row.type === "break" ? (
                   <tr key={`b-${row.period_no}`}>
-                    <td style={{ fontWeight: 700, color: "#94a3b8" }}>—</td>
-                    <td colSpan={DAYS.length} style={{ background: "#fff7ed", textAlign: "center", position: "relative" }}>
+                    <td style={{ fontWeight: 700, color: "var(--text-subtle)" }}>—</td>
+                    <td colSpan={DAYS.length} style={{ background: "var(--warning-50)", textAlign: "center", position: "relative" }}>
                       <button
                         type="button"
                         onClick={() => openEditBreak(row.entry)}
-                        style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700, color: "#b45309" }}
+                        style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700, color: "var(--warning-600)" }}
                       >
                         {row.entry.label || (row.entry.entry_type === "recess" ? "Recess" : "Break")}
                         {slots[row.period_no] && (
-                          <span style={{ fontWeight: 400, color: "#92400e" }}>
+                          <span style={{ fontWeight: 400, color: "var(--warning-700)" }}>
                             {" "}· {slots[row.period_no].start}–{slots[row.period_no].end}
                             {row.entry.duration_min ? ` (${row.entry.duration_min}m)` : ""}
                           </span>
@@ -599,7 +599,7 @@ export default function Timetable() {
                         type="button"
                         onClick={() => handleDelete(row.entry.id)}
                         title="Remove"
-                        style={{ position: "absolute", top: 6, right: 8, border: "none", background: "none", cursor: "pointer", color: "#be123c" }}
+                        style={{ position: "absolute", top: 6, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--danger-600)" }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -610,7 +610,7 @@ export default function Timetable() {
                     <td style={{ fontWeight: 700 }}>
                       <div>{row.label}</div>
                       {slots[row.period_no] && (
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", fontWeight: 400 }}>
                           {slots[row.period_no].start}–{slots[row.period_no].end}
                         </div>
                       )}
@@ -622,7 +622,7 @@ export default function Timetable() {
                           {entry ? (
                             <div style={{ position: "relative", cursor: "pointer" }} onClick={() => openEditPeriod(entry)} title="Click to edit">
                               <strong>{entry.subject || "-"}</strong>
-                              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                                 {entry.teacher_name_snapshot || teacherName(entry.teacher_id) || "—"}
                                 {entry.room ? ` · ${entry.room}` : ""}
                               </div>
@@ -630,7 +630,7 @@ export default function Timetable() {
                                 type="button"
                                 onClick={(ev) => { ev.stopPropagation(); handleDelete(entry.id); }}
                                 title="Remove"
-                                style={{ position: "absolute", top: 0, right: 0, border: "none", background: "none", cursor: "pointer", color: "#be123c" }}
+                                style={{ position: "absolute", top: 0, right: 0, border: "none", background: "none", cursor: "pointer", color: "var(--danger-600)" }}
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -639,7 +639,7 @@ export default function Timetable() {
                             <button
                               type="button"
                               onClick={() => openAddPeriod(day, row.period_no)}
-                              style={{ border: "1px dashed #cbd5e1", background: "none", borderRadius: 6, color: "#94a3b8", width: "100%", padding: "6px", cursor: "pointer" }}
+                              style={{ border: "1px dashed var(--border-strong)", background: "none", borderRadius: 6, color: "var(--text-subtle)", width: "100%", padding: "6px", cursor: "pointer" }}
                             >
                               +
                             </button>
@@ -656,12 +656,12 @@ export default function Timetable() {
                     type="button"
                     onClick={addRow}
                     title="Add a period row"
-                    style={{ border: "1px dashed #cbd5e1", background: "none", borderRadius: 6, color: "#25324b", width: "100%", padding: "6px", cursor: "pointer", fontWeight: 700 }}
+                    style={{ border: "1px dashed var(--border-strong)", background: "none", borderRadius: 6, color: "var(--text-strong)", width: "100%", padding: "6px", cursor: "pointer", fontWeight: 700 }}
                   >
                     +
                   </button>
                 </td>
-                <td colSpan={DAYS.length} style={{ color: "#94a3b8", fontSize: "0.82rem" }}>
+                <td colSpan={DAYS.length} style={{ color: "var(--text-subtle)", fontSize: "0.82rem" }}>
                   Add the next period row
                 </td>
               </tr>
@@ -677,9 +677,9 @@ export default function Timetable() {
             <h3 style={{ margin: 0 }}><CalendarDays size={18} /> Teacher Weekly Schedule</h3>
           </div>
           {!teacherViewId ? (
-            <div style={{ padding: "1.5rem", color: "#64748b" }}>Select a teacher to view their timetable.</div>
+            <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>Select a teacher to view their timetable.</div>
           ) : teacherRows.length === 0 ? (
-            <div style={{ padding: "1.5rem", color: "#64748b" }}>No periods scheduled for this teacher.</div>
+            <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>No periods scheduled for this teacher.</div>
           ) : (
             <div className="table-wrapper"><table className="classic-table">
               <thead>
@@ -694,7 +694,7 @@ export default function Timetable() {
                     <td style={{ fontWeight: 700 }}>
                       <div>P{row.period_no}</div>
                       {row.start_time && row.end_time && (
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", fontWeight: 400 }}>
                           {row.start_time}–{row.end_time}
                         </div>
                       )}
@@ -709,13 +709,13 @@ export default function Timetable() {
                                 {entry.class_name_snapshot || ""}
                                 {entry.section_snapshot ? `-${entry.section_snapshot}` : ""}
                               </strong>
-                              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                                 {entry.subject || "-"}
                                 {entry.room ? ` · ${entry.room}` : ""}
                               </div>
                             </div>
                           ) : (
-                            <span style={{ color: "#cbd5e1" }}>-</span>
+                            <span style={{ color: "var(--border-strong)" }}>-</span>
                           )}
                         </td>
                       );

@@ -198,7 +198,7 @@ export default function ChatWidget({ compact = false }) {
             </div>
           </div>
         ))}
-        {sending && <p style={{ color: "#64748b" }}>Thinking…</p>}
+        {sending && <p style={{ color: "var(--text-muted)" }}>Thinking…</p>}
         <div ref={bottomRef} />
       </div>
 

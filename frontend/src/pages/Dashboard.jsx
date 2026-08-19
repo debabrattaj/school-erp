@@ -117,70 +117,73 @@ export default function Dashboard() {
       .map((grade) => ({ label: grade, value: counts[grade] }));
   })();
 
+  // Colour carries meaning here rather than decorating: counts take the
+  // brand, money takes green when collected and red when owed. Eight
+  // different hues said nothing and made the page read as a template.
   const cards = [
     {
       title: "Total Students",
       value: summary?.total_students || 0,
       note: "Complete student records",
       icon: Users,
-      accent: "#5b4fe9",
-      accent2: "#7b6ff2",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
     {
       title: "Active Students",
       value: summary?.active_students || 0,
       note: "Currently enrolled",
       icon: Users,
-      accent: "#0d9488",
-      accent2: "#14b8a6",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
     {
       title: "Faculty Strength",
       value: summary?.total_teachers || 0,
       note: "Registered faculty",
       icon: GraduationCap,
-      accent: "#7c3aed",
-      accent2: "#9d5cf5",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
     {
       title: "Class Sections",
       value: summary?.total_classes || 0,
       note: "Academic sections",
       icon: BookOpen,
-      accent: "#2563eb",
-      accent2: "#3b82f6",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
     {
       title: "Fee Collection",
       value: formatMoney(summary?.total_collection),
       note: `${summary?.collection_percentage || 0}% collected`,
       icon: Wallet,
-      accent: "#16a34a",
-      accent2: "#22c55e",
+      accent: "var(--success-600)",
+      accent2: "var(--success-600)",
     },
     {
       title: "Outstanding Due",
       value: formatMoney(summary?.total_due),
       note: "Pending receivables",
       icon: TrendingUp,
-      accent: "#e11d48",
-      accent2: "#f43f5e",
+      accent: "var(--danger-600)",
+      accent2: "var(--danger-600)",
     },
     {
       title: "Today Attendance",
       value: `${summary?.attendance_percentage || 0}%`,
       note: "Present percentage",
       icon: ClipboardCheck,
-      accent: "#0891b2",
-      accent2: "#06b6d4",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
     {
       title: "International Students",
       value: summary?.international_students || 0,
       note: "Non-local nationality records",
       icon: School,
-      accent: "#db2777",
-      accent2: "#ec4899",
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)",
     },
   ];
 
@@ -271,7 +274,7 @@ export default function Dashboard() {
             </div>
             <TrendArea
               data={trends?.attendance_trend || []}
-              color="#5b4fe9"
+              color="var(--primary)"
               unit="%"
               emptyText="No attendance recorded in this window yet."
             />
