@@ -8236,3 +8236,418 @@ textarea {
   border-color: var(--danger-600);
   background: var(--danger-50);
 }
+
+/* ===========================================================================
+ * SaaS shell
+ *
+ * A deliberate visual pass over the chrome, appended last so it wins on equal
+ * specificity without surgery on eight thousand lines above.
+ *
+ * The brief was "feel like a SaaS product, not an ordinary app". What
+ * separates the two is almost never colour -- it is restraint. Working
+ * software gets out of the way: quieter navigation, smaller headings, denser
+ * tables, flat surfaces, and colour spent only where it means something. The
+ * rules below trade decoration for information density.
+ * ========================================================================= */
+
+/* --- Typography: an app scale, not a marketing one ---------------------- */
+
+body {
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg-app);
+}
+
+h1, .page-heading.page-heading.page-heading h2, .page-head.page-head h1 {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+h2 { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+h3 { font-size: 14px; font-weight: 650; }
+
+/* The eyebrow above every page title was a line of shouting that told the
+   user where they already knew they were. */
+.page-heading.page-heading.page-heading .eyebrow.eyebrow.eyebrow,
+.eyebrow.eyebrow.eyebrow {
+  display: none;
+}
+
+/* --- Page header: one compact row -------------------------------------- */
+
+.page-head,
+.page-heading.page-heading.page-heading {
+  /* Page-level rules set a min-height to make the old banner-style header
+     feel substantial. A compact header should be as tall as its content. */
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 4px 0 14px;
+  margin: 0 0 16px;
+}
+
+.page-head.page-head p,
+.page-heading.page-heading.page-heading p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --- Sidebar: navigation should whisper -------------------------------- */
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.menu-group-label.menu-group-label,
+.sidebar-group-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  padding: 14px 14px 5px;
+  line-height: 1.3;
+}
+
+.sidebar-menu a {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  margin: 1px 8px;
+  padding: 7px 10px;
+  border-left: 0;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.sidebar-menu a:hover {
+  background: var(--surface-soft);
+  color: var(--text-strong);
+}
+
+.sidebar-menu a.active,
+.sidebar-menu a[aria-current="page"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+  border-left: 0;
+  box-shadow: none;
+}
+
+/* --- Topbar: shorter, quieter ------------------------------------------ */
+
+.topbar.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.topbar-search input {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.topbar-search input:focus {
+  background: var(--surface);
+  border-color: var(--primary-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+.topbar-identity {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 120ms ease;
+}
+
+.topbar-identity:hover { background: var(--border); }
+
+.topbar-account { position: relative; }
+
+.topbar-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 208px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  z-index: 60;
+}
+
+.topbar-account-head {
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 5px;
+}
+
+.topbar-account-name { font-size: 13px; font-weight: 650; color: var(--text-strong); }
+.topbar-account-role { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+.topbar-account-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.topbar-account-item:hover { background: var(--surface-soft); }
+.topbar-account-item-danger { color: var(--danger-600); }
+.topbar-account-item-danger:hover { background: var(--danger-50); }
+
+/* --- Surfaces: flat, bordered, not floating ---------------------------- */
+
+.form-panel.form-panel,
+.summary-card,
+.card,
+.table-card,
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.panel-header p {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 3px 0 0;
+}
+
+/* --- Stat cards: the number is the point ------------------------------- */
+
+.stat-card.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: 16px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.stat-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+
+/* The pale blobs in each corner were decoration with nothing to say. */
+.stat-card::after,
+.stat-card:hover::after {
+  display: none;
+}
+
+.stat-card.stat-card p { font-size: 12.5px; font-weight: 550; color: var(--text-muted); }
+.stat-card.stat-card h3 { font-size: 25px; font-weight: 680; letter-spacing: -0.02em; color: var(--text-strong); }
+.stat-card.stat-card span { font-size: 12px; color: var(--text-subtle); }
+
+.stat-card.stat-card .stat-icon,
+.stat-card.stat-card-icon {
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+
+/* --- Tables: the workhorse of a B2B product ---------------------------- */
+
+table { font-size: 13px; }
+
+thead th {
+  font-size: 11.5px;
+  font-weight: 620;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+tbody tr { transition: background-color 100ms ease; }
+tbody tr:hover { background: var(--surface-subtle); }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* --- Buttons: one loud one per screen, at most ------------------------- */
+
+.primary-button.primary-button,
+button.primary,
+.btn.primary {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: var(--text-on-brand);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  box-shadow: none;
+  transition: background-color 120ms ease;
+}
+
+.primary-button:hover,
+button.primary:hover,
+.btn.primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  transform: none;
+}
+
+.secondary-button.secondary-button,
+.light-button.light-button,
+.btn.secondary {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 550;
+  padding: 8px 14px;
+  box-shadow: none;
+}
+
+.secondary-button:hover,
+.light-button:hover,
+.btn.secondary:hover {
+  background: var(--surface-subtle);
+  border-color: var(--text-subtle);
+}
+
+/* Keyboard users deserve to see where they are. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Inputs ------------------------------------------------------------ */
+
+.form-field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  font-size: 13.5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  background: var(--surface);
+  color: var(--text-strong);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+/* --- Empty states: offer the next action ------------------------------- */
+
+.empty-table,
+.empty-state {
+  padding: 44px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+/* --- The assistant should not shout over the page ---------------------- */
+
+.chat-widget-toggle,
+.chat-fab {
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* The assistant was a wide labelled pill floating over every screen, reading
+   louder than the page's own primary action. A circular icon button is the
+   convention for a reason: present, reachable, not competing. */
+.floating-assistant-toggle.floating-assistant-toggle {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 0;
+  gap: 0;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.floating-assistant-toggle.floating-assistant-toggle:hover {
+  background: var(--primary-hover);
+}
+
+/* The button is a flex row that used to hold an icon and a label. With the
+   label gone the icon was left to absorb the shrink and collapsed to 2px
+   wide -- visible only as a sliver, which is worse than no button at all. */
+.floating-assistant-toggle.floating-assistant-toggle svg {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+}
+
+/* Dashboard section cards should not out-shout the numbers above them. */
+.dashboard .form-panel.form-panel,
+.dashboard .panel.panel {
+  box-shadow: var(--shadow-sm);
+}

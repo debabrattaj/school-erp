@@ -189,30 +189,16 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard international-dashboard">
-      <section className="institution-hero">
-        <div>
-          <p className="eyebrow">
-            {settings?.institution_type || "International School ERP"}
-          </p>
-
-          <h2>{settings?.school_name || "Institution Dashboard"}</h2>
-
+      <header className="page-head">
+        <div className="page-head-text">
+          <h1>{settings?.school_name || "Dashboard"}</h1>
           <p>
-            {settings?.tagline ||
-              "Executive command center for academics, finance, attendance, and institutional operations."}
+            {[settings?.board_affiliation, settings?.campus_name, settings?.academic_year]
+              .filter(Boolean)
+              .join(" · ") || "Today at a glance"}
           </p>
-
-          <div className="institution-meta">
-            <span>{settings?.board_affiliation || "Board Not Set"}</span>
-            <span>{settings?.campus_name || "Main Campus"}</span>
-            <span>{settings?.academic_year || "Academic Year"}</span>
-          </div>
         </div>
-
-        <div className="institution-hero-badge">
-          <School size={40} />
-        </div>
-      </section>
+      </header>
 
       <div className="dashboard-tabs">
         <button

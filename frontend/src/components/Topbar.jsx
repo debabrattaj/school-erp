@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Globe, LogOut, Search, X } from "lucide-react";
+import { Bell, Globe, LogOut, Search, User as UserIcon, X } from "lucide-react";
 import { getUser, logout } from "../auth";
 import API from "../api";
 import { useI18n } from "../i18n";
@@ -12,6 +12,8 @@ export default function Topbar() {
   const [user, setUser] = useState(getUser());
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const accountRef = useRef(null);
   // IDs the user has already opened the panel with. Persisted per-browser so the
   // unread badge clears on view and stays cleared across polls/reloads (the
   // notification's is_read column is shared across schools for broadcasts, so we
@@ -119,6 +121,17 @@ export default function Topbar() {
     groups[result.group].push(result);
     return groups;
   }, {});
+
+  useEffect(() => {
+    if (!showAccountMenu) return undefined;
+    function onDocClick(event) {
+      if (accountRef.current && !accountRef.current.contains(event.target)) {
+        setShowAccountMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showAccountMenu]);
 
   function handleLogout() {
     logout();
@@ -259,17 +272,45 @@ export default function Topbar() {
 
         <div className="topbar-divider" />
 
-        <div
-          className="topbar-identity"
-          title={`${t("Logged in as")} ${user?.name || user?.role || "User"}`}
-        >
-          {(user?.name || user?.role || "U").trim().charAt(0).toUpperCase()}
-        </div>
+        <div className="topbar-account" ref={accountRef}>
+          <button
+            type="button"
+            className="topbar-identity"
+            onClick={() => setShowAccountMenu((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={showAccountMenu}
+            title={`${t("Logged in as")} ${user?.name || user?.role || "User"}`}
+          >
+            {(user?.name || user?.role || "U").trim().charAt(0).toUpperCase()}
+          </button>
 
-        <button type="button" className="topbar-logout" onClick={handleLogout}>
-          <LogOut size={15} />
-          <span>{t("Logout")}</span>
-        </button>
+          {showAccountMenu && (
+            <div className="topbar-account-menu" role="menu">
+              <div className="topbar-account-head">
+                <div className="topbar-account-name">{user?.name || t("User")}</div>
+                <div className="topbar-account-role">{user?.role}</div>
+              </div>
+              <button
+                type="button"
+                className="topbar-account-item"
+                role="menuitem"
+                onClick={() => { setShowAccountMenu(false); navigate("/profile"); }}
+              >
+                <UserIcon size={15} />
+                <span>{t("My Profile")}</span>
+              </button>
+              <button
+                type="button"
+                className="topbar-account-item topbar-account-item-danger"
+                role="menuitem"
+                onClick={handleLogout}
+              >
+                <LogOut size={15} />
+                <span>{t("Logout")}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
