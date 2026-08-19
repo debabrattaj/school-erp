@@ -22,8 +22,17 @@ import threading
 import subprocess
 from datetime import datetime
 
-from app.tenant import CentralSessionLocal
-from app.tenant_models import SchoolAccount
+# Before app.tenant, which resolves its database URLs at import time. Run from
+# a plain shell with no environment exported, this module would otherwise fall
+# back to the SQLite defaults and cheerfully back up the wrong databases --
+# reporting ok:true the whole way, which is the worst possible failure for a
+# backup. load_dotenv does not override variables already set, so a process
+# that has real environment (Passenger, cron with vars) is unaffected.
+from dotenv import load_dotenv
+load_dotenv()
+
+from app.tenant import CentralSessionLocal  # noqa: E402
+from app.tenant_models import SchoolAccount  # noqa: E402
 
 logger = logging.getLogger("backup")
 
