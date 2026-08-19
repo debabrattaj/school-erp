@@ -250,6 +250,15 @@ class Attendance(Base):
     status = Column(String, nullable=False)  # Present, Absent, Late, Half Day
     remarks = Column(String, nullable=True)
 
+    # Who wrote this row: Manual, Biometric, Import.
+    #
+    # Provenance used to be inferred from remarks starting with "Biometric",
+    # which meant a teacher writing "Biometric device was down, marked by
+    # hand" had their own mark classified as machine-written and silently
+    # overwritten by the next derivation. A person is a better witness than a
+    # turnstile, so which of them made a mark cannot rest on a substring.
+    source = Column(String, nullable=False, default="Manual", index=True)
+
 
 class Fee(Base):
     __tablename__ = "fees"

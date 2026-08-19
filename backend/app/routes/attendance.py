@@ -198,6 +198,13 @@ def update_attendance(
                 detail=f"Invalid status. Allowed: {', '.join(VALID_ATTENDANCE_STATUS)}"
             )
 
+    # A human editing a derived row claims it. Without this the next
+    # derivation would treat it as its own and quietly overwrite the
+    # correction -- which is precisely what a teacher fixing a bad punch is
+    # trying to prevent.
+    if record.source != "Manual" and update_data:
+        record.source = "Manual"
+
     if "student_id" in update_data:
         raise HTTPException(
             status_code=400,

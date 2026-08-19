@@ -1037,6 +1037,12 @@ Attendance (add-on)"). The gate covers the device ingest endpoint as well as
 the staff routes, so a school whose subscription lapses stops accepting punches
 rather than continuing to collect data it is no longer entitled to hold.
 
+**It is a setting, not a module.** There is no Biometric entry in the sidebar:
+nobody visits a page to read punches, they look at Attendance. Devices,
+enrolment and the derivation rules are reached from **Settings → Biometric
+Attendance**, which appears only when the school is entitled to it. Once a
+terminal is connected, punches arrive as `Attendance` rows on their own.
+
 ### The three ingest routes, and what "pull" can actually reach
 
 A terminal on a school LAN has a private address and **cannot be dialled from
@@ -1093,16 +1099,50 @@ without disturbing the rest.
 
 ### Deriving attendance — deliberately conservative
 
-`POST /biometric/derive` turns a day's punches into `Attendance` rows, and is
-safe to re-run (it will not duplicate). Rules live in
-`BiometricAttendanceConfig`, and every default is the cautious one:
+Derivation happens **on ingest**, not on demand: a punch arriving writes the
+`Attendance` row for that student and day immediately, so the register fills
+itself while the morning is happening. `POST /biometric/derive` still exists
+for a whole-day pass and is safe to re-run.
+
+The two are deliberately different in one respect. Incremental derivation
+never marks anyone **Absent** — absence is a judgement about a day that has
+finished, and at 08:05 nobody knows who is simply not here yet. The absent
+sweep belongs to the end-of-day pass.
+
+Rules live in `BiometricAttendanceConfig`, and every default is the cautious
+one:
 
 - `derive_attendance` defaults **off** — punches are collected and visible, but
   nothing is written to attendance. Run a terminal alongside manual marking
   until you trust it, then switch this on.
 - `overwrite_manual` defaults **off** — a mark made by a teacher is left alone.
-  The job tags its own rows with a `Biometric:` remark prefix, and that prefix
-  is how it tells its own work from a human's.
+
+### Who wrote a row
+
+`Attendance.source` is `Manual`, `Biometric` or `Import`, and it is what
+protects a teacher from the machine.
+
+Provenance used to be inferred from the remarks text starting with
+`Biometric`, which meant a teacher writing *"Biometric device was down, marked
+by hand"* had their own mark classified as machine-written and silently
+overwritten by the next derivation. A person is a better witness than a
+turnstile, so which of them made a mark cannot rest on a substring.
+
+Two consequences worth knowing:
+
+- **Editing a derived row claims it.** Correcting a bad punch through the
+  attendance API flips `source` to `Manual`, so the next punch cannot undo the
+  correction — which is exactly what the person correcting it is trying to
+  prevent.
+- **`source` is read-only over the API.** It is absent from the create and
+  update schemas on purpose: a mark made through the API is a human's by
+  definition, and letting a client declare `source="Biometric"` would let it
+  dodge the protection meant for teachers.
+
+The migration backfills existing rows from the old convention, matching
+`Biometric: ` **with the colon** — real derived remarks always had one, so the
+backfill catches every machine row while correctly leaving that teacher's note
+as `Manual`.
 - `absent_if_no_punch` defaults **off** — otherwise a terminal that quietly
   stopped reporting would mark the entire school absent.
 - `late_after` / `half_day_before` are unset by default: first punch after

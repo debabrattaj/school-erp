@@ -134,6 +134,9 @@ def ingest_punches(db: Session, device: models.BiometricDevice, records: list[di
     duplicates = 0
     unmatched = 0
     rejected = []
+    # (student_id, date) pairs this batch affected, so derivation can be
+    # incremental instead of re-reading the whole day.
+    touched: set[tuple[int, object]] = set()
 
     for index, record in enumerate(records):
         try:
@@ -182,16 +185,107 @@ def ingest_punches(db: Session, device: models.BiometricDevice, records: list[di
             teacher_id=enrollment.teacher_id if enrollment else None,
         ))
         ingested += 1
+        if enrollment and enrollment.student_id:
+            touched.add((enrollment.student_id, punched_at.date()))
 
     device.last_seen_at = datetime.utcnow()
     db.commit()
+
+    # Punches are useless sitting in their own table. Deriving here is what
+    # makes a terminal at the gate show up on the attendance register without
+    # anyone remembering to press a button.
+    derived = derive_for_punches(db, touched)
 
     return {
         "ingested": ingested,
         "duplicates": duplicates,
         "unmatched": unmatched,
         "rejected": rejected,
+        "attendance": derived,
     }
+
+
+def derive_for_punches(db: Session, touched: set) -> dict:
+    """Derive attendance for just the students and dates a batch touched.
+
+    Incremental on purpose. Re-deriving the whole day on every punch would
+    rewrite the register hundreds of times a morning, and a school with a
+    thousand students would spend the entire first period doing it.
+
+    Note what this deliberately does *not* do: mark anyone Absent. Absence is
+    a judgement about a day that has finished -- at 08:05 nobody knows who is
+    simply not here yet -- so that stays with the whole-day pass in
+    derive_attendance_for_date, run by cron after school.
+    """
+    config = get_config(db)
+    if not config.derive_attendance or not touched:
+        return {"created": 0, "updated": 0, "skipped_manual": 0}
+
+    created = updated = skipped_manual = 0
+
+    for student_id, on_date in sorted(touched):
+        student = db.query(models.Student).filter(models.Student.id == student_id).first()
+        if not student:
+            continue
+
+        day_start = datetime.combine(on_date, datetime.min.time())
+        day_end = datetime.combine(on_date, datetime.max.time())
+        punches = (
+            db.query(models.BiometricPunch)
+            .filter(
+                models.BiometricPunch.student_id == student_id,
+                models.BiometricPunch.punched_at >= day_start,
+                models.BiometricPunch.punched_at <= day_end,
+            )
+            .order_by(models.BiometricPunch.punched_at)
+            .all()
+        )
+        if not punches:
+            continue
+
+        status = _status_for_punches(punches, config)
+        existing = (
+            db.query(models.Attendance)
+            .filter(
+                models.Attendance.student_id == student_id,
+                models.Attendance.attendance_date == on_date,
+            )
+            .first()
+        )
+
+        if existing:
+            if existing.source != "Biometric" and not config.overwrite_manual:
+                skipped_manual += 1
+                continue
+            if existing.status != status or existing.source != "Biometric":
+                existing.status = status
+                existing.remarks = _remark_for(punches)
+                existing.source = "Biometric"
+                updated += 1
+            continue
+
+        db.add(models.Attendance(
+            student_id=student_id,
+            attendance_date=on_date,
+            academic_year=None,
+            class_id=student.class_id,
+            class_name_snapshot=student.class_name,
+            section_snapshot=student.section,
+            status=status,
+            remarks=_remark_for(punches),
+            source="Biometric",
+        ))
+        created += 1
+
+    for punch in db.query(models.BiometricPunch).filter(
+        models.BiometricPunch.processed_at.is_(None),
+        models.BiometricPunch.student_id.in_([sid for sid, _ in touched]),
+    ).all():
+        if (punch.student_id, punch.punched_at.date()) in touched:
+            punch.processed_at = datetime.utcnow()
+
+    db.commit()
+    return {"created": created, "updated": updated, "skipped_manual": skipped_manual}
 
 
 def get_config(db: Session) -> models.BiometricAttendanceConfig:
@@ -284,14 +378,18 @@ def derive_attendance_for_date(db: Session, target_date, academic_year: str | No
         )
 
         if existing:
-            # Anything not written by this job is a human's mark.
-            is_ours = (existing.remarks or "").startswith("Biometric")
+            # A person is a better witness than a turnstile, so a human's mark
+            # stands. Read from the source column rather than sniffing remarks:
+            # a teacher writing "Biometric device was down, marked by hand"
+            # used to have their own mark classified as machine-written.
+            is_ours = existing.source == "Biometric"
             if not is_ours and not config.overwrite_manual:
                 skipped_manual += 1
                 continue
             if existing.status != status:
                 existing.status = status
                 existing.remarks = _remark_for(student_punches)
+                existing.source = "Biometric"
                 updated += 1
             continue
 
@@ -304,6 +402,7 @@ def derive_attendance_for_date(db: Session, target_date, academic_year: str | No
             section_snapshot=student.section,
             status=status,
             remarks=_remark_for(student_punches),
+            source="Biometric",
         ))
         created += 1
 
@@ -339,7 +438,11 @@ def _status_for_punches(punches: list[models.BiometricPunch], config) -> str:
 
 
 def _remark_for(punches: list[models.BiometricPunch]) -> str:
-    """Tag the row as machine-written -- this is what protects manual marks."""
+    """A human-readable summary of the punches behind a derived row.
+
+    Descriptive only. What protects a manual mark is Attendance.source, not
+    this text.
+    """
     first = punches[0].punched_at.strftime("%H:%M")
     last = punches[-1].punched_at.strftime("%H:%M")
     if first == last:
@@ -385,6 +488,7 @@ def _mark_absent_without_punches(db: Session, target_date, present_ids: set[int]
             section_snapshot=student.section,
             status="Absent",
             remarks="Biometric: no punch recorded",
+            source="Biometric",
         ))
         marked += 1
 

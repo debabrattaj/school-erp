@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Award,
   CalendarDays,
+  Fingerprint,
   Save,
   School,
   Settings2,
   Wallet,
 } from "lucide-react";
 import API from "../api";
-import { getUser, saveAuth } from "../auth";
+import { getUser, isFeatureEnabled, saveAuth } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
 import MfaCard from "../components/MfaCard";
 import PhotoUploadField from "../components/PhotoUploadField";
@@ -457,6 +459,33 @@ export default function Settings() {
               </div>
             </div>
           </section>
+
+          {isFeatureEnabled("biometric_attendance") && (
+            <section className="form-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>
+                    <Fingerprint size={20} /> Biometric Attendance
+                  </h3>
+                  <p>
+                    Connect a fingerprint or face terminal. Once a device is
+                    registered and students are enrolled, punches are turned
+                    into attendance automatically — the register fills itself
+                    and shows up under Attendance, with a teacher's own marks
+                    left untouched.
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-field full-width">
+                  <Link className="btn secondary" to="/biometric">
+                    Devices, enrolment and rules
+                  </Link>
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className="form-panel">
             <div className="panel-header">

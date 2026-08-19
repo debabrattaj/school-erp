@@ -325,6 +325,11 @@ class AttendanceUpdate(BaseModel):
 
 class AttendanceResponse(AttendanceBase):
     id: int
+    # Read-only. Absent from Create/Update on purpose: a mark made through
+    # the API is a human's by definition, and letting a client declare
+    # source="Biometric" would let it dodge the protection that keeps
+    # derivation from overwriting teachers.
+    source: str = "Manual"
 
     class Config:
         from_attributes = True

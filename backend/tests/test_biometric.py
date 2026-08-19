@@ -558,3 +558,162 @@ def test_pull_sync_skips_push_devices(client, auth, db_session, monkeypatch):
     results = sync.sync_tenant("default", DEFAULT_SCHOOL_DATABASE_URL)
     assert results == []
     assert called == []
+
+
+# ---------------------------------------------------------------------------
+# Punches reaching the attendance register on their own
+#
+# Biometric is a setting, not a place staff visit: once a terminal is
+# connected the register has to fill itself. These cover that path, and the
+# provenance that stops it trampling a teacher.
+# ---------------------------------------------------------------------------
+
+
+def _enrol(client, auth, device_id, student_id, device_user_id):
+    resp = client.post("/biometric/enrollments", json={
+        "device_id": device_id, "student_id": student_id,
+        "device_user_id": device_user_id,
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def _ingest(client, device, token, device_user_id, when, direction="in"):
+    return client.post("/biometric/ingest", json={"punches": [
+        {"device_user_id": device_user_id, "timestamp": when.isoformat(), "direction": direction},
+    ]}, headers=_device_headers(device, token))
+
+
+def _attendance_row(db, student_id, on_date):
+    from app.models import Attendance
+    db.expire_all()
+    return (
+        db.query(Attendance)
+        .filter(Attendance.student_id == student_id, Attendance.attendance_date == on_date)
+        .first()
+    )
+
+
+def test_a_punch_becomes_attendance_without_anyone_pressing_derive(client, auth, db_session):
+    """The whole point of connecting a terminal."""
+    student = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], student.id, "AUTO-1")
+    client.put("/biometric/config", json={"derive_attendance": True}, headers=auth)
+
+    when = datetime(2026, 8, 20, 8, 5)
+    resp = _ingest(client, device, device["auth_token"], "AUTO-1", when)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["attendance"]["created"] == 1
+
+    row = _attendance_row(db_session, student.id, date(2026, 8, 20))
+    assert row is not None
+    assert row.status == "Present"
+    assert row.source == "Biometric"
+
+
+def test_a_teachers_mark_survives_a_later_punch(client, auth, db_session):
+    """A person is a better witness than a turnstile."""
+    student = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], student.id, "AUTO-2")
+    client.put("/biometric/config", json={"derive_attendance": True}, headers=auth)
+
+    marked = client.post("/attendance/", json={
+        "student_id": student.id, "attendance_date": "2026-08-21",
+        "status": "Absent", "remarks": "Called in sick",
+    }, headers=auth)
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["source"] == "Manual"
+
+    _ingest(client, device, device["auth_token"], "AUTO-2", datetime(2026, 8, 21, 8, 5))
+
+    row = _attendance_row(db_session, student.id, date(2026, 8, 21))
+    assert row.status == "Absent"
+    assert row.source == "Manual"
+
+
+def test_remarks_mentioning_biometric_do_not_make_a_mark_machine_written(client, auth, db_session):
+    """The bug the source column exists to fix: provenance used to be a
+    substring test on remarks, so this teacher's note read as machine-written
+    and the next derivation overwrote it."""
+    student = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], student.id, "AUTO-3")
+    client.put("/biometric/config", json={"derive_attendance": True}, headers=auth)
+
+    client.post("/attendance/", json={
+        "student_id": student.id, "attendance_date": "2026-08-22",
+        "status": "Present", "remarks": "Biometric device was down, marked by hand",
+    }, headers=auth)
+
+    _ingest(client, device, device["auth_token"], "AUTO-3", datetime(2026, 8, 22, 11, 30))
+
+    row = _attendance_row(db_session, student.id, date(2026, 8, 22))
+    assert row.source == "Manual"
+    assert row.remarks == "Biometric device was down, marked by hand"
+
+
+def test_correcting_a_derived_row_claims_it_from_the_machine(client, auth, db_session):
+    """Otherwise the next punch overwrites the correction."""
+    student = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], student.id, "AUTO-4")
+    client.put("/biometric/config", json={
+        "derive_attendance": True, "half_day_before": "12:00:00",
+    }, headers=auth)
+
+    _ingest(client, device, device["auth_token"], "AUTO-4", datetime(2026, 8, 23, 8, 2))
+    row = _attendance_row(db_session, student.id, date(2026, 8, 23))
+    assert row.source == "Biometric"
+    row_id = row.id
+
+    fixed = client.put(f"/attendance/{row_id}",
+                       json={"status": "Half Day", "remarks": "Left after lunch"},
+                       headers=auth)
+    assert fixed.status_code == 200
+    assert fixed.json()["source"] == "Manual"
+
+    # A second punch must not undo the teacher.
+    _ingest(client, device, device["auth_token"], "AUTO-4",
+            datetime(2026, 8, 23, 15, 50), direction="out")
+
+    row = _attendance_row(db_session, student.id, date(2026, 8, 23))
+    assert row.status == "Half Day"
+    assert row.source == "Manual"
+
+
+def test_derivation_off_leaves_punches_alone(client, auth, db_session):
+    """A school that wants the punch log but marks attendance by hand."""
+    student = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], student.id, "AUTO-5")
+    client.put("/biometric/config", json={"derive_attendance": False}, headers=auth)
+
+    resp = _ingest(client, device, device["auth_token"], "AUTO-5", datetime(2026, 8, 24, 8, 5))
+    assert resp.json()["ingested"] == 1
+    assert _attendance_row(db_session, student.id, date(2026, 8, 24)) is None
+
+
+def test_incremental_derivation_does_not_mark_anyone_absent(client, auth, db_session):
+    """Absence is a judgement about a finished day. At 08:05 nobody knows who
+    is simply not here yet, so the absent sweep stays with the whole-day pass.
+    """
+    arriving = _make_student(db_session)
+    missing = _make_student(db_session)
+    device = _register_device(client, auth)
+    _enrol(client, auth, device["id"], arriving.id, "AUTO-6")
+    _enrol(client, auth, device["id"], missing.id, "AUTO-7")
+    client.put("/biometric/config", json={
+        "derive_attendance": True, "absent_if_no_punch": True,
+    }, headers=auth)
+
+    _ingest(client, device, device["auth_token"], "AUTO-6", datetime(2026, 8, 25, 8, 5))
+
+    assert _attendance_row(db_session, arriving.id, date(2026, 8, 25)).status == "Present"
+    # Not yet written off as absent.
+    assert _attendance_row(db_session, missing.id, date(2026, 8, 25)) is None
+
+    # The end-of-day pass is what decides absence.
+    client.post("/biometric/derive", json={"target_date": "2026-08-25"}, headers=auth)
+    assert _attendance_row(db_session, missing.id, date(2026, 8, 25)).status == "Absent"
