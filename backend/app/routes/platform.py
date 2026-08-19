@@ -51,6 +51,7 @@ FEATURE_LABELS = {
     "classes": "Classes",
     "attendance": "Attendance",
     "fees": "Fees",
+    "fee_reminders": "Automated Fee Reminders",
     "exams": "Exams",
     "marks": "Marks",
     "reports": "Reports",

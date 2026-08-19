@@ -2475,3 +2475,91 @@ class TrackingConfig(Base):
     retain_locations_days = Column(Integer, nullable=False, default=30)
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Fee reminders
+#
+# An escalation ladder rather than a single nag: rungs fire at offsets from a
+# fee's due date, and each rung fires at most once per fee. The interesting
+# constraint is the catch-up case -- switching this on against a term of
+# unpaid fees must not send every parent three emails at once, so only the
+# furthest-along rung fires and the ones it passed are recorded as superseded.
+# ---------------------------------------------------------------------------
+
+
+class FeeReminderRule(Base):
+    """One rung of the escalation ladder."""
+
+    __tablename__ = "fee_reminder_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)          # "First reminder", "Final notice"
+
+    # Signed, relative to the fee's due date: -3 is a courtesy note three days
+    # before, +15 chases a fee a fortnight late.
+    offset_days = Column(Integer, nullable=False, default=0)
+
+    channel = Column(String, nullable=False, default="Email")   # Email, SMS, WhatsApp, In App
+    template_id = Column(
+        Integer, ForeignKey("communication_templates.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Chasing twelve rupees costs more in goodwill than it collects.
+    min_due_amount = Column(Float, nullable=False, default=0)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        # Two rungs on the same day through the same channel is a duplicate
+        # message, not a schedule.
+        UniqueConstraint("offset_days", "channel", name="uq_fee_reminder_rung"),
+    )
+
+
+class FeeReminderLog(Base):
+    """Proof that one rung fired for one fee, and what it said.
+
+    The unique constraint is the whole point: it is what makes the cron safe
+    to run every hour, and safe to re-run after a failure, without a parent
+    receiving the same reminder twice.
+    """
+
+    __tablename__ = "fee_reminder_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fee_id = Column(Integer, ForeignKey("fees.id", ondelete="CASCADE"), nullable=False, index=True)
+    rule_id = Column(
+        Integer, ForeignKey("fee_reminder_rules.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    # The message itself lives in communication_logs, alongside every other
+    # message the school has sent, rather than in a parallel history.
+    communication_log_id = Column(
+        Integer, ForeignKey("communication_logs.id", ondelete="SET NULL"), nullable=True
+    )
+
+    status = Column(String, nullable=False, default="Sent", index=True)
+    # Sent, Failed, Skipped, Superseded
+
+    # Why nothing was sent -- "no contact on file", "passed over by a later
+    # rung". A silent absence is indistinguishable from a bug.
+    skip_reason = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    # What was actually owed when the reminder went out, so a later dispute
+    # can be settled against the figure the parent was given.
+    outstanding_amount = Column(Float, nullable=True)
+    recipient = Column(String, nullable=True)
+    offset_days = Column(Integer, nullable=True)   # snapshot: rules get edited
+
+    sent_on = Column(Date, nullable=False, index=True)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("fee_id", "rule_id", name="uq_fee_reminder_once"),
+    )

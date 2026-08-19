@@ -689,6 +689,101 @@ behind a platform feature flag: it is retention and hygiene for data already
 collected, and a school that stops paying for tracking should still have its
 old position history aged out.
 
+## 8h. Automated fee reminders
+
+Chasing unpaid fees on a schedule. `backend/app/fee_reminders.py` holds the
+logic, `backend/app/routes/fee_reminders.py` the endpoints
+(`/fee-reminders/...`), and `backend/run_fee_reminders.py` is the cron
+entrypoint.
+
+**Off by default, platform-owner gated** (`fee_reminders`), like the fee,
+promotion and exam schedulers. A module that messages parents must not be
+able to switch itself on.
+
+### The escalation ladder
+
+A **rule** is one rung: an offset in days from a fee's due date, a channel,
+and optionally one of the school's own communication templates.
+
+- `-3` — a courtesy note three days before the money is due
+- `+7`, `+15` — progressively firmer chases
+- `+30` — final notice
+
+Two rungs on the same day through the same channel are refused at creation:
+that is a duplicate message, not a schedule. The same day on *different*
+channels is allowed, so a school can send an email and an SMS together.
+
+`min_due_amount` stops trivial balances being chased — pursuing twelve rupees
+costs more in goodwill than it collects.
+
+### Three decisions worth knowing
+
+**Only the furthest-along rung fires.** Switching this on against a term of
+unpaid fees would otherwise send every parent the +7, +15 and +30 messages in
+the same minute. The rungs that were passed are written down as `Superseded`,
+so they are accounted for and can never fire later.
+
+**The figure quoted is what is actually outstanding** — net of concession and
+of anything already paid, recomputed rather than read from `fees.due_amount`.
+Billing a parent for the full amount after they paid half is the fastest way
+to lose their trust in the whole system, and the amount is the one number
+they will definitely check.
+
+**A family with no contact details produces a `Skipped` row with a reason.**
+A silent absence is indistinguishable from a bug, and "we never got any
+reminder" is exactly the dispute this has to be able to answer.
+
+### Each rung fires once
+
+`fee_reminder_logs` carries a unique constraint on (fee, rule). That is what
+makes the cron safe to run repeatedly, safe to re-run after a failure, and
+safe to overlap — a parent cannot receive the same reminder twice even if the
+schedule misfires.
+
+Recipients resolve from the student's guardian fields, falling back to a
+linked portal parent. The message itself is written to `communication_logs`
+alongside every other message the school has sent, rather than into a
+parallel history nobody thinks to search.
+
+Paying stops the ladder immediately: settled fees are excluded at send time,
+not at schedule time, so a fee paid yesterday does not get today's reminder.
+
+### Templates
+
+A rule with no template uses built-in wording. A rule pointing at a
+communication template uses the school's own, with `{placeholders}` filled
+from the fee: `{student_name}`, `{amount_due}`, `{due_date}`,
+`{days_overdue}`, `{fee_type}`, `{class_name}`, `{school_name}` and others.
+An unrecognised placeholder is left in the text as-is rather than raising —
+one school's typo must not stop the whole run.
+
+### Before switching it on
+
+`GET /fee-reminders/preview` reports exactly who would be contacted and
+writes nothing. Worth running before the first real send and after any change
+to the ladder — the first run of a collections tool against real parents is
+not the place to discover a misconfigured rung.
+
+`GET /fee-reminders/history` shows what was sent, to whom, for how much.
+A rung that has already fired **cannot be deleted**, only deactivated:
+"which reminder did we send this family, and when" is exactly what gets asked
+when a payment is disputed.
+
+### Wiring it up in cPanel
+
+Once a day is the sensible schedule — the rungs are day-grained, so running
+hourly only changes which hour the message lands in.
+
+```
+0 9 * * * cd /home/USER/school-erp/backend && /home/USER/virtualenv/.../bin/python run_fee_reminders.py >> logs/reminders.log 2>&1
+```
+
+`--dry-run` reports without sending. `--as-of YYYY-MM-DD` runs as though it
+were another day, for checking a ladder against real data. `--limit` caps a
+batch: shared hosting kills a long-running cron, and a half-sent batch that
+cannot say how far it got is worse than a small one, so the default is 200
+and the rest goes next run.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

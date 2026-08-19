@@ -121,6 +121,7 @@ DEFAULT_FEATURES = {
     # configure fee structures / academic-year promotion settings / exam
     # templates freely, but nothing fires unattended until enabled here.
     "fee_auto_generation": False,
+    "fee_reminders": False,
     "promotion_auto_generation": False,
     "exam_auto_generation": False,
 }

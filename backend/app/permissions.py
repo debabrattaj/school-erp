@@ -90,6 +90,7 @@ PATH_FEATURE_MAP = {
     "/leave": "staff_leave",
     "/concessions": "fee_concessions",
     "/gate": "gate_register",
+    "/fee-reminders": "fees",
     "/syllabus": "syllabus",
     "/transport-tracking": "vehicle_tracking",
     "/master-data": "master_data",
