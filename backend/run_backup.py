@@ -68,7 +68,12 @@ def main() -> int:
             print(f"{entry['name']:<14} {'ok':<8} {entry.get('bytes', 0):>12,}  {entry['name']}{suffix}")
         else:
             failed += 1
-            print(f"{entry['name']:<14} {'FAILED':<8} {'-':>12}  {entry.get('error', '')[:60]}")
+            print(f"{entry['name']:<14} {'FAILED':<8} {'-':>12}")
+            # In full: a truncated pg_dump error hides whether the cause was
+            # authentication, a bad URL, or a client/server version mismatch,
+            # and those need completely different fixes.
+            for line in (entry.get("error") or "").strip().splitlines():
+                print(f"    {line}")
 
     print()
     if failed or gap:

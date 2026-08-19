@@ -45,6 +45,21 @@ CENTRAL_DATABASE_URL = os.getenv("CENTRAL_DATABASE_URL", "sqlite:///./school_acc
 _SQLITE_PREFIX = "sqlite:///"
 
 
+def _libpq_url(url: str) -> str:
+    """A SQLAlchemy URL rewritten into something libpq tools accept.
+
+    pg_dump recognises a connection URI only when it begins "postgresql://" or
+    "postgres://". SQLAlchemy's driver suffix -- postgresql+psycopg:// -- is
+    not part of libpq's grammar, so pg_dump falls back to treating the whole
+    string as a database *name* and fails with a connection error that names
+    the URL, which reads like a network problem rather than a parsing one.
+    """
+    scheme, separator, rest = url.partition("://")
+    if not separator:
+        return url
+    return f"{scheme.split('+', 1)[0]}{separator}{rest}"
+
+
 def _sqlite_path(url: str):
     if url and url.startswith(_SQLITE_PREFIX):
         return url[len(_SQLITE_PREFIX):]
@@ -110,7 +125,7 @@ def _backup_one(name: str, url: str, target_dir: str) -> dict:
         dst = os.path.join(target_dir, f"{name}.sql")
         with open(dst, "wb") as out:
             proc = subprocess.run(
-                ["pg_dump", "--dbname", url], stdout=out, stderr=subprocess.PIPE
+                ["pg_dump", "--dbname", _libpq_url(url)], stdout=out, stderr=subprocess.PIPE
             )
         if proc.returncode != 0:
             return {"name": name, "ok": False, "error": proc.stderr.decode(errors="replace")[:500]}
