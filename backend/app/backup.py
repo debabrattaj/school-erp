@@ -43,13 +43,31 @@ def _sqlite_path(url: str):
 
 
 def _discover_databases() -> dict:
-    """Map a label -> database URL for the central DB and every tenant DB."""
+    """Map a label -> database URL for the central DB and every tenant DB.
+
+    Must cover exactly what manage_migrations.tenant_urls() touches, or a
+    migration alters a database the backup never captured. That means the
+    default school's URL is taken from the environment and added here even
+    when it has no row in the registry -- single-tenant installs, and any
+    deployment that pointed DEFAULT_SCHOOL_DATABASE_URL somewhere new without
+    registering it, otherwise back up everything except their main database.
+    """
     databases = {"central": CENTRAL_DATABASE_URL}
+
+    default_url = os.getenv("DEFAULT_SCHOOL_DATABASE_URL", "sqlite:///./school_erp.db")
+    if default_url:
+        databases["default"] = default_url
+
     db = CentralSessionLocal()
     try:
         for account in db.query(SchoolAccount).all():
-            if account.database_url:
-                databases[account.account_code] = account.database_url
+            if not account.database_url:
+                continue
+            # A registered account naming the same database as the default
+            # school must not be backed up twice under two labels.
+            if account.database_url in databases.values() and account.account_code not in databases:
+                continue
+            databases[account.account_code] = account.database_url
     finally:
         db.close()
     return databases

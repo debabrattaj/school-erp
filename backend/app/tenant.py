@@ -25,6 +25,47 @@ DEFAULT_SCHOOL_DATABASE_URL = os.getenv(
     "sqlite:///./school_erp.db",
 )
 
+def backend_of(url: str | None) -> str:
+    """"postgresql", "sqlite", or "" -- the dialect part of a database URL."""
+    if not url:
+        return ""
+    return url.split("://", 1)[0].split("+", 1)[0].strip().lower()
+
+
+def database_config_problems() -> list[str]:
+    """Configuration mistakes worth shouting about at startup.
+
+    The one that matters is a split backend: the registry on SQLite while the
+    schools are on Postgres, or the reverse. Nothing errors in that state --
+    both halves work -- but the SQLite half is a file resolved relative to the
+    working directory, so two commands run from different places silently read
+    two different registries and disagree about which schools exist. That is
+    exactly the failure this check exists to make visible.
+    """
+    problems = []
+    central = backend_of(CENTRAL_DATABASE_URL)
+    default = backend_of(DEFAULT_SCHOOL_DATABASE_URL)
+
+    if central and default and central != default:
+        problems.append(
+            f"Split backend: the central registry is on {central} but the default "
+            f"school is on {default}. A relative SQLite path is resolved against "
+            f"the working directory, so commands run from different directories "
+            f"will read different registries."
+        )
+
+    for label, url in (("CENTRAL_DATABASE_URL", CENTRAL_DATABASE_URL),
+                       ("DEFAULT_SCHOOL_DATABASE_URL", DEFAULT_SCHOOL_DATABASE_URL)):
+        if backend_of(url) == "sqlite" and url.startswith("sqlite:///./"):
+            problems.append(
+                f"{label} is a SQLite path relative to the working directory "
+                f"({url}). Use an absolute path, or Postgres, so every entry "
+                f"point reads the same file."
+            )
+
+    return problems
+
+
 DEFAULT_FEATURES = {
     "dashboard": True,
     "students": True,
