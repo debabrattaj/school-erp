@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarCheck,
+  ChevronDown,
   Download,
   Edit,
   FileText,
@@ -19,6 +20,13 @@ import {
   CollectionMeter,
   CategoryBarChart,
 } from "../components/DashboardCharts";
+
+const DOCUMENT_OPTIONS = [
+  { label: "ID Card", endpoint: "id-card", filePrefix: "id_card" },
+  { label: "Bonafide", endpoint: "bonafide", filePrefix: "bonafide" },
+  { label: "Transfer Cert.", endpoint: "transfer-certificate", filePrefix: "transfer_certificate" },
+  { label: "Transcript", endpoint: "transcript", filePrefix: "transcript" },
+];
 
 function getFeeAmount(fee) {
   return Number(fee.total_amount ?? fee.amount ?? 0);
@@ -77,6 +85,20 @@ export default function StudentDetails() {
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const [showDocsMenu, setShowDocsMenu] = useState(false);
+  const docsMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!showDocsMenu) return undefined;
+    function onDocClick(event) {
+      if (docsMenuRef.current && !docsMenuRef.current.contains(event.target)) {
+        setShowDocsMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showDocsMenu]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -489,18 +511,39 @@ export default function StudentDetails() {
             Edit
           </button>
           
-          <button type="button" className="secondary-button" onClick={() => downloadDoc("id-card", "id_card")}>
-            <Download size={17} /> ID Card
-          </button>
-          <button type="button" className="secondary-button" onClick={() => downloadDoc("bonafide", "bonafide")}>
-            <Download size={17} /> Bonafide
-          </button>
-          <button type="button" className="secondary-button" onClick={() => downloadDoc("transfer-certificate", "transfer_certificate")}>
-            <Download size={17} /> Transfer Cert.
-          </button>
-          <button type="button" className="secondary-button" onClick={() => downloadDoc("transcript", "transcript")}>
-            <Download size={17} /> Transcript
-          </button>
+          <div className="docs-menu" ref={docsMenuRef}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowDocsMenu((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={showDocsMenu}
+            >
+              <FileText size={17} />
+              Documents
+              <ChevronDown size={15} className={showDocsMenu ? "docs-menu-chevron docs-menu-chevron-open" : "docs-menu-chevron"} />
+            </button>
+
+            {showDocsMenu && (
+              <div className="docs-menu-panel" role="menu">
+                {DOCUMENT_OPTIONS.map((doc) => (
+                  <button
+                    key={doc.endpoint}
+                    type="button"
+                    className="docs-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowDocsMenu(false);
+                      downloadDoc(doc.endpoint, doc.filePrefix);
+                    }}
+                  >
+                    <Download size={15} />
+                    <span>{doc.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

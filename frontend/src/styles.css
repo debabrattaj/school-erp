@@ -4547,8 +4547,14 @@ body,
     width: 100%;
   }
 
-  .student360-actions button {
+  .student360-actions button,
+  .student360-actions .docs-menu {
     flex: 1;
+  }
+
+  .docs-menu-panel {
+    left: 0;
+    right: 0;
   }
 
   .student360-metrics,
@@ -7201,6 +7207,7 @@ textarea {
 .student-list-table td:has(.action-buttons) {
   min-width: 92px;
   width: 92px;
+  overflow: visible;
 }
 
 .students-list-page .student-table-card > .student-records-toolbar {
@@ -7549,6 +7556,42 @@ textarea {
   gap: 8px;
   justify-content: flex-end;
 }
+
+.docs-menu { position: relative; }
+
+.docs-menu-chevron { transition: transform 0.15s ease; }
+.docs-menu-chevron-open { transform: rotate(180deg); }
+
+.docs-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  z-index: 60;
+}
+
+.docs-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.docs-menu-item:hover { background: var(--surface-soft); }
 
 .student360-metrics {
   display: grid;
