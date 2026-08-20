@@ -8702,19 +8702,26 @@ textarea:focus-visible {
    louder than the page's own primary action. A circular icon button is the
    convention for a reason: present, reachable, not competing. */
 .floating-assistant-toggle.floating-assistant-toggle {
-  width: 44px;
-  height: 44px;
+  width: 54px;
+  height: 54px;
   padding: 0;
   border-radius: var(--radius-pill);
   font-size: 0;
   gap: 0;
-  background: var(--primary);
-  border: 1px solid var(--primary);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, var(--brand-400), var(--primary));
+  border: none;
+  box-shadow: 0 10px 24px rgba(37, 41, 219, 0.35), 0 2px 6px rgba(15, 23, 42, 0.12);
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
 .floating-assistant-toggle.floating-assistant-toggle:hover {
-  background: var(--primary-hover);
+  background: linear-gradient(135deg, var(--brand-400), var(--primary-hover));
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(37, 41, 219, 0.4), 0 4px 10px rgba(15, 23, 42, 0.14);
+}
+
+.floating-assistant-toggle.floating-assistant-toggle:active {
+  transform: translateY(0);
 }
 
 /* The button is a flex row that used to hold an icon and a label. With the
@@ -8722,8 +8729,8 @@ textarea:focus-visible {
    wide -- visible only as a sliver, which is worse than no button at all. */
 .floating-assistant-toggle.floating-assistant-toggle svg {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 23px;
+  height: 23px;
 }
 
 /* Dashboard section cards should not out-shout the numbers above them. */
