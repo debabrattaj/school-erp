@@ -23,66 +23,6 @@ const FEATURE_PATHS = {
 // builds, so deployed sites never expose the seeded demo credentials.
 const SHOW_DEMO_LOGINS = import.meta.env.DEV;
 
-// Flat-style illustration of two students -- deliberately not a real photo:
-// stock/AI photos of children carry likeness and consent problems a drawn
-// illustration doesn't. Self-contained inline SVG, no external asset.
-function SchoolChildrenIllustration() {
-  return (
-    <svg viewBox="0 0 420 420" role="img" aria-label="Illustration of a girl and boy student">
-      <circle cx="210" cy="206" r="188" fill="#e7edfb" />
-      <ellipse cx="210" cy="372" rx="140" ry="16" fill="#0f172a" opacity="0.08" />
-
-      {/* floating school motifs */}
-      <g opacity="0.9">
-        <rect x="52" y="88" width="30" height="22" rx="4" fill="#fbbf24" />
-        <rect x="52" y="88" width="30" height="7" rx="3" fill="#f59e0b" />
-        <circle cx="352" cy="98" r="14" fill="#ef4444" />
-        <path d="M352 84c2-5 7-7 10-6" stroke="#15803d" strokeWidth="3" fill="none" strokeLinecap="round" />
-        <path d="M351 86v-4" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M300 58 340 72 300 86 260 72Z" fill="#818cf8" />
-        <path d="M280 76v14c0 5 9 10 20 10s20-5 20-10V76" stroke="#6366f1" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      </g>
-
-      {/* girl */}
-      <g transform="translate(112,150)">
-        <path d="M-46 190c0-46 22-78 60-78h6c38 0 60 32 60 78Z" fill="#f472b6" />
-        <rect x="-16" y="70" width="52" height="46" rx="10" fill="#ec4899" />
-        <circle cx="10" cy="46" r="40" fill="#c98a5e" />
-        <path d="M-30 30c0-30 20-50 40-50s40 20 40 50c0-6-6-10-12-8-6-14-20-22-28-22s-22 8-28 22c-6-2-12 2-12 8Z" fill="#3b2314" />
-        <circle cx="-24" cy="52" r="12" fill="#3b2314" />
-        <circle cx="44" cy="52" r="12" fill="#3b2314" />
-        <circle cx="-4" cy="46" r="3.4" fill="#2b1a10" />
-        <circle cx="24" cy="46" r="3.4" fill="#2b1a10" />
-        <path d="M2 60q8 7 16 0" stroke="#2b1a10" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <g transform="translate(-40,120)">
-          <rect x="0" y="0" width="34" height="26" rx="3" fill="#60a5fa" />
-          <rect x="4" y="-8" width="34" height="26" rx="3" fill="#93c5fd" />
-          <rect x="8" y="-16" width="34" height="26" rx="3" fill="#3b82f6" />
-        </g>
-        <rect x="-58" y="188" width="26" height="10" rx="4" fill="#7c3aed" />
-        <rect x="42" y="188" width="26" height="10" rx="4" fill="#7c3aed" />
-      </g>
-
-      {/* boy */}
-      <g transform="translate(246,146)">
-        <rect x="-58" y="66" width="24" height="48" rx="8" fill="#1d4ed8" />
-        <path d="M-30 108c0-4 3-8 8-8h64c5 0 8 4 8 8v34c0 27-11 46-26 46h-28c-15 0-26-19-26-46Z" fill="#1e3a8a" />
-        <rect x="-14" y="66" width="48" height="42" rx="9" fill="#38bdf8" />
-        <rect x="34" y="30" width="14" height="48" rx="7" fill="#e0a877" transform="rotate(-35 41 78)" />
-        <circle cx="10" cy="42" r="38" fill="#e0a877" />
-        <path d="M-26 24c4-24 20-38 36-38s32 14 36 38c-4-16-18-26-36-26s-32 10-36 26Z" fill="#1f1a17" />
-        <circle cx="-22" cy="46" r="11" fill="#e0a877" />
-        <circle cx="42" cy="46" r="11" fill="#e0a877" />
-        <circle cx="-4" cy="42" r="3.2" fill="#2b1a10" />
-        <circle cx="24" cy="42" r="3.2" fill="#2b1a10" />
-        <path d="M2 56q8 6 16 0" stroke="#2b1a10" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <rect x="-58" y="188" width="26" height="10" rx="4" fill="#1d4ed8" />
-        <rect x="30" y="188" width="26" height="10" rx="4" fill="#1d4ed8" />
-      </g>
-    </svg>
-  );
-}
-
 // Where to send the user after login.
 function landingPath(role, permissions) {
   if (["Parent", "Student"].includes(role)) return "/portal";
@@ -174,12 +114,6 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-illustration-panel">
-        <SchoolChildrenIllustration />
-        <h2>{t("Welcome back")}</h2>
-        <p>{t("Manage admissions, attendance, fees and more — all in one place.")}</p>
-      </div>
-
       <div className="login-card">
         <div className="login-brand">
           <div className="login-logo">

@@ -1715,44 +1715,19 @@ button {
 
 .login-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--primary-hover), var(--brand-400));
+  /* login-bg.jpg is dropped into frontend/public/ once a licensed photo is
+     available -- this layer simply doesn't paint until that file exists, so
+     the gradient underneath is a safe fallback, not a broken reference. */
+  background-image: linear-gradient(rgba(30, 27, 130, 0.55), rgba(37, 41, 219, 0.55)), url("/login-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--primary-hover);
+  background-blend-mode: normal, normal;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 56px;
   padding: 24px;
-}
-
-.login-illustration-panel {
-  display: none;
-  max-width: 340px;
-  color: var(--surface);
-  text-align: center;
-}
-
-.login-illustration-panel svg {
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.2));
-}
-
-.login-illustration-panel h2 {
-  margin: 20px 0 8px;
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.login-illustration-panel p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-@media (min-width: 960px) {
-  .login-illustration-panel {
-    display: block;
-  }
 }
 
 .login-card {
