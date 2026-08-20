@@ -285,7 +285,9 @@ def bulk_import_students(
     created_count = 0
     if not dry_run:
         for validated in to_create:
-            db.add(Student(**validated.model_dump()))
+            student_data = validated.model_dump()
+            student_data.pop("roll_no_mode", None)
+            db.add(Student(**student_data))
         if to_create:
             db.commit()
         created_count = len(to_create)
