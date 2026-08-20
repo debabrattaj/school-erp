@@ -15,10 +15,12 @@ import {
   Settings2,
   Download,
   History,
+  Bell,
+  Send,
 } from "lucide-react";
 
 import API from "../api";
-import { isFeatureEnabled } from "../auth";
+import { isFeatureEnabled, hasAccess } from "../auth";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import BulkImportModal from "../components/BulkImportModal";
@@ -89,6 +91,34 @@ const statusOptions = [
   "Partial",
   "Unpaid",
 ];
+
+const emptyReminderForm = {
+  name: "",
+  offset_days: "-3",
+  channel: "Email",
+  template_id: "",
+  min_due_amount: "0",
+  is_active: true,
+  remarks: "",
+};
+
+const reminderChannelOptions = ["Email", "SMS", "WhatsApp", "In App"];
+const reminderStatusOptions = ["Sent", "Failed", "Skipped", "Superseded"];
+
+function offsetDaysLabel(days) {
+  const n = Number(days || 0);
+  if (n < 0) return `${Math.abs(n)} day(s) before due`;
+  if (n === 0) return "On the due date";
+  return `${n} day(s) after due (overdue)`;
+}
+
+function reminderStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "sent") return "status active";
+  if (text === "failed") return "status danger";
+  if (text === "superseded") return "status pending";
+  return "status warning"; // Skipped
+}
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -234,6 +264,26 @@ export default function Fees() {
   const [generationRuns, setGenerationRuns] = useState([]);
   const [generationRunsLoading, setGenerationRunsLoading] = useState(false);
 
+  const feeRemindersEnabled = isFeatureEnabled("fee_reminders");
+  const canRunRemindersNow = hasAccess(["Admin", "Principal"]);
+
+  const [reminderView, setReminderView] = useState("rules");
+  const [reminderRules, setReminderRules] = useState([]);
+  const [reminderRulesLoading, setReminderRulesLoading] = useState(false);
+  const [reminderForm, setReminderForm] = useState(emptyReminderForm);
+  const [editingReminderRuleId, setEditingReminderRuleId] = useState(null);
+  const [communicationTemplates, setCommunicationTemplates] = useState([]);
+
+  const [reminderPreviewDate, setReminderPreviewDate] = useState(getTodayDateString());
+  const [reminderPreview, setReminderPreview] = useState(null);
+  const [reminderPreviewLoading, setReminderPreviewLoading] = useState(false);
+  const [reminderRunResult, setReminderRunResult] = useState(null);
+  const [reminderRunning, setReminderRunning] = useState(false);
+
+  const [reminderHistory, setReminderHistory] = useState([]);
+  const [reminderHistoryLoading, setReminderHistoryLoading] = useState(false);
+  const [reminderHistoryStatusFilter, setReminderHistoryStatusFilter] = useState("");
+
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -319,6 +369,43 @@ export default function Fees() {
     loadGenerationRuns();
   }
 
+  async function loadReminderRules() {
+    try {
+      setReminderRulesLoading(true);
+      const response = await API.get("/fee-reminders/rules");
+      setReminderRules(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load fee reminder rules."));
+    } finally {
+      setReminderRulesLoading(false);
+    }
+  }
+
+  async function loadCommunicationTemplates() {
+    try {
+      const response = await API.get("/communications/templates/");
+      setCommunicationTemplates(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadReminderHistory() {
+    try {
+      setReminderHistoryLoading(true);
+      const response = await API.get("/fee-reminders/history", {
+        params: { status: reminderHistoryStatusFilter || undefined, limit: 200 },
+      });
+      setReminderHistory(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load reminder history."));
+    } finally {
+      setReminderHistoryLoading(false);
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -343,6 +430,19 @@ export default function Fees() {
   useEffect(() => {
     loadPageData();
   }, []);
+
+  useEffect(() => {
+    if (pageMode !== "reminders" || !feeRemindersEnabled) return;
+    loadReminderRules();
+    loadCommunicationTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, feeRemindersEnabled]);
+
+  useEffect(() => {
+    if (pageMode !== "reminders" || !feeRemindersEnabled || reminderView !== "history") return;
+    loadReminderHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, feeRemindersEnabled, reminderView, reminderHistoryStatusFilter]);
 
   const studentMap = useMemo(() => {
     const map = {};
@@ -920,6 +1020,130 @@ export default function Fees() {
     }
   }
 
+  function handleReminderFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setReminderForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleEditReminderRule(rule) {
+    setEditingReminderRuleId(rule.id);
+    setReminderForm({
+      name: rule.name || "",
+      offset_days: String(rule.offset_days ?? 0),
+      channel: rule.channel || "Email",
+      template_id: rule.template_id ? String(rule.template_id) : "",
+      min_due_amount: String(rule.min_due_amount ?? 0),
+      is_active: rule.is_active !== false,
+      remarks: rule.remarks || "",
+    });
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelReminderForm() {
+    setEditingReminderRuleId(null);
+    setReminderForm(emptyReminderForm);
+    setMessage("");
+  }
+
+  async function handleReminderRuleSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!reminderForm.name.trim()) {
+      setMessage("A rule name is required.");
+      return;
+    }
+
+    const payload = {
+      name: reminderForm.name.trim(),
+      offset_days: Number(reminderForm.offset_days || 0),
+      channel: reminderForm.channel,
+      template_id: reminderForm.template_id ? Number(reminderForm.template_id) : null,
+      min_due_amount: Number(reminderForm.min_due_amount || 0),
+      is_active: reminderForm.is_active,
+      remarks: reminderForm.remarks || null,
+    };
+
+    try {
+      if (editingReminderRuleId) {
+        await API.put(`/fee-reminders/rules/${editingReminderRuleId}`, payload);
+        setMessage("Reminder rule updated.");
+      } else {
+        await API.post("/fee-reminders/rules", payload);
+        setMessage("Reminder rule added.");
+      }
+      handleCancelReminderForm();
+      await loadReminderRules();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save reminder rule."));
+    }
+  }
+
+  async function handleDeleteReminderRule(rule) {
+    const confirmDelete = window.confirm(`Delete the reminder rule "${rule.name}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/fee-reminders/rules/${rule.id}`);
+      setMessage("Reminder rule deleted.");
+      await loadReminderRules();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete reminder rule."));
+    }
+  }
+
+  async function runReminderPreview() {
+    try {
+      setReminderPreviewLoading(true);
+      setReminderPreview(null);
+      setReminderRunResult(null);
+      const response = await API.get("/fee-reminders/preview", {
+        params: { as_of: reminderPreviewDate || undefined, limit: 200 },
+      });
+      setReminderPreview(response.data);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to preview reminders."));
+    } finally {
+      setReminderPreviewLoading(false);
+    }
+  }
+
+  async function runRemindersNow() {
+    const confirmRun = window.confirm(
+      "This sends real reminders to parents/guardians right now — it is not a preview. Continue?"
+    );
+    if (!confirmRun) return;
+
+    try {
+      setReminderRunning(true);
+      setReminderRunResult(null);
+      setReminderPreview(null);
+      const response = await API.post("/fee-reminders/run", null, {
+        params: { as_of: reminderPreviewDate || undefined },
+      });
+      setReminderRunResult(response.data);
+      setMessage(
+        `Reminders sent: ${response.data.sent}, failed: ${response.data.failed}, skipped: ${response.data.skipped}.`
+      );
+      if (reminderView === "history") await loadReminderHistory();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to run reminders."));
+    } finally {
+      setReminderRunning(false);
+    }
+  }
+
+  const templateOptionsForChannel = useMemo(() => {
+    return communicationTemplates.filter(
+      (tpl) => tpl.status === "Active" && (!reminderForm.channel || tpl.channel === reminderForm.channel)
+    );
+  }, [communicationTemplates, reminderForm.channel]);
+
   // Auto-generate metadata (last_generated_at) isn't part of the editable
   // form state — read it straight from the loaded list when editing.
   const editingStructure = editingStructureId
@@ -985,6 +1209,11 @@ export default function Fees() {
           <button type="button" className="secondary-button" onClick={handleAddStructure}>
             <Settings2 size={17} />
             Fee Structure
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("reminders")}>
+            <Bell size={17} />
+            Fee Reminders
           </button>
 
           <button type="button" className="primary-button" onClick={handleAddFee}>
@@ -1621,6 +1850,284 @@ export default function Fees() {
             </div>
           </section>
         </>
+      )}
+
+      {pageMode === "reminders" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Fee Reminders</h3>
+              <p>Automatically chase overdue fees on a schedule you define.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          {!feeRemindersEnabled ? (
+            <div className="empty-state">
+              Fee Reminders isn't enabled for your school yet. Ask your platform
+              administrator to turn on "Automated Fee Reminders" first.
+            </div>
+          ) : (
+            <>
+              <div className="student-profile-tabs">
+                <button type="button" className={reminderView === "rules" ? "active" : ""} onClick={() => setReminderView("rules")}>Rules</button>
+                <button type="button" className={reminderView === "preview" ? "active" : ""} onClick={() => setReminderView("preview")}>Preview &amp; Run</button>
+                <button type="button" className={reminderView === "history" ? "active" : ""} onClick={() => setReminderView("history")}>Sent History</button>
+              </div>
+
+              {reminderView === "rules" && (
+                <>
+                  <form className="classic-form" onSubmit={handleReminderRuleSubmit} style={{ marginTop: 16 }}>
+                    <div className="sis-section-title">{editingReminderRuleId ? "Edit Rule" : "Add Reminder Rule"}</div>
+                    <div className="form-grid">
+                      <div className="form-field">
+                        <label>Rule Name *</label>
+                        <input type="text" name="name" value={reminderForm.name} onChange={handleReminderFormChange} required />
+                      </div>
+
+                      <div className="form-field">
+                        <label>Timing (days) *</label>
+                        <input type="number" name="offset_days" value={reminderForm.offset_days} onChange={handleReminderFormChange} required />
+                        <small>
+                          Negative = before the due date, 0 = on the due date, positive = after (overdue).
+                          Currently: {offsetDaysLabel(reminderForm.offset_days)}.
+                        </small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Channel *</label>
+                        <select name="channel" value={reminderForm.channel} onChange={handleReminderFormChange} required>
+                          {reminderChannelOptions.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Message Template</label>
+                        <select name="template_id" value={reminderForm.template_id} onChange={handleReminderFormChange}>
+                          <option value="">Default system message</option>
+                          {templateOptionsForChannel.map((tpl) => (
+                            <option key={tpl.id} value={tpl.id}>{tpl.template_name}</option>
+                          ))}
+                        </select>
+                        <small>Only Active templates for the selected channel are shown.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Minimum Due Amount</label>
+                        <input type="number" name="min_due_amount" min="0" step="0.01" value={reminderForm.min_due_amount} onChange={handleReminderFormChange} />
+                        <small>Don't chase balances smaller than this.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Status</label>
+                        <label className="switch-row">
+                          <input type="checkbox" name="is_active" checked={reminderForm.is_active} onChange={handleReminderFormChange} />
+                          <span>{reminderForm.is_active ? "Active" : "Inactive"}</span>
+                        </label>
+                      </div>
+
+                      <div className="form-field full-width">
+                        <label>Remarks</label>
+                        <textarea name="remarks" rows="2" value={reminderForm.remarks} onChange={handleReminderFormChange}></textarea>
+                      </div>
+                    </div>
+
+                    <div className="form-actions">
+                      <button type="submit" className="primary-button">
+                        <PlusCircle size={18} />
+                        {editingReminderRuleId ? "Update Rule" : "Add Rule"}
+                      </button>
+                      {editingReminderRuleId && (
+                        <button type="button" className="light-button" onClick={handleCancelReminderForm}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+
+                  <div className="table-wrapper" style={{ marginTop: 20 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th><th>When</th><th>Channel</th><th>Template</th>
+                          <th>Min Due</th><th>Status</th><th>Remarks</th><th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reminderRulesLoading && (
+                          <tr><td colSpan={8}>Loading...</td></tr>
+                        )}
+                        {!reminderRulesLoading && reminderRules.map((rule) => (
+                          <tr key={rule.id}>
+                            <td>{rule.name}</td>
+                            <td>{rule.when}</td>
+                            <td>{rule.channel}</td>
+                            <td>{communicationTemplates.find((t) => t.id === rule.template_id)?.template_name || "Default"}</td>
+                            <td>{money(Number(rule.min_due_amount || 0))}</td>
+                            <td>
+                              <span className={rule.is_active ? "status active" : "status warning"}>
+                                {rule.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td>{rule.remarks || "-"}</td>
+                            <td>
+                              <div className="action-buttons">
+                                <button type="button" className="edit-button" onClick={() => handleEditReminderRule(rule)} title="Edit">
+                                  <Edit size={15} />
+                                </button>
+                                <button type="button" className="delete-button" onClick={() => handleDeleteReminderRule(rule)} title="Delete">
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {!reminderRulesLoading && !reminderRules.length && (
+                          <tr><td colSpan={8}>No reminder rules configured yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {reminderView === "preview" && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="filter-row sis-filter-row">
+                    <div className="form-field">
+                      <label>As Of Date</label>
+                      <input
+                        type="date"
+                        value={reminderPreviewDate}
+                        onChange={(e) => setReminderPreviewDate(e.target.value)}
+                      />
+                    </div>
+
+                    <button type="button" className="secondary-button" onClick={runReminderPreview} disabled={reminderPreviewLoading}>
+                      {reminderPreviewLoading ? "Checking..." : "Preview"}
+                    </button>
+
+                    {canRunRemindersNow && (
+                      <button type="button" className="primary-button" onClick={runRemindersNow} disabled={reminderRunning}>
+                        <Send size={17} />
+                        {reminderRunning ? "Sending..." : "Run Now (sends real messages)"}
+                      </button>
+                    )}
+                  </div>
+
+                  {(reminderPreview || reminderRunResult) && (() => {
+                    const result = reminderRunResult || reminderPreview;
+                    return (
+                      <>
+                        <section className="summary-strip report-summary-grid" style={{ marginTop: 16 }}>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>Rules Considered</span><strong>{result.rules}</strong></div>
+                          </div>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>{reminderRunResult ? "Sent" : "Would Send"}</span><strong>{result.sent}</strong></div>
+                          </div>
+                          <div className="summary-card warning">
+                            <Bell size={20} />
+                            <div><span>Skipped</span><strong>{result.skipped}</strong></div>
+                          </div>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>Failed</span><strong>{result.failed}</strong></div>
+                          </div>
+                        </section>
+
+                        {result.note && <p className="hint-text">{result.note}</p>}
+
+                        {result.detail && (
+                          <div className="table-wrapper" style={{ marginTop: 16 }}>
+                            <table className="classic-table">
+                              <thead>
+                                <tr><th>Student</th><th>Rule</th><th>Timing</th><th>Channel</th><th>Outstanding</th></tr>
+                              </thead>
+                              <tbody>
+                                {result.detail.map((row, i) => (
+                                  <tr key={`${row.fee_id}-${i}`}>
+                                    <td>{getStudentName(row.student_id)}</td>
+                                    <td>{row.rule}</td>
+                                    <td>{offsetDaysLabel(row.offset_days)}</td>
+                                    <td>{row.channel}</td>
+                                    <td>{money(Number(row.outstanding || 0))}</td>
+                                  </tr>
+                                ))}
+                                {!result.detail.length && (
+                                  <tr><td colSpan={5}>Nobody would be contacted right now.</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reminderView === "history" && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="filter-row sis-filter-row">
+                    <div className="form-field">
+                      <label>Status</label>
+                      <select value={reminderHistoryStatusFilter} onChange={(e) => setReminderHistoryStatusFilter(e.target.value)}>
+                        <option value="">All Statuses</option>
+                        {reminderStatusOptions.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button type="button" className="light-button" onClick={loadReminderHistory}>
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="table-wrapper" style={{ marginTop: 12 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Student</th><th>Rule</th><th>Status</th><th>Recipient</th>
+                          <th>Outstanding</th><th>Sent At</th><th>Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reminderHistoryLoading && (
+                          <tr><td colSpan={7}>Loading...</td></tr>
+                        )}
+                        {!reminderHistoryLoading && reminderHistory.map((entry) => (
+                          <tr key={entry.id}>
+                            <td>{entry.student || getStudentName(entry.student_id)}</td>
+                            <td>{reminderRules.find((r) => r.id === entry.rule_id)?.name || `Rule #${entry.rule_id}`}</td>
+                            <td>
+                              <span className={reminderStatusClass(entry.status)}>{entry.status}</span>
+                            </td>
+                            <td>{entry.recipient || "-"}</td>
+                            <td>{money(Number(entry.outstanding_amount || 0))}</td>
+                            <td>{formatDateTime(entry.sent_at)}</td>
+                            <td>{entry.error_message || entry.skip_reason || "-"}</td>
+                          </tr>
+                        ))}
+                        {!reminderHistoryLoading && !reminderHistory.length && (
+                          <tr><td colSpan={7}>No reminders sent yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       )}
 
       {pageMode === "list" && (
