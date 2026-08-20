@@ -8655,3 +8655,65 @@ textarea:focus-visible {
 .dashboard .panel.panel {
   box-shadow: var(--shadow-sm);
 }
+
+/* ---------------------------------------------------------------------------
+ * Inventory: kits and staff issuance
+ * ------------------------------------------------------------------------- */
+
+.hint-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.kit-items-editor {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.kit-items-editor h4 {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-strong);
+}
+
+.staff-recipient-picker {
+  margin-top: 4px;
+}
+
+.staff-picker-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.staff-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  margin-top: 6px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.staff-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.staff-checklist-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
