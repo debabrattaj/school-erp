@@ -1719,7 +1719,40 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 56px;
   padding: 24px;
+}
+
+.login-illustration-panel {
+  display: none;
+  max-width: 340px;
+  color: var(--surface);
+  text-align: center;
+}
+
+.login-illustration-panel svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.2));
+}
+
+.login-illustration-panel h2 {
+  margin: 20px 0 8px;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.login-illustration-panel p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+@media (min-width: 960px) {
+  .login-illustration-panel {
+    display: block;
+  }
 }
 
 .login-card {

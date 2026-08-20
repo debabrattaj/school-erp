@@ -111,10 +111,7 @@ export default function FloatingAssistant() {
     });
   }
 
-  const buttonStyle = {
-    padding: open ? "0.85rem" : "0.85rem 1.25rem",
-    ...(pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : {}),
-  };
+  const buttonStyle = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined;
 
   return (
     <>
@@ -158,7 +155,6 @@ export default function FloatingAssistant() {
         style={buttonStyle}
       >
         {open ? <X size={20} /> : <MessageCircle size={20} />}
-        {!open && "Ask Now"}
       </button>
     </>
   );
