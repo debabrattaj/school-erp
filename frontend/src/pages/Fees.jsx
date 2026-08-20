@@ -17,6 +17,10 @@ import {
   History,
   Bell,
   Send,
+  Percent,
+  Check,
+  Undo2,
+  RefreshCcw,
 } from "lucide-react";
 
 import API from "../api";
@@ -118,6 +122,43 @@ function reminderStatusClass(status) {
   if (text === "failed") return "status danger";
   if (text === "superseded") return "status pending";
   return "status warning"; // Skipped
+}
+
+const emptySchemeForm = {
+  code: "",
+  name: "",
+  category: "",
+  discount_type: "percent",
+  discount_value: "0",
+  applies_to_fee_type: "",
+  is_active: true,
+  remarks: "",
+};
+
+const emptyGrantForm = {
+  student_id: "",
+  scheme_id: "",
+  academic_year: "",
+  discount_type: "",
+  discount_value: "",
+  reason: "",
+  valid_from: "",
+  valid_to: "",
+};
+
+const grantStatusOptions = ["Requested", "Approved", "Rejected", "Revoked"];
+
+function discountLabel(discountType, value, money) {
+  const v = Number(value || 0);
+  if (String(discountType || "percent").toLowerCase() === "fixed") return money(v);
+  return `${v}%`;
+}
+
+function grantStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "approved") return "status active";
+  if (text === "rejected" || text === "revoked") return "status danger";
+  return "status warning"; // Requested
 }
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -284,6 +325,28 @@ export default function Fees() {
   const [reminderHistoryLoading, setReminderHistoryLoading] = useState(false);
   const [reminderHistoryStatusFilter, setReminderHistoryStatusFilter] = useState("");
 
+  const canApproveConcessions = hasAccess(["Admin", "Principal"]);
+
+  const [concessionView, setConcessionView] = useState("schemes");
+
+  const [concessionSchemes, setConcessionSchemes] = useState([]);
+  const [concessionSchemesLoading, setConcessionSchemesLoading] = useState(false);
+  const [schemeForm, setSchemeForm] = useState(emptySchemeForm);
+  const [editingSchemeId, setEditingSchemeId] = useState(null);
+
+  const [concessionGrants, setConcessionGrants] = useState([]);
+  const [concessionGrantsLoading, setConcessionGrantsLoading] = useState(false);
+  const [grantForm, setGrantForm] = useState(emptyGrantForm);
+  const [grantStatusFilter, setGrantStatusFilter] = useState("");
+
+  const [previewStudentId, setPreviewStudentId] = useState("");
+  const [previewAmount, setPreviewAmount] = useState("");
+  const [previewFeeType, setPreviewFeeType] = useState("");
+  const [previewAcademicYear, setPreviewAcademicYear] = useState("");
+  const [concessionPreview, setConcessionPreview] = useState(null);
+  const [concessionPreviewLoading, setConcessionPreviewLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -406,6 +469,34 @@ export default function Fees() {
     }
   }
 
+  async function loadConcessionSchemes() {
+    try {
+      setConcessionSchemesLoading(true);
+      const response = await API.get("/concessions/schemes");
+      setConcessionSchemes(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load concession schemes."));
+    } finally {
+      setConcessionSchemesLoading(false);
+    }
+  }
+
+  async function loadConcessionGrants() {
+    try {
+      setConcessionGrantsLoading(true);
+      const response = await API.get("/concessions/grants", {
+        params: { status: grantStatusFilter || undefined },
+      });
+      setConcessionGrants(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load concession grants."));
+    } finally {
+      setConcessionGrantsLoading(false);
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -443,6 +534,18 @@ export default function Fees() {
     loadReminderHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageMode, feeRemindersEnabled, reminderView, reminderHistoryStatusFilter]);
+
+  useEffect(() => {
+    if (pageMode !== "concessions") return;
+    loadConcessionSchemes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode]);
+
+  useEffect(() => {
+    if (pageMode !== "concessions" || concessionView !== "grants") return;
+    loadConcessionGrants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, concessionView, grantStatusFilter]);
 
   const studentMap = useMemo(() => {
     const map = {};
@@ -1144,6 +1247,205 @@ export default function Fees() {
     );
   }, [communicationTemplates, reminderForm.channel]);
 
+  function handleSchemeFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setSchemeForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleEditScheme(scheme) {
+    setEditingSchemeId(scheme.id);
+    setSchemeForm({
+      code: scheme.code || "",
+      name: scheme.name || "",
+      category: scheme.category || "",
+      discount_type: scheme.discount_type || "percent",
+      discount_value: String(scheme.discount_value ?? 0),
+      applies_to_fee_type: scheme.applies_to_fee_type || "",
+      is_active: scheme.is_active !== false,
+      remarks: scheme.remarks || "",
+    });
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelSchemeForm() {
+    setEditingSchemeId(null);
+    setSchemeForm(emptySchemeForm);
+    setMessage("");
+  }
+
+  async function handleSchemeSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!schemeForm.code.trim() || !schemeForm.name.trim()) {
+      setMessage("Code and name are required.");
+      return;
+    }
+
+    const payload = {
+      name: schemeForm.name.trim(),
+      category: schemeForm.category || null,
+      discount_type: schemeForm.discount_type,
+      discount_value: Number(schemeForm.discount_value || 0),
+      applies_to_fee_type: schemeForm.applies_to_fee_type || null,
+      is_active: schemeForm.is_active,
+      remarks: schemeForm.remarks || null,
+    };
+
+    try {
+      if (editingSchemeId) {
+        await API.put(`/concessions/schemes/${editingSchemeId}`, payload);
+        setMessage("Scheme updated.");
+      } else {
+        await API.post("/concessions/schemes", { ...payload, code: schemeForm.code.trim() });
+        setMessage("Scheme added.");
+      }
+      handleCancelSchemeForm();
+      await loadConcessionSchemes();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save scheme."));
+    }
+  }
+
+  async function handleDeleteScheme(scheme) {
+    const confirmDelete = window.confirm(`Delete the concession scheme "${scheme.name}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/concessions/schemes/${scheme.id}`);
+      setMessage("Scheme deleted.");
+      await loadConcessionSchemes();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete scheme."));
+    }
+  }
+
+  function handleGrantFormChange(e) {
+    const { name, value } = e.target;
+    setGrantForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleCancelGrantForm() {
+    setGrantForm(emptyGrantForm);
+    setMessage("");
+  }
+
+  async function handleGrantSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!grantForm.student_id || !grantForm.scheme_id) {
+      setMessage("Student and Scheme are required.");
+      return;
+    }
+
+    const payload = {
+      student_id: Number(grantForm.student_id),
+      scheme_id: Number(grantForm.scheme_id),
+      academic_year: grantForm.academic_year || null,
+      discount_type: grantForm.discount_type || null,
+      discount_value: grantForm.discount_value !== "" ? Number(grantForm.discount_value) : null,
+      reason: grantForm.reason || null,
+      valid_from: grantForm.valid_from || null,
+      valid_to: grantForm.valid_to || null,
+    };
+
+    try {
+      await API.post("/concessions/grants", payload);
+      setMessage("Concession requested — awaiting approval.");
+      handleCancelGrantForm();
+      await loadConcessionGrants();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to request concession."));
+    }
+  }
+
+  async function decideGrant(grant, action) {
+    const verb = action === "approve" ? "approve" : action === "reject" ? "reject" : "revoke";
+    const confirmDecide = window.confirm(
+      `${verb.charAt(0).toUpperCase()}${verb.slice(1)} the concession for ${getStudentName(grant.student_id)} (${grant.scheme_name})?`
+    );
+    if (!confirmDecide) return;
+
+    const note = window.prompt("Decision note (optional):") || undefined;
+
+    try {
+      const response = await API.post(`/concessions/grants/${grant.id}/${action}`, { note });
+      const updatedCount = response.data?.fees_updated?.length || 0;
+      setMessage(
+        updatedCount
+          ? `Grant ${verb}d — ${updatedCount} unpaid fee(s) recalculated.`
+          : `Grant ${verb}d.`
+      );
+      await loadConcessionGrants();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, `Unable to ${verb} grant.`));
+    }
+  }
+
+  async function runConcessionPreview() {
+    if (!previewStudentId || !previewAmount) {
+      setMessage("Select a student and enter an amount to preview.");
+      return;
+    }
+
+    try {
+      setConcessionPreviewLoading(true);
+      setConcessionPreview(null);
+      const response = await API.get("/concessions/preview", {
+        params: {
+          student_id: Number(previewStudentId),
+          amount: Number(previewAmount),
+          fee_type: previewFeeType || undefined,
+          academic_year: previewAcademicYear || undefined,
+        },
+      });
+      setConcessionPreview(response.data);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to preview concession."));
+    } finally {
+      setConcessionPreviewLoading(false);
+    }
+  }
+
+  async function runRecalculateAll() {
+    const confirmRecalc = window.confirm(
+      previewStudentId
+        ? `Recalculate concessions on every unpaid fee for ${getStudentName(previewStudentId)}?`
+        : "Recalculate concessions on every unpaid fee, for every student? This can affect a lot of records."
+    );
+    if (!confirmRecalc) return;
+
+    try {
+      setRecalculating(true);
+      const response = await API.post("/concessions/recalculate", null, {
+        params: { student_id: previewStudentId ? Number(previewStudentId) : undefined },
+      });
+      setMessage(
+        `Recalculated: ${response.data.changed} fee(s) changed, ${response.data.skipped} skipped` +
+        (response.data.part_paid_skipped?.length
+          ? ` (${response.data.part_paid_skipped.length} already part-paid).`
+          : ".")
+      );
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to recalculate concessions."));
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
+  const activeConcessionSchemes = useMemo(
+    () => concessionSchemes.filter((s) => s.is_active),
+    [concessionSchemes]
+  );
+
   // Auto-generate metadata (last_generated_at) isn't part of the editable
   // form state — read it straight from the loaded list when editing.
   const editingStructure = editingStructureId
@@ -1214,6 +1516,11 @@ export default function Fees() {
           <button type="button" className="secondary-button" onClick={() => setPageMode("reminders")}>
             <Bell size={17} />
             Fee Reminders
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("concessions")}>
+            <Percent size={17} />
+            Concessions
           </button>
 
           <button type="button" className="primary-button" onClick={handleAddFee}>
@@ -2126,6 +2433,417 @@ export default function Fees() {
                 </div>
               )}
             </>
+          )}
+        </section>
+      )}
+
+      {pageMode === "concessions" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Fee Concessions &amp; Scholarships</h3>
+              <p>Define what the school offers, and grant it to individual students with approval.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          <div className="student-profile-tabs">
+            <button type="button" className={concessionView === "schemes" ? "active" : ""} onClick={() => setConcessionView("schemes")}>Schemes</button>
+            <button type="button" className={concessionView === "grants" ? "active" : ""} onClick={() => setConcessionView("grants")}>Grants</button>
+            <button type="button" className={concessionView === "preview" ? "active" : ""} onClick={() => setConcessionView("preview")}>Preview &amp; Recalculate</button>
+          </div>
+
+          {concessionView === "schemes" && (
+            <>
+              <form className="classic-form" onSubmit={handleSchemeSubmit} style={{ marginTop: 16 }}>
+                <div className="sis-section-title">{editingSchemeId ? "Edit Scheme" : "Add Concession Scheme"}</div>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Code *</label>
+                    <input
+                      type="text"
+                      name="code"
+                      value={schemeForm.code}
+                      onChange={handleSchemeFormChange}
+                      required
+                      disabled={Boolean(editingSchemeId)}
+                    />
+                    {editingSchemeId && <small>Code cannot be changed after creation.</small>}
+                  </div>
+
+                  <div className="form-field">
+                    <label>Name *</label>
+                    <input type="text" name="name" value={schemeForm.name} onChange={handleSchemeFormChange} required />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Category</label>
+                    <input
+                      type="text"
+                      name="category"
+                      value={schemeForm.category}
+                      onChange={handleSchemeFormChange}
+                      placeholder="e.g. Sibling, Merit, Staff Ward"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Discount Type *</label>
+                    <select name="discount_type" value={schemeForm.discount_type} onChange={handleSchemeFormChange} required>
+                      <option value="percent">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Discount Value *</label>
+                    <input
+                      type="number"
+                      name="discount_value"
+                      min="0"
+                      step="0.01"
+                      max={schemeForm.discount_type === "percent" ? 100 : undefined}
+                      value={schemeForm.discount_value}
+                      onChange={handleSchemeFormChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Applies To Fee Type</label>
+                    <select name="applies_to_fee_type" value={schemeForm.applies_to_fee_type} onChange={handleSchemeFormChange}>
+                      <option value="">All Fee Types</option>
+                      {feeTypes.map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Status</label>
+                    <label className="switch-row">
+                      <input type="checkbox" name="is_active" checked={schemeForm.is_active} onChange={handleSchemeFormChange} />
+                      <span>{schemeForm.is_active ? "Active" : "Inactive"}</span>
+                    </label>
+                  </div>
+
+                  <div className="form-field full-width">
+                    <label>Remarks</label>
+                    <textarea name="remarks" rows="2" value={schemeForm.remarks} onChange={handleSchemeFormChange}></textarea>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    <PlusCircle size={18} />
+                    {editingSchemeId ? "Update Scheme" : "Add Scheme"}
+                  </button>
+                  {editingSchemeId && (
+                    <button type="button" className="light-button" onClick={handleCancelSchemeForm}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <div className="table-wrapper" style={{ marginTop: 20 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th><th>Name</th><th>Category</th><th>Discount</th>
+                      <th>Applies To</th><th>Status</th><th>Remarks</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {concessionSchemesLoading && (
+                      <tr><td colSpan={8}>Loading...</td></tr>
+                    )}
+                    {!concessionSchemesLoading && concessionSchemes.map((scheme) => (
+                      <tr key={scheme.id}>
+                        <td>{scheme.code}</td>
+                        <td>{scheme.name}</td>
+                        <td>{scheme.category || "-"}</td>
+                        <td>{discountLabel(scheme.discount_type, scheme.discount_value, money)}</td>
+                        <td>{scheme.applies_to_fee_type || "All"}</td>
+                        <td>
+                          <span className={scheme.is_active ? "status active" : "status warning"}>
+                            {scheme.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td>{scheme.remarks || "-"}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button type="button" className="edit-button" onClick={() => handleEditScheme(scheme)} title="Edit">
+                              <Edit size={15} />
+                            </button>
+                            <button type="button" className="delete-button" onClick={() => handleDeleteScheme(scheme)} title="Delete">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!concessionSchemesLoading && !concessionSchemes.length && (
+                      <tr><td colSpan={8}>No concession schemes configured yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {concessionView === "grants" && (
+            <>
+              <form className="classic-form" onSubmit={handleGrantSubmit} style={{ marginTop: 16 }}>
+                <div className="sis-section-title">Request a Concession</div>
+                <div className="form-grid">
+                  <StudentPicker students={students} value={grantForm.student_id} onChange={handleGrantFormChange} />
+
+                  <div className="form-field">
+                    <label>Scheme *</label>
+                    <select name="scheme_id" value={grantForm.scheme_id} onChange={handleGrantFormChange} required>
+                      <option value="">Select Scheme</option>
+                      {activeConcessionSchemes.map((scheme) => (
+                        <option key={scheme.id} value={scheme.id}>
+                          {scheme.name} ({discountLabel(scheme.discount_type, scheme.discount_value, money)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Academic Year</label>
+                    <select name="academic_year" value={grantForm.academic_year} onChange={handleGrantFormChange}>
+                      <option value="">Select academic year</option>
+                      {academicYears.map((year) => (
+                        <option key={year.id} value={year.name}>{year.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Override Discount Type</label>
+                    <select name="discount_type" value={grantForm.discount_type} onChange={handleGrantFormChange}>
+                      <option value="">Use scheme default</option>
+                      <option value="percent">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Override Discount Value</label>
+                    <input
+                      type="number"
+                      name="discount_value"
+                      min="0"
+                      step="0.01"
+                      value={grantForm.discount_value}
+                      onChange={handleGrantFormChange}
+                      placeholder="Leave blank to use scheme default"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Valid From</label>
+                    <input type="date" name="valid_from" value={grantForm.valid_from} onChange={handleGrantFormChange} />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Valid To</label>
+                    <input type="date" name="valid_to" value={grantForm.valid_to} onChange={handleGrantFormChange} />
+                  </div>
+
+                  <div className="form-field full-width">
+                    <label>Reason</label>
+                    <textarea name="reason" rows="2" value={grantForm.reason} onChange={handleGrantFormChange}></textarea>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    <PlusCircle size={18} />
+                    Request Concession
+                  </button>
+                </div>
+              </form>
+
+              <div className="filter-row sis-filter-row" style={{ marginTop: 20 }}>
+                <div className="form-field">
+                  <label>Status</label>
+                  <select value={grantStatusFilter} onChange={(e) => setGrantStatusFilter(e.target.value)}>
+                    <option value="">All Statuses</option>
+                    {grantStatusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="table-wrapper" style={{ marginTop: 12 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th><th>Scheme</th><th>Year</th><th>Discount</th>
+                      <th>Status</th><th>Requested</th><th>Decided</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {concessionGrantsLoading && (
+                      <tr><td colSpan={8}>Loading...</td></tr>
+                    )}
+                    {!concessionGrantsLoading && concessionGrants.map((grant) => (
+                      <tr key={grant.id}>
+                        <td>{getStudentName(grant.student_id)}</td>
+                        <td>{grant.scheme_name || `Scheme #${grant.scheme_id}`}</td>
+                        <td>{grant.academic_year || "-"}</td>
+                        <td>
+                          {grant.discount_value != null
+                            ? discountLabel(grant.discount_type, grant.discount_value, money)
+                            : "Scheme default"}
+                        </td>
+                        <td>
+                          <span className={grantStatusClass(grant.status)}>{grant.status}</span>
+                        </td>
+                        <td>
+                          {grant.requested_by || "-"}
+                          {grant.requested_at ? ` (${formatDateTime(grant.requested_at)})` : ""}
+                        </td>
+                        <td>
+                          {grant.decided_by ? `${grant.decided_by} (${formatDateTime(grant.decided_at)})` : "-"}
+                        </td>
+                        <td>
+                          {canApproveConcessions && grant.status === "Requested" && (
+                            <div className="action-buttons">
+                              <button type="button" className="edit-button" onClick={() => decideGrant(grant, "approve")} title="Approve">
+                                <Check size={15} />
+                              </button>
+                              <button type="button" className="delete-button" onClick={() => decideGrant(grant, "reject")} title="Reject">
+                                <X size={15} />
+                              </button>
+                            </div>
+                          )}
+                          {canApproveConcessions && grant.status === "Approved" && (
+                            <div className="action-buttons">
+                              <button type="button" className="delete-button" onClick={() => decideGrant(grant, "revoke")} title="Revoke">
+                                <Undo2 size={15} />
+                              </button>
+                            </div>
+                          )}
+                          {(!canApproveConcessions || (grant.status !== "Requested" && grant.status !== "Approved")) && "-"}
+                        </td>
+                      </tr>
+                    ))}
+                    {!concessionGrantsLoading && !concessionGrants.length && (
+                      <tr><td colSpan={8}>No concession grants yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {concessionView === "preview" && (
+            <div style={{ marginTop: 16 }}>
+              <div className="form-grid">
+                <StudentPicker
+                  students={students}
+                  value={previewStudentId}
+                  onChange={(e) => setPreviewStudentId(e.target.value)}
+                  label="Student"
+                  required={false}
+                />
+
+                <div className="form-field">
+                  <label>Amount *</label>
+                  <input type="number" min="0" step="0.01" value={previewAmount} onChange={(e) => setPreviewAmount(e.target.value)} />
+                </div>
+
+                <div className="form-field">
+                  <label>Fee Type</label>
+                  <select value={previewFeeType} onChange={(e) => setPreviewFeeType(e.target.value)}>
+                    <option value="">Any</option>
+                    {feeTypes.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Academic Year</label>
+                  <select value={previewAcademicYear} onChange={(e) => setPreviewAcademicYear(e.target.value)}>
+                    <option value="">Any</option>
+                    {academicYears.map((year) => (
+                      <option key={year.id} value={year.name}>{year.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="secondary-button" onClick={runConcessionPreview} disabled={concessionPreviewLoading}>
+                  {concessionPreviewLoading ? "Checking..." : "Preview"}
+                </button>
+                {canApproveConcessions && (
+                  <button type="button" className="primary-button" onClick={runRecalculateAll} disabled={recalculating}>
+                    <RefreshCcw size={17} />
+                    {recalculating
+                      ? "Recalculating..."
+                      : previewStudentId
+                      ? "Recalculate This Student"
+                      : "Recalculate All Unpaid Fees"}
+                  </button>
+                )}
+              </div>
+
+              {concessionPreview && (
+                <>
+                  <section className="summary-strip report-summary-grid" style={{ marginTop: 16 }}>
+                    <div className="summary-card">
+                      <Percent size={20} />
+                      <div><span>Base Amount</span><strong>{money(concessionPreview.base_amount)}</strong></div>
+                    </div>
+                    <div className="summary-card warning">
+                      <Percent size={20} />
+                      <div><span>Concession</span><strong>{money(concessionPreview.concession_amount)}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <Percent size={20} />
+                      <div><span>Payable</span><strong>{money(concessionPreview.payable_amount)}</strong></div>
+                    </div>
+                  </section>
+
+                  {concessionPreview.capped && (
+                    <p className="hint-text">
+                      This student's schemes add up to more than the fee itself — the discount shown is capped at the full amount.
+                    </p>
+                  )}
+
+                  <div className="table-wrapper" style={{ marginTop: 16 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr><th>Scheme</th><th>Category</th><th>Rate</th><th>Amount</th></tr>
+                      </thead>
+                      <tbody>
+                        {concessionPreview.lines.map((line) => (
+                          <tr key={line.grant_id}>
+                            <td>{line.scheme_name}</td>
+                            <td>{line.category || "-"}</td>
+                            <td>{line.label}</td>
+                            <td>{money(line.amount)}</td>
+                          </tr>
+                        ))}
+                        {!concessionPreview.lines.length && (
+                          <tr><td colSpan={4}>No approved concessions apply.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </section>
       )}
