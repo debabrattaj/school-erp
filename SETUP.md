@@ -784,6 +784,80 @@ batch: shared hosting kills a long-running cron, and a half-sent batch that
 cannot say how far it got is worse than a small one, so the default is 200
 and the rest goes next run.
 
+## 8i. Inventory kits: reusable annual entitlements for students and staff
+
+Uniforms, bags, shoes -- fixed items a school issues to every student once a
+year, on top of which a student can pay to replace one they lost. Staff
+receive their own predefined items the same way, but never buy.
+`backend/app/inventory_kits.py` holds the logic that keeps the two apart,
+`backend/app/routes/inventory.py` the endpoints.
+
+This extends the inventory module that was already there (items, stock,
+Issue/Purchase/Return transactions, per-cycle dedup) rather than replacing
+it -- that engine was sound. What was missing was a way to save a set of
+items as a reusable kit, and a real path for issuing to staff.
+
+### A kit is scoped to one audience
+
+`InventoryKit.applies_to` is `Student` or `Staff`, chosen once when the kit
+is created. **A student kit cannot be bulk-issued to staff, and a staff kit
+cannot be bulk-issued to students** -- checked before anything is written,
+not left to an admin noticing the mistake afterwards. The two entitlements
+are genuinely different: a lost uniform item can be bought again by a
+student; nothing a member of staff loses is ever sold back to them.
+
+### Staff never buy
+
+`transaction_type == "Purchase"` is refused outright if it names a teacher,
+whether through the new `issued_to_teacher_id` column or the older free-text
+`issued_to_staff`. A purchase is always a student replacing something they
+lost, paid for individually through `POST /inventory/transactions/` with an
+`amount` — never through a bulk kit run, which only ever records `Issue`.
+
+### Reusing what already worked
+
+Bulk issue is the same endpoint as before (`POST /inventory/bulk-issue`),
+extended rather than replaced: it now accepts a `kit_id` as an alternative
+to the original ad-hoc `items` list, and `teacher_ids` alongside
+`student_ids`. A call using only the original fields — no `kit_id`, no
+`teacher_ids` — behaves exactly as it always did; this is what the existing
+frontend still sends.
+
+**Per-cycle, per-year dedup is unchanged and now covers staff too.** A
+repeat run for the same `cycle` + `academic_year` skips anyone who already
+received that item rather than issuing it twice, whether the recipient is a
+student or a teacher. A new academic year re-entitles everyone.
+
+Stock still runs out honestly: if a kit's items can't all be covered, only
+the short item is skipped (`skipped_insufficient_stock: true`) — everything
+else in the kit that has stock still goes out, and the response reports
+which item to reorder.
+
+### issued_to_teacher_id vs issued_to_staff
+
+`issued_to_staff` (free text) predates this and stays, for anyone genuinely
+outside the staff directory — a contractor, a vendor's representative.
+New staff issuance uses `issued_to_teacher_id`, a real foreign key to
+`teachers.id` (which is this schema's staff table generally, not only
+classroom teachers). `serialize_transaction` resolves it to a name the same
+way it already resolves a student.
+
+### Two data-loss bugs fixed while extending this
+
+**Deleting an item used to silently delete its whole transaction history.**
+`item_id` cascades on `InventoryTransaction`, so removing an item took every
+Issue, Purchase and Return row tied to it with it — including the record of
+who paid for a lost-item replacement. `DELETE /inventory/items/{id}` now
+refuses when the item has any transaction history, the same protection
+already applied elsewhere in this codebase to a used leave type or a granted
+concession scheme. Mark the item Inactive instead.
+
+**An item still listed inside a kit can no longer be deleted out from under
+it** — remove it from the kit first, then delete it.
+
+A kit itself follows the same rule: one that has already been issued cannot
+be deleted, only deactivated, so the record of what was given out survives.
+
 ## 9. Scheduled fee auto-generation
 
 Fee Structures (`/fee-structures`) can bill themselves automatically on a

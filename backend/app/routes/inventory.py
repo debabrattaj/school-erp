@@ -3,15 +3,21 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import inventory_kits
 from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
-from app.models import InventoryItem, InventoryTransaction, Student, User
+from app.models import InventoryItem, InventoryKit, InventoryKitItem, InventoryTransaction, Student, Teacher, User
 from app.schemas import (
     InventoryBulkIssueRequest,
     InventoryBulkIssueResponse,
     InventoryBulkIssueResult,
     InventoryItemCreate,
     InventoryItemResponse,
+    InventoryKitCreate,
+    InventoryKitItemCreate,
+    InventoryKitItemResponse,
+    InventoryKitResponse,
+    InventoryKitUpdate,
     InventoryTransactionCreate,
     InventoryTransactionResponse,
 )
@@ -31,10 +37,6 @@ ITEM_BULK_IMPORT_COLUMNS = [
     "remarks",
 ]
 
-OUT_TYPES = {"Stock Out", "Issue", "Purchase"}
-IN_TYPES = {"Stock In", "Return"}
-
-
 def get_or_404(db: Session, model, record_id: int, label: str):
     record = db.query(model).filter(model.id == record_id).first()
     if not record:
@@ -48,18 +50,13 @@ def student_name(student: Student):
 
 
 def apply_stock(item: InventoryItem, transaction_type: str, quantity: float, direction: int = 1):
-    if quantity <= 0:
-        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
-
-    if transaction_type in IN_TYPES:
-        item.quantity_available += quantity * direction
-    elif transaction_type in OUT_TYPES:
-        next_quantity = item.quantity_available - (quantity * direction)
-        if next_quantity < 0:
-            raise HTTPException(status_code=400, detail="Not enough stock available")
-        item.quantity_available = next_quantity
-    elif transaction_type == "Adjustment":
-        item.quantity_available += quantity * direction
+    """Route-facing wrapper: same math as inventory_kits.apply_stock, raising
+    HTTPException instead of InventoryError since every caller here is a
+    route handler."""
+    try:
+        inventory_kits.apply_stock(item, transaction_type, quantity, direction)
+    except inventory_kits.InventoryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 def serialize_transaction(record: InventoryTransaction, db: Session):
@@ -67,6 +64,9 @@ def serialize_transaction(record: InventoryTransaction, db: Session):
     student = None
     if record.issued_to_student_id:
         student = db.query(Student).filter(Student.id == record.issued_to_student_id).first()
+    teacher = None
+    if record.issued_to_teacher_id:
+        teacher = db.query(Teacher).filter(Teacher.id == record.issued_to_teacher_id).first()
 
     return {
         "id": record.id,
@@ -76,6 +76,8 @@ def serialize_transaction(record: InventoryTransaction, db: Session):
         "quantity": record.quantity,
         "issued_to_student_id": record.issued_to_student_id,
         "issued_to_staff": record.issued_to_staff,
+        "issued_to_teacher_id": record.issued_to_teacher_id,
+        "kit_id": record.kit_id,
         "reference_no": record.reference_no,
         "unit_cost": record.unit_cost,
         "total_cost": record.total_cost,
@@ -91,6 +93,7 @@ def serialize_transaction(record: InventoryTransaction, db: Session):
         "admission_no": student.admission_no if student else None,
         "class_name": student.class_name if student else None,
         "section": student.section if student else None,
+        "teacher_name": teacher.name if teacher else None,
     }
 
 
@@ -233,9 +236,163 @@ def delete_item(
     current_user: User = Depends(require_roles(["Admin"])),
 ):
     item = get_or_404(db, InventoryItem, item_id, "Inventory item")
+
+    # item_id cascades on InventoryTransaction, so deleting an item used to
+    # silently take its whole history with it -- including the record of who
+    # paid for a lost-item replacement. Refuse instead, matching how a
+    # concession scheme or leave type that has been used cannot be deleted.
+    if db.query(InventoryTransaction).filter(InventoryTransaction.item_id == item_id).first():
+        raise HTTPException(
+            status_code=400,
+            detail="This item has transaction history and cannot be deleted. Mark it Inactive instead.",
+        )
+    if db.query(InventoryKitItem).filter(InventoryKitItem.item_id == item_id).first():
+        raise HTTPException(
+            status_code=400,
+            detail="This item is part of a kit. Remove it from the kit first.",
+        )
+
     db.delete(item)
     db.commit()
     return {"message": "Inventory item deleted successfully"}
+
+
+def serialize_kit(kit: InventoryKit, db: Session) -> dict:
+    rows = (
+        db.query(InventoryKitItem, InventoryItem)
+        .join(InventoryItem, InventoryItem.id == InventoryKitItem.item_id)
+        .filter(InventoryKitItem.kit_id == kit.id)
+        .order_by(InventoryKitItem.id)
+        .all()
+    )
+    return {
+        "id": kit.id, "name": kit.name, "applies_to": kit.applies_to,
+        "is_active": kit.is_active, "remarks": kit.remarks,
+        "items": [
+            {
+                "id": kit_item.id, "item_id": item.id, "item_name": item.item_name,
+                "unit": item.unit, "quantity": kit_item.quantity,
+            }
+            for kit_item, item in rows
+        ],
+    }
+
+
+# ---------------- Kits ----------------
+
+
+@router.get("/kits", response_model=list[InventoryKitResponse])
+def list_kits(
+    applies_to: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
+):
+    query = db.query(InventoryKit)
+    if applies_to:
+        query = query.filter(InventoryKit.applies_to == applies_to)
+    kits = query.order_by(InventoryKit.name).all()
+    return [serialize_kit(k, db) for k in kits]
+
+
+@router.post("/kits", response_model=InventoryKitResponse)
+def create_kit(
+    payload: InventoryKitCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="Kit name is required.")
+    if payload.applies_to not in inventory_kits.APPLIES_TO:
+        raise HTTPException(
+            status_code=400,
+            detail=f"applies_to must be one of: {', '.join(inventory_kits.APPLIES_TO)}.",
+        )
+
+    kit = InventoryKit(
+        name=payload.name.strip(), applies_to=payload.applies_to,
+        is_active=payload.is_active, remarks=payload.remarks,
+    )
+    db.add(kit)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A kit with this name already exists.")
+    db.refresh(kit)
+    return serialize_kit(kit, db)
+
+
+@router.put("/kits/{kit_id}", response_model=InventoryKitResponse)
+def update_kit(
+    kit_id: int,
+    payload: InventoryKitUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    kit = get_or_404(db, InventoryKit, kit_id, "Inventory kit")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(kit, key, value)
+    db.commit()
+    db.refresh(kit)
+    return serialize_kit(kit, db)
+
+
+@router.delete("/kits/{kit_id}")
+def delete_kit(
+    kit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin"])),
+):
+    kit = get_or_404(db, InventoryKit, kit_id, "Inventory kit")
+    if db.query(InventoryTransaction).filter(InventoryTransaction.kit_id == kit_id).first():
+        raise HTTPException(
+            status_code=400,
+            detail="This kit has already been issued and cannot be deleted. Mark it Inactive instead.",
+        )
+    db.delete(kit)
+    db.commit()
+    return {"message": "Kit deleted successfully"}
+
+
+@router.post("/kits/{kit_id}/items", response_model=InventoryKitResponse)
+def add_kit_item(
+    kit_id: int,
+    payload: InventoryKitItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    kit = get_or_404(db, InventoryKit, kit_id, "Inventory kit")
+    get_or_404(db, InventoryItem, payload.item_id, "Inventory item")
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero.")
+
+    db.add(InventoryKitItem(kit_id=kit.id, item_id=payload.item_id, quantity=payload.quantity))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="This item is already in the kit.")
+    return serialize_kit(kit, db)
+
+
+@router.delete("/kits/{kit_id}/items/{item_id}", response_model=InventoryKitResponse)
+def remove_kit_item(
+    kit_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    kit = get_or_404(db, InventoryKit, kit_id, "Inventory kit")
+    row = (
+        db.query(InventoryKitItem)
+        .filter(InventoryKitItem.kit_id == kit_id, InventoryKitItem.item_id == item_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="That item is not in this kit.")
+    db.delete(row)
+    db.commit()
+    return serialize_kit(kit, db)
 
 
 @router.get("/transactions/", response_model=list[InventoryTransactionResponse])
@@ -263,12 +420,22 @@ def create_transaction(
     item = get_or_404(db, InventoryItem, payload.item_id, "Inventory item")
     if payload.issued_to_student_id:
         get_or_404(db, Student, payload.issued_to_student_id, "Student")
+    if payload.issued_to_teacher_id:
+        get_or_404(db, Teacher, payload.issued_to_teacher_id, "Teacher")
+
+    try:
+        inventory_kits.validate_purchase_is_student_only(
+            payload.transaction_type, payload.issued_to_student_id,
+            payload.issued_to_teacher_id, payload.issued_to_staff,
+        )
+    except inventory_kits.InventoryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     apply_stock(item, payload.transaction_type, payload.quantity)
 
     data = payload.model_dump()
     unit_cost = data.get("unit_cost")
-    if unit_cost is None and payload.transaction_type in IN_TYPES:
+    if unit_cost is None and payload.transaction_type in inventory_kits.IN_TYPES:
         unit_cost = item.unit_price or 0
     data["unit_cost"] = unit_cost
     data["total_cost"] = (unit_cost or 0) * payload.quantity if unit_cost else None
@@ -289,80 +456,54 @@ def bulk_issue(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
 ):
-    if not payload.student_ids:
-        raise HTTPException(status_code=400, detail="Select at least one student")
-    if not payload.items:
-        raise HTTPException(status_code=400, detail="Select at least one item to issue")
+    """Issue a saved kit, or an ad-hoc list of items, to students and/or staff.
 
-    student_ids = list(dict.fromkeys(payload.student_ids))
-    students = db.query(Student).filter(Student.id.in_(student_ids)).all()
-    found_ids = {s.id for s in students}
-    missing = [sid for sid in student_ids if sid not in found_ids]
-    if missing:
-        raise HTTPException(status_code=404, detail=f"Student(s) not found: {missing}")
+    A bulk run is entitlement only -- it always records "Issue", never a
+    purchase. A student buying a lost-item replacement is recorded
+    individually through POST /transactions/, where it can be tied to one
+    payment.
+    """
+    student_ids = list(dict.fromkeys(payload.student_ids or []))
+    teacher_ids = list(dict.fromkeys(payload.teacher_ids or []))
+    if not student_ids and not teacher_ids:
+        raise HTTPException(status_code=400, detail="Select at least one student or staff member.")
 
-    results = []
-    total_issued = 0
+    if student_ids:
+        found = {s.id for s in db.query(Student.id).filter(Student.id.in_(student_ids)).all()}
+        missing = [sid for sid in student_ids if sid not in found]
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Student(s) not found: {missing}")
+    if teacher_ids:
+        found = {t.id for t in db.query(Teacher.id).filter(Teacher.id.in_(teacher_ids)).all()}
+        missing = [tid for tid in teacher_ids if tid not in found]
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Staff member(s) not found: {missing}")
 
-    for entry in payload.items:
-        item = get_or_404(db, InventoryItem, entry.item_id, "Inventory item")
+    kit = None
+    if payload.kit_id:
+        kit = get_or_404(db, InventoryKit, payload.kit_id, "Inventory kit")
+        if not kit.is_active:
+            raise HTTPException(status_code=400, detail=f"'{kit.name}' is inactive.")
+    elif not payload.items:
+        raise HTTPException(status_code=400, detail="Select a kit or at least one item to issue.")
 
-        already_issued_ids = {
-            row[0]
-            for row in db.query(InventoryTransaction.issued_to_student_id)
-            .filter(
-                InventoryTransaction.item_id == entry.item_id,
-                InventoryTransaction.transaction_type == "Issue",
-                InventoryTransaction.cycle == payload.cycle,
-                InventoryTransaction.academic_year == payload.academic_year,
-                InventoryTransaction.issued_to_student_id.in_(student_ids),
-            )
-            .all()
-        }
+    ad_hoc = [(entry.item_id, entry.quantity_per_student) for entry in (payload.items or [])]
 
-        pending_ids = [sid for sid in student_ids if sid not in already_issued_ids]
-        skipped_duplicate_count = len(student_ids) - len(pending_ids)
-
-        required_quantity = entry.quantity_per_student * len(pending_ids)
-        if pending_ids and item.quantity_available < required_quantity:
-            results.append(
-                InventoryBulkIssueResult(
-                    item_id=item.id,
-                    item_name=item.item_name,
-                    issued_count=0,
-                    skipped_duplicate_count=skipped_duplicate_count,
-                    skipped_insufficient_stock=True,
-                )
-            )
-            continue
-
-        for student_id in pending_ids:
-            apply_stock(item, "Issue", entry.quantity_per_student)
-            record = InventoryTransaction(
-                item_id=entry.item_id,
-                transaction_date=payload.transaction_date,
-                transaction_type="Issue",
-                quantity=entry.quantity_per_student,
-                issued_to_student_id=student_id,
-                reference_no=payload.reference_no,
-                remarks=payload.remarks,
-                cycle=payload.cycle,
-                academic_year=payload.academic_year,
-            )
-            db.add(record)
-
-        total_issued += len(pending_ids)
-        results.append(
-            InventoryBulkIssueResult(
-                item_id=item.id,
-                item_name=item.item_name,
-                issued_count=len(pending_ids),
-                skipped_duplicate_count=skipped_duplicate_count,
-                skipped_insufficient_stock=False,
-            )
+    try:
+        rows = inventory_kits.bulk_issue_kit(
+            db, kit=kit, ad_hoc_items=ad_hoc,
+            student_ids=student_ids, teacher_ids=teacher_ids,
+            transaction_date=payload.transaction_date, cycle=payload.cycle,
+            academic_year=payload.academic_year,
+            reference_no=payload.reference_no, remarks=payload.remarks,
         )
+    except inventory_kits.InventoryError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
 
     db.commit()
+    results = [InventoryBulkIssueResult(**row) for row in rows]
+    total_issued = sum(r.issued_count for r in results)
     return InventoryBulkIssueResponse(results=results, total_issued=total_issued)
 
 

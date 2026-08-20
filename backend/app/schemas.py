@@ -1747,6 +1747,8 @@ class InventoryTransactionBase(BaseModel):
     quantity: float
     issued_to_student_id: Optional[int] = None
     issued_to_staff: Optional[str] = None
+    issued_to_teacher_id: Optional[int] = None
+    kit_id: Optional[int] = None
     reference_no: Optional[str] = None
     unit_cost: Optional[float] = None
     remarks: Optional[str] = None
@@ -1770,9 +1772,46 @@ class InventoryTransactionResponse(InventoryTransactionBase):
     admission_no: Optional[str] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
+    teacher_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class InventoryKitItemCreate(BaseModel):
+    item_id: int
+    quantity: float = 1
+
+
+class InventoryKitItemResponse(BaseModel):
+    id: int
+    item_id: int
+    item_name: str
+    unit: Optional[str] = None
+    quantity: float
+
+
+class InventoryKitCreate(BaseModel):
+    name: str
+    applies_to: str  # Student, Staff
+    is_active: bool = True
+    remarks: Optional[str] = None
+
+
+class InventoryKitUpdate(BaseModel):
+    name: Optional[str] = None
+    applies_to: Optional[str] = None
+    is_active: Optional[bool] = None
+    remarks: Optional[str] = None
+
+
+class InventoryKitResponse(BaseModel):
+    id: int
+    name: str
+    applies_to: str
+    is_active: bool
+    remarks: Optional[str] = None
+    items: list[InventoryKitItemResponse] = []
 
 
 class InventoryBulkIssueItem(BaseModel):
@@ -1781,8 +1820,11 @@ class InventoryBulkIssueItem(BaseModel):
 
 
 class InventoryBulkIssueRequest(BaseModel):
-    items: list[InventoryBulkIssueItem]
-    student_ids: list[int]
+    # Either a saved kit, or an ad-hoc item list -- not both.
+    kit_id: Optional[int] = None
+    items: Optional[list[InventoryBulkIssueItem]] = None
+    student_ids: Optional[list[int]] = None
+    teacher_ids: Optional[list[int]] = None
     transaction_date: date
     cycle: str
     academic_year: str

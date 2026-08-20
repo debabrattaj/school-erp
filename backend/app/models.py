@@ -950,6 +950,50 @@ class InventoryItem(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ---------------------------------------------------------------------------
+# Reusable issuance kits
+#
+# A kit is a named, saved set of items -- "Junior Uniform Kit", "Staff ID
+# Kit" -- issued together every cycle instead of an admin re-picking the same
+# items from a list each time. It is scoped to one audience (Student or
+# Staff) so a kit meant for teachers cannot be bulk-issued to a class by
+# mistake: the two entitlements are genuinely different things, since
+# students may separately buy a lost item and staff never do.
+# ---------------------------------------------------------------------------
+
+
+class InventoryKit(Base):
+    """A named, reusable set of items issued together."""
+
+    __tablename__ = "inventory_kits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    applies_to = Column(String, nullable=False, index=True)  # Student, Staff
+    is_active = Column(Boolean, nullable=False, default=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InventoryKitItem(Base):
+    """One item and its quantity inside a kit."""
+
+    __tablename__ = "inventory_kit_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kit_id = Column(Integer, ForeignKey("inventory_kits.id", ondelete="CASCADE"), nullable=False, index=True)
+    # No ondelete override: an item still listed in a kit cannot be deleted
+    # out from under it. The route enforces the same rule up front so the
+    # error reads as a real message rather than a raw database exception.
+    item_id = Column(Integer, ForeignKey("inventory_items.id"), nullable=False, index=True)
+    quantity = Column(Float, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("kit_id", "item_id", name="uq_inventory_kit_item"),
+    )
+
+
 class InventoryTransaction(Base):
     __tablename__ = "inventory_transactions"
 
@@ -970,6 +1014,26 @@ class InventoryTransaction(Base):
         index=True,
     )
     issued_to_staff = Column(String, nullable=True)
+    # Real FK for staff issuance, added alongside the free-text column above
+    # rather than replacing it: issued_to_staff predates this and some rows
+    # may name someone outside the Teacher table (a contractor, a vendor's
+    # rep). New staff issuance should use this; issued_to_staff stays for
+    # anyone who genuinely isn't in the staff directory.
+    issued_to_teacher_id = Column(
+        Integer,
+        ForeignKey("teachers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Which reusable kit this row came from, if any -- lets "how much of the
+    # Winter Uniform Kit have we issued this year" be answered without
+    # re-deriving it from item names.
+    kit_id = Column(
+        Integer,
+        ForeignKey("inventory_kits.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     reference_no = Column(String, nullable=True)
     unit_cost = Column(Float, nullable=True)
     total_cost = Column(Float, nullable=True)
