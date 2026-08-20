@@ -1715,10 +1715,16 @@ button {
 
 .login-page {
   min-height: 100vh;
-  /* login-bg.jpg is dropped into frontend/public/ once a licensed photo is
-     available -- this layer simply doesn't paint until that file exists, so
-     the gradient underneath is a safe fallback, not a broken reference. */
-  background-image: linear-gradient(rgba(30, 27, 130, 0.55), rgba(37, 41, 219, 0.55)), url("/login-bg.jpg");
+  /* The photo lives at /home/schoolm1/public_html/banner.png on the server --
+     that's schoolment.com's docroot, a different subdomain/docroot than
+     login.schoolment.com (which serves this page from public_html/school-admin/).
+     Must be an absolute cross-origin URL: a root-relative "/banner.png" would
+     resolve against login.schoolment.com instead, where the file doesn't
+     exist. Cross-origin <img>/background-image loads don't need CORS headers
+     for plain display, so this works without any server-side change.
+     If this ever moves under login.schoolment.com's own docroot, switch back
+     to a root-relative path. */
+  background-image: linear-gradient(rgba(30, 27, 130, 0.55), rgba(37, 41, 219, 0.55)), url("https://schoolment.com/banner.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
