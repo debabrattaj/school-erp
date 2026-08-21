@@ -2301,6 +2301,8 @@ class OnlineTestBase(BaseModel):
     teacher_id: Optional[int] = None
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    proctoring_enabled: bool = False
+    proctoring_policy_id: Optional[int] = None
 
 
 class OnlineTestCreate(OnlineTestBase):
@@ -2321,6 +2323,8 @@ class OnlineTestUpdate(BaseModel):
     status: Optional[str] = None
     shuffle_questions: Optional[bool] = None
     shuffle_options: Optional[bool] = None
+    proctoring_enabled: Optional[bool] = None
+    proctoring_policy_id: Optional[int] = None
 
 
 class OnlineTestResponse(OnlineTestBase):
@@ -2358,6 +2362,109 @@ class OnlineTestAttemptResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Online exam proctoring add-on ----------------
+
+class ProctoringPolicyBase(BaseModel):
+    name: str
+    require_fullscreen: bool = True
+    block_copy_paste: bool = True
+    max_violations_before_autosubmit: int = 5
+    require_webcam: bool = False
+    require_mic: bool = False
+    capture_interval_seconds: Optional[int] = None
+    retention_days: int = 90
+
+
+class ProctoringPolicyCreate(ProctoringPolicyBase):
+    pass
+
+
+class ProctoringPolicyUpdate(BaseModel):
+    name: Optional[str] = None
+    require_fullscreen: Optional[bool] = None
+    block_copy_paste: Optional[bool] = None
+    max_violations_before_autosubmit: Optional[int] = None
+    require_webcam: Optional[bool] = None
+    require_mic: Optional[bool] = None
+    capture_interval_seconds: Optional[int] = None
+    retention_days: Optional[int] = None
+
+
+class ProctoringPolicyResponse(ProctoringPolicyBase):
+    id: int
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringConsentResponse(BaseModel):
+    id: int
+    student_id: int
+    granted_by: str
+    granted_at: Optional[Any] = None
+    revoked_by: Optional[str] = None
+    revoked_at: Optional[Any] = None
+    scope: str
+    consent_text_version: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringEventSubmit(BaseModel):
+    event_type: str
+    detail: Optional[str] = None
+
+
+class ProctoringEventBatchSubmit(BaseModel):
+    events: List[ProctoringEventSubmit] = []
+
+
+class ProctoringEventResponse(BaseModel):
+    id: int
+    occurred_at: Optional[Any] = None
+    event_type: str
+    severity: str
+    source: str
+    confidence: Optional[float] = None
+    detail: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringEventBatchResult(BaseModel):
+    logged: int
+    violation_count: int
+    auto_submitted: bool
+
+
+class ProctoringSessionResponse(BaseModel):
+    id: int
+    attempt_id: int
+    started_at: Optional[Any] = None
+    ended_at: Optional[Any] = None
+    review_status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[Any] = None
+    reviewer_notes: Optional[str] = None
+    flag_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringSessionDetailResponse(ProctoringSessionResponse):
+    events: List[ProctoringEventResponse] = []
+
+
+class ProctoringReviewUpdate(BaseModel):
+    review_status: str  # Pending | Cleared | Flagged
+    reviewer_notes: Optional[str] = None
 
 
 # ---------------- Biometric attendance ----------------

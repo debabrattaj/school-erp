@@ -5773,6 +5773,18 @@ textarea {
   box-shadow: var(--saas-shadow-sm);
 }
 
+.online-test-proctored-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.proctoring-consent-banner,
+.online-test-proctoring-notice {
+  font-weight: 400;
+  margin-bottom: 16px;
+}
+
 .enhanced-records-panel {
   overflow: visible;
   padding: 0;

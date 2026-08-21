@@ -143,7 +143,15 @@
             <li>Every school's records live in an isolated database, keyed to that school's own account — one school's staff cannot query another school's data.</li>
             <li>Access inside the portal is role-based: what a Teacher, Accountant, or Parent can see and change is limited to their role, enforced on every request, not just hidden in the interface.</li>
             <li>Scheduled automation (auto fee generation, auto promotion, auto exam creation) only runs for a school once that school's administrator has explicitly turned it on for a specific fee, year, or exam — nothing fires silently by default.</li>
+            <li>Exam proctoring (see below) refuses to start a proctored test for a student with no guardian consent on file — it never falls back to running the test unproctored.</li>
           </ul>
+        </div>
+
+        <div class="policy-block">
+          <h2>Optional exam proctoring</h2>
+          <p>Online Exam Proctoring is a paid add-on a school switches on separately — it does nothing unless the school has it enabled and a guardian or the school office has granted consent for a specific student. A student can never grant this consent for themselves.</p>
+          <p>What it logs, on a proctored test only: the type and time of a browser event during the attempt — leaving fullscreen, switching tabs or windows, or attempting to copy or paste. We do not capture keystrokes, screen recordings, webcam or microphone data in this version of proctoring. Each event is kept only long enough to serve the retention window the school's administrator has set (90 days by default), and every time a teacher or admin views a student's proctoring record, that access is itself logged.</p>
+          <p>These signals are shown to a teacher as flags for their own judgement, not as an automated finding — the system never marks a student as having cheated on its own.</p>
         </div>
 
         <div class="policy-block">

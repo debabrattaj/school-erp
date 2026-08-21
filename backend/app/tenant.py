@@ -110,6 +110,12 @@ DEFAULT_FEATURES = {
     # require_feature("online_tests") on the staff and portal routes, not just
     # by hiding the sidebar entry.
     "online_tests": False,
+    # Proctoring add-on for Online Tests: browser lockdown (fullscreen,
+    # visibility/blur, copy-paste) signal capture and teacher review. A
+    # separate SKU from online_tests itself -- a school can run online tests
+    # without ever buying this. Requires per-student guardian consent on top
+    # of this flag; see is_feature_enabled() calls in routes/portal.py.
+    "online_test_proctoring": False,
     # Sold separately: biometric attendance (device registry, punch ingest and
     # attendance derivation). Off until the platform owner enables it, and the
     # gate covers the device ingest endpoint too, so a lapsed school stops

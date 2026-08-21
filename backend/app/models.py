@@ -1702,6 +1702,13 @@ class OnlineTest(Base):
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
     teacher_name_snapshot = Column(String, nullable=True)
 
+    # Proctoring add-on (gated by the online_test_proctoring feature flag).
+    # proctoring_policy_id is nullable even when enabled=True briefly during
+    # setup; the session-start check in portal.py treats a missing policy the
+    # same as proctoring being off (fail closed, not fail-unproctored).
+    proctoring_enabled = Column(Boolean, nullable=False, default=False)
+    proctoring_policy_id = Column(Integer, ForeignKey("proctoring_policies.id", ondelete="SET NULL"), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1759,6 +1766,125 @@ class OnlineTestAnswer(Base):
     __table_args__ = (
         UniqueConstraint("attempt_id", "question_id", name="uq_online_test_answer_question"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Online exam proctoring add-on (gated by the online_test_proctoring feature
+# flag — see app.tenant.DEFAULT_FEATURES). Phase 1 is browser-signal only:
+# fullscreen/visibility/copy-paste events reported by the student's browser.
+# ProctoringEvent.source and .confidence exist now so a future server-side-AI
+# phase (webcam snapshots, live video) can land findings in the same event
+# timeline with no schema change.
+#
+# "Who did X" fields follow this codebase's convention of storing a string
+# email snapshot rather than a user_id foreign key (see AdmissionStageHistory
+# .changed_by, LeaveRequest.decided_by) so the record stays legible even if
+# the acting account is later deleted.
+# ---------------------------------------------------------------------------
+
+
+class ProctoringPolicy(Base):
+    """Reusable proctoring configuration, attached to one or more OnlineTests
+    via OnlineTest.proctoring_policy_id."""
+
+    __tablename__ = "proctoring_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    require_fullscreen = Column(Boolean, nullable=False, default=True)
+    block_copy_paste = Column(Boolean, nullable=False, default=True)
+    max_violations_before_autosubmit = Column(Integer, nullable=False, default=5)
+
+    # Phase 2/3 fields: stored now, not yet enforced by any Phase 1 code path.
+    require_webcam = Column(Boolean, nullable=False, default=False)
+    require_mic = Column(Boolean, nullable=False, default=False)
+    capture_interval_seconds = Column(Integer, nullable=True)
+
+    retention_days = Column(Integer, nullable=False, default=90)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProctoringConsent(Base):
+    """A guardian's (or admin's) consent for a student to be proctored.
+    The most recent row per student with revoked_at IS NULL is the
+    "current" consent; session start requires one to exist."""
+
+    __tablename__ = "proctoring_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    granted_by = Column(String, nullable=False)  # email snapshot
+    granted_at = Column(DateTime, default=datetime.utcnow)
+    revoked_by = Column(String, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+    scope = Column(String, nullable=False, default="online_test_proctoring")
+    consent_text_version = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+
+
+class ProctoringSession(Base):
+    """One per proctored attempt. Created only after a consent + policy
+    check passes (see portal.portal_get_online_test)."""
+
+    __tablename__ = "proctoring_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    attempt_id = Column(
+        Integer, ForeignKey("online_test_attempts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    consent_id = Column(Integer, ForeignKey("proctoring_consents.id", ondelete="SET NULL"), nullable=True)
+
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+
+    # Pending, Cleared, Flagged — set by a teacher/admin reviewing the event
+    # timeline. Never auto-derived: a high violation count is a prompt for a
+    # human to look, not an accusation the system makes on its own.
+    review_status = Column(String, nullable=False, default="Pending", index=True)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewer_notes = Column(Text, nullable=True)
+
+    retention_expires_at = Column(DateTime, nullable=True)
+
+
+class ProctoringEvent(Base):
+    """A single reported signal during a proctored attempt. occurred_at is
+    always server-stamped (never trust the client's clock); severity is
+    always server-computed from event_type (never trust a client-supplied
+    severity) — see PROCTORING_EVENT_SEVERITY in routes/portal.py."""
+
+    __tablename__ = "proctoring_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("proctoring_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    occurred_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # fullscreen_exit, tab_blur, copy_attempt, paste_attempt, context_menu, ...
+    event_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False, default="warning")  # info, warning, critical
+
+    source = Column(String, nullable=False, default="client")  # client, server_ai
+    confidence = Column(Float, nullable=True)  # reserved for source=server_ai
+    detail = Column(Text, nullable=True)
+
+
+class ProctoringAccessLog(Base):
+    """Records every time a staff member views a proctoring session's data,
+    so "who watched a child's session" is always answerable."""
+
+    __tablename__ = "proctoring_access_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("proctoring_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    viewed_by = Column(String, nullable=False)  # email snapshot
+    viewed_at = Column(DateTime, default=datetime.utcnow)
+    action = Column(String, nullable=False, default="view")
 
 
 # ---------------------------------------------------------------------------

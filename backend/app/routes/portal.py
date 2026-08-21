@@ -3,7 +3,7 @@ import random
 from datetime import date, datetime, timedelta
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app import models, schemas
 from app.models import User
 from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
-from app.tenant import require_feature
+from app.tenant import get_account_code_from_request, is_feature_enabled, require_feature
 
 router = APIRouter(
     prefix="/portal",
@@ -732,6 +732,17 @@ def _grade_attempt(
     attempt.max_score = max_score
     attempt.auto_submitted_reason = reason
 
+    # Single choke point for closing an attempt, whether by the student
+    # pressing Submit, the deadline lapsing, or a proctoring auto-submit --
+    # so a proctored session's ended_at is always stamped exactly once, here.
+    open_session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id, models.ProctoringSession.ended_at.is_(None))
+        .first()
+    )
+    if open_session:
+        open_session.ended_at = attempt.submitted_at
+
     db.commit()
     db.refresh(attempt)
     return attempt
@@ -755,6 +766,122 @@ def _expire_attempt_if_due(db: Session, test: models.OnlineTest, attempt: models
             submitted_at=deadline,
         )
     return attempt
+
+
+# ---------------- Online test proctoring add-on ----------------
+
+# Sold separately from online_tests itself -- a school can run online tests
+# without ever buying this. Attempt-level enforcement (does *this* test
+# require it) is checked inline in portal_get_online_test instead, since most
+# tests on a school with the add-on switched on still aren't proctored.
+PROCTORING_GATE = [Depends(require_feature("online_test_proctoring"))]
+
+# Severity is always decided here, from event_type -- a client could claim any
+# severity it likes, so whatever it sends is never trusted. An unrecognized
+# event_type (e.g. a newer frontend build talking to an older backend)
+# defaults to "warning" rather than being rejected.
+PROCTORING_EVENT_SEVERITY = {
+    "fullscreen_exit": "warning",
+    "tab_blur": "warning",
+    "window_blur": "warning",
+    "copy_attempt": "warning",
+    "paste_attempt": "warning",
+    "context_menu": "info",
+    "devtools_open": "critical",
+}
+
+
+def _current_consent(db: Session, student_id: int) -> models.ProctoringConsent | None:
+    """The active consent for a student, or None. "Active" = the most recent
+    grant that has not been revoked; a revoked row is never resurrected."""
+    return (
+        db.query(models.ProctoringConsent)
+        .filter(
+            models.ProctoringConsent.student_id == student_id,
+            models.ProctoringConsent.scope == "online_test_proctoring",
+            models.ProctoringConsent.revoked_at.is_(None),
+        )
+        .order_by(models.ProctoringConsent.id.desc())
+        .first()
+    )
+
+
+def _policy_for_test(db: Session, test: models.OnlineTest) -> models.ProctoringPolicy | None:
+    if not test.proctoring_policy_id:
+        return None
+    return (
+        db.query(models.ProctoringPolicy)
+        .filter(models.ProctoringPolicy.id == test.proctoring_policy_id)
+        .first()
+    )
+
+
+def _violation_count(db: Session, session_id: int) -> int:
+    return (
+        db.query(models.ProctoringEvent)
+        .filter(models.ProctoringEvent.session_id == session_id, models.ProctoringEvent.severity != "info")
+        .count()
+    )
+
+
+@router.get("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_get_proctoring_consent(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    consent = _current_consent(db, student_id)
+    return {
+        "granted": consent is not None,
+        "consent": schemas.ProctoringConsentResponse.model_validate(consent) if consent else None,
+    }
+
+
+@router.post("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_grant_proctoring_consent(
+    student_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Parent"] + ADMIN_ROLES)),
+):
+    """Grant proctoring consent for a student. A student can never call this
+    themselves -- PORTAL_ROLES includes "Student" but the roles allowed here
+    deliberately don't, because a student must not be able to self-consent to
+    being monitored."""
+    ensure_student_access(db, current_user, student_id)
+    existing = _current_consent(db, student_id)
+    if existing:
+        return {"granted": True, "consent": schemas.ProctoringConsentResponse.model_validate(existing)}
+
+    consent = models.ProctoringConsent(
+        student_id=student_id,
+        granted_by=current_user.email,
+        scope="online_test_proctoring",
+        consent_text_version="v1",
+        ip_address=request.client.host if request.client else None,
+    )
+    db.add(consent)
+    db.commit()
+    db.refresh(consent)
+    return {"granted": True, "consent": schemas.ProctoringConsentResponse.model_validate(consent)}
+
+
+@router.delete("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_revoke_proctoring_consent(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Parent"] + ADMIN_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    consent = _current_consent(db, student_id)
+    if not consent:
+        return {"granted": False}
+
+    consent.revoked_by = current_user.email
+    consent.revoked_at = datetime.utcnow()
+    db.commit()
+    return {"granted": False}
 
 
 @router.get("/students/{student_id}/online-tests", dependencies=ONLINE_TEST_GATE)
@@ -803,6 +930,7 @@ def portal_list_online_tests(
             "attempt_status": attempt.status if attempt else None,
             "score": attempt.score if attempt else None,
             "max_score": attempt.max_score if attempt else None,
+            "proctoring_enabled": bool(test.proctoring_enabled),
         })
     return results
 
@@ -811,6 +939,7 @@ def portal_list_online_tests(
 def portal_get_online_test(
     student_id: int,
     test_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
 ):
@@ -821,6 +950,8 @@ def portal_get_online_test(
         raise HTTPException(status_code=404, detail="Test not found")
     if test.section and test.section != student.section:
         raise HTTPException(status_code=404, detail="Test not found")
+
+    policy = _policy_for_test(db, test) if test.proctoring_enabled else None
 
     attempt = (
         db.query(models.OnlineTestAttempt)
@@ -834,6 +965,24 @@ def portal_get_online_test(
         if not _online_test_is_open(test):
             raise HTTPException(status_code=400, detail="This test is not currently open")
 
+        consent = None
+        if test.proctoring_enabled:
+            # Fail closed: a proctored test with the add-on off, or with no
+            # consent on file, must refuse to start rather than silently run
+            # unproctored -- never the reverse.
+            account_code = get_account_code_from_request(request)
+            if not is_feature_enabled(account_code, "online_test_proctoring"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Proctoring is not enabled for this school. Contact your administrator.",
+                )
+            consent = _current_consent(db, student_id)
+            if not consent:
+                raise HTTPException(
+                    status_code=403,
+                    detail="A guardian must grant proctoring consent before this test can be started.",
+                )
+
         questions = db.query(models.OnlineTestQuestion).filter(
             models.OnlineTestQuestion.test_id == test_id
         ).order_by(models.OnlineTestQuestion.sort_order).all()
@@ -844,6 +993,15 @@ def portal_get_online_test(
         db.add(attempt)
         db.commit()
         db.refresh(attempt)
+
+        if test.proctoring_enabled:
+            retention_days = policy.retention_days if policy else 90
+            db.add(models.ProctoringSession(
+                attempt_id=attempt.id,
+                consent_id=consent.id,
+                retention_expires_at=datetime.utcnow() + timedelta(days=retention_days),
+            ))
+            db.commit()
 
     # An attempt left open past its deadline is closed here rather than resumed.
     attempt = _expire_attempt_if_due(db, test, attempt)
@@ -868,6 +1026,21 @@ def portal_get_online_test(
     if test.shuffle_questions and not submitted:
         questions = _shuffled_for_attempt(questions, attempt.id)
     shuffle_options_for = attempt.id if (test.shuffle_options and not submitted) else None
+
+    proctoring = None
+    if test.proctoring_enabled:
+        proctoring_session = (
+            db.query(models.ProctoringSession)
+            .filter(models.ProctoringSession.attempt_id == attempt.id)
+            .first()
+        )
+        proctoring = {
+            "enabled": True,
+            "session_id": proctoring_session.id if proctoring_session else None,
+            "require_fullscreen": policy.require_fullscreen if policy else True,
+            "block_copy_paste": policy.block_copy_paste if policy else True,
+            "max_violations_before_autosubmit": policy.max_violations_before_autosubmit if policy else 5,
+        }
 
     return {
         "test": {
@@ -900,6 +1073,7 @@ def portal_get_online_test(
             }
             for q in questions
         ],
+        "proctoring": proctoring,
     }
 
 
@@ -1053,6 +1227,74 @@ def portal_submit_online_test(
         "max_score": attempt.max_score,
         "auto_submitted_reason": attempt.auto_submitted_reason,
     }
+
+
+@router.post(
+    "/students/{student_id}/online-tests/{test_id}/proctoring/events",
+    dependencies=ONLINE_TEST_GATE + PROCTORING_GATE,
+    response_model=schemas.ProctoringEventBatchResult,
+)
+def portal_report_proctoring_events(
+    student_id: int,
+    test_id: int,
+    payload: schemas.ProctoringEventBatchSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Batch-ingest browser-reported proctoring signals for the current
+    attempt. Client-side signals are evidence for a human reviewer, not proof
+    of misconduct -- this endpoint only logs and, past the policy threshold,
+    auto-submits; it never itself marks anything Flagged."""
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can report proctoring events")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="No attempt found for this test — open it first")
+
+    session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt is not being proctored")
+
+    if attempt.status != "In Progress":
+        return schemas.ProctoringEventBatchResult(
+            logged=0, violation_count=_violation_count(db, session.id), auto_submitted=False
+        )
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    policy = _policy_for_test(db, test) if test else None
+    max_violations = policy.max_violations_before_autosubmit if policy else 5
+
+    logged = 0
+    for item in payload.events[:50]:  # defensive cap on one batch
+        db.add(models.ProctoringEvent(
+            session_id=session.id,
+            event_type=item.event_type,
+            severity=PROCTORING_EVENT_SEVERITY.get(item.event_type, "warning"),
+            source="client",
+            detail=item.detail,
+        ))
+        logged += 1
+    db.commit()
+
+    violation_count = _violation_count(db, session.id)
+    auto_submitted = False
+    if violation_count >= max_violations:
+        attempt = _grade_attempt(db, test_id, attempt, reason="proctoring_violation")
+        auto_submitted = attempt.status == "Submitted"
+
+    return schemas.ProctoringEventBatchResult(
+        logged=logged, violation_count=violation_count, auto_submitted=auto_submitted
+    )
 
 
 # ---------------- Admin: manage portal links ----------------

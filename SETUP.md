@@ -1722,3 +1722,74 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
 ```
 
 Test with `--dry-run` first, same as §9.
+
+## 20. Online exam proctoring (add-on)
+
+A separate SKU from Online Tests itself (§13) — browser-lockdown signal
+capture (fullscreen exits, tab/window blur, copy/paste attempts) and a
+teacher-facing review UI. Phase 1 only: no webcam, no AI, browser signals
+are reported as flags for a human to review, never treated as proof on
+their own.
+
+- **Feature flag:** `online_test_proctoring`, off by default, enabled per
+  school from the Platform Console (`PUT /platform/schools/{id}/features`
+  with `{"online_test_proctoring": true}`) independently of `online_tests`
+  — a school can run online tests without ever buying this.
+- **Consent, not just the flag:** turning the flag on for a school does not
+  proctor anyone by itself. Each test also needs `proctoring_enabled` set
+  (`PUT /online-tests/{id}`) and, per student, a guardian or admin must
+  grant consent (`POST /portal/students/{id}/proctoring/consent` — a
+  student cannot call this themselves; `PORTAL_ROLES` allows a Student to
+  view portal data but the roles accepted here are `Parent`, `Admin`,
+  `Principal` only). Starting a proctored attempt with the flag off, or
+  with no consent on file, fails closed (403/400) — it never silently runs
+  the test unproctored.
+- **Policies** (`/online-tests/proctoring-policies`) — reusable
+  fullscreen/copy-paste/violation-threshold/retention configs, attached to
+  a test via `OnlineTest.proctoring_policy_id`. A proctored test with no
+  policy assigned falls back to strict defaults (fullscreen required,
+  copy/paste blocked, 5 violations before auto-submit, 90-day retention).
+- **Events** (`POST /portal/students/{id}/online-tests/{test_id}/proctoring/events`)
+  — the student's browser batch-reports signals as they happen; severity is
+  always computed server-side from `event_type` (`PROCTORING_EVENT_SEVERITY`
+  in `routes/portal.py`), never trusted from the client. Crossing the
+  policy's violation threshold auto-submits the attempt with
+  `auto_submitted_reason="proctoring_violation"`, the same mechanism as a
+  timed-out attempt (§13).
+- **Teacher review** (`GET /online-tests/{id}/results/{attempt_id}/proctoring`,
+  `PUT .../review`) — the event timeline plus a `Pending`/`Cleared`/`Flagged`
+  verdict a teacher or admin sets by hand; the system never sets this
+  itself. Every view writes a `ProctoringAccessLog` row, so "who watched
+  this student's session" stays answerable.
+
+**Migration:** apply on every tenant DB (§4):
+`python manage_migrations.py upgrade head`. New tables
+(`proctoring_policies`, `proctoring_consents`, `proctoring_sessions`,
+`proctoring_events`, `proctoring_access_logs`) self-create; only the two
+new columns on `online_tests` need the actual migration.
+
+### Retention cron
+
+Phase 1 has no webcam snapshots to purge yet — the one field carrying free
+text is `ProctoringEvent.detail`, so `backend/run_proctoring_retention.py`
+blanks it (keeping the event row itself, its type, severity and timestamp)
+once a session's `retention_expires_at` has passed. Gated on the
+`online_test_proctoring` flag, same as the automations in §14/§15, but for
+the same reason as vehicle-tracking housekeeping: a school that has since
+dropped the add-on should still get its old data aged out
+(`run_tracking_housekeeping.py` is the same reasoning applied there).
+
+```bash
+cd backend
+python run_proctoring_retention.py             # blank expired event detail, for every enabled school
+python run_proctoring_retention.py --dry-run    # log what would be blanked, write nothing
+```
+
+Idempotent: a session already swept has `detail` already NULL, so a repeat
+run touches zero additional rows.
+
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_proctoring_retention.py >> /home/schoolm1/logs/proctoring_retention_cron.log 2>&1
+```
+
+Test with `--dry-run` first, same as §9.

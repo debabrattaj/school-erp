@@ -83,6 +83,7 @@ FEATURE_LABELS = {
     "ai_chatbot": "AI Assistant",
     "timetable": "Timetable",
     "online_tests": "Online Exam (add-on)",
+    "online_test_proctoring": "Online Exam Proctoring (add-on)",
     "biometric_attendance": "Biometric Attendance (add-on)",
     "fee_auto_generation": "Automatic Fee Billing",
     "promotion_auto_generation": "Automatic Year-End Promotion",

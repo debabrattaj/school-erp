@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QrCode, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -34,6 +34,9 @@ export default function Portal() {
   const user = getUser();
   const isParent = user?.role === "Parent";
   const isStudent = user?.role === "Student";
+  // A student cannot self-consent to being monitored -- only these roles can
+  // grant/revoke, matching the same restriction the backend enforces.
+  const canManageProctoringConsent = ["Parent", "Admin", "Principal"].includes(user?.role);
   const [children, setChildren] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("summary");
@@ -75,6 +78,13 @@ export default function Portal() {
   const [testAnswers, setTestAnswers] = useState({});
   const [submittingTest, setSubmittingTest] = useState(false);
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(null);
+
+  // Proctoring add-on: null while unknown/not applicable, otherwise
+  // {granted, consent}. Only fetched when the school has the add-on.
+  const [proctoringConsent, setProctoringConsent] = useState(null);
+  const [proctoringViolationCount, setProctoringViolationCount] = useState(0);
+  const proctoringQueueRef = useRef([]);
+  const flushProctoringEventsRef = useRef(() => {});
 
   async function loadChildren() {
     try {
@@ -173,11 +183,47 @@ export default function Portal() {
     }
   }
 
+  async function loadProctoringConsent(studentId) {
+    if (!studentId || !isFeatureEnabled("online_test_proctoring")) {
+      setProctoringConsent(null);
+      return;
+    }
+    try {
+      const response = await API.get(`/portal/students/${studentId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+    } catch {
+      setProctoringConsent(null);
+    }
+  }
+
   useEffect(() => {
     if (activeTab === "tests" && selectedId && !activeOnlineTest) {
       loadOnlineTests(selectedId);
+      loadProctoringConsent(selectedId);
     }
   }, [activeTab, selectedId, activeOnlineTest]);
+
+  async function grantProctoringConsent() {
+    setMessage("");
+    try {
+      const response = await API.post(`/portal/students/${selectedId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+      setMessage("Proctoring consent granted.");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to grant consent."));
+    }
+  }
+
+  async function revokeProctoringConsent() {
+    setMessage("");
+    try {
+      const response = await API.delete(`/portal/students/${selectedId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+      setMessage("Proctoring consent revoked.");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to revoke consent."));
+    }
+  }
 
   async function openOnlineTest(testId) {
     setMessage("");
@@ -201,6 +247,8 @@ export default function Portal() {
       } else {
         setTimeLeftSeconds(null);
       }
+      proctoringQueueRef.current = [];
+      setProctoringViolationCount(0);
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to open this test."));
     }
@@ -210,6 +258,8 @@ export default function Portal() {
     setActiveOnlineTest(null);
     setTestAnswers({});
     setTimeLeftSeconds(null);
+    proctoringQueueRef.current = [];
+    setProctoringViolationCount(0);
     loadOnlineTests(selectedId);
   }
 
@@ -263,6 +313,115 @@ export default function Portal() {
     return () => window.clearTimeout(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeftSeconds]);
+
+  function queueProctoringEvent(eventType, detail) {
+    proctoringQueueRef.current.push({ event_type: eventType, detail });
+  }
+
+  // Client-side signals are evidence for a human reviewer, not proof --
+  // severity is decided server-side from event_type, this just reports what
+  // happened. Reads activeOnlineTest/selectedId directly (fresh every render,
+  // since this function is redefined each render); it is called only through
+  // flushProctoringEventsRef so a setInterval created once still always runs
+  // the latest version.
+  async function flushProctoringEvents() {
+    if (!activeOnlineTest?.proctoring?.enabled || activeOnlineTest.attempt.status !== "In Progress") return;
+    const events = proctoringQueueRef.current;
+    if (!events.length) return;
+    proctoringQueueRef.current = [];
+    try {
+      const response = await API.post(
+        `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/proctoring/events`,
+        { events }
+      );
+      setProctoringViolationCount(response.data.violation_count);
+      if (response.data.auto_submitted) {
+        setMessage("This attempt was submitted automatically after repeated proctoring violations.");
+        await openOnlineTest(activeOnlineTest.test.id);
+      }
+    } catch {
+      // Best-effort: put the events back so the next flush retries them.
+      proctoringQueueRef.current = [...events, ...proctoringQueueRef.current];
+    }
+  }
+
+  useEffect(() => {
+    flushProctoringEventsRef.current = flushProctoringEvents;
+  });
+
+  // Browser lockdown for a proctored attempt: fullscreen on start, and
+  // listeners that turn tab switches / window blur / copy-paste into queued
+  // events flushed every few seconds. Keyed on the attempt id *and* status so
+  // this tears itself down (exiting fullscreen, flushing anything queued)
+  // the moment the attempt stops being "In Progress" -- including the
+  // auto-submit triggered by flushProctoringEvents itself.
+  useEffect(() => {
+    const proctoring = activeOnlineTest?.proctoring;
+    if (!proctoring?.enabled || activeOnlineTest.attempt.status !== "In Progress") {
+      return undefined;
+    }
+
+    if (proctoring.require_fullscreen && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {
+        // Some browsers refuse without a fresh user gesture -- the exit this
+        // would otherwise suppress simply gets reported the normal way.
+      });
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) queueProctoringEvent("tab_blur");
+    }
+    function onWindowBlur() {
+      queueProctoringEvent("window_blur");
+    }
+    function onFullscreenChange() {
+      if (proctoring.require_fullscreen && !document.fullscreenElement) {
+        queueProctoringEvent("fullscreen_exit");
+      }
+    }
+    function onCopy(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("copy_attempt");
+      }
+    }
+    function onPaste(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("paste_attempt");
+      }
+    }
+    function onContextMenu(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("context_menu");
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", onWindowBlur);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("paste", onPaste);
+    document.addEventListener("contextmenu", onContextMenu);
+
+    const flushIntervalId = window.setInterval(() => flushProctoringEventsRef.current(), 5000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onWindowBlur);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("paste", onPaste);
+      document.removeEventListener("contextmenu", onContextMenu);
+      window.clearInterval(flushIntervalId);
+      flushProctoringEventsRef.current();
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOnlineTest?.attempt?.id, activeOnlineTest?.attempt?.status]);
 
   function formatTimeLeft(seconds) {
     const m = Math.floor(seconds / 60);
@@ -669,6 +828,40 @@ export default function Portal() {
             </div>
           )}
 
+          {!loading && activeTab === "tests" && !activeOnlineTest && isFeatureEnabled("online_test_proctoring") && (
+            <div className="message-box proctoring-consent-banner">
+              {proctoringConsent?.granted ? (
+                <>
+                  <strong>Exam proctoring consent: granted.</strong>{" "}
+                  Proctored tests for this student may request fullscreen and report browser
+                  activity such as tab switches or copy/paste attempts while an attempt is open.
+                  {canManageProctoringConsent && (
+                    <div className="form-actions">
+                      <button type="button" className="light-button" onClick={revokeProctoringConsent}>
+                        Revoke Consent
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>Exam proctoring consent: not granted.</strong>{" "}
+                  A proctored test cannot be started for this student until a guardian or
+                  administrator grants consent.
+                  {canManageProctoringConsent ? (
+                    <div className="form-actions">
+                      <button type="button" className="primary-button" onClick={grantProctoringConsent}>
+                        Grant Consent
+                      </button>
+                    </div>
+                  ) : (
+                    <div>Ask a parent or the school office to grant consent from this page.</div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {!loading && activeTab === "tests" && !activeOnlineTest && (
             <div className="table-wrapper">
             <table className="classic-table">
@@ -692,7 +885,10 @@ export default function Portal() {
                   onlineTests.map((test) => (
                     <tr key={test.id}>
                       <td>{test.subject || "-"}</td>
-                      <td>{test.title}</td>
+                      <td>
+                        {test.title}
+                        {test.proctoring_enabled && <span className="status pending online-test-proctored-badge">Proctored</span>}
+                      </td>
                       <td>{test.total_marks}</td>
                       <td>
                         {test.attempt_status === "Submitted"
@@ -749,6 +945,17 @@ export default function Portal() {
                 )}
               </div>
 
+              {activeOnlineTest.proctoring?.enabled && activeOnlineTest.attempt.status === "In Progress" && (
+                <div className="message-box online-test-proctoring-notice">
+                  This attempt is proctored: stay in fullscreen and do not switch tabs, copy or
+                  paste. Flags reported so far: {proctoringViolationCount}
+                  {activeOnlineTest.proctoring.max_violations_before_autosubmit
+                    ? ` / ${activeOnlineTest.proctoring.max_violations_before_autosubmit}`
+                    : ""}
+                  . Reaching the limit submits this attempt automatically.
+                </div>
+              )}
+
               {activeOnlineTest.attempt.status === "Submitted" && (
                 <div className="message-box">
                   Score: {activeOnlineTest.attempt.score} / {activeOnlineTest.attempt.max_score}
@@ -757,6 +964,9 @@ export default function Portal() {
                   )}
                   {activeOnlineTest.attempt.auto_submitted_reason === "window_closed" && (
                     <div>This test closed before it was submitted. Answers saved before it closed were marked.</div>
+                  )}
+                  {activeOnlineTest.attempt.auto_submitted_reason === "proctoring_violation" && (
+                    <div>This test was submitted automatically after repeated proctoring violations. Answers saved before then were marked.</div>
                   )}
                 </div>
               )}
