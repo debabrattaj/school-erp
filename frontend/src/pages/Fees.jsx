@@ -21,6 +21,7 @@ import {
   Check,
   Undo2,
   RefreshCcw,
+  CreditCard,
 } from "lucide-react";
 
 import API from "../api";
@@ -159,6 +160,22 @@ function grantStatusClass(status) {
   if (text === "approved") return "status active";
   if (text === "rejected" || text === "revoked") return "status danger";
   return "status warning"; // Requested
+}
+
+const emptyPaymentConfigForm = {
+  payment_provider: "",
+  payment_key_id: "",
+  payment_key_secret: "",
+  payment_webhook_secret: "",
+};
+
+const orderStatusOptions = ["Created", "Paid", "Failed"];
+
+function orderStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "paid") return "status active";
+  if (text === "failed") return "status danger";
+  return "status warning"; // Created
 }
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -347,6 +364,18 @@ export default function Fees() {
   const [concessionPreviewLoading, setConcessionPreviewLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
 
+  const canEditPaymentConfig = hasAccess(["Admin", "Principal"]);
+
+  const [paymentView, setPaymentView] = useState("settings");
+  const [paymentConfig, setPaymentConfig] = useState(null);
+  const [paymentConfigLoading, setPaymentConfigLoading] = useState(false);
+  const [paymentConfigForm, setPaymentConfigForm] = useState(emptyPaymentConfigForm);
+  const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
+
+  const [paymentOrders, setPaymentOrders] = useState([]);
+  const [paymentOrdersLoading, setPaymentOrdersLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState("");
+
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -497,6 +526,40 @@ export default function Fees() {
     }
   }
 
+  async function loadPaymentConfig() {
+    try {
+      setPaymentConfigLoading(true);
+      const response = await API.get("/payments/config");
+      setPaymentConfig(response.data);
+      setPaymentConfigForm({
+        payment_provider: response.data.provider || "",
+        payment_key_id: response.data.key_id || "",
+        payment_key_secret: "",
+        payment_webhook_secret: "",
+      });
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load payment gateway settings."));
+    } finally {
+      setPaymentConfigLoading(false);
+    }
+  }
+
+  async function loadPaymentOrders() {
+    try {
+      setPaymentOrdersLoading(true);
+      const response = await API.get("/payments/orders", {
+        params: { status: orderStatusFilter || undefined, limit: 200 },
+      });
+      setPaymentOrders(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load payment orders."));
+    } finally {
+      setPaymentOrdersLoading(false);
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -546,6 +609,18 @@ export default function Fees() {
     loadConcessionGrants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageMode, concessionView, grantStatusFilter]);
+
+  useEffect(() => {
+    if (pageMode !== "payments") return;
+    loadPaymentConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode]);
+
+  useEffect(() => {
+    if (pageMode !== "payments" || paymentView !== "orders") return;
+    loadPaymentOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, paymentView, orderStatusFilter]);
 
   const studentMap = useMemo(() => {
     const map = {};
@@ -1446,6 +1521,34 @@ export default function Fees() {
     [concessionSchemes]
   );
 
+  function handlePaymentConfigChange(e) {
+    const { name, value } = e.target;
+    setPaymentConfigForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handlePaymentConfigSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      setSavingPaymentConfig(true);
+      await API.put("/payments/config", paymentConfigForm);
+      setMessage("Payment gateway settings saved.");
+      await loadPaymentConfig();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save payment gateway settings."));
+    } finally {
+      setSavingPaymentConfig(false);
+    }
+  }
+
+  function feeLabelForOrder(feeId) {
+    const fee = fees.find((f) => f.id === feeId);
+    if (!fee) return `Fee #${feeId}`;
+    return `${getStudentName(fee.student_id)} — ${fee.fee_type || "Fee"}`;
+  }
+
   // Auto-generate metadata (last_generated_at) isn't part of the editable
   // form state — read it straight from the loaded list when editing.
   const editingStructure = editingStructureId
@@ -1521,6 +1624,11 @@ export default function Fees() {
           <button type="button" className="secondary-button" onClick={() => setPageMode("concessions")}>
             <Percent size={17} />
             Concessions
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("payments")}>
+            <CreditCard size={17} />
+            Online Payments
           </button>
 
           <button type="button" className="primary-button" onClick={handleAddFee}>
@@ -2843,6 +2951,173 @@ export default function Fees() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {pageMode === "payments" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Online Payments</h3>
+              <p>Configure the payment gateway parents use to pay fees online, and review transaction history.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          <div className="student-profile-tabs">
+            <button type="button" className={paymentView === "settings" ? "active" : ""} onClick={() => setPaymentView("settings")}>Gateway Settings</button>
+            <button type="button" className={paymentView === "orders" ? "active" : ""} onClick={() => setPaymentView("orders")}>Order History</button>
+          </div>
+
+          {paymentView === "settings" && (
+            <div style={{ marginTop: 16 }}>
+              {paymentConfigLoading && <p>Loading...</p>}
+
+              {!paymentConfigLoading && paymentConfig && (
+                <>
+                  <section className="summary-strip report-summary-grid">
+                    <div className={paymentConfig.enabled ? "summary-card" : "summary-card warning"}>
+                      <CreditCard size={20} />
+                      <div><span>Status</span><strong>{paymentConfig.enabled ? "Enabled" : "Not Configured"}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <CreditCard size={20} />
+                      <div><span>Mode</span><strong>{paymentConfig.mode || "-"}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <CreditCard size={20} />
+                      <div><span>Platform Commission</span><strong>{paymentConfig.platform_commission_percent}%</strong></div>
+                    </div>
+                  </section>
+                  <p className="hint-text">
+                    Mode and commission are set by the platform owner, not editable here.
+                    {paymentConfig.linked_account_id && ` Linked account: ${paymentConfig.linked_account_id}.`}
+                  </p>
+
+                  <form className="classic-form" onSubmit={handlePaymentConfigSubmit} style={{ marginTop: 16 }}>
+                    <div className="sis-section-title">Gateway Credentials</div>
+                    <div className="form-grid">
+                      <div className="form-field">
+                        <label>Provider</label>
+                        <select
+                          name="payment_provider"
+                          value={paymentConfigForm.payment_provider}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                        >
+                          <option value="">Not selected</option>
+                          {(paymentConfig.supported_providers || []).map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Key ID</label>
+                        <input
+                          type="text"
+                          name="payment_key_id"
+                          value={paymentConfigForm.payment_key_id}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder="Publishable key"
+                        />
+                      </div>
+
+                      <div className="form-field">
+                        <label>Key Secret</label>
+                        <input
+                          type="password"
+                          name="payment_key_secret"
+                          value={paymentConfigForm.payment_key_secret}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder={paymentConfig.has_secret ? "Set — leave blank to keep it" : "Not set"}
+                          autoComplete="new-password"
+                        />
+                        <small>Write-only — never shown once saved. Leave blank to keep the current value.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Webhook Secret</label>
+                        <input
+                          type="password"
+                          name="payment_webhook_secret"
+                          value={paymentConfigForm.payment_webhook_secret}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder={paymentConfig.has_webhook_secret ? "Set — leave blank to keep it" : "Not set"}
+                          autoComplete="new-password"
+                        />
+                        <small>Used to verify the gateway's payment confirmation callback.</small>
+                      </div>
+                    </div>
+
+                    {canEditPaymentConfig ? (
+                      <div className="form-actions">
+                        <button type="submit" className="primary-button" disabled={savingPaymentConfig}>
+                          {savingPaymentConfig ? "Saving..." : "Save Settings"}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="hint-text">Only Admin/Principal can change gateway credentials.</p>
+                    )}
+                  </form>
+                </>
+              )}
+            </div>
+          )}
+
+          {paymentView === "orders" && (
+            <div style={{ marginTop: 16 }}>
+              <div className="filter-row sis-filter-row">
+                <div className="form-field">
+                  <label>Status</label>
+                  <select value={orderStatusFilter} onChange={(e) => setOrderStatusFilter(e.target.value)}>
+                    <option value="">All Statuses</option>
+                    {orderStatusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="light-button" onClick={loadPaymentOrders}>
+                  Refresh
+                </button>
+              </div>
+
+              <div className="table-wrapper" style={{ marginTop: 12 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr><th>Fee</th><th>Provider</th><th>Order ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Paid At</th></tr>
+                  </thead>
+                  <tbody>
+                    {paymentOrdersLoading && (
+                      <tr><td colSpan={7}>Loading...</td></tr>
+                    )}
+                    {!paymentOrdersLoading && paymentOrders.map((order) => (
+                      <tr key={order.id}>
+                        <td>{feeLabelForOrder(order.fee_id)}</td>
+                        <td>{order.provider}</td>
+                        <td>{order.order_id}</td>
+                        <td>{money(Number(order.amount || 0))}</td>
+                        <td>
+                          <span className={orderStatusClass(order.status)}>{order.status}</span>
+                        </td>
+                        <td>{order.method || "-"}</td>
+                        <td>{order.paid_at ? formatDateTime(order.paid_at) : "-"}</td>
+                      </tr>
+                    ))}
+                    {!paymentOrdersLoading && !paymentOrders.length && (
+                      <tr><td colSpan={7}>No payment orders yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
