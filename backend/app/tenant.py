@@ -131,6 +131,11 @@ DEFAULT_FEATURES = {
     # Core teaching workflow, alongside Homework and Timetable -- on by
     # default rather than an opt-in add-on.
     "syllabus": True,
+    # Bulk-writes the whole school's period grid in one action, so it stays
+    # opt-in like the other *_auto_generation automations even though it has
+    # no cron component -- a school must choose to hand scheduling to the
+    # algorithm rather than find their manually-built timetable overwritten.
+    "timetable_auto_generation": False,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

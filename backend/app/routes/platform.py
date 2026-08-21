@@ -89,6 +89,7 @@ FEATURE_LABELS = {
     "exam_auto_generation": "Automatic Exam Creation",
     "leave": "Staff Leave & Substitution",
     "syllabus": "Syllabus & Lesson Plans",
+    "timetable_auto_generation": "Automatic Timetable Generation",
 }
 
 

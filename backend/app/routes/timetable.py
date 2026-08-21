@@ -2,9 +2,11 @@ import io
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import timetable_generator
 from app.database import get_db
 from app.models import TimetableEntry, SchoolClass, Teacher, User, SchoolSettings
 from app.schemas import (
@@ -13,11 +15,17 @@ from app.schemas import (
     TimetableEntryResponse,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 from app.pdf import timetable_pdf
 
 router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
 VALID_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+SCHEDULERS = ["Admin", "Principal"]
+# Bulk-writes the whole school's grid in one action, so it stays opt-in
+# behind the platform owner's switch like the other *_auto_generation
+# automations, even though nothing here runs unattended on a schedule.
+AUTO_GATE = [Depends(require_feature("timetable_auto_generation"))]
 
 
 def _fill_snapshots(db: Session, entry: TimetableEntry) -> None:
@@ -267,3 +275,136 @@ def delete_timetable_entry(
     db.delete(entry)
     db.commit()
     return {"message": "Timetable entry deleted"}
+
+
+# ---------------- Automatic generation ----------------
+
+
+class AutoGenerateRequest(BaseModel):
+    academic_year: str
+    class_ids: list[int] | None = None  # empty/omitted = every class
+    working_days: list[str] | None = None  # defaults to the school's settings
+    periods_per_day: int = timetable_generator.DEFAULT_PERIODS_PER_DAY
+    day_start_time: str = timetable_generator.DEFAULT_DAY_START
+    period_duration_min: int = timetable_generator.DEFAULT_PERIOD_DURATION_MIN
+
+
+def _generation_scope(db: Session, payload: AutoGenerateRequest) -> tuple[list[int], list[str]]:
+    if payload.class_ids:
+        class_ids = [
+            c.id for c in db.query(SchoolClass).filter(SchoolClass.id.in_(payload.class_ids)).all()
+        ]
+    else:
+        class_ids = [c.id for c in db.query(SchoolClass).all()]
+    if not class_ids:
+        raise HTTPException(status_code=400, detail="No classes found to generate a timetable for.")
+
+    if payload.working_days:
+        invalid = [d for d in payload.working_days if d not in VALID_DAYS]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid working day(s): {', '.join(invalid)}")
+    working_days = timetable_generator.resolve_working_days(db, payload.working_days)
+    if not working_days:
+        raise HTTPException(status_code=400, detail="No working days configured for this school.")
+
+    return class_ids, working_days
+
+
+def _run_generation(
+    db: Session, payload: AutoGenerateRequest, class_ids: list[int], working_days: list[str]
+) -> timetable_generator.GenerationResult:
+    if payload.periods_per_day < 1:
+        raise HTTPException(status_code=400, detail="Periods per day must be at least 1.")
+    return timetable_generator.generate(
+        db,
+        academic_year=payload.academic_year,
+        class_ids=class_ids,
+        working_days=working_days,
+        periods_per_day=payload.periods_per_day,
+        day_start_time=payload.day_start_time,
+        period_duration_min=payload.period_duration_min,
+    )
+
+
+def _generation_response(result: timetable_generator.GenerationResult, applied: bool, created: int = 0) -> dict:
+    return {
+        "applied": applied,
+        "created": created,
+        "academic_year": result.academic_year,
+        "working_days": result.working_days,
+        "periods_per_day": result.periods_per_day,
+        "classes_processed": result.classes_processed,
+        "placed_count": len(result.entries),
+        "entries": [e.__dict__ for e in result.entries],
+        "unplaced": [u.__dict__ for u in result.unplaced],
+        "warnings": result.warnings,
+    }
+
+
+@router.post("/auto-generate/preview", dependencies=AUTO_GATE)
+def auto_generate_preview(
+    payload: AutoGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(SCHEDULERS)),
+):
+    """Compute a proposed timetable without writing anything.
+
+    Runs the exact same placement apply() will, against the exact same
+    database state, so what an Admin approves here is what they get -- the
+    only thing apply() does differently is delete the classes' existing
+    periods first and save the result.
+    """
+    class_ids, working_days = _generation_scope(db, payload)
+    result = _run_generation(db, payload, class_ids, working_days)
+    return _generation_response(result, applied=False)
+
+
+@router.post("/auto-generate/apply", dependencies=AUTO_GATE)
+def auto_generate_apply(
+    payload: AutoGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(SCHEDULERS)),
+):
+    """Generate and save. Replaces every existing period row (not
+    recess/break rows) for the selected classes and academic year --
+    intended to be called after a preview has been reviewed."""
+    class_ids, working_days = _generation_scope(db, payload)
+    result = _run_generation(db, payload, class_ids, working_days)
+
+    db.query(TimetableEntry).filter(
+        TimetableEntry.academic_year == payload.academic_year,
+        TimetableEntry.class_id.in_(class_ids),
+        TimetableEntry.entry_type == "period",
+    ).delete(synchronize_session=False)
+
+    created = 0
+    for placed in result.entries:
+        db.add(
+            TimetableEntry(
+                academic_year=payload.academic_year,
+                class_id=placed.class_id,
+                class_name_snapshot=placed.class_name,
+                section_snapshot=placed.section,
+                day_of_week=placed.day_of_week,
+                period_no=placed.period_no,
+                entry_type="period",
+                subject=placed.subject,
+                teacher_id=placed.teacher_id,
+                teacher_name_snapshot=placed.teacher_name,
+                room=placed.room,
+                start_time=placed.start_time,
+                end_time=placed.end_time,
+            )
+        )
+        created += 1
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="The timetable changed while generating. Please preview and try again.",
+        )
+
+    return _generation_response(result, applied=True, created=created)
