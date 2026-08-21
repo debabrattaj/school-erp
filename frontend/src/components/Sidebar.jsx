@@ -30,6 +30,8 @@ import {
   ShieldCheck,
   Landmark,
   ChevronDown,
+  CalendarOff,
+  BookMarked,
 } from "lucide-react";
 import { getUser } from "../auth";
 import { useI18n } from "../i18n";
@@ -107,6 +109,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/homework",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "homework",
+      group: "Academics",
+    },
+    {
+      label: "Syllabus & Lesson Plans",
+      icon: BookMarked,
+      path: "/syllabus",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "syllabus",
       group: "Academics",
     },
     {
@@ -251,6 +261,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/teachers",
       roles: ["Admin", "Principal"],
       feature: "teachers",
+      group: "People & Access",
+    },
+    {
+      label: "Leave",
+      icon: CalendarOff,
+      path: "/leave",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "leave",
       group: "People & Access",
     },
     {

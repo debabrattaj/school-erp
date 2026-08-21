@@ -124,6 +124,13 @@ DEFAULT_FEATURES = {
     "fee_reminders": False,
     "promotion_auto_generation": False,
     "exam_auto_generation": False,
+    # Staff HR module, not every school runs leave/substitution through the
+    # ERP yet -- off by default like the other operational add-ons (hostel,
+    # transport, library), on once a school opts in via the Platform Console.
+    "leave": False,
+    # Core teaching workflow, alongside Homework and Timetable -- on by
+    # default rather than an opt-in add-on.
+    "syllabus": True,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

@@ -87,6 +87,8 @@ FEATURE_LABELS = {
     "fee_auto_generation": "Automatic Fee Billing",
     "promotion_auto_generation": "Automatic Year-End Promotion",
     "exam_auto_generation": "Automatic Exam Creation",
+    "leave": "Staff Leave & Substitution",
+    "syllabus": "Syllabus & Lesson Plans",
 }
 
 

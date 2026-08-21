@@ -8799,3 +8799,46 @@ textarea:focus-visible {
   font-size: 13px;
   line-height: 1.5;
 }
+
+.syllabus-unit-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.syllabus-unit-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface-subtle);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.syllabus-unit-title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.syllabus-unit-progress {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.syllabus-unit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.syllabus-unit-body {
+  padding: 14px;
+  border-top: 1px solid var(--border);
+}
