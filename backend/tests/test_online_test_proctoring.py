@@ -344,3 +344,171 @@ def test_proctoring_endpoints_blocked_when_addon_disabled(client, auth, student_
 
     resp = client.get("/online-tests/proctoring-policies", headers=auth)
     assert resp.status_code == 403, resp.text
+
+
+# ---------------- Phase 2: webcam snapshots ----------------
+
+FAKE_JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"0" * 100 + b"\xff\xd9"  # JPEG magic bytes + padding
+
+
+def _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam):
+    resp = client.post("/online-tests/proctoring-policies", json={
+        "name": f"Webcam Policy {uuid.uuid4().hex[:6]}",
+        "require_webcam": require_webcam,
+        "max_violations_before_autosubmit": 100,
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    policy_id = resp.json()["id"]
+
+    test, questions = _create_proctored_test(client, auth, student, policy_id=policy_id)
+    client.post(f"/portal/students/{student.id}/proctoring/consent", headers=parent_auth)
+
+    resp = client.get(f"/portal/students/{student.id}/online-tests/{test['id']}", headers=student_auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["proctoring"]["require_webcam"] is require_webcam
+    return test, questions
+
+
+def test_snapshot_upload_rejected_without_webcam_policy(client, auth, student_with_parent):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=False)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.jpg", FAKE_JPEG_BYTES, "image/jpeg")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 400, resp.text
+    assert "does not require webcam" in resp.json()["detail"].lower()
+
+
+def test_snapshot_upload_rejected_wrong_content_type(client, auth, student_with_parent):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=True)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.png", FAKE_JPEG_BYTES, "image/png")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 400, resp.text
+    assert "jpeg" in resp.json()["detail"].lower()
+
+
+def test_snapshot_upload_rejected_oversized(client, auth, student_with_parent):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=True)
+
+    oversized = b"\xff\xd8\xff\xe0" + b"0" * (2 * 1024 * 1024 + 1)
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.jpg", oversized, "image/jpeg")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 400, resp.text
+    assert "too large" in resp.json()["detail"].lower()
+
+
+def test_snapshot_upload_accepted_viewable_by_teacher_and_access_logged(client, auth, student_with_parent, db_session):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=True)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.jpg", FAKE_JPEG_BYTES, "image/jpeg")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 200, resp.text
+    snapshot = resp.json()
+    assert snapshot["content_type"] == "image/jpeg"
+    assert snapshot["captured_at"]
+
+    resp = client.get(f"/online-tests/{test['id']}/results", headers=auth)
+    attempt_id = resp.json()[0]["id"]
+
+    resp = client.get(f"/online-tests/{test['id']}/results/{attempt_id}/proctoring", headers=auth)
+    assert resp.status_code == 200, resp.text
+    detail = resp.json()
+    assert len(detail["snapshots"]) == 1
+    assert detail["snapshots"][0]["id"] == snapshot["id"]
+    assert "storage_path" not in detail["snapshots"][0]
+
+    resp = client.get(
+        f"/online-tests/{test['id']}/results/{attempt_id}/proctoring/snapshots/{snapshot['id']}",
+        headers=auth,
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"] == "image/jpeg"
+    assert resp.content == FAKE_JPEG_BYTES
+
+    from app.models import ProctoringAccessLog
+    logs = db_session.query(ProctoringAccessLog).filter(ProctoringAccessLog.action == "view_snapshot").all()
+    assert len(logs) == 1
+    assert logs[0].viewed_by  # the teacher's email, snapshotted
+
+
+def test_snapshot_view_blocked_for_parent(client, auth, student_with_parent):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=True)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.jpg", FAKE_JPEG_BYTES, "image/jpeg")},
+        headers=student_auth,
+    )
+    snapshot_id = resp.json()["id"]
+
+    resp = client.get(f"/online-tests/{test['id']}/results", headers=auth)
+    attempt_id = resp.json()[0]["id"]
+
+    resp = client.get(
+        f"/online-tests/{test['id']}/results/{attempt_id}/proctoring/snapshots/{snapshot_id}",
+        headers=parent_auth,
+    )
+    assert resp.status_code == 403, resp.text
+
+
+def test_retention_purges_snapshot_file_but_keeps_row(client, auth, student_with_parent, db_session):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _start_proctored_attempt(client, auth, student_auth, parent_auth, student, require_webcam=True)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/snapshot",
+        files={"file": ("snap.jpg", FAKE_JPEG_BYTES, "image/jpeg")},
+        headers=student_auth,
+    )
+    snapshot_id = resp.json()["id"]
+
+    import os
+    from datetime import datetime, timedelta
+    from app import proctoring_storage
+    from app.models import ProctoringSession, ProctoringSnapshot
+
+    snapshot = db_session.query(ProctoringSnapshot).filter(ProctoringSnapshot.id == snapshot_id).first()
+    absolute_path = proctoring_storage.absolute_path_for(snapshot.storage_path)
+    assert os.path.isfile(absolute_path)
+
+    session = db_session.query(ProctoringSession).filter(ProctoringSession.id == snapshot.session_id).first()
+    session.retention_expires_at = datetime.utcnow() - timedelta(days=1)
+    db_session.commit()
+
+    import run_proctoring_retention as retention
+    from app.tenant import DEFAULT_SCHOOL_DATABASE_URL
+    result = retention.run_tenant(DEFAULT_SCHOOL_DATABASE_URL)
+    assert result["snapshots_purged"] == 1
+
+    assert not os.path.isfile(absolute_path)
+    db_session.refresh(snapshot)
+    assert snapshot.storage_path is None
+
+    resp = client.get(f"/online-tests/{test['id']}/results", headers=auth)
+    attempt_id = resp.json()[0]["id"]
+    resp = client.get(f"/online-tests/{test['id']}/results/{attempt_id}/proctoring", headers=auth)
+    assert len(resp.json()["snapshots"]) == 1  # the row survives retention
+
+    resp = client.get(
+        f"/online-tests/{test['id']}/results/{attempt_id}/proctoring/snapshots/{snapshot_id}",
+        headers=auth,
+    )
+    assert resp.status_code == 404, resp.text

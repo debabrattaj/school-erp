@@ -12,6 +12,7 @@ os.environ["DEFAULT_SCHOOL_DATABASE_URL"] = f"sqlite:///{_tmp}/school.db"
 os.environ["CENTRAL_DATABASE_URL"] = f"sqlite:///{_tmp}/central.db"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-please-change")
 os.environ["UPLOAD_DIR"] = f"{_tmp}/uploads"
+os.environ["PROCTORING_UPLOAD_DIR"] = f"{_tmp}/uploads_private/proctoring"
 # Keep the login limiter from tripping across the whole test session.
 os.environ["LOGIN_MAX_ATTEMPTS"] = "50"
 

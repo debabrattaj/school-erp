@@ -1874,6 +1874,28 @@ class ProctoringEvent(Base):
     detail = Column(Text, nullable=True)
 
 
+class ProctoringSnapshot(Base):
+    """A periodic webcam frame captured during a proctored attempt (Phase 2,
+    only taken when the session's policy has require_webcam=True).
+
+    storage_path is relative to PROCTORING_UPLOAD_DIR (app.proctoring_storage)
+    -- a private, tenant-scoped directory that is never mounted as a static
+    path, unlike the general-purpose app.routes.uploads. Retention blanks
+    storage_path and deletes the file once retention_expires_at has passed,
+    but the row itself survives so "N snapshots were taken" stays answerable
+    after the images are gone."""
+
+    __tablename__ = "proctoring_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("proctoring_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    captured_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    storage_path = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
+    content_type = Column(String, nullable=False, default="image/jpeg")
+
+
 class ProctoringAccessLog(Base):
     """Records every time a staff member views a proctoring session's data,
     so "who watched a child's session" is always answerable."""

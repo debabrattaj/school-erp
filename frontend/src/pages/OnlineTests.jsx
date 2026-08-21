@@ -43,6 +43,8 @@ const emptyPolicyForm = {
   block_copy_paste: true,
   max_violations_before_autosubmit: 5,
   retention_days: 90,
+  require_webcam: false,
+  capture_interval_seconds: 30,
 };
 
 function getApiErrorMessage(error, fallback) {
@@ -77,6 +79,11 @@ export default function OnlineTests() {
   const [proctoringDetail, setProctoringDetail] = useState(null);
   const [activeAttemptId, setActiveAttemptId] = useState(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  // snapshot id -> local object URL. Images are never linked to directly --
+  // the endpoint requires an Authorization header a plain <img src> can't
+  // send, so each one is fetched as a blob and given a local URL instead.
+  const [snapshotUrls, setSnapshotUrls] = useState({});
+  const [snapshotsLoaded, setSnapshotsLoaded] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -370,6 +377,8 @@ export default function OnlineTests() {
       block_copy_paste: Boolean(policy.block_copy_paste),
       max_violations_before_autosubmit: policy.max_violations_before_autosubmit,
       retention_days: policy.retention_days,
+      require_webcam: Boolean(policy.require_webcam),
+      capture_interval_seconds: policy.capture_interval_seconds || 30,
     });
     setMessage("");
   }
@@ -382,6 +391,10 @@ export default function OnlineTests() {
       block_copy_paste: Boolean(policyForm.block_copy_paste),
       max_violations_before_autosubmit: Number(policyForm.max_violations_before_autosubmit) || 5,
       retention_days: Number(policyForm.retention_days) || 90,
+      require_webcam: Boolean(policyForm.require_webcam),
+      capture_interval_seconds: policyForm.require_webcam
+        ? Number(policyForm.capture_interval_seconds) || 30
+        : null,
     };
     if (!payload.name) {
       setMessage("Policy name is required.");
@@ -419,6 +432,8 @@ export default function OnlineTests() {
     setActiveAttemptId(attemptId);
     setMessage("");
     setPageMode("proctoring");
+    setSnapshotUrls({});
+    setSnapshotsLoaded(false);
     try {
       const response = await API.get(`/online-tests/${activeTest.id}/results/${attemptId}/proctoring`);
       setProctoringDetail(response.data);
@@ -432,6 +447,8 @@ export default function OnlineTests() {
     setPageMode("results");
     setProctoringDetail(null);
     setActiveAttemptId(null);
+    setSnapshotUrls({});
+    setSnapshotsLoaded(false);
     if (activeTest) {
       try {
         const response = await API.get(`/online-tests/${activeTest.id}/results`);
@@ -455,6 +472,40 @@ export default function OnlineTests() {
       setMessage(getApiErrorMessage(error, "Unable to save the review."));
     }
   }
+
+  // Fetch each snapshot's image once (blob + local object URL, never a plain
+  // <img src> since the endpoint is authenticated), and revoke the object
+  // URLs on cleanup so viewing several sessions in a row doesn't leak memory.
+  useEffect(() => {
+    if (!proctoringDetail?.snapshots?.length || !activeTest || !activeAttemptId) {
+      return undefined;
+    }
+    let cancelled = false;
+    const urls = {};
+    (async () => {
+      for (const snap of proctoringDetail.snapshots) {
+        try {
+          const response = await API.get(
+            `/online-tests/${activeTest.id}/results/${activeAttemptId}/proctoring/snapshots/${snap.id}`,
+            { responseType: "blob" }
+          );
+          if (cancelled) return;
+          urls[snap.id] = URL.createObjectURL(response.data);
+        } catch {
+          // Skip -- most likely purged by retention already.
+        }
+      }
+      if (!cancelled) {
+        setSnapshotUrls({ ...urls });
+        setSnapshotsLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proctoringDetail?.id, proctoringDetail?.snapshots?.length]);
 
   const filteredTests = tests.filter((t) => {
     const fullText = `${t.class_name} ${t.section} ${t.subject} ${t.title} ${t.status}`.toLowerCase();
@@ -922,6 +973,31 @@ export default function OnlineTests() {
               </div>
             </section>
 
+            {proctoringDetail.snapshots.length > 0 && (
+              <section className="table-panel">
+                <div className="panel-header">
+                  <div>
+                    <h3>Webcam Snapshots</h3>
+                    <p>Periodic still photos, not a continuous recording. Each view of an image is logged.</p>
+                  </div>
+                </div>
+                <div className="proctoring-snapshot-grid">
+                  {proctoringDetail.snapshots.map((snap) => (
+                    <div key={snap.id} className="proctoring-snapshot-item">
+                      {snapshotUrls[snap.id] ? (
+                        <img src={snapshotUrls[snap.id]} alt={`Webcam snapshot at ${snap.captured_at}`} />
+                      ) : (
+                        <div className="proctoring-snapshot-placeholder">
+                          {snapshotsLoaded ? "Purged by retention" : "Loading..."}
+                        </div>
+                      )}
+                      <small>{snap.captured_at || "-"}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="form-panel">
               <div className="panel-header">
                 <div>
@@ -1034,6 +1110,34 @@ export default function OnlineTests() {
                   Block copy / paste / right-click
                 </label>
               </div>
+              <div className="form-field">
+                <label>Webcam (Phase 2)</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="require_webcam"
+                    checked={policyForm.require_webcam}
+                    onChange={handlePolicyFormChange}
+                  />
+                  Capture periodic webcam snapshots
+                </label>
+                <small>
+                  Still photos only, not continuous recording. Requires the student's browser
+                  permission and the same guardian consent as the other proctoring signals.
+                </small>
+              </div>
+              {policyForm.require_webcam && (
+                <div className="form-field">
+                  <label>Snapshot interval (seconds)</label>
+                  <input
+                    type="number"
+                    name="capture_interval_seconds"
+                    value={policyForm.capture_interval_seconds}
+                    onChange={handlePolicyFormChange}
+                    min="10"
+                  />
+                </div>
+              )}
             </div>
             <div className="form-actions">
               <button type="submit" className="primary-button">
@@ -1069,6 +1173,7 @@ export default function OnlineTests() {
                   <th>Name</th>
                   <th>Fullscreen</th>
                   <th>Block Copy/Paste</th>
+                  <th>Webcam</th>
                   <th>Violations → Auto-submit</th>
                   <th>Retention (days)</th>
                   <th>Actions</th>
@@ -1080,6 +1185,7 @@ export default function OnlineTests() {
                     <td>{policy.name}</td>
                     <td>{policy.require_fullscreen ? "Yes" : "No"}</td>
                     <td>{policy.block_copy_paste ? "Yes" : "No"}</td>
+                    <td>{policy.require_webcam ? `Every ${policy.capture_interval_seconds}s` : "No"}</td>
                     <td>{policy.max_violations_before_autosubmit}</td>
                     <td>{policy.retention_days}</td>
                     <td>
@@ -1096,7 +1202,7 @@ export default function OnlineTests() {
                 ))}
                 {!policies.length && (
                   <tr>
-                    <td colSpan={6}>No proctoring policies yet — proctored tests use strict defaults until you add one.</td>
+                    <td colSpan={7}>No proctoring policies yet — proctored tests use strict defaults until you add one.</td>
                   </tr>
                 )}
               </tbody>

@@ -7,12 +7,15 @@ submission is scored immediately, so there is no manual-grading queue or
 """
 
 import json
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app import proctoring_storage
 from app.database import get_db
 from app.models import (
     OnlineTest,
@@ -22,6 +25,7 @@ from app.models import (
     ProctoringEvent,
     ProctoringPolicy,
     ProctoringSession,
+    ProctoringSnapshot,
     Student,
     Teacher,
     User,
@@ -40,6 +44,7 @@ from app.schemas import (
     ProctoringReviewUpdate,
     ProctoringSessionDetailResponse,
     ProctoringSessionResponse,
+    ProctoringSnapshotResponse,
 )
 from app.security import require_roles
 from app.tenant import require_feature
@@ -467,6 +472,13 @@ def get_proctoring_session_detail(
     )
     flag_count = sum(1 for e in events if e.severity != "info")
 
+    snapshots = (
+        db.query(ProctoringSnapshot)
+        .filter(ProctoringSnapshot.session_id == session.id)
+        .order_by(ProctoringSnapshot.captured_at)
+        .all()
+    )
+
     # Every view of a session's data is logged, so "who watched this
     # student's session" stays answerable.
     db.add(ProctoringAccessLog(session_id=session.id, viewed_by=current_user.email, action="view"))
@@ -483,7 +495,54 @@ def get_proctoring_session_detail(
         reviewer_notes=session.reviewer_notes,
         flag_count=flag_count,
         events=[ProctoringEventResponse.model_validate(e) for e in events],
+        snapshots=[ProctoringSnapshotResponse.model_validate(s) for s in snapshots],
     )
+
+
+@router.get(
+    "/{test_id}/results/{attempt_id}/proctoring/snapshots/{snapshot_id}",
+    dependencies=PROCTORING_GATE,
+)
+def get_proctoring_snapshot(
+    test_id: int,
+    attempt_id: int,
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    """Stream one webcam frame. Deliberately not served through the public
+    /uploads static mount -- this route re-checks the full test/attempt/
+    session/snapshot ownership chain and logs the view, same as the timeline
+    endpoint above, before ever touching the file."""
+    _get_test_or_404(db, test_id)
+    attempt = (
+        db.query(OnlineTestAttempt)
+        .filter(OnlineTestAttempt.id == attempt_id, OnlineTestAttempt.test_id == test_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    session = db.query(ProctoringSession).filter(ProctoringSession.attempt_id == attempt_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt was not proctored")
+
+    snapshot = (
+        db.query(ProctoringSnapshot)
+        .filter(ProctoringSnapshot.id == snapshot_id, ProctoringSnapshot.session_id == session.id)
+        .first()
+    )
+    if not snapshot or not snapshot.storage_path:
+        raise HTTPException(status_code=404, detail="Snapshot not found or has been purged by retention")
+
+    absolute_path = proctoring_storage.absolute_path_for(snapshot.storage_path)
+    if not os.path.isfile(absolute_path):
+        raise HTTPException(status_code=404, detail="Snapshot file is missing on disk")
+
+    db.add(ProctoringAccessLog(session_id=session.id, viewed_by=current_user.email, action="view_snapshot"))
+    db.commit()
+
+    return FileResponse(absolute_path, media_type=snapshot.content_type)
 
 
 @router.put(

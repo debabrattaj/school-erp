@@ -1,15 +1,19 @@
 """Online-exam proctoring retention -- the cron entrypoint.
 
-Phase 1 proctoring collects only browser-reported signals (fullscreen exits,
-tab switches, copy/paste attempts) -- no webcam snapshots or recordings exist
-yet, that is Phase 2. The one field in this phase that can carry free text is
-ProctoringEvent.detail, so retention here means: once a session's
-retention_expires_at has passed, blank every one of its events' detail and
-leave everything else in place -- event_type, severity, occurred_at, and the
-session's own review record all survive, so the audit trail and flag counts
-stay meaningful. Only the free-text content ages out. This also gives Phase 2
-a job already shaped to extend: deleting snapshot files and blanking a future
-storage-path column slots into the same per-session sweep.
+Two things age out once a session's retention_expires_at has passed:
+
+1. ProctoringEvent.detail (Phase 1) -- the one free-text field in the
+   browser-signal data. Blanked, but the event row survives with its
+   event_type, severity and occurred_at intact, so the audit trail and flag
+   counts stay meaningful.
+2. ProctoringSnapshot files (Phase 2) -- the actual webcam JPEGs on disk are
+   deleted and storage_path is blanked, but the ProctoringSnapshot row
+   survives too, so "N snapshots were taken during this session" stays
+   answerable even after the images themselves are gone.
+
+Both are the same shape: keep the row, drop the sensitive content once its
+window has passed. Neither ever deletes a ProctoringSession or the events/
+snapshots rows themselves -- only their content.
 
 Gated on the online_test_proctoring feature flag, unlike vehicle-tracking
 housekeeping: a school that has since dropped the add-on still gets its old
@@ -34,7 +38,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
-from app.models import ProctoringEvent, ProctoringSession  # noqa: E402
+from app import proctoring_storage  # noqa: E402
+from app.models import ProctoringEvent, ProctoringSession, ProctoringSnapshot  # noqa: E402
 from app.tenant import (  # noqa: E402
     CentralSessionLocal,
     DEFAULT_ACCOUNT_CODE,
@@ -90,22 +95,39 @@ def run_tenant(database_url: str, dry_run: bool = False) -> dict:
         ]
 
         if not expired_session_ids:
-            return {"sessions_expired": 0, "events_blanked": 0}
+            return {"sessions_expired": 0, "events_blanked": 0, "snapshots_purged": 0}
 
         # Idempotent by construction: re-running finds detail already NULL
         # for anything already swept, so the second pass touches zero rows.
-        query = db.query(ProctoringEvent).filter(
+        event_query = db.query(ProctoringEvent).filter(
             ProctoringEvent.session_id.in_(expired_session_ids),
             ProctoringEvent.detail.isnot(None),
         )
 
+        snapshot_query = db.query(ProctoringSnapshot).filter(
+            ProctoringSnapshot.session_id.in_(expired_session_ids),
+            ProctoringSnapshot.storage_path.isnot(None),
+        )
+
         if dry_run:
-            blanked = query.count()
+            blanked = event_query.count()
+            purged = snapshot_query.count()
         else:
-            blanked = query.update({ProctoringEvent.detail: None}, synchronize_session=False)
+            blanked = event_query.update({ProctoringEvent.detail: None}, synchronize_session=False)
+
+            # Bulk UPDATE can't call out to the filesystem per row, so
+            # snapshots are walked individually -- each file is deleted
+            # (best-effort; a file already missing just means a prior run
+            # got interrupted after deleting it but before the commit) and
+            # its row's storage_path blanked, leaving the row itself intact.
+            purged = 0
+            for snapshot in snapshot_query.all():
+                proctoring_storage.delete_snapshot_file(snapshot.storage_path)
+                snapshot.storage_path = None
+                purged += 1
             db.commit()
 
-        return {"sessions_expired": len(expired_session_ids), "events_blanked": blanked}
+        return {"sessions_expired": len(expired_session_ids), "events_blanked": blanked, "snapshots_purged": purged}
     finally:
         db.close()
 

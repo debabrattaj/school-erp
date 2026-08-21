@@ -1726,10 +1726,11 @@ Test with `--dry-run` first, same as §9.
 ## 20. Online exam proctoring (add-on)
 
 A separate SKU from Online Tests itself (§13) — browser-lockdown signal
-capture (fullscreen exits, tab/window blur, copy/paste attempts) and a
-teacher-facing review UI. Phase 1 only: no webcam, no AI, browser signals
-are reported as flags for a human to review, never treated as proof on
-their own.
+capture (fullscreen exits, tab/window blur, copy/paste attempts), optional
+periodic webcam snapshots, and a teacher-facing review UI. Signals and
+snapshots are reported as flags for a human to review, never treated as
+proof on their own — no automated verdict, no face/image analysis (that
+would be a future phase, not built).
 
 - **Feature flag:** `online_test_proctoring`, off by default, enabled per
   school from the Platform Console (`PUT /platform/schools/{id}/features`
@@ -1745,35 +1746,72 @@ their own.
   with no consent on file, fails closed (403/400) — it never silently runs
   the test unproctored.
 - **Policies** (`/online-tests/proctoring-policies`) — reusable
-  fullscreen/copy-paste/violation-threshold/retention configs, attached to
-  a test via `OnlineTest.proctoring_policy_id`. A proctored test with no
-  policy assigned falls back to strict defaults (fullscreen required,
-  copy/paste blocked, 5 violations before auto-submit, 90-day retention).
+  fullscreen/copy-paste/violation-threshold/retention/webcam configs,
+  attached to a test via `OnlineTest.proctoring_policy_id`. A proctored test
+  with no policy assigned falls back to strict defaults for the browser
+  signals (fullscreen required, copy/paste blocked, 5 violations before
+  auto-submit, 90-day retention) but webcam capture stays **off** unless a
+  policy explicitly turns it on (`require_webcam=true`, with
+  `capture_interval_seconds` — 30s is the UI default) — unlike the other
+  fields, there is no strict-default fallback for the camera.
 - **Events** (`POST /portal/students/{id}/online-tests/{test_id}/proctoring/events`)
   — the student's browser batch-reports signals as they happen; severity is
   always computed server-side from `event_type` (`PROCTORING_EVENT_SEVERITY`
   in `routes/portal.py`), never trusted from the client. Crossing the
   policy's violation threshold auto-submits the attempt with
   `auto_submitted_reason="proctoring_violation"`, the same mechanism as a
-  timed-out attempt (§13).
+  timed-out attempt (§13). A denied or missing camera on a
+  `require_webcam=true` test reports `camera_denied`/`camera_unavailable`
+  (both `critical` severity) through this same channel rather than blocking
+  the student from taking the test.
+- **Webcam snapshots** (`POST .../proctoring/snapshot`) — only accepted
+  when the test's policy has `require_webcam=true`; JPEG only, capped at
+  `MAX_PROCTORING_SNAPSHOT_MB` (2 MB default — a single frame is normally
+  well under that). Stored under `PROCTORING_UPLOAD_DIR`
+  (`app/proctoring_storage.py`), **deliberately a different directory from
+  `UPLOAD_DIR`** (§ general file uploads) — `UPLOAD_DIR` is mounted as a
+  public static path at `/uploads`, but a photo of a student must only ever
+  be reachable through the authenticated teacher route below. Never point
+  `PROCTORING_UPLOAD_DIR` at `UPLOAD_DIR` or add it to any static mount.
 - **Teacher review** (`GET /online-tests/{id}/results/{attempt_id}/proctoring`,
-  `PUT .../review`) — the event timeline plus a `Pending`/`Cleared`/`Flagged`
-  verdict a teacher or admin sets by hand; the system never sets this
-  itself. Every view writes a `ProctoringAccessLog` row, so "who watched
-  this student's session" stays answerable.
+  `PUT .../review`) — the event timeline, the snapshot gallery (fetched as
+  authenticated blobs via
+  `GET .../proctoring/snapshots/{snapshot_id}`, never a plain `<img src>`,
+  since that endpoint requires a bearer token), and a
+  `Pending`/`Cleared`/`Flagged` verdict a teacher or admin sets by hand; the
+  system never sets this itself. Every view of the timeline or an individual
+  snapshot writes a `ProctoringAccessLog` row (`action="view"` /
+  `"view_snapshot"`), so "who watched this student's session" stays
+  answerable.
 
 **Migration:** apply on every tenant DB (§4):
 `python manage_migrations.py upgrade head`. New tables
 (`proctoring_policies`, `proctoring_consents`, `proctoring_sessions`,
-`proctoring_events`, `proctoring_access_logs`) self-create; only the two
-new columns on `online_tests` need the actual migration.
+`proctoring_events`, `proctoring_access_logs`, `proctoring_snapshots`)
+self-create; only the two new columns on `online_tests` need the actual
+migration.
+
+**Storage config** — add to `backend/.env` (see `.env.example`):
+
+```
+PROCTORING_UPLOAD_DIR=./uploads_private/proctoring
+MAX_PROCTORING_SNAPSHOT_MB=2
+```
+
+Same ephemeral-filesystem caveat as `UPLOAD_DIR` applies on platforms
+without a persistent disk. On cPanel, make sure this directory sits
+somewhere that is not itself under a `public_html`-served path — it must
+never become reachable by URL the way `UPLOAD_DIR`/`/uploads` is.
 
 ### Retention cron
 
-Phase 1 has no webcam snapshots to purge yet — the one field carrying free
-text is `ProctoringEvent.detail`, so `backend/run_proctoring_retention.py`
-blanks it (keeping the event row itself, its type, severity and timestamp)
-once a session's `retention_expires_at` has passed. Gated on the
+Once a session's `retention_expires_at` has passed,
+`backend/run_proctoring_retention.py` ages out two things and keeps the
+rest: `ProctoringEvent.detail` (the one free-text field in the browser
+signals) is blanked, and each `ProctoringSnapshot`'s actual JPEG file is
+deleted from disk with `storage_path` blanked — in both cases the row
+itself survives (event type/severity/timestamp, and "N snapshots were
+taken"), only the sensitive content ages out. Gated on the
 `online_test_proctoring` flag, same as the automations in §14/§15, but for
 the same reason as vehicle-tracking housekeeping: a school that has since
 dropped the add-on should still get its old data aged out
@@ -1781,12 +1819,13 @@ dropped the add-on should still get its old data aged out
 
 ```bash
 cd backend
-python run_proctoring_retention.py             # blank expired event detail, for every enabled school
-python run_proctoring_retention.py --dry-run    # log what would be blanked, write nothing
+python run_proctoring_retention.py             # blank expired event detail + purge expired snapshot files, for every enabled school
+python run_proctoring_retention.py --dry-run    # log what would be purged, write nothing
 ```
 
-Idempotent: a session already swept has `detail` already NULL, so a repeat
-run touches zero additional rows.
+Idempotent: a session already swept has `detail`/`storage_path` already
+NULL and no file left on disk, so a repeat run touches zero additional rows
+and skips already-deleted files without erroring.
 
 ```
 source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_proctoring_retention.py >> /home/schoolm1/logs/proctoring_retention_cron.log 2>&1

@@ -86,6 +86,13 @@ export default function Portal() {
   const proctoringQueueRef = useRef([]);
   const flushProctoringEventsRef = useRef(() => {});
 
+  // Phase 2: periodic webcam snapshots. "pending" until getUserMedia
+  // resolves, then "active" | "denied" | "unavailable". The <video> element
+  // is just a live local preview for the student's own reassurance -- the
+  // stream itself is never sent anywhere, only individual captured frames.
+  const [cameraStatus, setCameraStatus] = useState("pending");
+  const videoRef = useRef(null);
+
   async function loadChildren() {
     try {
       const response = await API.get("/portal/children");
@@ -249,6 +256,7 @@ export default function Portal() {
       }
       proctoringQueueRef.current = [];
       setProctoringViolationCount(0);
+      setCameraStatus("pending");
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to open this test."));
     }
@@ -260,6 +268,7 @@ export default function Portal() {
     setTimeLeftSeconds(null);
     proctoringQueueRef.current = [];
     setProctoringViolationCount(0);
+    setCameraStatus("pending");
     loadOnlineTests(selectedId);
   }
 
@@ -419,6 +428,80 @@ export default function Portal() {
       if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
       }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOnlineTest?.attempt?.id, activeOnlineTest?.attempt?.status]);
+
+  // Phase 2: periodic webcam snapshots, only when the policy actually asks
+  // for them. Separate from the lockdown effect above -- a denied/missing
+  // camera must not stop fullscreen/tab-switch enforcement from working, and
+  // vice versa. Same attempt-id/status-keyed lifecycle as that effect.
+  useEffect(() => {
+    const proctoring = activeOnlineTest?.proctoring;
+    if (!proctoring?.enabled || !proctoring.require_webcam || activeOnlineTest.attempt.status !== "In Progress") {
+      return undefined;
+    }
+
+    let stream = null;
+    let captureIntervalId = null;
+    let firstCaptureTimeoutId = null;
+    let cancelled = false;
+    const videoEl = videoRef.current;
+
+    async function captureFrame() {
+      const video = videoRef.current;
+      if (!video || !video.videoWidth) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) return;
+          const formData = new FormData();
+          formData.append("file", blob, "snapshot.jpg");
+          try {
+            await API.post(
+              `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/proctoring/snapshot`,
+              formData
+            );
+          } catch {
+            // Best-effort -- a missed frame isn't retried, the next interval
+            // tick just captures a fresh one.
+          }
+        },
+        "image/jpeg",
+        0.8
+      );
+    }
+
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        setCameraStatus("active");
+        if (videoEl) videoEl.srcObject = stream;
+
+        const intervalMs = (proctoring.capture_interval_seconds || 30) * 1000;
+        firstCaptureTimeoutId = window.setTimeout(captureFrame, 1000);
+        captureIntervalId = window.setInterval(captureFrame, intervalMs);
+      } catch (err) {
+        if (cancelled) return;
+        const denied = err && err.name === "NotAllowedError";
+        setCameraStatus(denied ? "denied" : "unavailable");
+        queueProctoringEvent(denied ? "camera_denied" : "camera_unavailable", err?.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (firstCaptureTimeoutId) window.clearTimeout(firstCaptureTimeoutId);
+      if (captureIntervalId) window.clearInterval(captureIntervalId);
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (videoEl) videoEl.srcObject = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeOnlineTest?.attempt?.id, activeOnlineTest?.attempt?.status]);
@@ -953,7 +1036,19 @@ export default function Portal() {
                     ? ` / ${activeOnlineTest.proctoring.max_violations_before_autosubmit}`
                     : ""}
                   . Reaching the limit submits this attempt automatically.
+                  {activeOnlineTest.proctoring.require_webcam && (
+                    <div className="online-test-camera-status">
+                      {cameraStatus === "active" && "Camera: on — a still photo is captured periodically, not a continuous recording."}
+                      {cameraStatus === "pending" && "Camera: requesting permission..."}
+                      {cameraStatus === "denied" && "Camera: permission denied — this has been flagged for the teacher."}
+                      {cameraStatus === "unavailable" && "Camera: not available on this device — this has been flagged for the teacher."}
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {activeOnlineTest.proctoring?.require_webcam && activeOnlineTest.attempt.status === "In Progress" && (
+                <video ref={videoRef} autoPlay muted playsInline className="online-test-camera-preview" />
               )}
 
               {activeOnlineTest.attempt.status === "Submitted" && (

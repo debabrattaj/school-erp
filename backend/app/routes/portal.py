@@ -3,10 +3,11 @@ import random
 from datetime import date, datetime, timedelta
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app import proctoring_storage
 from app.database import get_db
 from app import models, schemas
 from app.models import User
@@ -788,6 +789,12 @@ PROCTORING_EVENT_SEVERITY = {
     "paste_attempt": "warning",
     "context_menu": "info",
     "devtools_open": "critical",
+    # Phase 2 (webcam snapshots): a policy that requires the camera but never
+    # gets one is a real monitoring gap, not a minor annoyance like a menu
+    # click -- critical so a teacher notices, but still just a flag to review,
+    # never a block on the student taking the test.
+    "camera_denied": "critical",
+    "camera_unavailable": "critical",
 }
 
 
@@ -1040,6 +1047,11 @@ def portal_get_online_test(
             "require_fullscreen": policy.require_fullscreen if policy else True,
             "block_copy_paste": policy.block_copy_paste if policy else True,
             "max_violations_before_autosubmit": policy.max_violations_before_autosubmit if policy else 5,
+            # Phase 2: camera capture is opt-in per policy, unlike the Phase 1
+            # browser signals above -- no policy assigned means no webcam,
+            # not the strict-default treatment the other fields get.
+            "require_webcam": bool(policy.require_webcam) if policy else False,
+            "capture_interval_seconds": policy.capture_interval_seconds if policy else None,
         }
 
     return {
@@ -1295,6 +1307,78 @@ def portal_report_proctoring_events(
     return schemas.ProctoringEventBatchResult(
         logged=logged, violation_count=violation_count, auto_submitted=auto_submitted
     )
+
+
+@router.post(
+    "/students/{student_id}/online-tests/{test_id}/proctoring/snapshot",
+    dependencies=ONLINE_TEST_GATE + PROCTORING_GATE,
+    response_model=schemas.ProctoringSnapshotResponse,
+)
+async def portal_upload_proctoring_snapshot(
+    student_id: int,
+    test_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Accept one periodic webcam frame for a proctored, in-progress attempt.
+
+    Only accepted when the test's policy has require_webcam=True -- a session
+    without that requirement refuses uploads outright, so nothing gets stored
+    that the guardian's consent and the policy didn't actually call for.
+    """
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can upload a proctoring snapshot")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt or attempt.status != "In Progress":
+        raise HTTPException(status_code=404, detail="No in-progress attempt found for this test")
+
+    session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt is not being proctored")
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    policy = _policy_for_test(db, test) if test else None
+    if not policy or not policy.require_webcam:
+        raise HTTPException(
+            status_code=400, detail="This test's proctoring policy does not require webcam capture"
+        )
+
+    if (file.content_type or "").lower() not in proctoring_storage.ALLOWED_SNAPSHOT_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG snapshots are accepted")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty snapshot")
+    if len(contents) > proctoring_storage.MAX_SNAPSHOT_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=400, detail=f"Snapshot is too large (max {proctoring_storage.MAX_SNAPSHOT_MB} MB)"
+        )
+
+    account_code = get_account_code_from_request(request)
+    storage_path = proctoring_storage.save_snapshot(account_code, session.id, contents)
+
+    snapshot = models.ProctoringSnapshot(
+        session_id=session.id,
+        storage_path=storage_path,
+        file_size=len(contents),
+        content_type="image/jpeg",
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
 
 
 # ---------------- Admin: manage portal links ----------------

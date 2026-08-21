@@ -2458,8 +2458,22 @@ class ProctoringSessionResponse(BaseModel):
         from_attributes = True
 
 
+class ProctoringSnapshotResponse(BaseModel):
+    """Snapshot metadata only -- storage_path never leaves the server. The
+    actual image is fetched separately through the authenticated streaming
+    endpoint, never inlined here."""
+
+    id: int
+    captured_at: Optional[Any] = None
+    content_type: str
+
+    class Config:
+        from_attributes = True
+
+
 class ProctoringSessionDetailResponse(ProctoringSessionResponse):
     events: List[ProctoringEventResponse] = []
+    snapshots: List[ProctoringSnapshotResponse] = []
 
 
 class ProctoringReviewUpdate(BaseModel):
