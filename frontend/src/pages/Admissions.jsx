@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
 import {
+  AlertTriangle,
   ArrowLeft,
+  BarChart3,
   CheckCircle,
   ClipboardList,
+  Clock,
   Edit,
+  LayoutGrid,
+  ListChecks,
   PlusCircle,
   Trash2,
   UserPlus,
@@ -13,6 +18,7 @@ import {
   ArrowUp,
   ArrowDown,
   Copy,
+  Percent,
 } from "lucide-react";
 
 import API from "../api";
@@ -30,8 +36,13 @@ const emptyAdmissionForm = {
   stage: "Inquiry",
   follow_up_date: "",
   assigned_to: "",
+  assigned_to_user_id: "",
   notes: "",
 };
+
+const emptyTaskForm = { title: "", due_date: "", assigned_to_user_id: "" };
+const emptyTemplateForm = { title: "", due_in_days: 2 };
+const CLOSED_STAGES = ["Enrolled", "Lost"];
 
 const emptyFollowUpForm = {
   activity_date: todayLocalDate(),
@@ -104,6 +115,33 @@ function getApiErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+const VIEW_TABS = [
+  ["list", "Inquiries", ClipboardList],
+  ["pipeline", "Pipeline", LayoutGrid],
+  ["queue", "My Queue", ListChecks],
+  ["analytics", "Analytics", BarChart3],
+];
+
+function ViewTabs({ pageMode, setPageMode }) {
+  return (
+    <section className="table-panel">
+      <div className="student-profile-tabs">
+        {VIEW_TABS.map(([mode, label, Icon]) => (
+          <button
+            key={mode}
+            type="button"
+            className={pageMode === mode ? "active" : ""}
+            onClick={() => setPageMode(mode)}
+          >
+            <Icon size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Admissions() {
   const [inquiries, setInquiries] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
@@ -122,6 +160,25 @@ export default function Admissions() {
   const [showStageManager, setShowStageManager] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [stageEdits, setStageEdits] = useState({});
+
+  const [users, setUsers] = useState([]);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+
+  const [tasks, setTasks] = useState([]);
+  const [taskForm, setTaskForm] = useState(emptyTaskForm);
+
+  const [expandedStageId, setExpandedStageId] = useState(null);
+  const [stageTemplates, setStageTemplates] = useState({});
+  const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
+
+  const [queueTasks, setQueueTasks] = useState([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueAssigneeFilter, setQueueAssigneeFilter] = useState("");
+
+  const [funnel, setFunnel] = useState(null);
+  const [sources, setSources] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsYear, setAnalyticsYear] = useState("");
 
   const stageOptions = stages.length ? stages.map((stage) => stage.name) : fallbackStageOptions;
 
@@ -177,11 +234,27 @@ export default function Admissions() {
     }
   }
 
+  async function loadUsers() {
+    try {
+      const response = await API.get("/users/");
+      setUsers(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadInquiries();
     loadAcademicYears();
     loadStages();
+    loadUsers();
   }, []);
+
+  function userName(userId) {
+    if (!userId) return null;
+    const user = users.find((item) => String(item.id) === String(userId));
+    return user ? user.name : null;
+  }
 
   async function addStage() {
     const name = newStageName.trim();
@@ -236,6 +309,51 @@ export default function Admissions() {
     }
   }
 
+  async function loadStageTemplates(stageId) {
+    try {
+      const response = await API.get(`/admission-workflow-stages/${stageId}/task-templates`);
+      setStageTemplates((current) => ({ ...current, [stageId]: response.data || [] }));
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function toggleStageTemplates(stage) {
+    if (expandedStageId === stage.id) {
+      setExpandedStageId(null);
+      return;
+    }
+    setExpandedStageId(stage.id);
+    setTemplateForm(emptyTemplateForm);
+    loadStageTemplates(stage.id);
+  }
+
+  async function addStageTemplate(stage) {
+    if (!templateForm.title.trim()) return;
+    try {
+      await API.post(`/admission-workflow-stages/${stage.id}/task-templates`, {
+        stage: stage.name,
+        title: templateForm.title.trim(),
+        due_in_days: Number(templateForm.due_in_days) || 0,
+      });
+      setTemplateForm(emptyTemplateForm);
+      await loadStageTemplates(stage.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to add task template."));
+    }
+  }
+
+  async function deleteStageTemplate(stageId, templateId) {
+    try {
+      await API.delete(`/admission-workflow-stages/task-templates/${templateId}`);
+      await loadStageTemplates(stageId);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove task template."));
+    }
+  }
+
   const academicYearOptions = useMemo(() => {
     const names = academicYears.map((year) => year.name);
     if (formData.academic_year && !names.includes(formData.academic_year)) {
@@ -247,6 +365,25 @@ export default function Admissions() {
   function handleChange(event) {
     const { name, value } = event.target;
     setFormData((current) => ({ ...current, [name]: value }));
+  }
+
+  async function checkDuplicate() {
+    if (!formData.guardian_phone.trim() && !formData.guardian_email.trim()) {
+      setDuplicateWarning(null);
+      return;
+    }
+    try {
+      const response = await API.get("/admissions/check-duplicate", {
+        params: {
+          phone: formData.guardian_phone.trim() || undefined,
+          email: formData.guardian_email.trim() || undefined,
+          exclude_id: editingId || undefined,
+        },
+      });
+      setDuplicateWarning((response.data || [])[0] || null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   function handleFollowUpChange(event) {
@@ -272,6 +409,11 @@ export default function Admissions() {
     setFollowUps(response.data || []);
   }
 
+  async function loadTasks(inquiryId) {
+    const response = await API.get(`/admissions/${inquiryId}/tasks`);
+    setTasks(response.data || []);
+  }
+
   async function openFollowUps(inquiry) {
     try {
       setSelectedInquiry(inquiry);
@@ -280,13 +422,66 @@ export default function Admissions() {
         owner: inquiry.assigned_to || "",
         next_follow_up_date: inquiry.follow_up_date || "",
       });
+      setTaskForm(emptyTaskForm);
       setMessage("");
       setPageMode("followups");
-      await loadFollowUps(inquiry.id);
+      await Promise.all([loadFollowUps(inquiry.id), loadTasks(inquiry.id)]);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load follow-up history."));
+    }
+  }
+
+  function handleTaskFormChange(event) {
+    const { name, value } = event.target;
+    setTaskForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleTaskSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+    if (!selectedInquiry?.id) return;
+    if (!taskForm.title.trim()) {
+      setMessage("Task title is required.");
+      return;
+    }
+
+    try {
+      await API.post(`/admissions/${selectedInquiry.id}/tasks`, {
+        title: taskForm.title.trim(),
+        due_date: taskForm.due_date || null,
+        assigned_to_user_id: taskForm.assigned_to_user_id ? Number(taskForm.assigned_to_user_id) : null,
+      });
+      setTaskForm(emptyTaskForm);
+      setMessage("Task added.");
+      await loadTasks(selectedInquiry.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to add task."));
+    }
+  }
+
+  async function toggleTaskDone(task) {
+    try {
+      await API.put(`/admissions/tasks/${task.id}`, {
+        status: task.status === "Done" ? "Pending" : "Done",
+      });
+      await loadTasks(selectedInquiry.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to update task."));
+    }
+  }
+
+  async function deleteTask(taskId) {
+    if (!window.confirm("Remove this task?")) return;
+    try {
+      await API.delete(`/admissions/tasks/${taskId}`);
+      await loadTasks(selectedInquiry.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove task."));
     }
   }
 
@@ -330,6 +525,84 @@ export default function Admissions() {
     const response = await API.get("/admissions/next-admission-no");
     return response.data?.admission_no || "";
   }
+
+  async function moveInquiryStage(inquiry, newStage) {
+    try {
+      await API.put(`/admissions/${inquiry.id}`, {
+        inquiry_no: inquiry.inquiry_no,
+        student_name: inquiry.student_name,
+        grade_applying: inquiry.grade_applying,
+        academic_year: inquiry.academic_year,
+        guardian_name: inquiry.guardian_name,
+        guardian_phone: inquiry.guardian_phone,
+        guardian_email: inquiry.guardian_email,
+        source: inquiry.source,
+        stage: newStage,
+        follow_up_date: inquiry.follow_up_date,
+        assigned_to: inquiry.assigned_to,
+        assigned_to_user_id: inquiry.assigned_to_user_id,
+        converted_student_id: inquiry.converted_student_id,
+        notes: inquiry.notes,
+      });
+      setMessage(`Moved to ${newStage}.`);
+      await loadInquiries();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to move inquiry."));
+    }
+  }
+
+  async function loadQueue() {
+    try {
+      setQueueLoading(true);
+      const response = await API.get("/admissions/tasks/queue", {
+        params: { assigned_to_user_id: queueAssigneeFilter || undefined },
+      });
+      setQueueTasks(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load the task queue."));
+    } finally {
+      setQueueLoading(false);
+    }
+  }
+
+  async function completeQueueTask(task) {
+    try {
+      await API.put(`/admissions/tasks/${task.id}`, { status: "Done" });
+      await loadQueue();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to update task."));
+    }
+  }
+
+  async function loadAnalytics() {
+    try {
+      setAnalyticsLoading(true);
+      const [funnelResponse, sourcesResponse] = await Promise.all([
+        API.get("/admissions/analytics/funnel", { params: { academic_year: analyticsYear || undefined } }),
+        API.get("/admissions/analytics/sources", { params: { academic_year: analyticsYear || undefined } }),
+      ]);
+      setFunnel(funnelResponse.data);
+      setSources(sourcesResponse.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load analytics."));
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (pageMode === "queue") loadQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, queueAssigneeFilter]);
+
+  useEffect(() => {
+    if (pageMode === "analytics") loadAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, analyticsYear]);
 
   async function openConvertInquiry(inquiry) {
     const splitName = splitStudentName(inquiry.student_name);
@@ -406,6 +679,7 @@ export default function Admissions() {
       stage: formData.stage || "Inquiry",
       follow_up_date: formData.follow_up_date || null,
       assigned_to: formData.assigned_to.trim() || null,
+      assigned_to_user_id: formData.assigned_to_user_id ? Number(formData.assigned_to_user_id) : null,
       notes: formData.notes.trim() || null,
     };
   }
@@ -448,6 +722,7 @@ export default function Admissions() {
   function handleAddInquiry() {
     setEditingId(null);
     setFormData(emptyAdmissionForm);
+    setDuplicateWarning(null);
     setMessage("");
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -467,8 +742,10 @@ export default function Admissions() {
       stage: inquiry.stage || "Inquiry",
       follow_up_date: inquiry.follow_up_date || "",
       assigned_to: inquiry.assigned_to || "",
+      assigned_to_user_id: inquiry.assigned_to_user_id || "",
       notes: inquiry.notes || "",
     });
+    setDuplicateWarning(null);
     setMessage("");
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -610,6 +887,7 @@ export default function Admissions() {
               name="guardian_phone"
               value={formData.guardian_phone}
               onChange={handleChange}
+              onBlur={checkDuplicate}
               required
             />
           </div>
@@ -621,6 +899,7 @@ export default function Admissions() {
               name="guardian_email"
               value={formData.guardian_email}
               onChange={handleChange}
+              onBlur={checkDuplicate}
             />
           </div>
 
@@ -658,6 +937,30 @@ export default function Admissions() {
 
           <div className="form-field">
             <label>Assigned To</label>
+            <select
+              name="assigned_to_user_id"
+              value={formData.assigned_to_user_id}
+              onChange={(event) => {
+                const userId = event.target.value;
+                const user = users.find((item) => String(item.id) === userId);
+                setFormData((current) => ({
+                  ...current,
+                  assigned_to_user_id: userId,
+                  assigned_to: user ? user.name : current.assigned_to,
+                }));
+              }}
+            >
+              <option value="">Unassigned</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-field">
+            <label>Owner Name (if not a system user)</label>
             <input
               type="text"
               name="assigned_to"
@@ -709,6 +1012,23 @@ export default function Admissions() {
         </section>
 
         {message && <div className="toast-notification">{message}</div>}
+
+        {duplicateWarning && (
+          <section className="form-panel" style={{ borderColor: "var(--warning-600)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 18px" }}>
+              <AlertTriangle size={20} style={{ color: "var(--warning-600)", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <strong>Possible duplicate</strong>
+                <p style={{ margin: "4px 0 0" }}>
+                  {duplicateWarning.student_name} ({duplicateWarning.inquiry_no}), guardian{" "}
+                  {duplicateWarning.guardian_name}, stage {duplicateWarning.stage} — matched on{" "}
+                  {duplicateWarning.matched_on}. You can still save; this is a warning, not a block.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {admissionForm}
       </div>
     );
@@ -733,6 +1053,7 @@ export default function Admissions() {
             onClick={() => {
               setSelectedInquiry(null);
               setFollowUps([]);
+              setTasks([]);
               setPageMode("list");
             }}
           >
@@ -893,6 +1214,95 @@ export default function Admissions() {
             </table>
           </div>
         </section>
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Tasks</h3>
+              <p>Ad-hoc or stamped out automatically when this inquiry entered its current stage.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={handleTaskSubmit}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Title *</label>
+                <input
+                  name="title"
+                  value={taskForm.title}
+                  onChange={handleTaskFormChange}
+                  placeholder="Collect documents"
+                  required
+                />
+              </div>
+              <div className="form-field">
+                <label>Due Date</label>
+                <input type="date" name="due_date" value={taskForm.due_date} onChange={handleTaskFormChange} />
+              </div>
+              <div className="form-field">
+                <label>Assign To</label>
+                <select name="assigned_to_user_id" value={taskForm.assigned_to_user_id} onChange={handleTaskFormChange}>
+                  <option value="">Unassigned</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                <PlusCircle size={18} />
+                Add Task
+              </button>
+            </div>
+          </form>
+
+          <div className="table-wrapper" style={{ marginTop: 14 }}>
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Title</th>
+                  <th>Due</th>
+                  <th>Assigned To</th>
+                  <th>Stage</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.length === 0 ? (
+                  <tr>
+                    <td className="empty-table" colSpan="6">No tasks yet.</td>
+                  </tr>
+                ) : (
+                  tasks.map((task) => (
+                    <tr key={task.id} style={task.status === "Done" ? { opacity: 0.6 } : undefined}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={task.status === "Done"}
+                          onChange={() => toggleTaskDone(task)}
+                          title={task.status === "Done" ? "Mark pending" : "Mark done"}
+                        />
+                      </td>
+                      <td style={task.status === "Done" ? { textDecoration: "line-through" } : undefined}>
+                        {task.title}
+                      </td>
+                      <td>{task.due_date || "-"}</td>
+                      <td>{task.assigned_to_user_name || "-"}</td>
+                      <td>{task.stage || "-"}</td>
+                      <td>
+                        <button type="button" className="delete-button" onClick={() => deleteTask(task.id)} title="Remove">
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     );
   }
@@ -1035,6 +1445,317 @@ export default function Admissions() {
     );
   }
 
+  if (pageMode === "pipeline") {
+    const grouped = {};
+    stageOptions.forEach((stageName) => { grouped[stageName] = []; });
+    inquiries.forEach((inquiry) => {
+      const key = inquiry.stage || "Inquiry";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(inquiry);
+    });
+    const today = todayLocalDate();
+
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Admissions</p>
+            <h2>Pipeline</h2>
+            <p>One column per stage. Use a card's stage picker to move it.</p>
+          </div>
+        </section>
+
+        <ViewTabs pageMode={pageMode} setPageMode={setPageMode} />
+
+        {message && <div className="toast-notification">{message}</div>}
+
+        <div className="admissions-pipeline-board">
+          {stageOptions.map((stageName) => (
+            <div key={stageName} className="admissions-pipeline-column">
+              <div className="admissions-pipeline-column-header">
+                <span>{stageName}</span>
+                <span className="admissions-pipeline-count">{(grouped[stageName] || []).length}</span>
+              </div>
+              <div className="admissions-pipeline-cards">
+                {(grouped[stageName] || []).map((inquiry) => {
+                  const overdue = inquiry.follow_up_date && inquiry.follow_up_date < today;
+                  return (
+                    <div
+                      key={inquiry.id}
+                      className="admissions-pipeline-card"
+                      onClick={() => openFollowUps(inquiry)}
+                    >
+                      <strong>{inquiry.student_name}</strong>
+                      <div className="hint-text">{inquiry.grade_applying} · {inquiry.guardian_name}</div>
+                      {(inquiry.assigned_to_user_id || inquiry.assigned_to) && (
+                        <div className="hint-text">
+                          Owner: {userName(inquiry.assigned_to_user_id) || inquiry.assigned_to}
+                        </div>
+                      )}
+                      {inquiry.follow_up_date && (
+                        <div className={overdue ? "status danger" : "status pending"} style={{ marginTop: 4 }}>
+                          <Clock size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />
+                          Follow up {inquiry.follow_up_date}
+                        </div>
+                      )}
+                      {inquiry.possible_duplicate_of_id && (
+                        <div className="status warning" style={{ marginTop: 4 }}>
+                          <AlertTriangle size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />
+                          Possible duplicate
+                        </div>
+                      )}
+                      <select
+                        value={inquiry.stage}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => moveInquiryStage(inquiry, event.target.value)}
+                        style={{ marginTop: 8, width: "100%" }}
+                      >
+                        {stageOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+                {!(grouped[stageName] || []).length && (
+                  <p className="hint-text" style={{ padding: 8 }}>Empty</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (pageMode === "queue") {
+    const today = todayLocalDate();
+    const dueFollowUps = inquiries.filter(
+      (inquiry) =>
+        inquiry.follow_up_date &&
+        inquiry.follow_up_date <= today &&
+        !inquiry.converted_student_id &&
+        !CLOSED_STAGES.includes(inquiry.stage)
+    );
+
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Admissions</p>
+            <h2>My Queue</h2>
+            <p>Everything due today or overdue, across every inquiry.</p>
+          </div>
+        </section>
+
+        <ViewTabs pageMode={pageMode} setPageMode={setPageMode} />
+
+        {message && <div className="toast-notification">{message}</div>}
+
+        <section className="table-panel">
+          <div className="panel-header">
+            <div><h3>Filter</h3></div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label>Assignee</label>
+              <select value={queueAssigneeFilter} onChange={(event) => setQueueAssigneeFilter(event.target.value)}>
+                <option value="">Everyone</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>{user.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="table-panel">
+          <div className="panel-header">
+            <div><h3>Follow-ups Due</h3><p>{dueFollowUps.length} inquirie(s)</p></div>
+          </div>
+          <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr><th>Student</th><th>Stage</th><th>Guardian</th><th>Due</th><th>Owner</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {dueFollowUps.length === 0 ? (
+                  <tr><td className="empty-table" colSpan="6">Nothing due.</td></tr>
+                ) : (
+                  dueFollowUps.map((inquiry) => (
+                    <tr key={inquiry.id}>
+                      <td>{inquiry.student_name}</td>
+                      <td>{inquiry.stage}</td>
+                      <td>{inquiry.guardian_name}</td>
+                      <td>
+                        <span className={inquiry.follow_up_date < today ? "status danger" : "status pending"}>
+                          {inquiry.follow_up_date}
+                        </span>
+                      </td>
+                      <td>{inquiry.assigned_to || "-"}</td>
+                      <td>
+                        <button type="button" className="edit-button" onClick={() => openFollowUps(inquiry)} title="Open">
+                          <MessageCircle size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="table-panel">
+          <div className="panel-header">
+            <div><h3>Tasks Due</h3><p>{queueTasks.length} task(s)</p></div>
+          </div>
+          <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr><th></th><th>Task</th><th>Inquiry</th><th>Due</th><th>Assigned To</th></tr>
+              </thead>
+              <tbody>
+                {queueLoading && <tr><td colSpan="5">Loading...</td></tr>}
+                {!queueLoading && queueTasks.length === 0 && (
+                  <tr><td className="empty-table" colSpan="5">Nothing due.</td></tr>
+                )}
+                {!queueLoading && queueTasks.map((task) => (
+                  <tr key={task.id}>
+                    <td>
+                      <input type="checkbox" onChange={() => completeQueueTask(task)} title="Mark done" />
+                    </td>
+                    <td>{task.title}</td>
+                    <td>{task.student_name} ({task.inquiry_no})</td>
+                    <td>
+                      <span className={task.due_date && task.due_date < today ? "status danger" : "status pending"}>
+                        {task.due_date || "-"}
+                      </span>
+                    </td>
+                    <td>{task.assigned_to_user_name || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (pageMode === "analytics") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Admissions</p>
+            <h2>Analytics</h2>
+            <p>Funnel shape, stage conversion, and where enrolled students actually came from.</p>
+          </div>
+        </section>
+
+        <ViewTabs pageMode={pageMode} setPageMode={setPageMode} />
+
+        {message && <div className="toast-notification">{message}</div>}
+
+        <section className="table-panel">
+          <div className="panel-header">
+            <div><h3>Academic Year</h3></div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <select value={analyticsYear} onChange={(event) => setAnalyticsYear(event.target.value)}>
+                <option value="">All Years</option>
+                {academicYears.map((year) => (
+                  <option key={year.id} value={year.name}>{year.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {analyticsLoading && <p style={{ padding: 16 }}>Loading...</p>}
+
+        {!analyticsLoading && funnel && (
+          <>
+            <section className="summary-strip report-summary-grid">
+              <div className="summary-card">
+                <ClipboardList size={22} />
+                <div><span>Total Inquiries</span><strong>{funnel.total_inquiries}</strong></div>
+              </div>
+              <div className="summary-card">
+                <CheckCircle size={22} />
+                <div><span>Converted</span><strong>{funnel.converted}</strong></div>
+              </div>
+              <div className="summary-card">
+                <Percent size={22} />
+                <div>
+                  <span>Overall Conversion</span>
+                  <strong>{funnel.overall_conversion_rate != null ? `${funnel.overall_conversion_rate}%` : "-"}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="table-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Funnel</h3>
+                  <p>How many inquiries have ever reached each stage, and how long they typically stay.</p>
+                </div>
+              </div>
+              <div className="table-wrapper">
+                <table className="classic-table">
+                  <thead>
+                    <tr>
+                      <th>Stage</th><th>Currently Here</th><th>Ever Reached</th>
+                      <th>Conversion From Previous</th><th>Avg Days In Stage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {funnel.stages.map((stageRow) => (
+                      <tr key={stageRow.stage}>
+                        <td>{stageRow.stage}{stageRow.is_terminal ? " (terminal)" : ""}</td>
+                        <td>{stageRow.current_count}</td>
+                        <td>{stageRow.ever_reached}</td>
+                        <td>{stageRow.conversion_from_previous != null ? `${stageRow.conversion_from_previous}%` : "-"}</td>
+                        <td>{stageRow.avg_days_in_stage != null ? `${stageRow.avg_days_in_stage}d` : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
+
+        {!analyticsLoading && (
+          <section className="table-panel">
+            <div className="panel-header">
+              <div><h3>Sources</h3><p>Which lead source actually converts.</p></div>
+            </div>
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr><th>Source</th><th>Inquiries</th><th>Converted</th><th>Conversion Rate</th></tr>
+                </thead>
+                <tbody>
+                  {sources.length === 0 ? (
+                    <tr><td className="empty-table" colSpan="4">No data yet.</td></tr>
+                  ) : (
+                    sources.map((sourceRow) => (
+                      <tr key={sourceRow.source}>
+                        <td>{sourceRow.source}</td>
+                        <td>{sourceRow.inquiries}</td>
+                        <td>{sourceRow.converted}</td>
+                        <td>{sourceRow.conversion_rate != null ? `${sourceRow.conversion_rate}%` : "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -1069,6 +1790,8 @@ export default function Admissions() {
         </div>
       </section>
 
+      <ViewTabs pageMode={pageMode} setPageMode={setPageMode} />
+
       {showStageManager && (
         <section className="table-panel stage-manager-panel">
           <div className="panel-header">
@@ -1079,54 +1802,118 @@ export default function Admissions() {
           </div>
           <div className="stage-manager-list">
             {stages.map((stage, index) => (
-              <div
-                key={stage.id}
-                className={
-                  stage.is_terminal
-                    ? "stage-manager-row stage-manager-row-terminal"
-                    : "stage-manager-row"
-                }
-              >
-                <div className="stage-manager-node">
-                  {stage.is_terminal ? <CheckCircle size={16} /> : index + 1}
-                  {index < stages.length - 1 && <span className="stage-manager-connector" />}
-                </div>
-                <input
-                  type="text"
-                  value={stageEdits[stage.id] ?? stage.name}
-                  onChange={(event) =>
-                    setStageEdits((current) => ({ ...current, [stage.id]: event.target.value }))
+              <div key={stage.id}>
+                <div
+                  className={
+                    stage.is_terminal
+                      ? "stage-manager-row stage-manager-row-terminal"
+                      : "stage-manager-row"
                   }
-                  onBlur={() => renameStage(stage)}
-                />
-                <div className="stage-manager-actions">
-                  <button
-                    type="button"
-                    className="light-icon-button"
-                    disabled={index === 0}
-                    title="Move up"
-                    onClick={() => moveStage(index, -1)}
-                  >
-                    <ArrowUp size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="light-icon-button"
-                    disabled={index === stages.length - 1}
-                    title="Move down"
-                    onClick={() => moveStage(index, 1)}
-                  >
-                    <ArrowDown size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="light-icon-button stage-manager-delete"
-                    title="Delete stage"
-                    onClick={() => deleteStage(stage)}
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                >
+                  <div className="stage-manager-node">
+                    {stage.is_terminal ? <CheckCircle size={16} /> : index + 1}
+                    {index < stages.length - 1 && <span className="stage-manager-connector" />}
+                  </div>
+                  <input
+                    type="text"
+                    value={stageEdits[stage.id] ?? stage.name}
+                    onChange={(event) =>
+                      setStageEdits((current) => ({ ...current, [stage.id]: event.target.value }))
+                    }
+                    onBlur={() => renameStage(stage)}
+                  />
+                  <div className="stage-manager-actions">
+                    <button
+                      type="button"
+                      className="light-icon-button"
+                      title="Default tasks for this stage"
+                      onClick={() => toggleStageTemplates(stage)}
+                    >
+                      <ListChecks size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="light-icon-button"
+                      disabled={index === 0}
+                      title="Move up"
+                      onClick={() => moveStage(index, -1)}
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="light-icon-button"
+                      disabled={index === stages.length - 1}
+                      title="Move down"
+                      onClick={() => moveStage(index, 1)}
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="light-icon-button stage-manager-delete"
+                      title="Delete stage"
+                      onClick={() => deleteStage(stage)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
+
+                {expandedStageId === stage.id && (
+                  <div style={{ padding: "10px 14px 16px 46px" }}>
+                    <p className="hint-text" style={{ margin: "0 0 8px" }}>
+                      Every inquiry that enters "{stage.name}" gets these tasks automatically.
+                    </p>
+                    {(stageTemplates[stage.id] || []).map((template) => (
+                      <div
+                        key={template.id}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}
+                      >
+                        <ListChecks size={14} />
+                        <span style={{ flex: 1 }}>
+                          {template.title} <span className="hint-text">— due {template.due_in_days}d after</span>
+                        </span>
+                        <button
+                          type="button"
+                          className="light-icon-button"
+                          title="Remove"
+                          onClick={() => deleteStageTemplate(stage.id, template.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    {!(stageTemplates[stage.id] || []).length && (
+                      <p className="hint-text">No default tasks configured yet.</p>
+                    )}
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="Task title"
+                        value={templateForm.title}
+                        onChange={(event) =>
+                          setTemplateForm((current) => ({ ...current, title: event.target.value }))
+                        }
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        title="Due N days after entering this stage"
+                        value={templateForm.due_in_days}
+                        onChange={(event) =>
+                          setTemplateForm((current) => ({ ...current, due_in_days: event.target.value }))
+                        }
+                        style={{ width: 70 }}
+                      />
+                      <button type="button" className="light-button" onClick={() => addStageTemplate(stage)}>
+                        <PlusCircle size={15} />
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

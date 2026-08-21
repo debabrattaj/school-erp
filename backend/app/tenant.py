@@ -136,6 +136,10 @@ DEFAULT_FEATURES = {
     # no cron component -- a school must choose to hand scheduling to the
     # algorithm rather than find their manually-built timetable overwritten.
     "timetable_auto_generation": False,
+    # Emails staff on a schedule, so it stays opt-in like the other
+    # unattended automations -- a school must choose this before the ERP
+    # starts sending mail on its own.
+    "admission_reminders": False,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

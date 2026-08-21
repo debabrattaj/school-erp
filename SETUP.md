@@ -1646,3 +1646,79 @@ rather than a CORS one.
 **`school-admin/.well-known` must survive this too** — same reasoning as
 the marketing-site rsync, it holds SSL/ACME files and is excluded from
 the `dist/` → `school-admin/` sync for the same reason.
+
+## 19. Admissions CRM: tasks, duplicate detection, funnel analytics and reminders
+
+Admissions (`/admissions`) gained a real pipeline on top of the existing
+inquiry list and follow-up log:
+
+- **Stage task templates** (`/admission-workflow-stages/{id}/task-templates`)
+  — a default checklist for each workflow stage. The moment an inquiry
+  moves into a stage, matching templates are stamped out as
+  `AdmissionTask` rows due `template.due_in_days` later. Configure these
+  from the workflow-stages screen; an inquiry moved before any templates
+  exist for that stage simply gets no tasks.
+- **Tasks** (`/admissions/{id}/tasks`, `/admissions/tasks/{id}`,
+  `/admissions/tasks/queue`) — ad-hoc or template-generated to-dos against
+  one inquiry. The queue endpoint is cross-inquiry ("what's due today"),
+  filterable by assignee.
+- **Stage history** (`/admissions/{id}/stage-history`) — every transition,
+  logged automatically on stage change. This is what the funnel and
+  time-in-stage figures are computed from, not the inquiry's current
+  `stage` column alone.
+- **Duplicate detection** (`/admissions/check-duplicate`) — a soft,
+  non-blocking match on guardian phone/email against open inquiries. Also
+  runs automatically on both the staff-facing create endpoint and the
+  public `/apply` form, stamping `possible_duplicate_of_id` on the new row
+  so staff see the flag without a false positive ever blocking a real
+  parent's submission.
+- **Analytics** (`/admissions/analytics/funnel`,
+  `/admissions/analytics/sources`) — per-stage current count, how many
+  inquiries have *ever* reached each stage, stage-to-stage conversion,
+  average days spent in a stage (only counting stays that have actually
+  ended), and conversion rate by lead source.
+- **`assigned_to_user_id`** — inquiries and tasks can now be assigned to a
+  real staff login (`users.id`), alongside the pre-existing free-text
+  `assigned_to` name field (kept for an owner who isn't a system user).
+  Only a linked user has a resolvable email, which is what the reminder
+  cron below actually sends to.
+
+All of the above is always on — no feature flag — except the reminder
+email, which follows the same opt-in pattern as fee reminders (§8h) and
+scheduled promotion/exams (§14, §15).
+
+**Migration:** apply on every tenant DB (§4):
+`python manage_migrations.py upgrade head`. New tables
+(`admission_tasks`, `admission_stage_task_templates`,
+`admission_stage_history`) self-create; only the two new columns on
+`admission_inquiries` need the actual migration.
+
+### Reminder cron
+
+`backend/run_admission_reminders.py` emails every staff member with an
+overdue or due-today task or follow-up assigned to them — one summary
+message per person, not one per item. Off by default per school; the
+platform owner enables `admission_reminders` per school from the Platform
+Console (`PUT /platform/schools/{id}/features` with
+`{"admission_reminders": true}`).
+
+```bash
+cd backend
+python run_admission_reminders.py             # email everyone with something due, for every enabled school
+python run_admission_reminders.py --dry-run   # log who would be emailed, send nothing
+```
+
+Safe to run more than once a day: a task or follow-up already actioned
+(task marked Done/Cancelled, or the inquiry's `follow_up_date` moved by a
+new follow-up entry) simply stops matching the due query, so nothing is
+ever double-sent because the cron overlapped.
+
+### Wiring it up in cPanel
+
+Same shape as the other daily schedulers:
+
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_admission_reminders.py >> /home/schoolm1/logs/admission_reminder_cron.log 2>&1
+```
+
+Test with `--dry-run` first, same as §9.

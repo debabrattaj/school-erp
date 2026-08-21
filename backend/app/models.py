@@ -1083,7 +1083,15 @@ class AdmissionInquiry(Base):
     stage = Column(String, default="Inquiry", index=True)
     follow_up_date = Column(Date, nullable=True, index=True)
     assigned_to = Column(String, nullable=True)
+    # Optional link to a real staff login, alongside the free-text name above
+    # (which stays editable for an owner who isn't a system user, e.g. an
+    # external agent). Only a linked user has a resolvable email, so this is
+    # what the reminder cron actually sends to.
+    assigned_to_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     converted_student_id = Column(Integer, ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    possible_duplicate_of_id = Column(
+        Integer, ForeignKey("admission_inquiries.id", ondelete="SET NULL"), nullable=True
+    )
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1116,6 +1124,66 @@ class AdmissionFollowUp(Base):
     next_follow_up_date = Column(Date, nullable=True, index=True)
     owner = Column(String, nullable=True)
     outcome = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdmissionStageHistory(Base):
+    """One row per stage move. The inquiry's own `stage` column is only
+    ever the current value -- this is what a funnel or a "days in this
+    stage" figure is actually computed from."""
+
+    __tablename__ = "admission_stage_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer, ForeignKey("admission_inquiries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    from_stage = Column(String, nullable=True)
+    to_stage = Column(String, nullable=False, index=True)
+    changed_at = Column(DateTime, default=datetime.utcnow, index=True)
+    changed_by = Column(String, nullable=True)
+
+
+class AdmissionStageTaskTemplate(Base):
+    """A checklist item every inquiry gets when it enters a stage -- e.g.
+    "Send offer letter" the moment a stage becomes Offered. Turns the tasks
+    a stage always implies into something that happens by default rather
+    than whatever the person moving the card remembers to do."""
+
+    __tablename__ = "admission_stage_task_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stage = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_in_days = Column(Integer, nullable=False, default=2)  # due date = date entered stage + this
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdmissionTask(Base):
+    """A to-do against one inquiry: either stamped out from that stage's
+    task templates the moment the inquiry arrives there, or added by hand
+    for something template-worthy but one-off."""
+
+    __tablename__ = "admission_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer, ForeignKey("admission_inquiries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    stage = Column(String, nullable=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True, index=True)
+    assigned_to_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    status = Column(String, nullable=False, default="Pending", index=True)  # Pending, Done, Cancelled
+    completed_at = Column(DateTime, nullable=True)
+    completed_by = Column(String, nullable=True)
+    source_template_id = Column(
+        Integer, ForeignKey("admission_stage_task_templates.id", ondelete="SET NULL"), nullable=True
+    )
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

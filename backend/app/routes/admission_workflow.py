@@ -101,6 +101,9 @@ def update_stage(
         db.query(models.AdmissionInquiry).filter(
             models.AdmissionInquiry.stage == old_name
         ).update({"stage": stage.name})
+        db.query(models.AdmissionStageTaskTemplate).filter(
+            models.AdmissionStageTaskTemplate.stage == old_name
+        ).update({"stage": stage.name})
         db.commit()
 
     return stage
@@ -127,6 +130,122 @@ def delete_stage(
             detail=f"Cannot delete: {in_use} inquiry(ies) are currently in this stage",
         )
 
+    db.query(models.AdmissionStageTaskTemplate).filter(
+        models.AdmissionStageTaskTemplate.stage == stage.name
+    ).delete(synchronize_session=False)
     db.delete(stage)
     db.commit()
     return {"message": "Stage deleted successfully"}
+
+
+# ---------------- Stage task templates ----------------
+#
+# The checklist an inquiry gets stamped with the moment it enters a stage
+# (see admissions.py's stage-change hook). Stored by stage *name*, same as
+# AdmissionInquiry.stage itself, so a rename above keeps every template
+# attached to the right stage rather than orphaning them.
+
+
+def _get_stage_or_404(db: Session, stage_id: int) -> models.AdmissionWorkflowStage:
+    stage = db.query(models.AdmissionWorkflowStage).filter(
+        models.AdmissionWorkflowStage.id == stage_id
+    ).first()
+    if not stage:
+        raise HTTPException(status_code=404, detail="Stage not found")
+    return stage
+
+
+@router.get(
+    "/{stage_id}/task-templates",
+    response_model=list[schemas.AdmissionStageTaskTemplateResponse],
+)
+def list_stage_task_templates(stage_id: int, db: Session = Depends(get_db)):
+    stage = _get_stage_or_404(db, stage_id)
+    return (
+        db.query(models.AdmissionStageTaskTemplate)
+        .filter(models.AdmissionStageTaskTemplate.stage == stage.name)
+        .order_by(models.AdmissionStageTaskTemplate.sort_order, models.AdmissionStageTaskTemplate.id)
+        .all()
+    )
+
+
+@router.post(
+    "/{stage_id}/task-templates",
+    response_model=schemas.AdmissionStageTaskTemplateResponse,
+)
+def create_stage_task_template(
+    stage_id: int,
+    payload: schemas.AdmissionStageTaskTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    stage = _get_stage_or_404(db, stage_id)
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Task title is required")
+
+    template = models.AdmissionStageTaskTemplate(
+        stage=stage.name,
+        title=title,
+        description=payload.description,
+        due_in_days=payload.due_in_days if payload.due_in_days is not None else 2,
+        sort_order=payload.sort_order or 0,
+        is_active=payload.is_active if payload.is_active is not None else True,
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+@router.put(
+    "/task-templates/{template_id}",
+    response_model=schemas.AdmissionStageTaskTemplateResponse,
+)
+def update_stage_task_template(
+    template_id: int,
+    payload: schemas.AdmissionStageTaskTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    template = db.query(models.AdmissionStageTaskTemplate).filter(
+        models.AdmissionStageTaskTemplate.id == template_id
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Task template not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "title" in data:
+        if not (data["title"] or "").strip():
+            raise HTTPException(status_code=400, detail="Task title is required")
+        data["title"] = data["title"].strip()
+    if "stage" in data and data["stage"] is not None:
+        exists = db.query(models.AdmissionWorkflowStage).filter(
+            models.AdmissionWorkflowStage.name == data["stage"]
+        ).first()
+        if not exists:
+            raise HTTPException(status_code=400, detail=f"Unknown admission stage: {data['stage']}")
+
+    for key, value in data.items():
+        setattr(template, key, value)
+
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+@router.delete("/task-templates/{template_id}")
+def delete_stage_task_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
+    template = db.query(models.AdmissionStageTaskTemplate).filter(
+        models.AdmissionStageTaskTemplate.id == template_id
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Task template not found")
+
+    db.delete(template)
+    db.commit()
+    return {"message": "Task template deleted successfully"}

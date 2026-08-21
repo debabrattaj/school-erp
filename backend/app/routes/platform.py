@@ -90,6 +90,7 @@ FEATURE_LABELS = {
     "leave": "Staff Leave & Substitution",
     "syllabus": "Syllabus & Lesson Plans",
     "timetable_auto_generation": "Automatic Timetable Generation",
+    "admission_reminders": "Admissions Follow-up Reminders",
 }
 
 

@@ -947,6 +947,7 @@ class AdmissionInquiryBase(BaseModel):
     stage: Optional[str] = "Inquiry"
     follow_up_date: Optional[date] = None
     assigned_to: Optional[str] = None
+    assigned_to_user_id: Optional[int] = None
     converted_student_id: Optional[int] = None
     notes: Optional[str] = None
 
@@ -961,11 +962,22 @@ class AdmissionInquiryUpdate(AdmissionInquiryBase):
 
 class AdmissionInquiryResponse(AdmissionInquiryBase):
     id: int
+    possible_duplicate_of_id: Optional[int] = None
     created_at: Optional[Any] = None
     updated_at: Optional[Any] = None
 
     class Config:
         from_attributes = True
+
+
+class AdmissionDuplicateCandidate(BaseModel):
+    id: int
+    inquiry_no: str
+    student_name: str
+    guardian_name: str
+    stage: Optional[str] = None
+    matched_on: str  # "phone" or "email"
+    created_at: Optional[Any] = None
 
 
 class PublicAdmissionInquiryCreate(BaseModel):
@@ -1063,6 +1075,86 @@ class AdmissionFollowUpCreate(AdmissionFollowUpBase):
 class AdmissionFollowUpResponse(AdmissionFollowUpBase):
     id: int
     created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionStageHistoryResponse(BaseModel):
+    id: int
+    inquiry_id: int
+    from_stage: Optional[str] = None
+    to_stage: str
+    changed_at: Optional[Any] = None
+    changed_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionStageTaskTemplateBase(BaseModel):
+    stage: str
+    title: str
+    description: Optional[str] = None
+    due_in_days: Optional[int] = 2
+    sort_order: Optional[int] = 0
+    is_active: Optional[bool] = True
+
+
+class AdmissionStageTaskTemplateCreate(AdmissionStageTaskTemplateBase):
+    pass
+
+
+class AdmissionStageTaskTemplateUpdate(BaseModel):
+    stage: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_in_days: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class AdmissionStageTaskTemplateResponse(AdmissionStageTaskTemplateBase):
+    id: int
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionTaskBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    assigned_to_user_id: Optional[int] = None
+    stage: Optional[str] = None
+
+
+class AdmissionTaskCreate(AdmissionTaskBase):
+    pass
+
+
+class AdmissionTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    assigned_to_user_id: Optional[int] = None
+    status: Optional[str] = None
+
+
+class AdmissionTaskResponse(AdmissionTaskBase):
+    id: int
+    inquiry_id: int
+    status: str
+    completed_at: Optional[Any] = None
+    completed_by: Optional[str] = None
+    source_template_id: Optional[int] = None
+    created_at: Optional[Any] = None
+    # Denormalized for the queue view, which lists tasks across many
+    # inquiries and would otherwise need one lookup per row.
+    inquiry_no: Optional[str] = None
+    student_name: Optional[str] = None
+    assigned_to_user_name: Optional[str] = None
 
     class Config:
         from_attributes = True
