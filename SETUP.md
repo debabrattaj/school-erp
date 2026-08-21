@@ -1727,10 +1727,11 @@ Test with `--dry-run` first, same as §9.
 
 A separate SKU from Online Tests itself (§13) — browser-lockdown signal
 capture (fullscreen exits, tab/window blur, copy/paste attempts), optional
-periodic webcam snapshots, and a teacher-facing review UI. Signals and
-snapshots are reported as flags for a human to review, never treated as
-proof on their own — no automated verdict, no face/image analysis (that
-would be a future phase, not built).
+periodic webcam snapshots with an on-device face-presence check, and a
+teacher-facing review UI. Every signal — browser or AI — is reported as a
+flag for a human to review, never treated as proof on its own: no automated
+verdict, and the face check only ever reports a face count, never an
+identity (no facial recognition anywhere in this feature).
 
 - **Feature flag:** `online_test_proctoring`, off by default, enabled per
   school from the Platform Console (`PUT /platform/schools/{id}/features`
@@ -1773,6 +1774,17 @@ would be a future phase, not built).
   public static path at `/uploads`, but a photo of a student must only ever
   be reachable through the authenticated teacher route below. Never point
   `PROCTORING_UPLOAD_DIR` at `UPLOAD_DIR` or add it to any static mount.
+- **On-device face check** — whenever `require_webcam=true`, the student's
+  browser also runs a small MediaPipe face-detector (`@mediapipe/tasks-vision`,
+  loaded dynamically so it never bloats the main bundle) against the live
+  camera feed, entirely client-side. No image or video data is ever sent to
+  the server for this — only a `no_face` or `multiple_faces` event (with the
+  detector's confidence score) through the same events endpoint as the
+  browser signals, on a state *transition* only (so a sustained absence
+  reports once, not every 2 seconds). No new policy field: it's implied by
+  `require_webcam`, since it reuses that same camera stream. If the model's
+  CDN is unreachable (offline, a school firewall), this is skipped silently
+  — snapshot capture and the rest of proctoring are unaffected.
 - **Teacher review** (`GET /online-tests/{id}/results/{attempt_id}/proctoring`,
   `PUT .../review`) — the event timeline, the snapshot gallery (fetched as
   authenticated blobs via

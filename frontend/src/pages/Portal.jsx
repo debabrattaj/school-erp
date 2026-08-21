@@ -30,6 +30,19 @@ function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
 }
 
+// On-device face-presence check during a proctored, webcam-required attempt.
+// Both the WASM runtime and the model itself are fetched from Google's
+// MediaPipe CDN, pinned to the installed @mediapipe/tasks-vision version so
+// the JS API and the WASM binary stay compatible -- the video frame itself
+// never leaves the browser for this, only the resulting 0/1/2+ face count.
+// If either fetch fails (offline, a school firewall blocking the CDN), face
+// detection is silently skipped; snapshot capture and the rest of proctoring
+// are unaffected, since this is a supplementary signal, not a requirement.
+const FACE_DETECTOR_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
+const FACE_DETECTOR_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+const FACE_CHECK_INTERVAL_MS = 2000;
+
 export default function Portal() {
   const user = getUser();
   const isParent = user?.role === "Parent";
@@ -323,8 +336,8 @@ export default function Portal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeftSeconds]);
 
-  function queueProctoringEvent(eventType, detail) {
-    proctoringQueueRef.current.push({ event_type: eventType, detail });
+  function queueProctoringEvent(eventType, detail, confidence) {
+    proctoringQueueRef.current.push({ event_type: eventType, detail, confidence });
   }
 
   // Client-side signals are evidence for a human reviewer, not proof --
@@ -445,8 +458,15 @@ export default function Portal() {
     let stream = null;
     let captureIntervalId = null;
     let firstCaptureTimeoutId = null;
+    let faceCheckIntervalId = null;
+    let faceDetector = null;
     let cancelled = false;
     const videoEl = videoRef.current;
+    // Local bookkeeping, not React state: only used to detect a state
+    // *transition* (ok -> no_face, no_face -> multiple_faces, ...) so a
+    // sustained absence reports once, not every 2s. Recovery back to "ok" is
+    // deliberately not itself reported -- it isn't a violation.
+    let lastFaceState = "ok";
 
     async function captureFrame() {
       const video = videoRef.current;
@@ -475,6 +495,51 @@ export default function Portal() {
       );
     }
 
+    // On-device face-presence check, reusing this same camera stream (never
+    // a second getUserMedia call). Runs entirely in the browser -- only the
+    // resulting face count, not any image data, is ever sent to the server.
+    async function setUpFaceDetector() {
+      try {
+        const { FaceDetector, FilesetResolver } = await import("@mediapipe/tasks-vision");
+        if (cancelled) return;
+        const vision = await FilesetResolver.forVisionTasks(FACE_DETECTOR_WASM_URL);
+        if (cancelled) return;
+        faceDetector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL },
+          runningMode: "VIDEO",
+        });
+        if (cancelled) {
+          faceDetector.close();
+          faceDetector = null;
+          return;
+        }
+        faceCheckIntervalId = window.setInterval(() => {
+          const video = videoRef.current;
+          if (!faceDetector || !video || !video.videoWidth) return;
+          let result;
+          try {
+            result = faceDetector.detectForVideo(video, performance.now());
+          } catch {
+            return; // a transient decode error on one frame isn't worth acting on
+          }
+          const faceCount = result.detections.length;
+          const state = faceCount === 0 ? "no_face" : faceCount === 1 ? "ok" : "multiple_faces";
+          if (state !== lastFaceState && state !== "ok") {
+            const confidence =
+              state === "multiple_faces"
+                ? Math.min(...result.detections.map((d) => d.categories?.[0]?.score ?? 1))
+                : undefined;
+            queueProctoringEvent(state, `${faceCount} face(s) detected`, confidence);
+          }
+          lastFaceState = state;
+        }, FACE_CHECK_INTERVAL_MS);
+      } catch {
+        // CDN unreachable, WASM unsupported, or model load failed -- face
+        // detection is a bonus signal, not a requirement; skip it silently
+        // and leave snapshot capture and lockdown enforcement unaffected.
+      }
+    }
+
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -488,6 +553,7 @@ export default function Portal() {
         const intervalMs = (proctoring.capture_interval_seconds || 30) * 1000;
         firstCaptureTimeoutId = window.setTimeout(captureFrame, 1000);
         captureIntervalId = window.setInterval(captureFrame, intervalMs);
+        setUpFaceDetector();
       } catch (err) {
         if (cancelled) return;
         const denied = err && err.name === "NotAllowedError";
@@ -500,6 +566,8 @@ export default function Portal() {
       cancelled = true;
       if (firstCaptureTimeoutId) window.clearTimeout(firstCaptureTimeoutId);
       if (captureIntervalId) window.clearInterval(captureIntervalId);
+      if (faceCheckIntervalId) window.clearInterval(faceCheckIntervalId);
+      if (faceDetector) faceDetector.close();
       if (stream) stream.getTracks().forEach((track) => track.stop());
       if (videoEl) videoEl.srcObject = null;
     };
@@ -1038,7 +1106,7 @@ export default function Portal() {
                   . Reaching the limit submits this attempt automatically.
                   {activeOnlineTest.proctoring.require_webcam && (
                     <div className="online-test-camera-status">
-                      {cameraStatus === "active" && "Camera: on — a still photo is captured periodically, not a continuous recording."}
+                      {cameraStatus === "active" && "Camera: on — a still photo is captured periodically, not a continuous recording. An on-device check also flags if no face or more than one face is visible; no video is sent anywhere for this."}
                       {cameraStatus === "pending" && "Camera: requesting permission..."}
                       {cameraStatus === "denied" && "Camera: permission denied — this has been flagged for the teacher."}
                       {cameraStatus === "unavailable" && "Camera: not available on this device — this has been flagged for the teacher."}

@@ -795,6 +795,15 @@ PROCTORING_EVENT_SEVERITY = {
     # never a block on the student taking the test.
     "camera_denied": "critical",
     "camera_unavailable": "critical",
+    # On-device face detection (browser-side AI, source="client" -- there is
+    # no server_ai yet). no_face is common and often innocent (leaning out of
+    # frame for a second), so it stays a warning; a second face appearing is
+    # a much stronger signal, so it's critical. Either way this is still just
+    # a flag a teacher reviews, never an automated verdict -- the detector
+    # runs entirely in the student's browser and only ever sends this single
+    # event, never the video itself.
+    "no_face": "warning",
+    "multiple_faces": "critical",
 }
 
 
@@ -1288,11 +1297,18 @@ def portal_report_proctoring_events(
 
     logged = 0
     for item in payload.events[:50]:  # defensive cap on one batch
+        # Confidence is display-only (shown to the reviewing teacher), never
+        # part of any severity or auto-submit decision -- but still clamped
+        # to a sane [0, 1] range rather than trusting whatever a client sends.
+        confidence = item.confidence
+        if confidence is not None:
+            confidence = max(0.0, min(1.0, confidence))
         db.add(models.ProctoringEvent(
             session_id=session.id,
             event_type=item.event_type,
             severity=PROCTORING_EVENT_SEVERITY.get(item.event_type, "warning"),
             source="client",
+            confidence=confidence,
             detail=item.detail,
         ))
         logged += 1

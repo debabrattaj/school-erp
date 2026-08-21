@@ -939,6 +939,7 @@ export default function OnlineTests() {
                       <th>Time</th>
                       <th>Event</th>
                       <th>Severity</th>
+                      <th>Confidence</th>
                       <th>Detail</th>
                     </tr>
                   </thead>
@@ -960,12 +961,13 @@ export default function OnlineTests() {
                             {event.severity}
                           </span>
                         </td>
+                        <td>{event.confidence !== null && event.confidence !== undefined ? `${Math.round(event.confidence * 100)}%` : "-"}</td>
                         <td>{event.detail || "-"}</td>
                       </tr>
                     ))}
                     {!proctoringDetail.events.length && (
                       <tr>
-                        <td colSpan={4}>No events reported for this attempt.</td>
+                        <td colSpan={5}>No events reported for this attempt.</td>
                       </tr>
                     )}
                   </tbody>

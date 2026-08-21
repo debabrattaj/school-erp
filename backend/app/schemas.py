@@ -2418,6 +2418,11 @@ class ProctoringConsentResponse(BaseModel):
 class ProctoringEventSubmit(BaseModel):
     event_type: str
     detail: Optional[str] = None
+    # Only meaningful for client-side AI signals (no_face/multiple_faces) --
+    # the detector's own confidence in that reading. Stored as reported, but
+    # never used to decide severity: severity is still a fixed server-side
+    # lookup by event_type, same as every other proctoring event.
+    confidence: Optional[float] = None
 
 
 class ProctoringEventBatchSubmit(BaseModel):

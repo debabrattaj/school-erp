@@ -512,3 +512,69 @@ def test_retention_purges_snapshot_file_but_keeps_row(client, auth, student_with
         headers=auth,
     )
     assert resp.status_code == 404, resp.text
+
+
+# ---------------- On-device face detection (no_face / multiple_faces) ----------------
+
+
+def test_face_detection_events_get_correct_severity_and_confidence(client, auth, student_with_parent):
+    """no_face/multiple_faces arrive through the same generic events endpoint
+    as the browser signals -- severity is still decided server-side, and a
+    client-reported confidence is stored but never influences that decision."""
+    student, student_auth, parent_auth = student_with_parent
+    resp = client.post("/online-tests/proctoring-policies", json={
+        "name": "Face Detection Policy", "max_violations_before_autosubmit": 100,
+    }, headers=auth)
+    policy_id = resp.json()["id"]
+    test, _questions = _create_proctored_test(client, auth, student, policy_id=policy_id)
+
+    client.post(f"/portal/students/{student.id}/proctoring/consent", headers=parent_auth)
+    client.get(f"/portal/students/{student.id}/online-tests/{test['id']}", headers=student_auth)
+
+    resp = client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/events",
+        json={"events": [
+            {"event_type": "no_face", "confidence": 0.87},
+            {"event_type": "multiple_faces", "confidence": 0.42, "detail": "2 faces detected"},
+        ]},
+        headers=student_auth,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["logged"] == 2
+    assert body["violation_count"] == 2  # both no_face and multiple_faces count as violations
+
+    resp = client.get(f"/online-tests/{test['id']}/results", headers=auth)
+    attempt_id = resp.json()[0]["id"]
+    resp = client.get(f"/online-tests/{test['id']}/results/{attempt_id}/proctoring", headers=auth)
+    events = {e["event_type"]: e for e in resp.json()["events"]}
+
+    assert events["no_face"]["severity"] == "warning"
+    assert events["no_face"]["confidence"] == pytest.approx(0.87)
+    assert events["multiple_faces"]["severity"] == "critical"
+    assert events["multiple_faces"]["confidence"] == pytest.approx(0.42)
+    assert events["multiple_faces"]["detail"] == "2 faces detected"
+    assert events["no_face"]["source"] == "client"
+
+
+def test_face_detection_confidence_is_clamped_to_valid_range(client, auth, student_with_parent):
+    student, student_auth, parent_auth = student_with_parent
+    test, _questions = _create_proctored_test(client, auth, student)
+
+    client.post(f"/portal/students/{student.id}/proctoring/consent", headers=parent_auth)
+    client.get(f"/portal/students/{student.id}/online-tests/{test['id']}", headers=student_auth)
+
+    client.post(
+        f"/portal/students/{student.id}/online-tests/{test['id']}/proctoring/events",
+        json={"events": [
+            {"event_type": "no_face", "confidence": 5.0},
+            {"event_type": "no_face", "confidence": -1.0},
+        ]},
+        headers=student_auth,
+    )
+
+    resp = client.get(f"/online-tests/{test['id']}/results", headers=auth)
+    attempt_id = resp.json()[0]["id"]
+    resp = client.get(f"/online-tests/{test['id']}/results/{attempt_id}/proctoring", headers=auth)
+    confidences = sorted(e["confidence"] for e in resp.json()["events"])
+    assert confidences == [0.0, 1.0]
