@@ -8781,3 +8781,21 @@ textarea:focus-visible {
   accent-color: var(--primary);
   flex-shrink: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Transport: live vehicle map
+ * ------------------------------------------------------------------------- */
+.transport-live-map {
+  height: 420px;
+  width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.transport-live-map .leaflet-popup-content {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}

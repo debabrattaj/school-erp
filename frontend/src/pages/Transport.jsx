@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   Bus,
   Edit,
@@ -7,6 +10,16 @@ import {
   Trash2,
   Upload,
   UserCheck,
+  Navigation,
+  Radio,
+  AlertTriangle,
+  Play,
+  Square,
+  XCircle,
+  Copy,
+  RotateCw,
+  Settings2,
+  X,
 } from "lucide-react";
 
 import API from "../api";
@@ -14,6 +27,8 @@ import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import BulkImportModal from "../components/BulkImportModal";
 import { getMasterValues } from "../services/masterDataService";
+import { hasAccess } from "../auth";
+import { todayLocalDate } from "../utils/date";
 
 const emptyRouteForm = {
   route_name: "",
@@ -57,6 +72,74 @@ const emptyAssignmentForm = {
   remarks: "",
 };
 
+const emptyTripForm = {
+  vehicle_id: "",
+  route_id: "",
+  trip_date: "",
+  direction: "Pickup",
+  driver_name: "",
+  driver_phone: "",
+  remarks: "",
+};
+
+const emptyDeviceForm = {
+  device_uid: "",
+  label: "",
+  vendor: "",
+  model: "",
+  vehicle_id: "",
+  notes: "",
+};
+
+const emptyTrackingConfigForm = {
+  geofence_radius_m: "",
+  over_speed_kmph: "",
+  stale_after_minutes: "",
+  retain_locations_days: "",
+};
+
+function vehicleStatusIcon(status) {
+  const color = status === "live" ? "#16a34a" : status === "stale" ? "#f59e0b" : "#94a3b8";
+  return L.divIcon({
+    className: "vehicle-marker",
+    html: `<span style="display:block;width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></span>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8],
+  });
+}
+
+function positionStatusClass(status) {
+  if (status === "live") return "status active";
+  if (status === "stale") return "status warning";
+  return "status danger"; // no_data
+}
+
+function tripStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "running") return "status active";
+  if (text === "completed") return "status pending";
+  if (text === "cancelled") return "status danger";
+  return "status warning"; // Scheduled
+}
+
+function alertSeverityClass(severity) {
+  const text = String(severity || "").toLowerCase();
+  if (text === "critical") return "status danger";
+  if (text === "warning") return "status warning";
+  return "status pending"; // Info
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const iso = /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
 
@@ -97,6 +180,34 @@ export default function Transport() {
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const canManageTracking = hasAccess(["Admin", "Principal", "Accounts"]);
+
+  const [livePositions, setLivePositions] = useState([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const mapRef = useRef(null);
+
+  const [trips, setTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripDateFilter, setTripDateFilter] = useState(todayLocalDate());
+  const [tripForm, setTripForm] = useState(emptyTripForm);
+  const [tripStopsDrawer, setTripStopsDrawer] = useState(null);
+  const [tripStops, setTripStops] = useState([]);
+
+  const [devices, setDevices] = useState([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [silentDevices, setSilentDevices] = useState([]);
+  const [deviceForm, setDeviceForm] = useState(emptyDeviceForm);
+  const [editingDeviceId, setEditingDeviceId] = useState(null);
+  const [revealedToken, setRevealedToken] = useState(null);
+  const [trackingConfigForm, setTrackingConfigForm] = useState(emptyTrackingConfigForm);
+
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertDateFilter, setAlertDateFilter] = useState(todayLocalDate());
+  const [alertTypeFilter, setAlertTypeFilter] = useState("");
+  const [unacknowledgedOnly, setUnacknowledgedOnly] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -140,6 +251,346 @@ export default function Transport() {
   useEffect(() => {
     loadPageData();
   }, []);
+
+  async function loadLivePositions() {
+    try {
+      setLiveLoading(true);
+      const response = await API.get("/transport-tracking/live");
+      setLivePositions(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load live positions."));
+    } finally {
+      setLiveLoading(false);
+    }
+  }
+
+  async function loadTrips() {
+    try {
+      setTripsLoading(true);
+      const response = await API.get("/transport-tracking/trips", {
+        params: { on_date: tripDateFilter || undefined },
+      });
+      setTrips(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load trips."));
+    } finally {
+      setTripsLoading(false);
+    }
+  }
+
+  async function loadDevices() {
+    try {
+      setDevicesLoading(true);
+      const [deviceResponse, silentResponse] = await Promise.all([
+        API.get("/transport-tracking/devices"),
+        API.get("/transport-tracking/devices/silent"),
+      ]);
+      setDevices(deviceResponse.data || []);
+      setSilentDevices(silentResponse.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load trackers."));
+    } finally {
+      setDevicesLoading(false);
+    }
+  }
+
+  async function loadTrackingConfig() {
+    try {
+      const response = await API.get("/transport-tracking/config");
+      setTrackingConfigForm({
+        geofence_radius_m: String(response.data.geofence_radius_m ?? ""),
+        over_speed_kmph: String(response.data.over_speed_kmph ?? ""),
+        stale_after_minutes: String(response.data.stale_after_minutes ?? ""),
+        retain_locations_days: String(response.data.retain_locations_days ?? ""),
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadAlerts() {
+    try {
+      setAlertsLoading(true);
+      const response = await API.get("/transport-tracking/alerts", {
+        params: {
+          on_date: alertDateFilter || undefined,
+          alert_type: alertTypeFilter || undefined,
+          unacknowledged_only: unacknowledgedOnly || undefined,
+        },
+      });
+      setAlerts(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load alerts."));
+    } finally {
+      setAlertsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "live") return undefined;
+    loadLivePositions();
+    const interval = window.setInterval(loadLivePositions, 20000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "trips") return;
+    loadTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, tripDateFilter]);
+
+  useEffect(() => {
+    if (activeTab !== "devices") return;
+    loadDevices();
+    loadTrackingConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "alerts") return;
+    loadAlerts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, alertDateFilter, alertTypeFilter, unacknowledgedOnly]);
+
+  function handleTripChange(e) {
+    const { name, value } = e.target;
+    setTripForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function createTrip(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!tripForm.vehicle_id) {
+      setMessage("Vehicle is required.");
+      return;
+    }
+
+    const payload = {
+      vehicle_id: Number(tripForm.vehicle_id),
+      route_id: tripForm.route_id ? Number(tripForm.route_id) : null,
+      trip_date: tripForm.trip_date || null,
+      direction: tripForm.direction,
+      driver_name: tripForm.driver_name || null,
+      driver_phone: tripForm.driver_phone || null,
+      remarks: tripForm.remarks || null,
+    };
+
+    try {
+      await API.post("/transport-tracking/trips", payload);
+      setMessage("Trip scheduled.");
+      setTripForm(emptyTripForm);
+      await loadTrips();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to schedule trip."));
+    }
+  }
+
+  async function startTrip(trip) {
+    try {
+      await API.post(`/transport-tracking/trips/${trip.id}/start`);
+      setMessage(`Trip started for ${trip.vehicle_no}.`);
+      await loadTrips();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to start trip."));
+    }
+  }
+
+  async function endTrip(trip) {
+    const confirmEnd = window.confirm(`End the trip for ${trip.vehicle_no}?`);
+    if (!confirmEnd) return;
+
+    try {
+      const response = await API.post(`/transport-tracking/trips/${trip.id}/end`);
+      const missed = response.data?.missed_stops || [];
+      setMessage(
+        missed.length
+          ? `Trip ended — never reached: ${missed.join(", ")}.`
+          : "Trip ended."
+      );
+      await loadTrips();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to end trip."));
+    }
+  }
+
+  async function cancelTrip(trip) {
+    const confirmCancel = window.confirm(`Cancel the scheduled trip for ${trip.vehicle_no}?`);
+    if (!confirmCancel) return;
+
+    try {
+      await API.post(`/transport-tracking/trips/${trip.id}/cancel`);
+      setMessage("Trip cancelled.");
+      await loadTrips();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to cancel trip."));
+    }
+  }
+
+  async function openTripStops(trip) {
+    setTripStopsDrawer(trip);
+    setTripStops([]);
+    try {
+      const response = await API.get(`/transport-tracking/trips/${trip.id}/stops`);
+      setTripStops(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load trip stops."));
+    }
+  }
+
+  function handleDeviceFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setDeviceForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function editDevice(device) {
+    setEditingDeviceId(device.id);
+    setDeviceForm({
+      device_uid: device.device_uid || "",
+      label: device.label || "",
+      vendor: device.vendor || "",
+      model: device.model || "",
+      vehicle_id: device.vehicle_id || "",
+      notes: device.notes || "",
+    });
+    setRevealedToken(null);
+  }
+
+  function cancelDeviceEdit() {
+    setEditingDeviceId(null);
+    setDeviceForm(emptyDeviceForm);
+  }
+
+  async function saveDevice(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!editingDeviceId && !deviceForm.device_uid.trim()) {
+      setMessage("A device identifier is required.");
+      return;
+    }
+
+    try {
+      if (editingDeviceId) {
+        await API.put(`/transport-tracking/devices/${editingDeviceId}`, {
+          label: deviceForm.label || null,
+          vendor: deviceForm.vendor || null,
+          model: deviceForm.model || null,
+          vehicle_id: deviceForm.vehicle_id ? Number(deviceForm.vehicle_id) : null,
+          notes: deviceForm.notes || null,
+        });
+        setMessage("Tracker updated.");
+      } else {
+        const response = await API.post("/transport-tracking/devices", {
+          device_uid: deviceForm.device_uid.trim(),
+          label: deviceForm.label || null,
+          vendor: deviceForm.vendor || null,
+          model: deviceForm.model || null,
+          vehicle_id: deviceForm.vehicle_id ? Number(deviceForm.vehicle_id) : null,
+          notes: deviceForm.notes || null,
+        });
+        setRevealedToken({ device: response.data.device_uid, token: response.data.auth_token });
+        setMessage("Tracker registered.");
+      }
+      cancelDeviceEdit();
+      await loadDevices();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save tracker."));
+    }
+  }
+
+  async function rotateToken(device) {
+    const confirmRotate = window.confirm(
+      `Issue a new credential for "${device.label || device.device_uid}"? The old one will stop working immediately.`
+    );
+    if (!confirmRotate) return;
+
+    try {
+      const response = await API.post(`/transport-tracking/devices/${device.id}/rotate-token`);
+      setRevealedToken({ device: response.data.device_uid, token: response.data.auth_token });
+      setMessage("New credential issued.");
+      await loadDevices();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to rotate credential."));
+    }
+  }
+
+  async function deleteDevice(device) {
+    const confirmDelete = window.confirm(`Remove the tracker "${device.label || device.device_uid}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/transport-tracking/devices/${device.id}`);
+      setMessage("Tracker removed.");
+      await loadDevices();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove tracker."));
+    }
+  }
+
+  function handleTrackingConfigChange(e) {
+    const { name, value } = e.target;
+    setTrackingConfigForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function saveTrackingConfig(e) {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      await API.put("/transport-tracking/config", {
+        geofence_radius_m: Number(trackingConfigForm.geofence_radius_m),
+        over_speed_kmph: Number(trackingConfigForm.over_speed_kmph),
+        stale_after_minutes: Number(trackingConfigForm.stale_after_minutes),
+        retain_locations_days: Number(trackingConfigForm.retain_locations_days),
+      });
+      setMessage("Tracking settings saved.");
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save tracking settings."));
+    }
+  }
+
+  async function purgeOldHistory() {
+    const confirmPurge = window.confirm(
+      "Delete position history older than the retention window? Trips, stop events and alerts are kept."
+    );
+    if (!confirmPurge) return;
+
+    try {
+      const response = await API.post("/transport-tracking/purge-history");
+      setMessage(`Removed ${response.data.removed} old location point(s).`);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to purge history."));
+    }
+  }
+
+  async function acknowledgeAlert(alert) {
+    const note = window.prompt("Note (optional):") || undefined;
+
+    try {
+      await API.post(`/transport-tracking/alerts/${alert.id}/acknowledge`, { note });
+      setMessage("Alert acknowledged.");
+      await loadAlerts();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to acknowledge alert."));
+    }
+  }
 
   const routeMap = useMemo(() => {
     const map = {};
@@ -438,6 +889,17 @@ export default function Transport() {
       .includes(searchText.toLowerCase())
   );
 
+  const vehiclesWithPosition = livePositions.filter(
+    (p) => p.status !== "no_data" && p.latitude != null && p.longitude != null
+  );
+  const mapCenter = vehiclesWithPosition.length
+    ? [
+        vehiclesWithPosition.reduce((sum, p) => sum + p.latitude, 0) / vehiclesWithPosition.length,
+        vehiclesWithPosition.reduce((sum, p) => sum + p.longitude, 0) / vehiclesWithPosition.length,
+      ]
+    : [20.5937, 78.9629];
+  const mapZoom = vehiclesWithPosition.length ? 13 : 5;
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -494,6 +956,10 @@ export default function Transport() {
             ["vehicles", "Vehicles"],
             ["stops", "Pickup Points"],
             ["assignments", "Assignments"],
+            ["live", "Live Map"],
+            ["trips", "Trips"],
+            ["devices", "Devices"],
+            ["alerts", "Alerts"],
           ].map(([tab, label]) => (
             <button
               key={tab}
@@ -726,6 +1192,412 @@ export default function Transport() {
             ))}
           </TransportTable>
         </>
+      )}
+
+      {activeTab === "live" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Live Vehicle Positions</h3>
+              <p>Refreshes automatically every 20 seconds.</p>
+            </div>
+            <button type="button" className="light-button" onClick={loadLivePositions} disabled={liveLoading}>
+              <Navigation size={16} />
+              {liveLoading ? "Refreshing..." : "Refresh Now"}
+            </button>
+          </div>
+
+          <div className="transport-live-map">
+            <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100%", width: "100%" }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {vehiclesWithPosition.map((p) => (
+                <Marker key={p.vehicle_id} position={[p.latitude, p.longitude]} icon={vehicleStatusIcon(p.status)}>
+                  <Popup>
+                    <strong>{p.vehicle_no}</strong><br />
+                    Status: {p.status}<br />
+                    Speed: {p.speed_kmph != null ? `${p.speed_kmph} km/h` : "-"}<br />
+                    Updated: {p.age_minutes != null ? `${p.age_minutes} min ago` : "-"}
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          <div className="table-wrapper" style={{ marginTop: 16 }}>
+            <table className="classic-table">
+              <thead>
+                <tr><th>Vehicle</th><th>Status</th><th>Speed</th><th>Last Update</th></tr>
+              </thead>
+              <tbody>
+                {liveLoading && !livePositions.length && (
+                  <tr><td colSpan={4}>Loading...</td></tr>
+                )}
+                {livePositions.map((p) => (
+                  <tr key={p.vehicle_id}>
+                    <td>{p.vehicle_no}</td>
+                    <td><span className={positionStatusClass(p.status)}>{String(p.status).replace("_", " ")}</span></td>
+                    <td>{p.speed_kmph != null ? `${p.speed_kmph} km/h` : "-"}</td>
+                    <td>
+                      {p.age_minutes != null
+                        ? `${p.age_minutes} min ago (${formatDateTime(p.recorded_at)})`
+                        : "No data yet"}
+                    </td>
+                  </tr>
+                ))}
+                {!liveLoading && !livePositions.length && (
+                  <tr><td colSpan={4}>No active vehicles.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "trips" && (
+        <>
+          <section className="form-panel">
+            <PanelTitle title="Schedule a Trip" text="Start a pickup or drop run for a vehicle." />
+            <form className="classic-form" onSubmit={createTrip}>
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Vehicle *</label>
+                  <select name="vehicle_id" value={tripForm.vehicle_id} onChange={handleTripChange} required>
+                    <option value="">Select Vehicle</option>
+                    {activeVehicles.map((v) => <option key={v.id} value={v.id}>{v.vehicle_no}</option>)}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Route</label>
+                  <select name="route_id" value={tripForm.route_id} onChange={handleTripChange}>
+                    <option value="">Use vehicle's assigned route</option>
+                    {activeRoutes.map((r) => <option key={r.id} value={r.id}>{r.route_name}</option>)}
+                  </select>
+                </div>
+                <TextField label="Date" type="date" name="trip_date" value={tripForm.trip_date} onChange={handleTripChange} />
+                <div className="form-field">
+                  <label>Direction *</label>
+                  <select name="direction" value={tripForm.direction} onChange={handleTripChange} required>
+                    <option value="Pickup">Pickup</option>
+                    <option value="Drop">Drop</option>
+                  </select>
+                </div>
+                <TextField label="Driver Name" name="driver_name" value={tripForm.driver_name} onChange={handleTripChange} placeholder="Defaults to vehicle's driver" />
+                <TextField label="Driver Phone" name="driver_phone" value={tripForm.driver_phone} onChange={handleTripChange} />
+                <TextareaField value={tripForm.remarks} onChange={handleTripChange} />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  <PlusCircle size={18} />
+                  Schedule Trip
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="table-panel">
+            <div className="panel-header">
+              <div><h3>Trips</h3></div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label>Date</label>
+                <input type="date" value={tripDateFilter} onChange={(e) => setTripDateFilter(e.target.value)} />
+              </div>
+            </div>
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th><th>Route</th><th>Direction</th><th>Status</th>
+                    <th>Driver</th><th>Started</th><th>Ended</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tripsLoading && <tr><td colSpan={8}>Loading...</td></tr>}
+                  {!tripsLoading && trips.map((trip) => (
+                    <tr key={trip.id}>
+                      <td>{trip.vehicle_no}</td>
+                      <td>{trip.route_name || "-"}</td>
+                      <td>{trip.direction}</td>
+                      <td><span className={tripStatusClass(trip.status)}>{trip.status}</span></td>
+                      <td>{trip.driver_name || "-"}</td>
+                      <td>{trip.started_at ? formatDateTime(trip.started_at) : "-"}</td>
+                      <td>{trip.ended_at ? formatDateTime(trip.ended_at) : "-"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          {trip.status === "Scheduled" && (
+                            <>
+                              <button type="button" className="edit-button" onClick={() => startTrip(trip)} title="Start">
+                                <Play size={15} />
+                              </button>
+                              <button type="button" className="delete-button" onClick={() => cancelTrip(trip)} title="Cancel">
+                                <XCircle size={15} />
+                              </button>
+                            </>
+                          )}
+                          {trip.status === "Running" && (
+                            <button type="button" className="delete-button" onClick={() => endTrip(trip)} title="End">
+                              <Square size={15} />
+                            </button>
+                          )}
+                          <button type="button" className="edit-button" onClick={() => openTripStops(trip)} title="View Stops">
+                            <MapPin size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!tripsLoading && !trips.length && (
+                    <tr><td colSpan={8}>No trips on this date.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === "devices" && (
+        <>
+          <section className="form-panel">
+            <PanelTitle title="Tracking Settings" text="Applies to every vehicle and tracker on this account." />
+            <form className="classic-form" onSubmit={saveTrackingConfig}>
+              <div className="form-grid">
+                <TextField label="Geofence Radius (m)" type="number" name="geofence_radius_m" value={trackingConfigForm.geofence_radius_m} onChange={handleTrackingConfigChange} min="10" disabled={!canManageTracking} />
+                <TextField label="Over-speed Threshold (km/h)" type="number" name="over_speed_kmph" value={trackingConfigForm.over_speed_kmph} onChange={handleTrackingConfigChange} min="5" disabled={!canManageTracking} />
+                <TextField label="Stale After (minutes)" type="number" name="stale_after_minutes" value={trackingConfigForm.stale_after_minutes} onChange={handleTrackingConfigChange} min="1" disabled={!canManageTracking} />
+                <TextField label="Retain History (days)" type="number" name="retain_locations_days" value={trackingConfigForm.retain_locations_days} onChange={handleTrackingConfigChange} min="1" disabled={!canManageTracking} />
+              </div>
+              {canManageTracking && (
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    <Settings2 size={18} />
+                    Save Settings
+                  </button>
+                  <button type="button" className="light-button" onClick={purgeOldHistory}>
+                    Purge Old History Now
+                  </button>
+                </div>
+              )}
+            </form>
+          </section>
+
+          {silentDevices.length > 0 && (
+            <section className="table-panel">
+              <div className="panel-header">
+                <div>
+                  <h3><AlertTriangle size={18} style={{ verticalAlign: "middle", marginRight: 6 }} />Silent Trackers</h3>
+                  <p>Active but haven't reported a position recently.</p>
+                </div>
+              </div>
+              <div className="table-wrapper">
+                <table className="classic-table">
+                  <thead><tr><th>Tracker</th><th>Vehicle</th><th>Last Seen</th></tr></thead>
+                  <tbody>
+                    {silentDevices.map((d) => (
+                      <tr key={d.id || d.device_id || d.device_uid}>
+                        <td>{d.label || d.device_uid}</td>
+                        <td>{d.vehicle_no || "-"}</td>
+                        <td>{d.last_seen_at ? formatDateTime(d.last_seen_at) : "Never"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          <section className="form-panel">
+            <PanelTitle title={editingDeviceId ? "Edit Tracker" : "Register Tracker"} text="Add a GPS device and link it to a vehicle." />
+
+            {revealedToken && (
+              <div
+                className="hint-text"
+                style={{
+                  background: "var(--surface-subtle)",
+                  border: "1px solid var(--border-strong)",
+                  borderRadius: "var(--radius)",
+                  padding: "12px 14px",
+                  marginBottom: 14,
+                }}
+              >
+                <strong>Credential for {revealedToken.device}</strong> — shown once, copy it now:
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <code style={{ wordBreak: "break-all" }}>{revealedToken.token}</code>
+                  <button
+                    type="button"
+                    className="light-button"
+                    onClick={() => navigator.clipboard?.writeText(revealedToken.token)}
+                    title="Copy"
+                  >
+                    <Copy size={15} />
+                  </button>
+                  <button type="button" className="light-button" onClick={() => setRevealedToken(null)}>
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <form className="classic-form" onSubmit={saveDevice}>
+              <div className="form-grid">
+                <TextField label="Device UID *" name="device_uid" value={deviceForm.device_uid} onChange={handleDeviceFormChange} required disabled={Boolean(editingDeviceId)} />
+                <TextField label="Label" name="label" value={deviceForm.label} onChange={handleDeviceFormChange} />
+                <TextField label="Vendor" name="vendor" value={deviceForm.vendor} onChange={handleDeviceFormChange} />
+                <TextField label="Model" name="model" value={deviceForm.model} onChange={handleDeviceFormChange} />
+                <div className="form-field">
+                  <label>Linked Vehicle</label>
+                  <select name="vehicle_id" value={deviceForm.vehicle_id} onChange={handleDeviceFormChange}>
+                    <option value="">Not linked</option>
+                    {vehicles.map((v) => <option key={v.id} value={v.id}>{v.vehicle_no}</option>)}
+                  </select>
+                </div>
+                <TextareaField value={deviceForm.notes} onChange={handleDeviceFormChange} />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  <PlusCircle size={18} />
+                  {editingDeviceId ? "Update Tracker" : "Register Tracker"}
+                </button>
+                {editingDeviceId && (
+                  <button type="button" className="light-button" onClick={cancelDeviceEdit}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+
+          <TransportTable title="Trackers" count={devices.length} searchText={searchText} setSearchText={setSearchText} loading={devicesLoading} headers={["Device UID", "Label", "Vendor/Model", "Vehicle", "Status", "Last Seen", "Actions"]} emptyText="No trackers registered yet.">
+            {devices.map((d) => (
+              <tr key={d.id}>
+                <td>{d.device_uid}</td>
+                <td>{d.label || "-"}</td>
+                <td>{[d.vendor, d.model].filter(Boolean).join(" / ") || "-"}</td>
+                <td>{vehicles.find((v) => v.id === d.vehicle_id)?.vehicle_no || "-"}</td>
+                <td><Status active={d.is_active} /></td>
+                <td>{d.last_seen_at ? formatDateTime(d.last_seen_at) : "Never"}</td>
+                <td>
+                  <div className="action-buttons">
+                    <button type="button" className="edit-button" onClick={() => editDevice(d)} title="Edit">
+                      <Edit size={15} />
+                    </button>
+                    <button type="button" className="edit-button" onClick={() => rotateToken(d)} title="Rotate Credential">
+                      <RotateCw size={15} />
+                    </button>
+                    <button type="button" className="delete-button" onClick={() => deleteDevice(d)} title="Remove">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </TransportTable>
+        </>
+      )}
+
+      {activeTab === "alerts" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Transport Alerts</h3>
+              <p>Over-speed, missed stops, silent trackers, and late arrivals.</p>
+            </div>
+          </div>
+
+          <div className="filter-row sis-filter-row">
+            <div className="form-field">
+              <label>Date</label>
+              <input type="date" value={alertDateFilter} onChange={(e) => setAlertDateFilter(e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Type</label>
+              <select value={alertTypeFilter} onChange={(e) => setAlertTypeFilter(e.target.value)}>
+                <option value="">All Types</option>
+                <option value="over_speed">Over Speed</option>
+                <option value="no_signal">No Signal</option>
+                <option value="stop_missed">Stop Missed</option>
+                <option value="late_arrival">Late Arrival</option>
+              </select>
+            </div>
+            <label className="switch-row" style={{ alignSelf: "flex-end", marginBottom: 8 }}>
+              <input type="checkbox" checked={unacknowledgedOnly} onChange={(e) => setUnacknowledgedOnly(e.target.checked)} />
+              <span>Unacknowledged only</span>
+            </label>
+          </div>
+
+          <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Vehicle</th><th>Type</th><th>Severity</th><th>Occurred</th>
+                  <th>Detail</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertsLoading && <tr><td colSpan={7}>Loading...</td></tr>}
+                {!alertsLoading && alerts.map((alert) => (
+                  <tr key={alert.id}>
+                    <td>{alert.vehicle_no || "-"}</td>
+                    <td>{String(alert.alert_type).replace("_", " ")}</td>
+                    <td><span className={alertSeverityClass(alert.severity)}>{alert.severity}</span></td>
+                    <td>{formatDateTime(alert.occurred_at)}</td>
+                    <td>{alert.detail || "-"}</td>
+                    <td>
+                      {alert.acknowledged_at ? (
+                        `Ack'd by ${alert.acknowledged_by}`
+                      ) : (
+                        <span className="status warning">Open</span>
+                      )}
+                    </td>
+                    <td>
+                      {!alert.acknowledged_at && (
+                        <button type="button" className="edit-button" onClick={() => acknowledgeAlert(alert)} title="Acknowledge">
+                          <AlertTriangle size={15} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {!alertsLoading && !alerts.length && (
+                  <tr><td colSpan={7}>No alerts for this date.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tripStopsDrawer && (
+        <div className="student-drawer-backdrop">
+          <aside className="student-drawer">
+            <button type="button" className="drawer-close" onClick={() => setTripStopsDrawer(null)}>
+              <X size={18} />
+            </button>
+            <div className="student-profile-head">
+              <div className="student-avatar"><MapPin size={42} /></div>
+              <h3>{tripStopsDrawer.vehicle_no} — {tripStopsDrawer.direction}</h3>
+              <p>{tripStopsDrawer.route_name || "No route"}</p>
+            </div>
+            <div className="drawer-section">
+              {!tripStops.length && <p>No stops configured on this route.</p>}
+              {tripStops.map((stop) => (
+                <div key={stop.stop_id} style={{ marginBottom: 10 }}>
+                  <strong>{stop.stop_name}</strong>
+                  <p>Scheduled: {stop.scheduled_time || "-"}</p>
+                  <p>
+                    {stop.arrived_at
+                      ? `Arrived ${formatDateTime(stop.arrived_at)}${
+                          stop.delay_minutes ? ` (${stop.delay_minutes > 0 ? "+" : ""}${stop.delay_minutes} min)` : ""
+                        }`
+                      : "Not reached yet"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
       )}
     </div>
   );
