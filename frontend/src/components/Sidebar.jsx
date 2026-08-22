@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   GraduationCap,
+  Book,
   BookOpen,
   ClipboardCheck,
   Wallet,
@@ -85,6 +86,13 @@ export default function Sidebar({ onNavigate }) {
       path: "/classes",
       roles: ["Admin", "Principal"],
       feature: "classes",
+      group: "Academics",
+    },
+    {
+      label: "Subjects",
+      icon: Book,
+      path: "/subjects",
+      roles: ["Admin", "Principal", "Teacher"],
       group: "Academics",
     },
     {
