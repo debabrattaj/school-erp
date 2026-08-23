@@ -300,6 +300,74 @@ def portal_student_fees(
     }
 
 
+LIBRARY_GATE = [Depends(require_feature("library"))]
+
+
+@router.get("/students/{student_id}/library", dependencies=LIBRARY_GATE)
+def portal_student_library(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """A child's currently issued books, due dates and fines, plus history
+    and any active reservations. Read-only -- returns/renewals/reservations
+    are made at the school desk, not from the portal."""
+    ensure_student_access(db, current_user, student_id)
+
+    issues = (
+        db.query(models.LibraryIssue)
+        .filter(models.LibraryIssue.student_id == student_id)
+        .order_by(models.LibraryIssue.issue_date.desc())
+        .all()
+    )
+    books = {b.id: b for b in db.query(models.LibraryBook).all()}
+    reservations = (
+        db.query(models.LibraryReservation)
+        .filter(
+            models.LibraryReservation.student_id == student_id,
+            models.LibraryReservation.status.in_(["Waiting", "Ready"]),
+        )
+        .all()
+    )
+    today = date.today()
+
+    def serialize(issue: models.LibraryIssue):
+        book = books.get(issue.book_id)
+        overdue = issue.status == "Issued" and issue.due_date and issue.due_date < today
+        return {
+            "id": issue.id,
+            "book_title": book.title if book else "-",
+            "accession_no": book.accession_no if book else None,
+            "issue_date": issue.issue_date,
+            "due_date": issue.due_date,
+            "return_date": issue.return_date,
+            "status": issue.status,
+            "fine_amount": issue.fine_amount,
+            "fine_paid": issue.fine_paid,
+            "days_overdue": (today - issue.due_date).days if overdue else 0,
+        }
+
+    current = [serialize(i) for i in issues if i.status == "Issued"]
+    history = [serialize(i) for i in issues if i.status != "Issued"]
+    total_fine_due = sum((i.fine_amount or 0) for i in issues if not i.fine_paid)
+
+    return {
+        "current": current,
+        "history": history,
+        "reservations": [
+            {
+                "id": r.id,
+                "book_title": books.get(r.book_id).title if books.get(r.book_id) else "-",
+                "status": r.status,
+                "queue_position": r.queue_position,
+                "expires_at": r.expires_at,
+            }
+            for r in reservations
+        ],
+        "total_fine_due": round(total_fine_due, 2),
+    }
+
+
 class PortalUpiConfirmRequest(BaseModel):
     reference: str
 

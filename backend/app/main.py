@@ -20,6 +20,7 @@ from app.routes import transport
 from app.routes import health_infirmary
 from app.routes import mess
 from app.routes import library
+from app.routes import library_reminders
 from app.routes import inventory
 from app.routes import accounting
 from app.routes import admissions
@@ -1196,6 +1197,7 @@ app.include_router(transport.router)
 app.include_router(health_infirmary.router)
 app.include_router(mess.router)
 app.include_router(library.router)
+app.include_router(library_reminders.router)
 app.include_router(inventory.router)
 app.include_router(accounting.router)
 app.include_router(admissions.router)

@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Award,
   School,
+  Clock,
 } from "lucide-react";
 import API from "../api";
 import { useSchoolSettings } from "../SettingsContext";
@@ -184,6 +185,14 @@ export default function Dashboard() {
       icon: School,
       accent: "var(--brand-600)",
       accent2: "var(--brand-500)",
+    },
+    {
+      title: "Library Overdue",
+      value: summary?.library_overdue_count || 0,
+      note: `${summary?.library_issued_count || 0} book(s) currently issued`,
+      icon: Clock,
+      accent: "var(--danger-600)",
+      accent2: "var(--danger-600)",
     },
   ];
 

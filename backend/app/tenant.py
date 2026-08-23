@@ -128,6 +128,10 @@ DEFAULT_FEATURES = {
     # templates freely, but nothing fires unattended until enabled here.
     "fee_auto_generation": False,
     "fee_reminders": False,
+    # Emails/SMSes borrowers about overdue library books on a schedule, same
+    # opt-in gating as fee_reminders -- a module that messages parents/staff
+    # unattended must not switch itself on.
+    "library_reminders": False,
     "promotion_auto_generation": False,
     "exam_auto_generation": False,
     # Staff HR module, not every school runs leave/substitution through the

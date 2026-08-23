@@ -41,7 +41,12 @@ from app.models import (
     InventoryItem,
     InventoryTransaction,
     LibraryBook,
+    LibraryBookCopy,
     LibraryIssue,
+    LibraryRenewal,
+    LibraryReminderRule,
+    LibraryReservation,
+    LibrarySettings,
     Mark,
     MessAttendance,
     MessMenu,
@@ -628,17 +633,75 @@ for i in range(1, 61):
     library_books.append(book)
 db.commit()
 
+db.add(LibrarySettings(
+    loan_period_days=14, loan_period_days_staff=30, fine_per_day=2,
+    max_books_student=3, max_books_staff=5, max_renewals=2, reservation_hold_days=2,
+))
+
+# A handful of titles get barcoded per-copy tracking on top of the aggregate
+# count, so the UI has something to show for that flow too.
+for book in library_books[:15]:
+    for copy_no in range(1, min(book.total_copies, 3) + 1):
+        db.add(LibraryBookCopy(
+            book_id=book.id, copy_no=copy_no, barcode=f"{book.accession_no}-{copy_no:02d}",
+            shelf_no=book.shelf_no,
+        ))
+db.commit()
+
+library_issues = []
 for _ in range(40):
     book = random.choice(library_books)
     s = random.choice(active_students)
     issue_date = TODAY - timedelta(days=random.randint(1, 60))
     returned = random.random() < 0.6
-    db.add(LibraryIssue(
-        book_id=book.id, student_id=s.id, issue_date=issue_date,
+    issue = LibraryIssue(
+        book_id=book.id, borrower_type="Student", student_id=s.id, issue_date=issue_date,
         due_date=issue_date + timedelta(days=14),
         return_date=issue_date + timedelta(days=random.randint(5, 20)) if returned else None,
         status="Returned" if returned else "Issued",
+        fine_amount=round(random.uniform(0, 40), 2) if returned and random.random() < 0.3 else 0,
+    )
+    db.add(issue)
+    library_issues.append(issue)
+
+# A few books out to staff -- the same escalation ladder chases them
+# directly rather than through a guardian.
+for teacher in random.sample(teachers, 6):
+    book = random.choice(library_books)
+    issue_date = TODAY - timedelta(days=random.randint(1, 40))
+    returned = random.random() < 0.5
+    issue = LibraryIssue(
+        book_id=book.id, borrower_type="Staff", staff_id=teacher.id, issue_date=issue_date,
+        due_date=issue_date + timedelta(days=30),
+        return_date=issue_date + timedelta(days=random.randint(10, 25)) if returned else None,
+        status="Returned" if returned else "Issued",
+    )
+    db.add(issue)
+    library_issues.append(issue)
+db.commit()
+
+# A couple of renewals on still-issued books, for the renewal history view.
+still_issued = [i for i in library_issues if i.status == "Issued"]
+for issue in random.sample(still_issued, min(5, len(still_issued))):
+    previous_due = issue.due_date
+    loan_days = 14 if issue.borrower_type == "Student" else 30
+    new_due = previous_due + timedelta(days=loan_days)
+    db.add(LibraryRenewal(issue_id=issue.id, previous_due_date=previous_due, new_due_date=new_due))
+    issue.due_date = new_due
+    issue.renewal_count = 1
+db.commit()
+
+# A couple of reservations queued on popular titles.
+for book in random.sample(library_books, 3):
+    borrower = random.choice(active_students)
+    db.add(LibraryReservation(
+        book_id=book.id, borrower_type="Student", student_id=borrower.id,
+        status="Waiting", queue_position=1,
     ))
+db.commit()
+
+db.add(LibraryReminderRule(name="First overdue notice", offset_days=3, channel="Email", is_active=True))
+db.add(LibraryReminderRule(name="Second notice", offset_days=10, channel="Email", is_active=True))
 db.commit()
 
 print("Seeding inventory...")

@@ -449,10 +449,27 @@ export const libraryIssuesModule: ModuleConfig = {
   endpoint: "/library/issues",
   titleField: "status",
   searchFields: ["status"],
-  listColumns: [{"key": "book_id", "label": "Book ID"}, {"key": "student_id", "label": "Student ID"}, {"key": "issue_date", "label": "Issue Date"}, {"key": "due_date", "label": "Due Date"}],
-  formFields: [{"key": "book_id", "label": "Book ID", "type": "reference", "reference": {"endpoint": "/library/books", "searchFields": ["title", "author", "accession_no"], "labelFields": ["title"], "subtitleFields": ["author", "accession_no"]}, "required": true}, {"key": "student_id", "label": "Student ID", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}, "required": true}, {"key": "issue_date", "label": "Issue Date", "type": "date", "required": true}, {"key": "due_date", "label": "Due Date", "type": "date"}, {"key": "return_date", "label": "Return Date", "type": "date"}, {"key": "status", "label": "Status", "type": "select", "options": [{"label": "Issued", "value": "Issued"}, {"label": "Returned", "value": "Returned"}, {"label": "Lost", "value": "Lost"}, {"label": "Damaged", "value": "Damaged"}]}, {"key": "fine_amount", "label": "Fine Amount", "type": "number"}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  listColumns: [{"key": "book_id", "label": "Book ID"}, {"key": "borrower_type", "label": "Borrower Type"}, {"key": "student_id", "label": "Student ID"}, {"key": "staff_id", "label": "Staff ID"}, {"key": "issue_date", "label": "Issue Date"}, {"key": "due_date", "label": "Due Date"}, {"key": "renewal_count", "label": "Renewals"}],
+  formFields: [{"key": "book_id", "label": "Book ID", "type": "reference", "reference": {"endpoint": "/library/books", "searchFields": ["title", "author", "accession_no"], "labelFields": ["title"], "subtitleFields": ["author", "accession_no"]}, "required": true}, {"key": "borrower_type", "label": "Borrower Type", "type": "select", "options": [{"label": "Student", "value": "Student"}, {"label": "Staff", "value": "Staff"}]}, {"key": "student_id", "label": "Student ID", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}}, {"key": "staff_id", "label": "Staff ID", "type": "reference", "reference": {"endpoint": "/teachers", "searchFields": ["name", "employee_no"], "labelFields": ["name"], "subtitleFields": ["employee_no", "department"]}}, {"key": "issue_date", "label": "Issue Date", "type": "date", "required": true}, {"key": "due_date", "label": "Due Date", "type": "date"}, {"key": "return_date", "label": "Return Date", "type": "date"}, {"key": "status", "label": "Status", "type": "select", "options": [{"label": "Issued", "value": "Issued"}, {"label": "Returned", "value": "Returned"}, {"label": "Lost", "value": "Lost"}, {"label": "Damaged", "value": "Damaged"}]}, {"key": "fine_amount", "label": "Fine Amount", "type": "number"}, {"key": "fine_paid", "label": "Fine Paid", "type": "select", "options": [{"label": "Yes", "value": "true"}, {"label": "No", "value": "false"}]}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
   allowCreate: true,
   allowEdit: true,
+  allowDelete: true,
+};
+
+export const libraryReservationsModule: ModuleConfig = {
+  key: "libraryReservations",
+  title: "Library Reservations",
+  icon: "Lr",
+  group: "Finance & Operations",
+  feature: "library",
+  endpoint: "/library/reservations",
+  titleField: "status",
+  subtitleField: "queue_position",
+  searchFields: ["status", "borrower_type"],
+  listColumns: [{"key": "book_id", "label": "Book ID"}, {"key": "borrower_type", "label": "Borrower Type"}, {"key": "queue_position", "label": "Queue #"}, {"key": "status", "label": "Status"}],
+  formFields: [{"key": "book_id", "label": "Book ID", "type": "reference", "reference": {"endpoint": "/library/books", "searchFields": ["title", "author", "accession_no"], "labelFields": ["title"], "subtitleFields": ["author", "accession_no"]}, "required": true}, {"key": "borrower_type", "label": "Borrower Type", "type": "select", "options": [{"label": "Student", "value": "Student"}, {"label": "Staff", "value": "Staff"}]}, {"key": "student_id", "label": "Student ID", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}}, {"key": "staff_id", "label": "Staff ID", "type": "reference", "reference": {"endpoint": "/teachers", "searchFields": ["name", "employee_no"], "labelFields": ["name"], "subtitleFields": ["employee_no", "department"]}}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  allowCreate: true,
+  allowEdit: false,
   allowDelete: true,
 };
 

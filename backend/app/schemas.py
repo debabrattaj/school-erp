@@ -1782,8 +1782,16 @@ class LibraryBookResponse(LibraryBookBase):
 
 class LibraryIssueBase(BaseModel):
     book_id: int
-    student_id: int
+    borrower_type: str = "Student"
+    # Exactly one of student_id/staff_id is required, matching borrower_type
+    # -- enforced in the route rather than here, since it depends on which
+    # field is set, not just presence.
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    copy_id: Optional[int] = None
     issue_date: date
+    # Left blank to have the route compute it from LibrarySettings' loan
+    # period, or set explicitly to override that default for one issue.
     due_date: Optional[date] = None
     return_date: Optional[date] = None
     status: str = "Issued"
@@ -1797,12 +1805,118 @@ class LibraryIssueCreate(LibraryIssueBase):
 
 class LibraryIssueResponse(LibraryIssueBase):
     id: int
+    renewal_count: int = 0
+    fine_paid: bool = False
+    reservation_id: Optional[int] = None
     book_title: Optional[str] = None
     accession_no: Optional[str] = None
     student_name: Optional[str] = None
     admission_no: Optional[str] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
+    staff_name: Optional[str] = None
+    employee_no: Optional[str] = None
+    copy_barcode: Optional[str] = None
+    days_overdue: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibrarySettingsBase(BaseModel):
+    loan_period_days: int = 14
+    loan_period_days_staff: int = 30
+    fine_per_day: float = 2
+    fine_grace_days: int = 0
+    max_books_student: int = 3
+    max_books_staff: int = 5
+    max_renewals: int = 2
+    block_renewal_if_reserved: bool = True
+    reservation_hold_days: int = 2
+
+
+class LibrarySettingsUpdate(BaseModel):
+    loan_period_days: Optional[int] = None
+    loan_period_days_staff: Optional[int] = None
+    fine_per_day: Optional[float] = None
+    fine_grace_days: Optional[int] = None
+    max_books_student: Optional[int] = None
+    max_books_staff: Optional[int] = None
+    max_renewals: Optional[int] = None
+    block_renewal_if_reserved: Optional[bool] = None
+    reservation_hold_days: Optional[int] = None
+
+
+class LibrarySettingsResponse(LibrarySettingsBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryBookCopyCreate(BaseModel):
+    barcode: Optional[str] = None
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class LibraryBookCopyUpdate(BaseModel):
+    barcode: Optional[str] = None
+    status: Optional[str] = None
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class LibraryBookCopyResponse(BaseModel):
+    id: int
+    book_id: int
+    copy_no: int
+    barcode: str
+    status: str
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryReservationCreate(BaseModel):
+    book_id: int
+    borrower_type: str = "Student"
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    remarks: Optional[str] = None
+
+
+class LibraryReservationResponse(BaseModel):
+    id: int
+    book_id: int
+    borrower_type: str
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    status: str
+    queue_position: int
+    reserved_at: Optional[datetime] = None
+    ready_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    remarks: Optional[str] = None
+    book_title: Optional[str] = None
+    accession_no: Optional[str] = None
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    staff_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryRenewalResponse(BaseModel):
+    id: int
+    issue_id: int
+    previous_due_date: date
+    new_due_date: date
+    renewed_at: Optional[datetime] = None
+    remarks: Optional[str] = None
 
     class Config:
         from_attributes = True
