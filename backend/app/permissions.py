@@ -72,6 +72,7 @@ PATH_FEATURE_MAP = {
     "/admissions": "admissions",
     "/admission-assessments": "admissions",
     "/admission-workflow-stages": "admissions",
+    "/admission-reminders": "admissions",
     "/communications": "parent_communication",
     "/student-services": "student_services",
     "/counseling": "counseling",

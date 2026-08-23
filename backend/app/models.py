@@ -1131,6 +1131,7 @@ class InventoryItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     item_name = Column(String, nullable=False, index=True)
     item_code = Column(String, nullable=True, unique=True, index=True)
+    barcode = Column(String, nullable=True, unique=True, index=True)
     category = Column(String, nullable=True, index=True)
     unit = Column(String, nullable=True, default="pcs")
     quantity_available = Column(Float, default=0)
@@ -1377,6 +1378,26 @@ class AdmissionTask(Base):
     source_template_id = Column(
         Integer, ForeignKey("admission_stage_task_templates.id", ondelete="SET NULL"), nullable=True
     )
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdmissionDocument(Base):
+    """A file attached to an inquiry -- an ID proof, a report card, a
+    passport photo. Mirrors InternationalDocument's shape (a free-text
+    document_type plus a URL from the shared /uploads/ endpoint) rather than
+    inventing a new storage mechanism."""
+
+    __tablename__ = "admission_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer, ForeignKey("admission_inquiries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_type = Column(String, nullable=False, index=True)
+    file_name = Column(String, nullable=True)
+    file_url = Column(String, nullable=False)
+    uploaded_by = Column(String, nullable=True)
+    remarks = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

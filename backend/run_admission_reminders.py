@@ -104,11 +104,17 @@ def main() -> int:
 
         total_sent += result.get("sent", 0)
         logger.info(
-            "%s: considered=%s sent=%s skipped=%s failed=%s%s",
+            "%s: considered=%s sent=%s skipped=%s failed=%s unreachable=%s%s",
             account_code, result.get("considered", 0), result.get("sent", 0),
-            result.get("skipped", 0), result.get("failed", 0),
+            result.get("skipped", 0), result.get("failed", 0), result.get("unreachable_count", 0),
             " (dry run)" if args.dry_run else "",
         )
+        if result.get("unreachable_count"):
+            logger.info(
+                "%s: %s due item(s) have no linked staff account and were not reminded about — "
+                "link an owner to include them.",
+                account_code, result["unreachable_count"],
+            )
 
     logger.info("Done — %s reminder(s)%s", total_sent, " would be sent" if args.dry_run else " sent")
     return 0

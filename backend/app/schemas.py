@@ -1160,6 +1160,27 @@ class AdmissionTaskResponse(AdmissionTaskBase):
         from_attributes = True
 
 
+class AdmissionDocumentBase(BaseModel):
+    document_type: str
+    file_name: Optional[str] = None
+    file_url: str
+    remarks: Optional[str] = None
+
+
+class AdmissionDocumentCreate(AdmissionDocumentBase):
+    pass
+
+
+class AdmissionDocumentResponse(AdmissionDocumentBase):
+    id: int
+    inquiry_id: int
+    uploaded_by: Optional[str] = None
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
 class AdmissionConvertToStudentRequest(BaseModel):
     admission_no: Optional[str] = None
     first_name: str
@@ -1925,6 +1946,7 @@ class LibraryRenewalResponse(BaseModel):
 class InventoryItemBase(BaseModel):
     item_name: str
     item_code: Optional[str] = None
+    barcode: Optional[str] = None
     category: Optional[str] = None
     unit: Optional[str] = "pcs"
     quantity_available: Optional[float] = 0

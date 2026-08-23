@@ -452,3 +452,145 @@ def test_an_unknown_student_id_is_rejected(client, auth, db_session):
         student_ids=[999999],
     )
     assert resp.status_code == 404
+
+
+# --------------------------------------------------------------------------
+# Barcode
+# --------------------------------------------------------------------------
+
+
+def test_an_item_can_be_created_with_a_barcode_and_looked_up_by_it(client, auth):
+    code = f"BC-{uuid.uuid4().hex[:10]}"
+    created = client.post("/inventory/items/", json={
+        "item_name": "Barcoded Item", "barcode": code, "quantity_available": 5,
+    }, headers=auth)
+    assert created.status_code == 200, created.text
+
+    found = client.get(f"/inventory/items/by-barcode/{code}", headers=auth)
+    assert found.status_code == 200, found.text
+    assert found.json()["item_name"] == "Barcoded Item"
+
+
+def test_an_unknown_barcode_is_a_404(client, auth):
+    resp = client.get("/inventory/items/by-barcode/no-such-barcode", headers=auth)
+    assert resp.status_code == 404
+
+
+def test_two_items_cannot_share_a_barcode(client, auth):
+    code = f"BC-{uuid.uuid4().hex[:10]}"
+    first = client.post("/inventory/items/", json={"item_name": "First", "barcode": code}, headers=auth)
+    assert first.status_code == 200, first.text
+    second = client.post("/inventory/items/", json={"item_name": "Second", "barcode": code}, headers=auth)
+    assert second.status_code == 400
+
+
+# --------------------------------------------------------------------------
+# Purchase price fallback
+# --------------------------------------------------------------------------
+
+
+def test_a_purchase_with_no_unit_price_falls_back_to_the_items_selling_price(client, auth, db_session):
+    item = _item(db_session, unit_price=350)
+    student = _student(db_session)
+    resp = client.post("/inventory/transactions/", json={
+        "item_id": item.id, "transaction_date": date.today().isoformat(),
+        "transaction_type": "Purchase", "quantity": 2,
+        "issued_to_student_id": student.id, "payment_status": "Paid",
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["amount"] == 700
+    assert resp.json()["unit_price"] == 350
+
+
+def test_a_purchase_with_an_explicit_price_overrides_the_items_selling_price(client, auth, db_session):
+    item = _item(db_session, unit_price=350)
+    student = _student(db_session)
+    resp = client.post("/inventory/transactions/", json={
+        "item_id": item.id, "transaction_date": date.today().isoformat(),
+        "transaction_type": "Purchase", "quantity": 2, "unit_price": 500,
+        "issued_to_student_id": student.id, "payment_status": "Paid",
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["amount"] == 1000
+
+
+# --------------------------------------------------------------------------
+# Reports
+# --------------------------------------------------------------------------
+
+
+def test_low_stock_report_lists_only_items_at_or_below_reorder_level(client, auth, db_session):
+    from app.models import InventoryItem
+
+    low = InventoryItem(
+        item_name=f"Low Stock {uuid.uuid4().hex[:6]}", quantity_available=2, reorder_level=5, status="Active",
+    )
+    healthy = InventoryItem(
+        item_name=f"Healthy Stock {uuid.uuid4().hex[:6]}", quantity_available=50, reorder_level=5, status="Active",
+    )
+    db_session.add_all([low, healthy])
+    db_session.commit()
+
+    resp = client.get("/inventory/reports/low-stock", headers=auth)
+    assert resp.status_code == 200, resp.text
+    names = [row["item_name"] for row in resp.json()]
+    assert low.item_name in names
+    assert healthy.item_name not in names
+
+
+def test_cost_summary_report_reflects_purchases_and_payment_status(client, auth, db_session):
+    item = _item(db_session, unit_price=100)
+    student = _student(db_session)
+    client.post("/inventory/transactions/", json={
+        "item_id": item.id, "transaction_date": date.today().isoformat(),
+        "transaction_type": "Purchase", "quantity": 3, "unit_price": 100,
+        "issued_to_student_id": student.id, "payment_status": "Unpaid",
+    }, headers=auth)
+
+    resp = client.get("/inventory/reports/cost-summary", headers=auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["purchase_revenue"] >= 300
+    assert body["purchase_unpaid"] >= 300
+
+
+def test_kit_coverage_report_counts_distinct_recipients_against_the_whole_audience(client, auth, db_session):
+    item = _item(db_session, quantity=100)
+    kit = _kit(client, auth, applies_to="Student")
+    _add_kit_item(client, auth, kit["id"], item.id, quantity=1)
+    student = _student(db_session)
+
+    resp = _bulk_issue(client, auth, kit_id=kit["id"], student_ids=[student.id])
+    assert resp.status_code == 200, resp.text
+
+    report = client.get("/inventory/reports/kit-coverage", params={
+        "cycle": "Annual", "academic_year": "2026-27",
+    }, headers=auth)
+    assert report.status_code == 200, report.text
+    row = next(r for r in report.json() if r["kit_id"] == kit["id"])
+    assert row["issued_count"] == 1
+    assert row["eligible_count"] >= 1
+
+
+# --------------------------------------------------------------------------
+# CSV export
+# --------------------------------------------------------------------------
+
+
+def test_items_export_is_a_csv_with_the_created_item(client, auth, db_session):
+    item = _item(db_session, name=f"Exportable {uuid.uuid4().hex[:6]}")
+    resp = client.get("/inventory/items/export", headers=auth)
+    assert resp.status_code == 200
+    assert item.item_name in resp.text
+
+
+def test_transactions_export_is_a_csv_with_the_created_transaction(client, auth, db_session):
+    item = _item(db_session)
+    student = _student(db_session)
+    client.post("/inventory/transactions/", json={
+        "item_id": item.id, "transaction_date": date.today().isoformat(),
+        "transaction_type": "Stock In", "quantity": 5,
+    }, headers=auth)
+    resp = client.get("/inventory/transactions/export", headers=auth)
+    assert resp.status_code == 200
+    assert item.item_name in resp.text

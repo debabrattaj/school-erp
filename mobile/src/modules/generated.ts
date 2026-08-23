@@ -600,11 +600,45 @@ export const inventoryItemsModule: ModuleConfig = {
   endpoint: "/inventory/items",
   titleField: "item_name",
   subtitleField: "item_code",
-  searchFields: ["item_name", "item_code", "category", "unit"],
+  searchFields: ["item_name", "item_code", "barcode", "category", "unit"],
   listColumns: [{"key": "category", "label": "Category"}, {"key": "unit", "label": "Unit"}, {"key": "quantity_available", "label": "Quantity Available"}, {"key": "reorder_level", "label": "Reorder Level"}],
-  formFields: [{"key": "item_name", "label": "Item Name", "type": "text", "required": true}, {"key": "item_code", "label": "Item Code", "type": "text"}, {"key": "category", "label": "Category", "type": "masterSelect", "masterCategory": "InventoryCategory"}, {"key": "unit", "label": "Unit", "type": "masterSelect", "masterCategory": "InventoryUnit"}, {"key": "quantity_available", "label": "Quantity Available", "type": "number"}, {"key": "reorder_level", "label": "Reorder Level", "type": "number"}, {"key": "unit_price", "label": "Unit Price", "type": "number"}, {"key": "location", "label": "Location", "type": "text"}, {"key": "status", "label": "Status", "type": "select", "options": [{"label": "Active", "value": "Active"}, {"label": "Inactive", "value": "Inactive"}]}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  formFields: [{"key": "item_name", "label": "Item Name", "type": "text", "required": true}, {"key": "item_code", "label": "Item Code", "type": "text"}, {"key": "barcode", "label": "Barcode", "type": "text"}, {"key": "category", "label": "Category", "type": "masterSelect", "masterCategory": "InventoryCategory"}, {"key": "unit", "label": "Unit", "type": "masterSelect", "masterCategory": "InventoryUnit"}, {"key": "quantity_available", "label": "Quantity Available", "type": "number"}, {"key": "reorder_level", "label": "Reorder Level", "type": "number"}, {"key": "unit_price", "label": "Unit Price", "type": "number"}, {"key": "location", "label": "Location", "type": "text"}, {"key": "status", "label": "Status", "type": "select", "options": [{"label": "Active", "value": "Active"}, {"label": "Inactive", "value": "Inactive"}]}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
   allowCreate: true,
   allowEdit: true,
+  allowDelete: true,
+};
+
+export const inventoryKitsModule: ModuleConfig = {
+  key: "inventoryKits",
+  title: "Inventory Kits",
+  icon: "Ik",
+  group: "Finance & Operations",
+  feature: "inventory",
+  endpoint: "/inventory/kits",
+  titleField: "name",
+  subtitleField: "applies_to",
+  searchFields: ["name", "applies_to"],
+  listColumns: [{"key": "applies_to", "label": "Applies To"}, {"key": "is_active", "label": "Is Active"}, {"key": "remarks", "label": "Remarks"}],
+  formFields: [{"key": "name", "label": "Name", "type": "text", "required": true}, {"key": "applies_to", "label": "Applies To", "type": "select", "options": [{"label": "Student", "value": "Student"}, {"label": "Staff", "value": "Staff"}], "required": true}, {"key": "is_active", "label": "Is Active", "type": "select", "options": [{"label": "Yes", "value": "true"}, {"label": "No", "value": "false"}]}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  allowCreate: true,
+  allowEdit: true,
+  allowDelete: true,
+};
+
+export const inventoryTransactionsModule: ModuleConfig = {
+  key: "inventoryTransactions",
+  title: "Stock Movements",
+  icon: "Sm",
+  group: "Finance & Operations",
+  feature: "inventory",
+  endpoint: "/inventory/transactions",
+  titleField: "transaction_type",
+  subtitleField: "transaction_date",
+  searchFields: ["transaction_type", "item_name", "item_code", "student_name", "teacher_name"],
+  listColumns: [{"key": "item_name", "label": "Item"}, {"key": "quantity", "label": "Quantity"}, {"key": "transaction_date", "label": "Date"}, {"key": "amount", "label": "Amount"}],
+  formFields: [{"key": "item_id", "label": "Item", "type": "reference", "reference": {"endpoint": "/inventory/items", "searchFields": ["item_name", "item_code", "barcode"], "labelFields": ["item_name"], "subtitleFields": ["item_code", "quantity_available"]}, "required": true}, {"key": "transaction_date", "label": "Transaction Date", "type": "date", "required": true}, {"key": "transaction_type", "label": "Transaction Type", "type": "select", "options": [{"label": "Stock In", "value": "Stock In"}, {"label": "Stock Out", "value": "Stock Out"}, {"label": "Issue", "value": "Issue"}, {"label": "Purchase", "value": "Purchase"}, {"label": "Return", "value": "Return"}, {"label": "Adjustment", "value": "Adjustment"}], "required": true}, {"key": "quantity", "label": "Quantity", "type": "number", "required": true}, {"key": "issued_to_student_id", "label": "Student", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}}, {"key": "issued_to_teacher_id", "label": "Staff Member", "type": "reference", "reference": {"endpoint": "/teachers", "searchFields": ["name", "employee_no"], "labelFields": ["name"], "subtitleFields": ["employee_no", "department"]}}, {"key": "issued_to_staff", "label": "Other Staff (not in directory)", "type": "text"}, {"key": "unit_cost", "label": "Unit Cost", "type": "number"}, {"key": "unit_price", "label": "Unit Price (Purchase)", "type": "number"}, {"key": "payment_status", "label": "Payment Status", "type": "select", "options": [{"label": "Paid", "value": "Paid"}, {"label": "Unpaid", "value": "Unpaid"}]}, {"key": "reference_no", "label": "Reference No.", "type": "text"}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  allowCreate: true,
+  allowEdit: false,
   allowDelete: true,
 };
 

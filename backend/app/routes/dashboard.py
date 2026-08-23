@@ -21,6 +21,8 @@ from app.models import (
     TransportVehicle,
     LibraryBook,
     LibraryIssue,
+    InventoryItem,
+    InventoryTransaction,
 )
 from app.dashboard_models import DashboardLayout
 from app.security import require_roles, get_current_user
@@ -415,6 +417,36 @@ REPORTS = {
         "measures": {
             "count": ("Issues", None),
             "fine_amount": ("Fine Amount", "fine_amount"),
+        },
+    },
+    "inventory_items": {
+        "label": "Inventory Items",
+        "model": InventoryItem,
+        "date_col": None,
+        "dimensions": {
+            "category": "Category",
+            "status": "Status",
+            "location": "Location",
+        },
+        "measures": {
+            "count": ("Items", None),
+            "quantity_available": ("Quantity Available", "quantity_available"),
+            "unit_price": ("Unit Price Total", "unit_price"),
+        },
+    },
+    "inventory_transactions": {
+        "label": "Inventory Transactions",
+        "model": InventoryTransaction,
+        "date_col": "transaction_date",
+        "dimensions": {
+            "transaction_type": "Transaction Type",
+            "cycle": "Cycle",
+            "academic_year": "Academic Year",
+        },
+        "measures": {
+            "count": ("Transactions", None),
+            "quantity": ("Quantity", "quantity"),
+            "amount": ("Amount", "amount"),
         },
     },
 }
