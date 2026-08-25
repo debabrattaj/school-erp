@@ -1374,6 +1374,25 @@ class CommunicationLogResponse(CommunicationLogBase):
         from_attributes = True
 
 
+class CommunicationBulkClassCreate(BaseModel):
+    """Send one message to every active student's guardian in a class
+    (optionally scoped to one section) -- one CommunicationLog per
+    recipient, same delivery path as a single create_log call."""
+    class_name: str
+    section: Optional[str] = None
+    template_id: Optional[int] = None
+    channel: Optional[str] = "WhatsApp"
+    category: str
+    message_body: str
+
+
+class CommunicationBulkResult(BaseModel):
+    matched_count: int
+    sent_count: int
+    failed_count: int
+    skipped_count: int  # matched student had no contact info for this channel
+
+
 class StudentServiceTicketBase(BaseModel):
     ticket_no: str
     student_id: Optional[int] = None
