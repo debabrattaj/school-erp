@@ -80,7 +80,16 @@ class SchoolSettings(Base):
     # letting it decide what it pays us.
     razorpay_linked_account_id = Column(String, nullable=True)   # acc_XXXXXXXX
     platform_commission_percent = Column(Float, nullable=False, default=0)
+
+    # late_fee_rule is a free-text description shown to parents ("₹50 per
+    # week after due date") -- kept as-is for that. The three fields below
+    # are what the run_late_fee_charges.py cron actually computes from; all
+    # nullable/zero so a school that never touches this new UI section
+    # continues to have no fine ever charged, matching current behavior.
     late_fee_rule = Column(String, nullable=True)
+    late_fee_amount = Column(Float, nullable=True)
+    late_fee_frequency = Column(String, nullable=True)  # One-Time, Weekly, Monthly
+    late_fee_grace_days = Column(Integer, nullable=False, default=0)
 
     # Assessment
     pass_percentage = Column(Float, nullable=True, default=40)
@@ -260,6 +269,18 @@ class Attendance(Base):
     source = Column(String, nullable=False, default="Manual", index=True)
 
 
+class ReceiptSequence(Base):
+    """A ratcheting counter per financial year, tracked independently of the
+    fees table so deleting a fee (even the most-recently-numbered one)
+    never rewinds it -- a number generate_receipt_no() hands out is never
+    handed out again, regardless of what happens to the fee it was for."""
+    __tablename__ = "receipt_sequences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    financial_year = Column(String, nullable=False, unique=True, index=True)
+    last_number = Column(Integer, nullable=False, default=0)
+
+
 class Fee(Base):
     __tablename__ = "fees"
 
@@ -277,6 +298,11 @@ class Fee(Base):
     # total_amount - concession_amount; see calculate_fee_status. Defaults to
     # zero so every fee written before concessions existed is unaffected.
     concession_amount = Column(Float, nullable=False, default=0)
+    # Cumulative fine from run_late_fee_charges.py, recomputed from scratch
+    # each run (not incremented) so a re-run is idempotent rather than
+    # compounding. Zero for every school that hasn't configured a late fee
+    # rule, and for every fee predating this column.
+    late_fee_charged = Column(Float, nullable=False, default=0)
     paid_amount = Column(Float, default=0)
     due_amount = Column(Float, default=0)
 

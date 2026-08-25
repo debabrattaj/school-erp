@@ -128,6 +128,7 @@ DEFAULT_FEATURES = {
     # templates freely, but nothing fires unattended until enabled here.
     "fee_auto_generation": False,
     "fee_reminders": False,
+    "fee_late_charges": False,
     "promotion_auto_generation": False,
     "exam_auto_generation": False,
     # Staff HR module, not every school runs leave/substitution through the

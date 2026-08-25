@@ -93,6 +93,11 @@ class SchoolSettingsBase(BaseModel):
     receipt_prefix: Optional[str] = "REC"
     upi_id: Optional[str] = None
     late_fee_rule: Optional[str] = None
+    # Structured fields run_late_fee_charges.py actually computes from;
+    # late_fee_rule above stays a free-text description shown to parents.
+    late_fee_amount: Optional[float] = None
+    late_fee_frequency: Optional[str] = None  # One-Time, Weekly, Monthly
+    late_fee_grace_days: Optional[int] = 0
 
     pass_percentage: Optional[float] = 40
     grade_rules: Optional[str] = (
@@ -402,6 +407,9 @@ class FeeResponse(FeeBase):
     # Discount applied; total_amount stays the gross figure so a receipt can
     # show what was charged and what was waived, not just the net.
     concession_amount: float = 0
+    # Server-computed by run_late_fee_charges.py; zero unless the school has
+    # configured a late fee rule and this fee is actually overdue.
+    late_fee_charged: float = 0
 
     class Config:
         from_attributes = True

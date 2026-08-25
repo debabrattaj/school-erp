@@ -86,6 +86,7 @@ FEATURE_LABELS = {
     "online_test_proctoring": "Online Exam Proctoring (add-on)",
     "biometric_attendance": "Biometric Attendance (add-on)",
     "fee_auto_generation": "Automatic Fee Billing",
+    "fee_late_charges": "Automatic Late Fee Charges",
     "promotion_auto_generation": "Automatic Year-End Promotion",
     "exam_auto_generation": "Automatic Exam Creation",
     "leave": "Staff Leave & Substitution",
