@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import ValidationError
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import inventory_kits
-from app.csv_import import csv_template_response, read_csv_upload
+from app.csv_import import csv_export_response, csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import InventoryItem, InventoryKit, InventoryKitItem, InventoryTransaction, Student, Teacher, User
 from app.schemas import (
@@ -105,6 +106,18 @@ def get_items(
     return db.query(InventoryItem).order_by(InventoryItem.item_name.asc()).all()
 
 
+@router.get("/items/by-barcode/{barcode}", response_model=InventoryItemResponse)
+def get_item_by_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
+):
+    item = db.query(InventoryItem).filter(InventoryItem.barcode == barcode).first()
+    if not item:
+        raise HTTPException(status_code=404, detail=f"No item with barcode '{barcode}'")
+    return item
+
+
 @router.post("/items/", response_model=InventoryItemResponse)
 def create_item(
     payload: InventoryItemCreate,
@@ -117,7 +130,7 @@ def create_item(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Item code already exists")
+        raise HTTPException(status_code=400, detail="Item code or barcode already exists")
     db.refresh(item)
     return item
 
@@ -224,7 +237,7 @@ def update_item(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Item code already exists")
+        raise HTTPException(status_code=400, detail="Item code or barcode already exists")
     db.refresh(item)
     return item
 
@@ -282,6 +295,7 @@ def serialize_kit(kit: InventoryKit, db: Session) -> dict:
 
 
 @router.get("/kits", response_model=list[InventoryKitResponse])
+@router.get("/kits/", response_model=list[InventoryKitResponse], include_in_schema=False)
 def list_kits(
     applies_to: str | None = None,
     db: Session = Depends(get_db),
@@ -295,6 +309,7 @@ def list_kits(
 
 
 @router.post("/kits", response_model=InventoryKitResponse)
+@router.post("/kits/", response_model=InventoryKitResponse, include_in_schema=False)
 def create_kit(
     payload: InventoryKitCreate,
     db: Session = Depends(get_db),
@@ -440,8 +455,13 @@ def create_transaction(
     data["unit_cost"] = unit_cost
     data["total_cost"] = (unit_cost or 0) * payload.quantity if unit_cost else None
 
-    if payload.transaction_type == "Purchase" and payload.unit_price:
-        data["amount"] = payload.unit_price * payload.quantity
+    if payload.transaction_type == "Purchase":
+        # Same fallback reasoning as unit_cost above: an unpriced purchase
+        # must still be billed at the item's own selling price, not silently
+        # recorded as free.
+        unit_price = payload.unit_price if payload.unit_price is not None else (item.unit_price or 0)
+        data["unit_price"] = unit_price
+        data["amount"] = unit_price * payload.quantity
 
     record = InventoryTransaction(**data)
     db.add(record)
@@ -520,3 +540,153 @@ def delete_transaction(
     db.delete(record)
     db.commit()
     return {"message": "Inventory transaction deleted successfully"}
+
+
+# ---------------- CSV export ----------------
+
+ITEM_EXPORT_COLUMNS = [
+    "item_name", "item_code", "barcode", "category", "unit", "quantity_available",
+    "reorder_level", "unit_price", "location", "status", "remarks",
+]
+
+TRANSACTION_EXPORT_COLUMNS = [
+    "transaction_date", "item_code", "item_name", "transaction_type", "quantity",
+    "student_name", "admission_no", "teacher_name", "issued_to_staff",
+    "cycle", "academic_year", "unit_cost", "total_cost", "unit_price", "amount",
+    "payment_status", "reference_no", "remarks",
+]
+
+
+@router.get("/items/export")
+def export_items(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    items = db.query(InventoryItem).order_by(InventoryItem.item_name.asc()).all()
+    rows = [
+        {
+            "item_name": i.item_name, "item_code": i.item_code, "barcode": i.barcode,
+            "category": i.category, "unit": i.unit, "quantity_available": i.quantity_available,
+            "reorder_level": i.reorder_level, "unit_price": i.unit_price,
+            "location": i.location, "status": i.status, "remarks": i.remarks,
+        }
+        for i in items
+    ]
+    return csv_export_response(ITEM_EXPORT_COLUMNS, rows, "inventory_items_export.csv")
+
+
+@router.get("/transactions/export")
+def export_transactions(
+    item_id: int | None = None,
+    transaction_type: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts"])),
+):
+    query = db.query(InventoryTransaction)
+    if item_id:
+        query = query.filter(InventoryTransaction.item_id == item_id)
+    if transaction_type:
+        query = query.filter(InventoryTransaction.transaction_type == transaction_type)
+    records = query.order_by(InventoryTransaction.id.desc()).all()
+    rows = [serialize_transaction(record, db) for record in records]
+    return csv_export_response(TRANSACTION_EXPORT_COLUMNS, rows, "inventory_transactions_export.csv")
+
+
+# ---------------- Reports ----------------
+
+
+@router.get("/reports/low-stock")
+def report_low_stock(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
+):
+    items = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.quantity_available <= InventoryItem.reorder_level, InventoryItem.status == "Active")
+        .order_by(InventoryItem.item_name)
+        .all()
+    )
+    return [
+        {
+            "id": i.id, "item_name": i.item_name, "item_code": i.item_code, "category": i.category,
+            "quantity_available": i.quantity_available, "reorder_level": i.reorder_level,
+            "shortfall": max((i.reorder_level or 0) - (i.quantity_available or 0), 0),
+            "location": i.location,
+        }
+        for i in items
+    ]
+
+
+@router.get("/reports/cost-summary")
+def report_cost_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
+):
+    purchase_revenue = db.query(func.coalesce(func.sum(InventoryTransaction.amount), 0)).filter(
+        InventoryTransaction.transaction_type == "Purchase"
+    ).scalar() or 0
+    purchase_unpaid = db.query(func.coalesce(func.sum(InventoryTransaction.amount), 0)).filter(
+        InventoryTransaction.transaction_type == "Purchase", InventoryTransaction.payment_status == "Unpaid"
+    ).scalar() or 0
+    stock_in_cost = db.query(func.coalesce(func.sum(InventoryTransaction.total_cost), 0)).filter(
+        InventoryTransaction.transaction_type == "Stock In"
+    ).scalar() or 0
+    issued_value = db.query(func.coalesce(func.sum(InventoryTransaction.total_cost), 0)).filter(
+        InventoryTransaction.transaction_type == "Issue"
+    ).scalar() or 0
+    current_stock_value = db.query(
+        func.coalesce(func.sum(InventoryItem.quantity_available * func.coalesce(InventoryItem.unit_price, 0)), 0)
+    ).scalar() or 0
+
+    return {
+        "purchase_revenue": round(purchase_revenue, 2),
+        "purchase_unpaid": round(purchase_unpaid, 2),
+        "stock_in_cost": round(stock_in_cost, 2),
+        "issued_value": round(issued_value, 2),
+        "current_stock_value": round(current_stock_value, 2),
+    }
+
+
+@router.get("/reports/kit-coverage")
+def report_kit_coverage(
+    cycle: str | None = None,
+    academic_year: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
+):
+    """Per active kit: how many distinct recipients have been issued at
+    least one of its items (in the given cycle/year, if filtered) versus the
+    school's whole audience for that kit -- every student for a Student kit,
+    every staff member for a Staff kit."""
+    kits = db.query(InventoryKit).filter(InventoryKit.is_active == True).order_by(InventoryKit.name).all()  # noqa: E712
+    total_students = db.query(Student).count()
+    total_staff = db.query(Teacher).count()
+
+    rows = []
+    for kit in kits:
+        query = db.query(
+            InventoryTransaction.issued_to_student_id, InventoryTransaction.issued_to_teacher_id
+        ).filter(
+            InventoryTransaction.kit_id == kit.id,
+            InventoryTransaction.transaction_type == "Issue",
+        )
+        if cycle:
+            query = query.filter(InventoryTransaction.cycle == cycle)
+        if academic_year:
+            query = query.filter(InventoryTransaction.academic_year == academic_year)
+
+        recipients = set()
+        for student_id, teacher_id in query.all():
+            if student_id:
+                recipients.add(("student", student_id))
+            if teacher_id:
+                recipients.add(("teacher", teacher_id))
+
+        eligible = total_students if kit.applies_to == "Student" else total_staff
+        rows.append({
+            "kit_id": kit.id, "kit_name": kit.name, "applies_to": kit.applies_to,
+            "issued_count": len(recipients), "eligible_count": eligible,
+            "coverage_percent": round(len(recipients) * 100.0 / eligible, 1) if eligible else None,
+        })
+
+    return rows

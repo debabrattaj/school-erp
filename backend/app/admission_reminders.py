@@ -53,6 +53,39 @@ def due_follow_ups(db: Session, as_of: date) -> list[models.AdmissionInquiry]:
     )
 
 
+def unreachable_tasks(db: Session, as_of: date) -> list[models.AdmissionTask]:
+    """Due/overdue tasks nobody will be emailed about -- no linked user at
+    all, so there is no address to fail closed *to*. Reported separately
+    rather than silently dropped, so an admin can see the gap and link an
+    owner rather than assume the reminder ran and covered everything."""
+    return (
+        db.query(models.AdmissionTask)
+        .filter(
+            models.AdmissionTask.status == "Pending",
+            models.AdmissionTask.due_date.isnot(None),
+            models.AdmissionTask.due_date <= as_of,
+            models.AdmissionTask.assigned_to_user_id.is_(None),
+        )
+        .order_by(models.AdmissionTask.due_date)
+        .all()
+    )
+
+
+def unreachable_follow_ups(db: Session, as_of: date) -> list[models.AdmissionInquiry]:
+    return (
+        db.query(models.AdmissionInquiry)
+        .filter(
+            models.AdmissionInquiry.follow_up_date.isnot(None),
+            models.AdmissionInquiry.follow_up_date <= as_of,
+            models.AdmissionInquiry.assigned_to_user_id.is_(None),
+            models.AdmissionInquiry.converted_student_id.is_(None),
+            models.AdmissionInquiry.stage.notin_(CLOSED_STAGES),
+        )
+        .order_by(models.AdmissionInquiry.follow_up_date)
+        .all()
+    )
+
+
 def group_by_assignee(
     tasks: list[models.AdmissionTask], follow_ups: list[models.AdmissionInquiry]
 ) -> dict[int, dict]:
@@ -99,8 +132,12 @@ def run_reminders(
 
     tasks = due_tasks(db, moment)
     follow_ups = due_follow_ups(db, moment)
+    unreachable_count = len(unreachable_tasks(db, moment)) + len(unreachable_follow_ups(db, moment))
     if not tasks and not follow_ups:
-        return {"as_of": moment, "considered": 0, "sent": 0, "failed": 0, "skipped": 0}
+        return {
+            "as_of": moment, "considered": 0, "sent": 0, "failed": 0, "skipped": 0,
+            "unreachable_count": unreachable_count,
+        }
 
     by_user = group_by_assignee(tasks, follow_ups)
     user_ids = list(by_user.keys())[:limit]
@@ -161,6 +198,6 @@ def run_reminders(
 
     return {
         "as_of": moment, "considered": len(user_ids),
-        **counts, "dry_run": dry_run,
+        **counts, "dry_run": dry_run, "unreachable_count": unreachable_count,
         **({"detail": detail} if dry_run else {}),
     }

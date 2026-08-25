@@ -4,14 +4,18 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  CalendarClock,
   CheckCircle,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   Edit,
   LayoutGrid,
   ListChecks,
+  Paperclip,
   PlusCircle,
   Trash2,
+  Upload,
   UserPlus,
   MessageCircle,
   Settings,
@@ -23,6 +27,9 @@ import {
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import BulkImportModal from "../components/BulkImportModal";
+import { isFeatureEnabled } from "../auth";
+import { resolveFileUrl, uploadFile } from "../utils/files";
 
 const emptyAdmissionForm = {
   inquiry_no: "",
@@ -53,6 +60,29 @@ const emptyFollowUpForm = {
   owner: "",
   outcome: "Open",
 };
+
+const emptyAssessmentForm = {
+  assessment_type: "Entrance Test",
+  scheduled_date: "",
+  scheduled_time: "",
+  mode: "On Campus",
+  location: "",
+};
+
+const assessmentTypeOptions = [
+  "Entrance Test",
+  "Student Interview",
+  "Parent Interview",
+  "Portfolio Review",
+  "Language Assessment",
+  "Counselor Meeting",
+];
+
+const assessmentModeOptions = ["On Campus", "Online", "Hybrid", "Phone"];
+
+const documentTypeOptions = ["ID Proof", "Report Card", "Photo", "Birth Certificate", "Other"];
+
+const emptyDocumentForm = { document_type: "ID Proof" };
 
 const emptyConvertForm = {
   admission_no: "",
@@ -167,6 +197,23 @@ export default function Admissions() {
   const [tasks, setTasks] = useState([]);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
 
+  const [assessments, setAssessments] = useState([]);
+  const [inquiryAssessments, setInquiryAssessments] = useState([]);
+  const [assessmentForm, setAssessmentForm] = useState(emptyAssessmentForm);
+
+  const [documents, setDocuments] = useState([]);
+  const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
+  const [documentFile, setDocumentFile] = useState(null);
+  const [documentUploading, setDocumentUploading] = useState(false);
+
+  const [showBulkImport, setShowBulkImport] = useState(false);
+
+  const [pipelineTasks, setPipelineTasks] = useState({});
+  const [draggedInquiryId, setDraggedInquiryId] = useState(null);
+
+  const [reminderPreview, setReminderPreview] = useState(null);
+  const admissionRemindersEnabled = isFeatureEnabled("admission_reminders");
+
   const [expandedStageId, setExpandedStageId] = useState(null);
   const [stageTemplates, setStageTemplates] = useState({});
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
@@ -243,12 +290,52 @@ export default function Admissions() {
     }
   }
 
+  async function loadAssessmentsAll() {
+    try {
+      const response = await API.get("/admission-assessments/");
+      setAssessments(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadReminderPreview() {
+    if (!admissionRemindersEnabled) return;
+    try {
+      const response = await API.get("/admission-reminders/preview");
+      setReminderPreview(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadInquiries();
     loadAcademicYears();
     loadStages();
     loadUsers();
+    loadAssessmentsAll();
+    loadReminderPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadPipelineTasks() {
+    try {
+      const response = await API.get("/admissions/tasks/queue", { params: { status: "Pending" } });
+      const grouped = {};
+      (response.data || []).forEach((task) => {
+        const bucket = grouped[task.inquiry_id] || { count: 0, earliestDue: null };
+        bucket.count += 1;
+        if (task.due_date && (!bucket.earliestDue || task.due_date < bucket.earliestDue)) {
+          bucket.earliestDue = task.due_date;
+        }
+        grouped[task.inquiry_id] = bucket;
+      });
+      setPipelineTasks(grouped);
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   function userName(userId) {
     if (!userId) return null;
@@ -414,6 +501,16 @@ export default function Admissions() {
     setTasks(response.data || []);
   }
 
+  async function loadInquiryAssessments(inquiryId) {
+    const response = await API.get("/admission-assessments/", { params: { inquiry_id: inquiryId } });
+    setInquiryAssessments(response.data || []);
+  }
+
+  async function loadDocuments(inquiryId) {
+    const response = await API.get(`/admissions/${inquiryId}/documents`);
+    setDocuments(response.data || []);
+  }
+
   async function openFollowUps(inquiry) {
     try {
       setSelectedInquiry(inquiry);
@@ -423,13 +520,104 @@ export default function Admissions() {
         next_follow_up_date: inquiry.follow_up_date || "",
       });
       setTaskForm(emptyTaskForm);
+      setAssessmentForm(emptyAssessmentForm);
+      setDocumentForm(emptyDocumentForm);
+      setDocumentFile(null);
       setMessage("");
       setPageMode("followups");
-      await Promise.all([loadFollowUps(inquiry.id), loadTasks(inquiry.id)]);
+      await Promise.all([
+        loadFollowUps(inquiry.id),
+        loadTasks(inquiry.id),
+        loadInquiryAssessments(inquiry.id),
+        loadDocuments(inquiry.id),
+      ]);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load follow-up history."));
+    }
+  }
+
+  function handleAssessmentFormChange(event) {
+    const { name, value } = event.target;
+    setAssessmentForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function scheduleAssessment(event) {
+    event.preventDefault();
+    if (!selectedInquiry?.id) return;
+    if (!assessmentForm.scheduled_date) {
+      setMessage("Scheduled date is required.");
+      return;
+    }
+    try {
+      await API.post("/admission-assessments/", {
+        inquiry_id: selectedInquiry.id,
+        assessment_type: assessmentForm.assessment_type,
+        scheduled_date: assessmentForm.scheduled_date,
+        scheduled_time: assessmentForm.scheduled_time || null,
+        mode: assessmentForm.mode,
+        location: assessmentForm.location.trim() || null,
+      });
+      setAssessmentForm(emptyAssessmentForm);
+      setMessage("Assessment scheduled.");
+      await Promise.all([loadInquiryAssessments(selectedInquiry.id), loadAssessmentsAll()]);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to schedule assessment."));
+    }
+  }
+
+  async function deleteInquiryAssessment(assessmentId) {
+    if (!window.confirm("Remove this assessment schedule?")) return;
+    try {
+      await API.delete(`/admission-assessments/${assessmentId}`);
+      await Promise.all([loadInquiryAssessments(selectedInquiry.id), loadAssessmentsAll()]);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to remove assessment."));
+    }
+  }
+
+  function handleDocumentFormChange(event) {
+    const { name, value } = event.target;
+    setDocumentForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function uploadDocument(event) {
+    event.preventDefault();
+    if (!selectedInquiry?.id || !documentFile) {
+      setMessage("Choose a file to upload.");
+      return;
+    }
+    try {
+      setDocumentUploading(true);
+      const fileUrl = await uploadFile(documentFile);
+      await API.post(`/admissions/${selectedInquiry.id}/documents`, {
+        document_type: documentForm.document_type,
+        file_name: documentFile.name,
+        file_url: fileUrl,
+      });
+      setDocumentForm(emptyDocumentForm);
+      setDocumentFile(null);
+      setMessage("Document uploaded.");
+      await loadDocuments(selectedInquiry.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to upload document."));
+    } finally {
+      setDocumentUploading(false);
+    }
+  }
+
+  async function deleteDocument(documentId) {
+    if (!window.confirm("Delete this document?")) return;
+    try {
+      await API.delete(`/admissions/documents/${documentId}`);
+      await loadDocuments(selectedInquiry.id);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete document."));
     }
   }
 
@@ -552,6 +740,30 @@ export default function Admissions() {
     }
   }
 
+  function handleCardDragStart(event, inquiry) {
+    setDraggedInquiryId(inquiry.id);
+    event.dataTransfer.effectAllowed = "move";
+    // Firefox requires setData to be called for a drag to actually start.
+    event.dataTransfer.setData("text/plain", String(inquiry.id));
+  }
+
+  function handleCardDragEnd() {
+    setDraggedInquiryId(null);
+  }
+
+  function handleColumnDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleColumnDrop(event, stageName) {
+    event.preventDefault();
+    const inquiry = inquiries.find((item) => item.id === draggedInquiryId);
+    setDraggedInquiryId(null);
+    if (!inquiry || inquiry.stage === stageName) return;
+    moveInquiryStage(inquiry, stageName);
+  }
+
   async function loadQueue() {
     try {
       setQueueLoading(true);
@@ -598,6 +810,13 @@ export default function Admissions() {
     if (pageMode === "queue") loadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageMode, queueAssigneeFilter]);
+
+  useEffect(() => {
+    if (pageMode === "pipeline") {
+      loadPipelineTasks();
+      loadAssessmentsAll();
+    }
+  }, [pageMode]);
 
   useEffect(() => {
     if (pageMode === "analytics") loadAnalytics();
@@ -936,7 +1155,7 @@ export default function Admissions() {
           </div>
 
           <div className="form-field">
-            <label>Assigned To</label>
+            <label>Assigned To (staff account)</label>
             <select
               name="assigned_to_user_id"
               value={formData.assigned_to_user_id}
@@ -957,6 +1176,7 @@ export default function Admissions() {
                 </option>
               ))}
             </select>
+            <small>Linking a staff account is what lets daily admissions reminders reach this inquiry's owner.</small>
           </div>
 
           <div className="form-field">
@@ -967,7 +1187,15 @@ export default function Admissions() {
               value={formData.assigned_to}
               onChange={handleChange}
               placeholder="Admissions counselor"
+              disabled={Boolean(formData.assigned_to_user_id)}
             />
+            {formData.assigned_to_user_id ? (
+              <small>Set from the linked staff account above.</small>
+            ) : (
+              <small style={{ color: "var(--warning-600)" }}>
+                A free-text owner has no address to remind — link a staff account above to include this inquiry in reminders.
+              </small>
+            )}
           </div>
 
           <div className="form-field span-2">
@@ -1303,6 +1531,150 @@ export default function Admissions() {
             </table>
           </div>
         </section>
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Assessments</h3>
+              <p>Entrance tests, interviews, and reviews scheduled for this inquiry.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={scheduleAssessment}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Type</label>
+                <select name="assessment_type" value={assessmentForm.assessment_type} onChange={handleAssessmentFormChange}>
+                  {assessmentTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Date *</label>
+                <input type="date" name="scheduled_date" value={assessmentForm.scheduled_date} onChange={handleAssessmentFormChange} required />
+              </div>
+              <div className="form-field">
+                <label>Time</label>
+                <input type="time" name="scheduled_time" value={assessmentForm.scheduled_time} onChange={handleAssessmentFormChange} />
+              </div>
+              <div className="form-field">
+                <label>Mode</label>
+                <select name="mode" value={assessmentForm.mode} onChange={handleAssessmentFormChange}>
+                  {assessmentModeOptions.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Location / Link</label>
+                <input name="location" value={assessmentForm.location} onChange={handleAssessmentFormChange} placeholder="Room, campus, or meeting link" />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                <CalendarClock size={18} />
+                Schedule Assessment
+              </button>
+            </div>
+          </form>
+
+          <div className="table-wrapper" style={{ marginTop: 14 }}>
+            <table className="classic-table">
+              <thead>
+                <tr><th>Type</th><th>Date</th><th>Mode</th><th>Status</th><th>Outcome</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {inquiryAssessments.length === 0 ? (
+                  <tr><td className="empty-table" colSpan="6">No assessments scheduled yet.</td></tr>
+                ) : (
+                  inquiryAssessments.map((assessment) => (
+                    <tr key={assessment.id}>
+                      <td>{assessment.assessment_type}</td>
+                      <td>{assessment.scheduled_date}{assessment.scheduled_time ? ` ${assessment.scheduled_time}` : ""}</td>
+                      <td>{assessment.mode}</td>
+                      <td>
+                        <span className={["Cancelled", "No Show"].includes(assessment.status) ? "status danger" : "status active"}>
+                          {assessment.status}
+                        </span>
+                      </td>
+                      <td>{assessment.outcome}</td>
+                      <td>
+                        <button type="button" className="delete-button" onClick={() => deleteInquiryAssessment(assessment.id)} title="Remove">
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="hint-text" style={{ marginTop: 8 }}>
+            Full scoring, panel, and outcome editing is on the Admission Tests page.
+          </p>
+        </section>
+
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Documents</h3>
+              <p>ID proofs, report cards, and other files attached to this inquiry.</p>
+            </div>
+          </div>
+
+          <form className="classic-form" onSubmit={uploadDocument}>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Document Type</label>
+                <select name="document_type" value={documentForm.document_type} onChange={handleDocumentFormChange}>
+                  {documentTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>File *</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(event) => setDocumentFile(event.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="primary-button" disabled={documentUploading}>
+                <Upload size={18} />
+                {documentUploading ? "Uploading…" : "Upload"}
+              </button>
+            </div>
+          </form>
+
+          <div className="table-wrapper" style={{ marginTop: 14 }}>
+            <table className="classic-table">
+              <thead>
+                <tr><th>Type</th><th>File</th><th>Uploaded By</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {documents.length === 0 ? (
+                  <tr><td className="empty-table" colSpan="4">No documents uploaded yet.</td></tr>
+                ) : (
+                  documents.map((document) => (
+                    <tr key={document.id}>
+                      <td>{document.document_type}</td>
+                      <td>
+                        <a href={resolveFileUrl(document.file_url)} target="_blank" rel="noreferrer">
+                          <Paperclip size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                          {document.file_name || "View file"}
+                        </a>
+                      </td>
+                      <td>{document.uploaded_by || "-"}</td>
+                      <td>
+                        <button type="button" className="delete-button" onClick={() => deleteDocument(document.id)} title="Remove">
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     );
   }
@@ -1455,13 +1827,21 @@ export default function Admissions() {
     });
     const today = todayLocalDate();
 
+    const assessmentsByInquiry = {};
+    assessments.forEach((assessment) => {
+      const existing = assessmentsByInquiry[assessment.inquiry_id];
+      if (!existing || assessment.scheduled_date > existing.scheduled_date) {
+        assessmentsByInquiry[assessment.inquiry_id] = assessment;
+      }
+    });
+
     return (
       <div className="management-page">
         <section className="page-heading">
           <div>
             <p className="eyebrow">Admissions</p>
             <h2>Pipeline</h2>
-            <p>One column per stage. Use a card's stage picker to move it.</p>
+            <p>Drag a card to a new stage, or use its stage picker.</p>
           </div>
         </section>
 
@@ -1471,7 +1851,12 @@ export default function Admissions() {
 
         <div className="admissions-pipeline-board">
           {stageOptions.map((stageName) => (
-            <div key={stageName} className="admissions-pipeline-column">
+            <div
+              key={stageName}
+              className="admissions-pipeline-column"
+              onDragOver={handleColumnDragOver}
+              onDrop={(event) => handleColumnDrop(event, stageName)}
+            >
               <div className="admissions-pipeline-column-header">
                 <span>{stageName}</span>
                 <span className="admissions-pipeline-count">{(grouped[stageName] || []).length}</span>
@@ -1479,11 +1864,17 @@ export default function Admissions() {
               <div className="admissions-pipeline-cards">
                 {(grouped[stageName] || []).map((inquiry) => {
                   const overdue = inquiry.follow_up_date && inquiry.follow_up_date < today;
+                  const taskInfo = pipelineTasks[inquiry.id];
+                  const assessment = assessmentsByInquiry[inquiry.id];
                   return (
                     <div
                       key={inquiry.id}
                       className="admissions-pipeline-card"
+                      draggable
+                      onDragStart={(event) => handleCardDragStart(event, inquiry)}
+                      onDragEnd={handleCardDragEnd}
                       onClick={() => openFollowUps(inquiry)}
+                      style={draggedInquiryId === inquiry.id ? { opacity: 0.5 } : undefined}
                     >
                       <strong>{inquiry.student_name}</strong>
                       <div className="hint-text">{inquiry.grade_applying} · {inquiry.guardian_name}</div>
@@ -1496,6 +1887,22 @@ export default function Admissions() {
                         <div className={overdue ? "status danger" : "status pending"} style={{ marginTop: 4 }}>
                           <Clock size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />
                           Follow up {inquiry.follow_up_date}
+                        </div>
+                      )}
+                      {taskInfo && taskInfo.count > 0 && (
+                        <div className="status pending" style={{ marginTop: 4 }}>
+                          <ListChecks size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />
+                          {taskInfo.count} open task{taskInfo.count > 1 ? "s" : ""}
+                          {taskInfo.earliestDue ? ` · due ${taskInfo.earliestDue}` : ""}
+                        </div>
+                      )}
+                      {assessment && (
+                        <div
+                          className={["Cancelled", "No Show"].includes(assessment.status) ? "status danger" : "status active"}
+                          style={{ marginTop: 4 }}
+                        >
+                          <ClipboardCheck size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />
+                          {assessment.assessment_type}: {assessment.scheduled_date} ({assessment.status})
                         </div>
                       )}
                       {inquiry.possible_duplicate_of_id && (
@@ -1783,12 +2190,36 @@ export default function Admissions() {
             <Settings size={17} />
             Manage Stages
           </button>
+          <button type="button" className="secondary-button" onClick={() => setShowBulkImport(true)}>
+            <Upload size={17} />
+            Import CSV
+          </button>
           <button type="button" className="primary-button" onClick={handleAddInquiry}>
             <UserPlus size={18} />
             Add Inquiry
           </button>
         </div>
       </section>
+
+      {showBulkImport && (
+        <BulkImportModal
+          title="Bulk Import Admission Inquiries"
+          description="Upload a CSV file to add multiple inquiries to the pipeline at once."
+          templateUrl="/admissions/bulk-import-template"
+          templateFilename="admission_inquiries_import_template.csv"
+          importUrl="/admissions/bulk-import"
+          onClose={() => setShowBulkImport(false)}
+          onImported={loadInquiries}
+        />
+      )}
+
+      {admissionRemindersEnabled && reminderPreview && reminderPreview.unreachable_count > 0 && (
+        <div className="toast-notification" style={{ background: "var(--warning-100)", color: "var(--warning-700)" }}>
+          <AlertTriangle size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />
+          {reminderPreview.unreachable_count} due task/follow-up{reminderPreview.unreachable_count > 1 ? "s have" : " has"} no
+          linked staff account and won't receive a reminder.
+        </div>
+      )}
 
       <ViewTabs pageMode={pageMode} setPageMode={setPageMode} />
 

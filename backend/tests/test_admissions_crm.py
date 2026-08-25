@@ -332,3 +332,148 @@ def test_reminder_dry_run_reports_due_items_without_sending(client, auth, db_ses
         .count()
     )
     assert sent_logs == 0
+
+
+def test_a_free_text_only_owner_is_reported_unreachable_not_silently_dropped(client, auth, db_session):
+    """The reminder must fail closed (no guessed email) but still say so,
+    rather than a due item just vanishing from every count."""
+    from app import admission_reminders
+
+    inquiry = _create_inquiry(client, auth)
+    payload = {k: inquiry.get(k) for k in _UPDATE_FIELDS}
+    payload["follow_up_date"] = str(date.today() - timedelta(days=1))
+    payload["assigned_to"] = "An Agent With No System Login"
+    payload["assigned_to_user_id"] = None
+    resp = client.put(f"/admissions/{inquiry['id']}", json=payload, headers=auth)
+    assert resp.status_code == 200, resp.text
+
+    result = admission_reminders.run_reminders(db_session, dry_run=True)
+    assert result["unreachable_count"] >= 1
+
+
+def _set_admission_reminders_enabled(enabled: bool):
+    from app.tenant import CentralSessionLocal, get_account
+    from app.tenant_models import SchoolFeature
+
+    account = get_account("default")
+    db = CentralSessionLocal()
+    try:
+        row = (
+            db.query(SchoolFeature)
+            .filter(
+                SchoolFeature.account_id == account["id"],
+                SchoolFeature.feature_key == "admission_reminders",
+            )
+            .first()
+        )
+        if row:
+            row.is_enabled = enabled
+        else:
+            db.add(SchoolFeature(
+                account_id=account["id"], feature_key="admission_reminders", is_enabled=enabled,
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture()
+def admission_reminders_on(client):
+    _set_admission_reminders_enabled(True)
+    yield
+    _set_admission_reminders_enabled(False)
+
+
+def test_reminder_preview_route_is_off_until_enabled(client, auth):
+    resp = client.get("/admission-reminders/preview", headers=auth)
+    assert resp.status_code == 403
+
+
+def test_reminder_preview_route_reports_once_enabled(client, auth, admission_reminders_on):
+    resp = client.get("/admission-reminders/preview", headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert "sent" in resp.json()
+    assert "unreachable_count" in resp.json()
+
+
+# ---------------- documents ----------------
+
+
+def test_document_upload_list_and_delete(client, auth):
+    inquiry = _create_inquiry(client, auth)
+
+    created = client.post(
+        f"/admissions/{inquiry['id']}/documents",
+        json={"document_type": "ID Proof", "file_name": "id.pdf", "file_url": "/uploads/default/abc.pdf"},
+        headers=auth,
+    )
+    assert created.status_code == 200, created.text
+    document = created.json()
+    assert document["document_type"] == "ID Proof"
+    assert document["uploaded_by"] == "admin@school.com"
+
+    listed = client.get(f"/admissions/{inquiry['id']}/documents", headers=auth).json()
+    assert any(d["id"] == document["id"] for d in listed)
+
+    deleted = client.delete(f"/admissions/documents/{document['id']}", headers=auth)
+    assert deleted.status_code == 200
+
+    listed_after = client.get(f"/admissions/{inquiry['id']}/documents", headers=auth).json()
+    assert not any(d["id"] == document["id"] for d in listed_after)
+
+
+def test_document_requires_a_type_and_url(client, auth):
+    inquiry = _create_inquiry(client, auth)
+    resp = client.post(
+        f"/admissions/{inquiry['id']}/documents",
+        json={"document_type": "  ", "file_url": "/uploads/default/abc.pdf"},
+        headers=auth,
+    )
+    assert resp.status_code == 400
+
+
+# ---------------- bulk import ----------------
+
+
+def test_bulk_import_creates_inquiries_and_reports_errors(client, auth):
+    unique = uuid.uuid4().hex[:8]
+    csv_body = (
+        "student_name,grade_applying,academic_year,guardian_name,guardian_phone,guardian_email,source\n"
+        f"Bulk Student {unique},6,2026-27,Bulk Guardian,+91900{unique},bulk-{unique}@example.com,Referral\n"
+        ",6,2026-27,Guardian,123,,Referral\n"
+    )
+    files = {"file": ("inquiries.csv", csv_body, "text/csv")}
+    resp = client.post("/admissions/bulk-import", files=files, headers=auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["created"] == 1
+    assert len(body["errors"]) == 1
+    assert "student_name" in body["errors"][0]["error"]
+
+    listed = client.get("/admissions/", headers=auth).json()
+    assert any(i["student_name"] == f"Bulk Student {unique}" for i in listed)
+
+
+def test_bulk_import_dry_run_creates_nothing(client, auth):
+    unique = uuid.uuid4().hex[:8]
+    csv_body = (
+        "student_name,grade_applying,academic_year,guardian_name,guardian_phone\n"
+        f"Dry Run Student {unique},6,2026-27,Guardian,+91900{unique}\n"
+    )
+    files = {"file": ("inquiries.csv", csv_body, "text/csv")}
+    resp = client.post("/admissions/bulk-import?dry_run=true", files=files, headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["created"] == 0
+    assert resp.json()["valid_rows"] == 1
+
+    listed = client.get("/admissions/", headers=auth).json()
+    assert not any(i["student_name"] == f"Dry Run Student {unique}" for i in listed)
+
+
+# ---------------- admission number generation ----------------
+
+
+def test_next_admission_no_uses_the_current_year(client, auth):
+    resp = client.get("/admissions/next-admission-no", headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["admission_no"].startswith(f"ADM{date.today().year}")

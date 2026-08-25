@@ -1,10 +1,12 @@
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
 from app.models import User
 from app.notifications import notify_admission_inquiry_received
@@ -19,6 +21,18 @@ router = APIRouter(prefix="/admissions", tags=["Admissions"])
 # has no login yet. Everything else here touches guardian PII, so it needs
 # the same gate the sibling admission-workflow/assessment routes already have.
 MANAGERS = ["Admin", "Principal"]
+
+INQUIRY_BULK_IMPORT_COLUMNS = [
+    "inquiry_no",
+    "student_name",
+    "grade_applying",
+    "academic_year",
+    "guardian_name",
+    "guardian_phone",
+    "guardian_email",
+    "source",
+    "notes",
+]
 
 PUBLIC_INQUIRY_SUCCESS_MESSAGE = (
     "Thank you! We've received your inquiry and our admissions team will be in touch soon."
@@ -75,7 +89,7 @@ def next_student_admission_no(db: Session):
     )
 
     next_number = ((latest_student.id if latest_student else 0) + 1)
-    return f"ADM2026{next_number:03d}"
+    return f"ADM{date.today().year}{next_number:03d}"
 
 
 def find_duplicate(db: Session, phone: str | None, email: str | None, exclude_id: int | None = None):
@@ -167,6 +181,114 @@ def get_next_student_admission_no(
     current_user: User = Depends(require_roles(MANAGERS)),
 ):
     return {"admission_no": next_student_admission_no(db)}
+
+
+@router.get("/bulk-import-template")
+def bulk_import_inquiries_template(
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    return csv_template_response(
+        INQUIRY_BULK_IMPORT_COLUMNS,
+        {
+            "inquiry_no": "",
+            "student_name": "Aarav Sharma",
+            "grade_applying": "Grade 5",
+            "academic_year": "2026-27",
+            "guardian_name": "Rohan Sharma",
+            "guardian_phone": "9876543210",
+            "guardian_email": "rohan.sharma@example.com",
+            "source": "Website",
+            "notes": "",
+        },
+        "admission_inquiries_import_template.csv",
+    )
+
+
+@router.post("/bulk-import")
+def bulk_import_inquiries(
+    file: UploadFile = File(...),
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    rows, unknown_columns = read_csv_upload(file, INQUIRY_BULK_IMPORT_COLUMNS)
+
+    seen_numbers = set()
+    errors = []
+    to_create = []
+
+    for row_index, cleaned in rows:
+        if not cleaned.get("student_name"):
+            errors.append({"row": row_index, "error": "student_name is required"})
+            continue
+        if not cleaned.get("grade_applying"):
+            errors.append({"row": row_index, "error": "grade_applying is required"})
+            continue
+        if not cleaned.get("academic_year"):
+            errors.append({"row": row_index, "error": "academic_year is required"})
+            continue
+        if not cleaned.get("guardian_name"):
+            errors.append({"row": row_index, "error": "guardian_name is required"})
+            continue
+        if not cleaned.get("guardian_phone"):
+            errors.append({"row": row_index, "error": "guardian_phone is required"})
+            continue
+
+        inquiry_no = cleaned.get("inquiry_no")
+        if inquiry_no:
+            if inquiry_no in seen_numbers:
+                errors.append({"row": row_index, "error": f"Duplicate inquiry_no in file: {inquiry_no}"})
+                continue
+            if db.query(models.AdmissionInquiry).filter(models.AdmissionInquiry.inquiry_no == inquiry_no).first():
+                errors.append({"row": row_index, "error": f"Inquiry number already exists: {inquiry_no}"})
+                continue
+
+        try:
+            validated = schemas.AdmissionInquiryCreate(
+                inquiry_no=inquiry_no or "",
+                student_name=cleaned["student_name"],
+                grade_applying=cleaned["grade_applying"],
+                academic_year=cleaned["academic_year"],
+                guardian_name=cleaned["guardian_name"],
+                guardian_phone=cleaned["guardian_phone"],
+                guardian_email=cleaned.get("guardian_email"),
+                source=cleaned.get("source") or "Website",
+                notes=cleaned.get("notes"),
+            )
+        except ValidationError as exc:
+            errors.append({"row": row_index, "error": exc.errors()[0]["msg"]})
+            continue
+
+        if inquiry_no:
+            seen_numbers.add(inquiry_no)
+        to_create.append(validated)
+
+    created_count = 0
+    if not dry_run:
+        for validated in to_create:
+            data = validated.model_dump()
+            data["inquiry_no"] = data["inquiry_no"].strip() or next_inquiry_no(db)
+            found = find_duplicate(db, data.get("guardian_phone"), data.get("guardian_email"))
+            data["possible_duplicate_of_id"] = found[0].id if found else None
+            inquiry = models.AdmissionInquiry(**data)
+            db.add(inquiry)
+            db.flush()
+            db.add(models.AdmissionStageHistory(
+                inquiry_id=inquiry.id, from_stage=None, to_stage="Inquiry",
+                changed_by=current_user.email,
+            ))
+        if to_create:
+            db.commit()
+        created_count = len(to_create)
+
+    return {
+        "total_rows": rows[-1][0] - 1 if rows else 0,
+        "created": created_count if not dry_run else 0,
+        "valid_rows": len(to_create),
+        "errors": errors,
+        "dry_run": dry_run,
+        "unknown_columns": unknown_columns,
+    }
 
 
 @router.get("/{inquiry_id}", response_model=schemas.AdmissionInquiryResponse)
@@ -604,6 +726,66 @@ def get_admission_stage_history(
         .order_by(models.AdmissionStageHistory.changed_at)
         .all()
     )
+
+
+@router.get("/{inquiry_id}/documents", response_model=list[schemas.AdmissionDocumentResponse])
+def get_admission_documents(
+    inquiry_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    get_inquiry_or_404(db, inquiry_id)
+    return (
+        db.query(models.AdmissionDocument)
+        .filter(models.AdmissionDocument.inquiry_id == inquiry_id)
+        .order_by(models.AdmissionDocument.id.desc())
+        .all()
+    )
+
+
+@router.post("/{inquiry_id}/documents", response_model=schemas.AdmissionDocumentResponse)
+def add_admission_document(
+    inquiry_id: int,
+    payload: schemas.AdmissionDocumentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    get_inquiry_or_404(db, inquiry_id)
+    if not payload.document_type.strip():
+        raise HTTPException(status_code=400, detail="Document type is required")
+    if not payload.file_url.strip():
+        raise HTTPException(status_code=400, detail="file_url is required")
+
+    document = models.AdmissionDocument(
+        inquiry_id=inquiry_id,
+        document_type=payload.document_type.strip(),
+        file_name=payload.file_name,
+        file_url=payload.file_url,
+        uploaded_by=current_user.email,
+        remarks=payload.remarks,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
+@router.delete("/documents/{document_id}")
+def delete_admission_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    document = (
+        db.query(models.AdmissionDocument)
+        .filter(models.AdmissionDocument.id == document_id)
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    db.delete(document)
+    db.commit()
+    return {"message": "Document deleted successfully"}
 
 
 @router.post("/{inquiry_id}/convert", response_model=schemas.StudentResponse)

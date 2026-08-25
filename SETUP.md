@@ -1891,3 +1891,89 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
 ```
 
 Test with `--dry-run` first, same as §9.
+
+## 21. Library management
+
+The Library module (`library` feature flag, off by default like Hostel/
+Transport) grew from a plain catalogue-plus-issue-register into a full
+circulation system: `backend/app/models.py` (`LibraryBook`,
+`LibraryBookCopy`, `LibraryIssue`, `LibrarySettings`, `LibraryReservation`,
+`LibraryRenewal`, `LibraryReminderRule`, `LibraryReminderLog`),
+`backend/app/routes/library.py` (`/library/...`) and
+`backend/app/routes/library_reminders.py` (`/library-reminders/...`).
+
+- **Settings** (`GET`/`PUT /library/settings`, Admin/Principal to change,
+  Teacher can view) — one row per school: `loan_period_days` (student) /
+  `loan_period_days_staff`, `fine_per_day`, `fine_grace_days` (days after due
+  before a fine starts), `max_books_student` / `max_books_staff`,
+  `max_renewals`, `block_renewal_if_reserved`, `reservation_hold_days`.
+- **Issuing** (`POST /library/issues/`) auto-computes `due_date` from the
+  borrower's loan period when not given, and refuses the issue once the
+  borrower is already at `max_books_*` currently-out books. `borrower_type`
+  is `Student` or `Staff` — a staff issue references `staff_id` (Teacher)
+  instead of `student_id`; exactly one of the two is set.
+- **Returning** (`PUT /library/issues/{id}` with `status: "Returned"`)
+  auto-computes the fine from `due_date` → `return_date` (or today) at
+  `fine_per_day`, net of `fine_grace_days`, unless the request explicitly
+  supplies a non-zero `fine_amount` (a manual override — e.g. a damage
+  charge). `fine_paid` is a separate flag a school flips once collected.
+- **Renewals** (`POST /library/issues/{id}/renew`) extends `due_date` by one
+  more loan period, refused once `max_renewals` is used up or (when
+  `block_renewal_if_reserved`) another borrower is queued for the book.
+  Each renewal is logged to `library_renewals` for audit history
+  (`GET /library/issues/{id}/renewals`).
+- **Per-copy / barcode tracking** is optional and additive:
+  `GET/POST /library/books/{id}/copies`,
+  `POST /library/books/{id}/copies/generate?count=N` to backfill barcodes
+  for a book only ever tracked by `total_copies`, `PUT`/`DELETE
+  /library/copies/{copy_id}`. A book with no copy rows is still tracked the
+  original way, by `LibraryBook.total_copies`/`available_copies`; issuing
+  against it decrements/increments that count instead.
+- **Reservations** (`/library/reservations/...`) — a hold queue per book,
+  `queue_position` order. When a copy frees up (a return, a cancelled or
+  expired hold) the earliest `Waiting` reservation is promoted to `Ready`
+  and gets `reservation_hold_days` to be collected before it `Expire`s and
+  the next in line gets the same window (`sweep_expired_reservations`, run
+  on every reservation list/create). Issuing to the borrower holding a
+  `Ready` reservation fulfils it directly rather than pulling from general
+  stock.
+- **Reports** (`GET /library/reports/overdue|top-borrowers|most-issued|
+  fines-summary`) plus a `library_issues` source in the existing dashboard
+  report builder (`GET /dashboard/report?source=library_issues`), and
+  `library_issued_count`/`library_overdue_count`/`library_fine_outstanding`
+  on `GET /dashboard/summary`.
+- **Portal**: `GET /portal/students/{id}/library` — a parent/student's
+  currently issued books, due dates, fines and reservations, read-only,
+  gated by the same `ensure_student_access` check as the rest of the portal.
+
+### Automated overdue reminders
+
+Same design as §8h (fee reminders), reusing its recipient-lookup helpers:
+`backend/app/library_reminders.py` is the ladder logic,
+`backend/app/routes/library_reminders.py` the `/library-reminders/...`
+endpoints, `backend/run_library_reminders.py` the cron entrypoint.
+
+**Off by default, platform-owner gated** (`library_reminders`) — a module
+that messages parents/staff must not be able to switch itself on. Unlike a
+fee rung, a library rung only ever fires *after* the due date (there is
+nothing to remind about on a book that is not yet late), so `offset_days`
+is meant to stay `>= 1`. The borrower can be a student (chased through the
+guardian, same lookup as fees) or a staff member (chased directly through
+their own email/phone). Only the furthest-along rung fires per issue, each
+rung fires at most once (`uq_library_reminder_once` on `issue_id, rule_id`),
+and the fine quoted is recomputed at send time from `LibrarySettings`
+rather than trusted from a stored figure.
+
+```
+0 9 * * * cd /home/USER/school-erp/backend && /home/USER/virtualenv/.../bin/python run_library_reminders.py >> logs/library_reminders.log 2>&1
+```
+
+`--dry-run`, `--as-of YYYY-MM-DD` and `--limit` behave exactly as they do
+for `run_fee_reminders.py` (§8h).
+
+### Mobile
+
+`libraryBooks`/`libraryIssues`/`libraryReservations` are generic CRUD
+modules in the mobile app (`mobile/src/modules/generated.ts`). Renewals,
+reports and the reminder ladder editor are web-only for now — no bespoke
+mobile screens for those yet.

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { todayLocalDate } from "../utils/date";
 import {
+  BarChart3,
   Boxes,
+  Download,
   Edit,
   IndianRupee,
   Layers,
   PackageCheck,
   PlusCircle,
+  ScanBarcode,
   Trash2,
   Upload,
   Users,
@@ -26,6 +29,7 @@ const APPLIES_TO_OPTIONS = ["Student", "Staff"];
 const emptyItemForm = {
   item_name: "",
   item_code: "",
+  barcode: "",
   category: "",
   unit: "pcs",
   quantity_available: 0,
@@ -119,6 +123,17 @@ export default function Inventory() {
   const [kitFormOpen, setKitFormOpen] = useState(false);
   const [kitItemPickerId, setKitItemPickerId] = useState("");
   const [kitItemPickerQty, setKitItemPickerQty] = useState(1);
+
+  // Barcode scan-to-find in the Stock Movement form -- types/scans a code,
+  // resolves it to an item and pre-selects it, rather than hunting the item
+  // dropdown by name.
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeLookupMessage, setBarcodeLookupMessage] = useState("");
+
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [lowStockReport, setLowStockReport] = useState([]);
+  const [costSummary, setCostSummary] = useState(null);
+  const [kitCoverage, setKitCoverage] = useState([]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -308,6 +323,7 @@ export default function Inventory() {
       reorder_level: Number(itemForm.reorder_level || 0),
       unit_price: Number(itemForm.unit_price || 0),
       item_code: itemForm.item_code || null,
+      barcode: itemForm.barcode || null,
       remarks: itemForm.remarks || null,
     };
 
@@ -426,7 +442,15 @@ export default function Inventory() {
     setActiveTab("items");
     setEditingItemId(item.id);
     setFormMode("item");
-    setItemForm({ ...emptyItemForm, ...item });
+    setItemForm({
+      ...emptyItemForm,
+      ...item,
+      item_code: item.item_code || "",
+      barcode: item.barcode || "",
+      category: item.category || "",
+      location: item.location || "",
+      remarks: item.remarks || "",
+    });
   }
 
   function addItem() {
@@ -456,6 +480,60 @@ export default function Inventory() {
       setMessage(getApiErrorMessage(error, "Unable to delete inventory record."));
     }
   }
+
+  async function downloadCsv(url, filename) {
+    try {
+      const response = await API.get(url, { responseType: "blob" });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to export CSV."));
+    }
+  }
+
+  async function lookupBarcode(event) {
+    event.preventDefault();
+    const code = barcodeInput.trim();
+    if (!code) return;
+    setBarcodeLookupMessage("");
+    try {
+      const response = await API.get(`/inventory/items/by-barcode/${encodeURIComponent(code)}`);
+      setTransactionForm((prev) => ({ ...prev, item_id: String(response.data.id) }));
+      setBarcodeLookupMessage(`Found: ${response.data.item_name}`);
+    } catch (error) {
+      setBarcodeLookupMessage(getApiErrorMessage(error, "No item with that barcode."));
+    }
+  }
+
+  async function loadReports() {
+    try {
+      setReportsLoading(true);
+      const [lowStockRes, costRes, coverageRes] = await Promise.all([
+        API.get("/inventory/reports/low-stock"),
+        API.get("/inventory/reports/cost-summary"),
+        API.get("/inventory/reports/kit-coverage"),
+      ]);
+      setLowStockReport(lowStockRes.data || []);
+      setCostSummary(costRes.data || null);
+      setKitCoverage(coverageRes.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load inventory reports."));
+    } finally {
+      setReportsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "reports") loadReports();
+  }, [activeTab]);
 
   // ---------------- Kits ----------------
 
@@ -568,9 +646,29 @@ export default function Inventory() {
             </button>
           )}
           {activeTab === "items" && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => downloadCsv("/inventory/items/export", "inventory_items.csv")}
+            >
+              <Download size={17} />
+              Export CSV
+            </button>
+          )}
+          {activeTab === "items" && (
             <button type="button" className="primary-button" onClick={addItem}>
               <PlusCircle size={18} />
               Add Item
+            </button>
+          )}
+          {activeTab === "transactions" && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => downloadCsv("/inventory/transactions/export", "inventory_transactions.csv")}
+            >
+              <Download size={17} />
+              Export CSV
             </button>
           )}
           {activeTab === "transactions" && (
@@ -616,6 +714,7 @@ export default function Inventory() {
           <button type="button" className={activeTab === "kits" ? "active" : ""} onClick={() => { setActiveTab("kits"); }}>Kits</button>
           <button type="button" className={activeTab === "transactions" ? "active" : ""} onClick={() => { setActiveTab("transactions"); resetForms(); }}>Stock Movement</button>
           <button type="button" className={activeTab === "bulkIssue" ? "active" : ""} onClick={() => { setActiveTab("bulkIssue"); }}>Issue a Kit</button>
+          <button type="button" className={activeTab === "reports" ? "active" : ""} onClick={() => { setActiveTab("reports"); }}>Reports</button>
         </div>
       </section>
 
@@ -628,6 +727,7 @@ export default function Inventory() {
               <div className="form-grid">
                 <TextField label="Item Name *" name="item_name" value={itemForm.item_name} onChange={handleItemChange} required />
                 <TextField label="Item Code" name="item_code" value={itemForm.item_code} onChange={handleItemChange} />
+                <TextField label="Barcode" name="barcode" value={itemForm.barcode} onChange={handleItemChange} />
                 <div className="form-field"><label>Category</label><input list="inventory-categories" name="category" value={itemForm.category} onChange={handleItemChange} /></div>
                 <div className="form-field"><label>Unit</label><input list="inventory-units" name="unit" value={itemForm.unit} onChange={handleItemChange} /></div>
                 <TextField label="Available Quantity" type="number" name="quantity_available" value={itemForm.quantity_available} onChange={handleItemChange} />
@@ -643,10 +743,17 @@ export default function Inventory() {
             </form>
           </section>
           )}
-          <RecordsTable title="Inventory Items" count={filteredItems.length} searchText={searchText} setSearchText={setSearchText} loading={loading} headers={["Item", "Code", "Category", "Unit", "Available", "Reorder", "Price", "Location", "Status", "Actions"]}>
+          <RecordsTable
+            title="Inventory Items"
+            count={filteredItems.length}
+            searchText={searchText}
+            setSearchText={setSearchText}
+            loading={loading}
+            headers={["Item", "Code", "Barcode", "Category", "Unit", "Available", "Reorder", "Price", "Location", "Status", "Actions"]}
+          >
             {filteredItems.map((item) => (
               <tr key={item.id}>
-                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.unit_price ? Number(item.unit_price).toFixed(2) : "-"}</td><td>{item.location || "-"}</td>
+                <td>{item.item_name}</td><td>{item.item_code || "-"}</td><td>{item.barcode || "-"}</td><td>{item.category || "-"}</td><td>{item.unit || "-"}</td><td>{item.quantity_available}</td><td>{item.reorder_level}</td><td>{item.unit_price ? Number(item.unit_price).toFixed(2) : "-"}</td><td>{item.location || "-"}</td>
                 <td><span className={item.status === "Active" ? "status active" : "status pending"}>{item.status}</span></td>
                 <td><RowActions onEdit={() => editItem(item)} onDelete={() => deleteRecord("item", item.id)} /></td>
               </tr>
@@ -747,6 +854,24 @@ export default function Inventory() {
           {formMode === "transaction" && (
           <section className="form-panel">
             <PanelTitle title="Add Stock Movement" text="Record stock in, stock out, returns, and individual issues. Purchases (a paid replacement for a lost item) are recorded for a student only -- staff never buy." />
+            <form className="classic-form barcode-scan-form" onSubmit={lookupBarcode}>
+              <div className="form-grid">
+                <TextField
+                  label="Scan or Enter Barcode"
+                  name="barcodeInput"
+                  value={barcodeInput}
+                  onChange={(event) => setBarcodeInput(event.target.value)}
+                  placeholder="Scan barcode to find item"
+                />
+                <div className="form-field">
+                  <label>&nbsp;</label>
+                  <button type="submit" className="secondary-button">
+                    <ScanBarcode size={16} /> Find Item
+                  </button>
+                </div>
+              </div>
+              {barcodeLookupMessage && <p className="hint-text">{barcodeLookupMessage}</p>}
+            </form>
             <form className="classic-form" onSubmit={saveTransaction}>
               <div className="form-grid">
                 <div className="form-field"><label>Item *</label><select name="item_id" value={transactionForm.item_id} onChange={handleTransactionChange} required><option value="">Select Item</option>{items.map((item) => <option key={item.id} value={item.id}>{item.item_name} ({item.quantity_available} {item.unit})</option>)}</select></div>
@@ -776,10 +901,10 @@ export default function Inventory() {
                 )}
                 {transactionForm.transaction_type === "Purchase" && (
                   <>
-                    <TextField label="Unit Price *" type="number" step="0.01" name="unit_price" value={transactionForm.unit_price} onChange={handleTransactionChange} required />
+                    <TextField label="Unit Price" type="number" step="0.01" name="unit_price" value={transactionForm.unit_price} onChange={handleTransactionChange} placeholder="Defaults to item's selling price" />
                     <div className="form-field"><label>Payment Status</label><select name="payment_status" value={transactionForm.payment_status} onChange={handleTransactionChange}><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select></div>
                     <div className="form-field"><label>Amount</label><input type="text" value={(Number(transactionForm.unit_price || 0) * Number(transactionForm.quantity || 0)).toFixed(2)} disabled /></div>
-                    <p className="hint-text full-width">Staff never buy -- a Purchase is always recorded for a student.</p>
+                    <p className="hint-text full-width">Staff never buy -- a Purchase is always recorded for a student. Leave Unit Price blank to use the item's own selling price.</p>
                   </>
                 )}
                 <TextField label="Reference No" name="reference_no" value={transactionForm.reference_no} onChange={handleTransactionChange} />
@@ -960,6 +1085,79 @@ export default function Inventory() {
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {activeTab === "reports" && (
+        <section className="table-panel reports-panel">
+          <PanelTitle title="Inventory Reports" text="Low stock alerts, purchase cost summary, and kit issuance coverage -- computed live from current stock and transaction data." />
+          {reportsLoading ? (
+            <div className="loading-box">Loading reports...</div>
+          ) : (
+            <>
+              <div className="summary-strip report-summary-grid">
+                <SummaryCard icon={IndianRupee} label="Purchase Revenue" value={costSummary ? Number(costSummary.purchase_revenue || 0).toFixed(2) : "0.00"} />
+                <SummaryCard icon={IndianRupee} label="Unpaid Purchases" value={costSummary ? Number(costSummary.purchase_unpaid || 0).toFixed(2) : "0.00"} warning={Boolean(costSummary?.purchase_unpaid)} />
+                <SummaryCard icon={PackageCheck} label="Stock-In Cost" value={costSummary ? Number(costSummary.stock_in_cost || 0).toFixed(2) : "0.00"} />
+                <SummaryCard icon={Boxes} label="Issued Value" value={costSummary ? Number(costSummary.issued_value || 0).toFixed(2) : "0.00"} />
+                <SummaryCard icon={IndianRupee} label="Current Stock Value" value={costSummary ? Number(costSummary.current_stock_value || 0).toFixed(2) : "0.00"} />
+              </div>
+
+              <div className="panel-header">
+                <div>
+                  <h3><BarChart3 size={18} /> Low Stock Items</h3>
+                  <p>Active items whose available quantity is at or below their reorder level.</p>
+                </div>
+              </div>
+              <div className="table-wrapper">
+                <table className="classic-table">
+                  <thead><tr><th>Item</th><th>Code</th><th>Category</th><th>Available</th><th>Reorder Level</th><th>Shortfall</th><th>Location</th></tr></thead>
+                  <tbody>
+                    {lowStockReport.length === 0 && (
+                      <tr><td colSpan={7} className="empty-table">No items are below their reorder level.</td></tr>
+                    )}
+                    {lowStockReport.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.item_name}</td>
+                        <td>{row.item_code || "-"}</td>
+                        <td>{row.category || "-"}</td>
+                        <td>{row.quantity_available}</td>
+                        <td>{row.reorder_level}</td>
+                        <td>{row.shortfall}</td>
+                        <td>{row.location || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="panel-header">
+                <div>
+                  <h3><Layers size={18} /> Kit Issuance Coverage</h3>
+                  <p>How many eligible recipients have received each active kit at least once.</p>
+                </div>
+              </div>
+              <div className="table-wrapper">
+                <table className="classic-table">
+                  <thead><tr><th>Kit</th><th>Applies To</th><th>Issued</th><th>Eligible</th><th>Coverage</th></tr></thead>
+                  <tbody>
+                    {kitCoverage.length === 0 && (
+                      <tr><td colSpan={5} className="empty-table">No active kits yet.</td></tr>
+                    )}
+                    {kitCoverage.map((row) => (
+                      <tr key={row.kit_id}>
+                        <td>{row.kit_name}</td>
+                        <td>{row.applies_to}</td>
+                        <td>{row.issued_count}</td>
+                        <td>{row.eligible_count}</td>
+                        <td>{row.coverage_percent != null ? `${row.coverage_percent}%` : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>

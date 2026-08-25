@@ -20,6 +20,9 @@ from app.models import (
     HostelAllocation,
     TransportVehicle,
     LibraryBook,
+    LibraryIssue,
+    InventoryItem,
+    InventoryTransaction,
 )
 from app.dashboard_models import DashboardLayout
 from app.security import require_roles, get_current_user
@@ -122,6 +125,14 @@ def dashboard_summary(
         Mark.marks_obtained.desc()
     ).limit(10).all()
 
+    library_issued_count = db.query(LibraryIssue).filter(LibraryIssue.status == "Issued").count()
+    library_overdue_count = db.query(LibraryIssue).filter(
+        LibraryIssue.status == "Issued", LibraryIssue.due_date < today
+    ).count()
+    library_fine_outstanding = db.query(func.coalesce(func.sum(LibraryIssue.fine_amount), 0)).filter(
+        LibraryIssue.fine_amount > 0, LibraryIssue.fine_paid == False  # noqa: E712
+    ).scalar() or 0
+
     return {
         "total_students": total_students,
         "active_students": active_students,
@@ -140,6 +151,10 @@ def dashboard_summary(
         "today_absent": today_absent,
         "today_late": today_late,
         "today_excused": today_excused,
+
+        "library_issued_count": library_issued_count,
+        "library_overdue_count": library_overdue_count,
+        "library_fine_outstanding": round(library_fine_outstanding, 2),
 
         "upcoming_exams": [
             {
@@ -389,6 +404,49 @@ REPORTS = {
             "count": ("Titles", None),
             "total_copies": ("Total Copies", "total_copies"),
             "available_copies": ("Available Copies", "available_copies"),
+        },
+    },
+    "library_issues": {
+        "label": "Library Book Issues",
+        "model": LibraryIssue,
+        "date_col": "issue_date",
+        "dimensions": {
+            "status": "Status",
+            "borrower_type": "Borrower Type",
+        },
+        "measures": {
+            "count": ("Issues", None),
+            "fine_amount": ("Fine Amount", "fine_amount"),
+        },
+    },
+    "inventory_items": {
+        "label": "Inventory Items",
+        "model": InventoryItem,
+        "date_col": None,
+        "dimensions": {
+            "category": "Category",
+            "status": "Status",
+            "location": "Location",
+        },
+        "measures": {
+            "count": ("Items", None),
+            "quantity_available": ("Quantity Available", "quantity_available"),
+            "unit_price": ("Unit Price Total", "unit_price"),
+        },
+    },
+    "inventory_transactions": {
+        "label": "Inventory Transactions",
+        "model": InventoryTransaction,
+        "date_col": "transaction_date",
+        "dimensions": {
+            "transaction_type": "Transaction Type",
+            "cycle": "Cycle",
+            "academic_year": "Academic Year",
+        },
+        "measures": {
+            "count": ("Transactions", None),
+            "quantity": ("Quantity", "quantity"),
+            "amount": ("Amount", "amount"),
         },
     },
 }

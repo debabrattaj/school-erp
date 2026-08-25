@@ -75,6 +75,7 @@ FEATURE_LABELS = {
     "health_infirmary": "Health Infirmary",
     "mess_management": "Mess Management",
     "library": "Library",
+    "library_reminders": "Automated Overdue Book Reminders",
     "inventory": "Inventory",
     "house_system": "House System",
     "multi_curriculum": "Multi Curriculum",

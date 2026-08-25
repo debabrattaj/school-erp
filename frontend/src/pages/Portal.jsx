@@ -17,6 +17,7 @@ const TABS = [
   ["homework", "Homework"],
   ["tests", "Online Tests", "online_tests"],
   ["leave", "Leave"],
+  ["library", "Library", "library"],
   ["messages", "Messages"],
   ["history", "History"],
 ].filter(([, , feature]) => !feature || isFeatureEnabled(feature));
@@ -92,6 +93,9 @@ export default function Portal() {
   const [leaveToDate, setLeaveToDate] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
   const [submittingLeave, setSubmittingLeave] = useState(false);
+
+  const [library, setLibrary] = useState(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
 
   const [onlineTests, setOnlineTests] = useState([]);
   const [onlineTestsLoading, setOnlineTestsLoading] = useState(false);
@@ -239,6 +243,25 @@ export default function Portal() {
       setSendingMessage(false);
     }
   }
+
+  async function loadLibrary(studentId) {
+    if (!studentId) return;
+    setLibraryLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/library`);
+      setLibrary(response.data);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load library data."));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "library" && selectedId) {
+      loadLibrary(selectedId);
+    }
+  }, [activeTab, selectedId]);
 
   async function loadOnlineTests(studentId) {
     if (!studentId) return;
@@ -952,6 +975,85 @@ export default function Portal() {
                 </tbody>
               </table>
               </div>
+            </>
+          )}
+
+          {activeTab === "library" && (
+            <>
+              {libraryLoading && <p>Loading library data…</p>}
+              {!libraryLoading && library && (
+                <>
+                  <div className="message-box">
+                    Currently issued: {library.current.length} | Total fine due: {library.total_fine_due}
+                  </div>
+
+                  <div className="table-wrapper">
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Book</th><th>Issued</th><th>Due</th><th>Status</th><th>Days Overdue</th><th>Fine</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {library.current.map((issue) => (
+                          <tr key={issue.id}>
+                            <td>{issue.accession_no} - {issue.book_title}</td>
+                            <td>{issue.issue_date}</td>
+                            <td>{issue.due_date || "-"}</td>
+                            <td>{issue.status}</td>
+                            <td>{issue.days_overdue || 0}</td>
+                            <td>{issue.fine_amount || 0}{issue.fine_paid ? " (paid)" : ""}</td>
+                          </tr>
+                        ))}
+                        {!library.current.length && (
+                          <tr><td colSpan={6}>No books currently issued.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {!!library.reservations.length && (
+                    <>
+                      <h4 style={{ marginTop: 20 }}>Reservations</h4>
+                      <div className="table-wrapper">
+                        <table className="classic-table">
+                          <thead><tr><th>Book</th><th>Status</th><th>Queue #</th></tr></thead>
+                          <tbody>
+                            {library.reservations.map((r) => (
+                              <tr key={r.id}>
+                                <td>{r.book_title}</td><td>{r.status}</td><td>{r.queue_position}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
+                  <h4 style={{ marginTop: 20 }}>History</h4>
+                  <div className="table-wrapper">
+                    <table className="classic-table">
+                      <thead>
+                        <tr><th>Book</th><th>Issued</th><th>Return</th><th>Status</th><th>Fine</th></tr>
+                      </thead>
+                      <tbody>
+                        {library.history.map((issue) => (
+                          <tr key={issue.id}>
+                            <td>{issue.accession_no} - {issue.book_title}</td>
+                            <td>{issue.issue_date}</td>
+                            <td>{issue.return_date || "-"}</td>
+                            <td>{issue.status}</td>
+                            <td>{issue.fine_amount || 0}</td>
+                          </tr>
+                        ))}
+                        {!library.history.length && (
+                          <tr><td colSpan={5}>No past library records.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </>
           )}
 

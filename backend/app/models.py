@@ -951,10 +951,27 @@ class LibraryIssue(Base):
         nullable=False,
         index=True,
     )
+    # Exactly one of student_id/staff_id is set, selected by borrower_type --
+    # a book issue always has exactly one borrower, never both or neither.
+    borrower_type = Column(String, nullable=False, default="Student", index=True)  # Student, Staff
     student_id = Column(
         Integer,
         ForeignKey("students.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    staff_id = Column(
+        Integer,
+        ForeignKey("teachers.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    # The specific physical copy, when the book has barcoded copies tracked
+    # individually. Null for books still tracked only by aggregate count.
+    copy_id = Column(
+        Integer,
+        ForeignKey("library_book_copies.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     issue_date = Column(Date, nullable=False, index=True)
@@ -962,9 +979,185 @@ class LibraryIssue(Base):
     return_date = Column(Date, nullable=True)
     status = Column(String, default="Issued", index=True)
     fine_amount = Column(Float, default=0)
+    fine_paid = Column(Boolean, nullable=False, default=False)
+    renewal_count = Column(Integer, nullable=False, default=0)
+    # The reservation this issue fulfilled, if the borrower picked the book up
+    # off a hold rather than finding it free on the shelf.
+    reservation_id = Column(
+        Integer,
+        ForeignKey("library_reservations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     remarks = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LibrarySettings(Base):
+    """One row, like SchoolSettings -- the escalation-ladder rules (Fee/Library
+    ReminderRule) get their own tables, but the numeric knobs a librarian tunes
+    rarely (loan length, fine rate, borrowing caps) live together here."""
+
+    __tablename__ = "library_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    loan_period_days = Column(Integer, nullable=False, default=14)
+    loan_period_days_staff = Column(Integer, nullable=False, default=30)
+    fine_per_day = Column(Float, nullable=False, default=2)
+    # Days after the due date before a fine starts accruing at all.
+    fine_grace_days = Column(Integer, nullable=False, default=0)
+    max_books_student = Column(Integer, nullable=False, default=3)
+    max_books_staff = Column(Integer, nullable=False, default=5)
+    max_renewals = Column(Integer, nullable=False, default=2)
+    # A renewal is refused once another borrower is waiting for the book,
+    # however many renewals remain -- reserving it is exactly the queue asking
+    # for it back.
+    block_renewal_if_reserved = Column(Boolean, nullable=False, default=True)
+    reservation_hold_days = Column(Integer, nullable=False, default=2)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LibraryBookCopy(Base):
+    """An individual, barcoded physical copy of a LibraryBook.
+
+    Optional and additive: a book with no rows here is still tracked the
+    original way, by LibraryBook.total_copies/available_copies. A school that
+    wants per-copy history (which exact copy a student has, which one is
+    lost) generates copies for a title and issues reference them instead.
+    """
+
+    __tablename__ = "library_book_copies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(
+        Integer, ForeignKey("library_books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    copy_no = Column(Integer, nullable=False, default=1)
+    barcode = Column(String, nullable=False, unique=True, index=True)
+    status = Column(String, default="Available", index=True)
+    # Available, Issued, Reserved, Lost, Damaged, Retired
+    shelf_no = Column(String, nullable=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "copy_no", name="uq_library_copy_no"),
+    )
+
+
+class LibraryReservation(Base):
+    """A hold placed on a book that has no available copy right now.
+
+    Queue order is queue_position, earliest first. When a copy frees up (a
+    return, or a new copy added) the earliest Waiting reservation for that
+    book is promoted to Ready and gets reservation_hold_days to collect it
+    before it expires and the next in line is offered the same window.
+    """
+
+    __tablename__ = "library_reservations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(
+        Integer, ForeignKey("library_books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    borrower_type = Column(String, nullable=False, default="Student", index=True)
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    staff_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    status = Column(String, default="Waiting", index=True)
+    # Waiting, Ready, Fulfilled, Cancelled, Expired
+    queue_position = Column(Integer, nullable=False, default=1)
+    reserved_at = Column(DateTime, default=datetime.utcnow)
+    ready_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    remarks = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LibraryRenewal(Base):
+    """Audit trail of due-date extensions -- what a renewal actually changed,
+    kept even though LibraryIssue only carries the current due date and a
+    running count."""
+
+    __tablename__ = "library_renewals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    issue_id = Column(
+        Integer, ForeignKey("library_issues.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    previous_due_date = Column(Date, nullable=False)
+    new_due_date = Column(Date, nullable=False)
+    renewed_at = Column(DateTime, default=datetime.utcnow)
+    remarks = Column(String, nullable=True)
+
+
+class LibraryReminderRule(Base):
+    """One rung of the overdue-book escalation ladder, mirroring
+    FeeReminderRule -- offsets are days after the issue's due date, since a
+    library reminder only ever chases a book that is already late."""
+
+    __tablename__ = "library_reminder_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    offset_days = Column(Integer, nullable=False, default=1)
+    channel = Column(String, nullable=False, default="Email")
+    template_id = Column(
+        Integer, ForeignKey("communication_templates.id", ondelete="SET NULL"), nullable=True
+    )
+    is_active = Column(Boolean, nullable=False, default=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("offset_days", "channel", name="uq_library_reminder_rung"),
+    )
+
+
+class LibraryReminderLog(Base):
+    """Proof that one rung fired for one overdue issue, mirroring
+    FeeReminderLog -- same unique-constraint-as-safety-net design."""
+
+    __tablename__ = "library_reminder_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    issue_id = Column(
+        Integer, ForeignKey("library_issues.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    rule_id = Column(
+        Integer, ForeignKey("library_reminder_rules.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True)
+    staff_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    communication_log_id = Column(
+        Integer, ForeignKey("communication_logs.id", ondelete="SET NULL"), nullable=True
+    )
+
+    status = Column(String, nullable=False, default="Sent", index=True)
+    # Sent, Failed, Skipped, Superseded
+
+    skip_reason = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    fine_amount = Column(Float, nullable=True)
+    recipient = Column(String, nullable=True)
+    offset_days = Column(Integer, nullable=True)
+
+    sent_on = Column(Date, nullable=False, index=True)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("issue_id", "rule_id", name="uq_library_reminder_once"),
+    )
 
 
 class InventoryItem(Base):
@@ -973,6 +1166,7 @@ class InventoryItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     item_name = Column(String, nullable=False, index=True)
     item_code = Column(String, nullable=True, unique=True, index=True)
+    barcode = Column(String, nullable=True, unique=True, index=True)
     category = Column(String, nullable=True, index=True)
     unit = Column(String, nullable=True, default="pcs")
     quantity_available = Column(Float, default=0)
@@ -1219,6 +1413,26 @@ class AdmissionTask(Base):
     source_template_id = Column(
         Integer, ForeignKey("admission_stage_task_templates.id", ondelete="SET NULL"), nullable=True
     )
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdmissionDocument(Base):
+    """A file attached to an inquiry -- an ID proof, a report card, a
+    passport photo. Mirrors InternationalDocument's shape (a free-text
+    document_type plus a URL from the shared /uploads/ endpoint) rather than
+    inventing a new storage mechanism."""
+
+    __tablename__ = "admission_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(
+        Integer, ForeignKey("admission_inquiries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_type = Column(String, nullable=False, index=True)
+    file_name = Column(String, nullable=True)
+    file_url = Column(String, nullable=False)
+    uploaded_by = Column(String, nullable=True)
+    remarks = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
