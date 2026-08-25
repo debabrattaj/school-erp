@@ -16,6 +16,7 @@ const TABS = [
   ["timetable", "Timetable"],
   ["homework", "Homework"],
   ["tests", "Online Tests", "online_tests"],
+  ["leave", "Leave"],
   ["messages", "Messages"],
   ["history", "History"],
 ].filter(([, , feature]) => !feature || isFeatureEnabled(feature));
@@ -84,6 +85,13 @@ export default function Portal() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveRequestsLoading, setLeaveRequestsLoading] = useState(false);
+  const [leaveFromDate, setLeaveFromDate] = useState("");
+  const [leaveToDate, setLeaveToDate] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [submittingLeave, setSubmittingLeave] = useState(false);
 
   const [onlineTests, setOnlineTests] = useState([]);
   const [onlineTestsLoading, setOnlineTestsLoading] = useState(false);
@@ -172,6 +180,48 @@ export default function Portal() {
       loadMessages(selectedId);
     }
   }, [activeTab, selectedId]);
+
+  async function loadLeaveRequests(studentId) {
+    if (!studentId) return;
+    setLeaveRequestsLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/leave-requests`);
+      setLeaveRequests(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load leave requests."));
+    } finally {
+      setLeaveRequestsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "leave" && selectedId) {
+      loadLeaveRequests(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
+  async function submitLeaveRequest(event) {
+    event.preventDefault();
+    if (!selectedId || !leaveFromDate || !leaveToDate) return;
+
+    setSubmittingLeave(true);
+    try {
+      await API.post(`/portal/students/${selectedId}/leave-requests`, {
+        from_date: leaveFromDate,
+        to_date: leaveToDate,
+        reason: leaveReason.trim() || null,
+      });
+      setLeaveFromDate("");
+      setLeaveToDate("");
+      setLeaveReason("");
+      setMessage("Leave request submitted.");
+      await loadLeaveRequests(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to submit leave request."));
+    } finally {
+      setSubmittingLeave(false);
+    }
+  }
 
   async function sendMessage(event) {
     event.preventDefault();
@@ -1175,6 +1225,81 @@ export default function Portal() {
                   Back to Tests
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === "leave" && (
+            <div className="portal-messages">
+              <div className="portal-messages-list">
+                {leaveRequestsLoading && <p>Loading...</p>}
+                {!leaveRequestsLoading && !leaveRequests.length && (
+                  <p>No leave requests yet. Submit one below.</p>
+                )}
+                {!leaveRequestsLoading &&
+                  leaveRequests.map((request) => (
+                    <div key={request.id} className="portal-message portal-message-staff">
+                      <div className="portal-message-meta">
+                        <strong>
+                          {request.from_date}
+                          {request.to_date !== request.from_date ? ` to ${request.to_date}` : ""}
+                        </strong>
+                        <span
+                          className={
+                            request.status === "Approved"
+                              ? "status active"
+                              : request.status === "Rejected"
+                              ? "status danger"
+                              : "status warning"
+                          }
+                        >
+                          {request.status}
+                        </span>
+                      </div>
+                      {request.reason && <p>{request.reason}</p>}
+                      {request.decision_note && (
+                        <p>
+                          <em>School note: {request.decision_note}</em>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              <form className="portal-message-form" onSubmit={submitLeaveRequest}>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>From</label>
+                    <input
+                      type="date"
+                      value={leaveFromDate}
+                      onChange={(event) => setLeaveFromDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>To</label>
+                    <input
+                      type="date"
+                      value={leaveToDate}
+                      onChange={(event) => setLeaveToDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <textarea
+                  value={leaveReason}
+                  onChange={(event) => setLeaveReason(event.target.value)}
+                  placeholder="Reason (optional)"
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={submittingLeave || !leaveFromDate || !leaveToDate}
+                >
+                  <Send size={16} /> Submit Request
+                </button>
+              </form>
             </div>
           )}
 

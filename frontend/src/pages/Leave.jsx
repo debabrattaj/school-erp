@@ -61,6 +61,15 @@ function coverStatusClass(status) {
   return "status warning"; // Unassigned
 }
 
+function studentLabel(students, studentId) {
+  const student = students.find((s) => s.id === studentId);
+  if (!student) return `Student #${studentId}`;
+  const name = `${student.first_name || ""} ${student.last_name || ""}`.trim();
+  return student.class_name
+    ? `${name || student.admission_no} (${student.class_name}${student.section ? "-" + student.section : ""})`
+    : name || student.admission_no;
+}
+
 export default function Leave() {
   const canApprove = hasAccess(APPROVER_ROLES);
 
@@ -93,6 +102,11 @@ export default function Leave() {
   const [coverLoading, setCoverLoading] = useState(false);
   const [candidatesDrawer, setCandidatesDrawer] = useState(null);
 
+  const [students, setStudents] = useState([]);
+  const [studentRequests, setStudentRequests] = useState([]);
+  const [studentRequestsLoading, setStudentRequestsLoading] = useState(false);
+  const [studentRequestStatusFilter, setStudentRequestStatusFilter] = useState("");
+
   useEffect(() => {
     if (!message) return undefined;
     const timeoutId = window.setTimeout(() => setMessage(""), 2500);
@@ -117,12 +131,14 @@ export default function Leave() {
       setLoading(true);
       setMessage("");
 
-      const [teacherResponse, typeResponse] = await Promise.all([
+      const [teacherResponse, typeResponse, studentResponse] = await Promise.all([
         API.get("/teachers/"),
         API.get("/leave/types"),
+        API.get("/students/"),
       ]);
       setTeachers(teacherResponse.data || []);
       setLeaveTypes(typeResponse.data || []);
+      setStudents(studentResponse.data || []);
       await refreshSummaryCounts();
     } catch (error) {
       console.error(error);
@@ -272,6 +288,51 @@ export default function Leave() {
     }
   }
 
+  async function loadStudentRequests() {
+    try {
+      setStudentRequestsLoading(true);
+      const response = await API.get("/student-leave-requests/", {
+        params: { status: studentRequestStatusFilter || undefined },
+      });
+      setStudentRequests(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load student leave requests."));
+    } finally {
+      setStudentRequestsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "student") return;
+    loadStudentRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, studentRequestStatusFilter]);
+
+  async function approveStudentRequest(request) {
+    const note = window.prompt("Approval note (optional):") || undefined;
+    try {
+      await API.post(`/student-leave-requests/${request.id}/approve`, { note });
+      setMessage("Approved — attendance marked Excused for the working days in range.");
+      await loadStudentRequests();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to approve leave request."));
+    }
+  }
+
+  async function rejectStudentRequest(request) {
+    const note = window.prompt("Rejection note (optional):") || undefined;
+    try {
+      await API.post(`/student-leave-requests/${request.id}/reject`, { note });
+      setMessage("Student leave request rejected.");
+      await loadStudentRequests();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to reject leave request."));
+    }
+  }
+
   function handleTypeFormChange(e) {
     const { name, value, type, checked } = e.target;
     setTypeForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
@@ -418,6 +479,7 @@ export default function Leave() {
         <div className="student-profile-tabs">
           {[
             ["requests", "Requests"],
+            ["student", "Student Leave"],
             ["balances", "Balances"],
             ["types", "Leave Types"],
             ["cover", "Substitute Cover"],
@@ -556,6 +618,66 @@ export default function Leave() {
             </div>
           </section>
         </>
+      )}
+
+      {activeTab === "student" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Student Leave Requests</h3>
+              <p>Guardian-submitted absence requests from the parent/student portal. Approving marks Attendance Excused for the working days in range.</p>
+            </div>
+          </div>
+          <div className="filter-row sis-filter-row">
+            <div className="form-field">
+              <label>Status</label>
+              <select value={studentRequestStatusFilter} onChange={(e) => setStudentRequestStatusFilter(e.target.value)}>
+                <option value="">All Statuses</option>
+                <option value="Requested">Requested</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div className="table-wrapper">
+            <table className="classic-table">
+              <thead>
+                <tr>
+                  <th>Student</th><th>From</th><th>To</th>
+                  <th>Reason</th><th>Status</th><th>Decision</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentRequestsLoading && <tr><td colSpan={7}>Loading...</td></tr>}
+                {!studentRequestsLoading && studentRequests.map((r) => (
+                  <tr key={r.id}>
+                    <td>{studentLabel(students, r.student_id)}</td>
+                    <td>{r.from_date}</td>
+                    <td>{r.to_date}</td>
+                    <td>{r.reason || "-"}</td>
+                    <td><span className={requestStatusClass(r.status)}>{r.status}</span></td>
+                    <td>{r.decided_by ? `${r.decided_by}${r.decision_note ? ` — ${r.decision_note}` : ""}` : "-"}</td>
+                    <td>
+                      {r.status === "Requested" && (
+                        <div className="action-buttons">
+                          <button type="button" className="edit-button" onClick={() => approveStudentRequest(r)} title="Approve">
+                            <Check size={15} />
+                          </button>
+                          <button type="button" className="delete-button" onClick={() => rejectStudentRequest(r)} title="Reject">
+                            <X size={15} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {!studentRequestsLoading && !studentRequests.length && (
+                  <tr><td colSpan={7}>No student leave requests found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {activeTab === "balances" && (

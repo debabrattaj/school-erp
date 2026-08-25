@@ -2581,3 +2581,33 @@ class BiometricConfigUpdate(BaseModel):
 class BiometricDeriveRequest(BaseModel):
     target_date: Optional[date] = None
     academic_year: Optional[str] = None
+
+
+# =========================
+# Student Leave Requests
+# =========================
+
+class StudentLeaveRequestCreate(BaseModel):
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+
+
+class StudentLeaveDecision(BaseModel):
+    note: Optional[str] = None
+
+
+class StudentLeaveRequestResponse(BaseModel):
+    id: int
+    student_id: int
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+    status: str
+    requested_by: str
+    decided_by: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+
+    class Config:
+        from_attributes = True

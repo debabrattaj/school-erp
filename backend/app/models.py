@@ -2299,6 +2299,39 @@ class LeaveRequest(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class StudentLeaveRequest(Base):
+    """A guardian's application for a child to be away.
+
+    Deliberately not the staff LeaveRequest model reused: there is no
+    quota/balance/accrual concept for a student absence, and no cover to
+    raise. Approval's only effect is marking Attendance "Excused" for each
+    working day in range -- the thing the staff-only leave module left with
+    nothing to point at.
+    """
+
+    __tablename__ = "student_leave_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    from_date = Column(Date, nullable=False, index=True)
+    to_date = Column(Date, nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="Requested", index=True)
+    # Requested, Approved, Rejected, Cancelled
+
+    # Email snapshot of the guardian who submitted it, same convention as
+    # every other "who did X" field in this app.
+    requested_by = Column(String, nullable=False)
+
+    decided_by = Column(String, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class SubstitutionAssignment(Base):
     """Cover for one period of one absent teacher on one date.
 

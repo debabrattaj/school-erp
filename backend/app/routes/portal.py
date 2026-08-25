@@ -207,6 +207,57 @@ def portal_student_attendance(
     }
 
 
+@router.get(
+    "/students/{student_id}/leave-requests",
+    response_model=list[schemas.StudentLeaveRequestResponse],
+)
+def portal_list_leave_requests(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+
+    return (
+        db.query(models.StudentLeaveRequest)
+        .filter(models.StudentLeaveRequest.student_id == student_id)
+        .order_by(models.StudentLeaveRequest.id.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/students/{student_id}/leave-requests",
+    response_model=schemas.StudentLeaveRequestResponse,
+)
+def portal_create_leave_request(
+    student_id: int,
+    payload: schemas.StudentLeaveRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """A guardian applying for their child to be away. Approval (staff-side,
+    app/routes/student_leave.py) is what actually marks Attendance Excused
+    for the range -- submitting here only records the request."""
+    ensure_student_access(db, current_user, student_id)
+
+    if payload.to_date < payload.from_date:
+        raise HTTPException(status_code=400, detail="The end date cannot be before the start date.")
+
+    request = models.StudentLeaveRequest(
+        student_id=student_id,
+        from_date=payload.from_date,
+        to_date=payload.to_date,
+        reason=payload.reason,
+        status="Requested",
+        requested_by=current_user.email,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
 @router.get("/students/{student_id}/marks")
 def portal_student_marks(
     student_id: int,
