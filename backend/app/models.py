@@ -421,6 +421,15 @@ class Mark(Base):
     total_marks = Column(Float, default=100)
 
     grade = Column(String, nullable=True)
+
+    # The percentage grade was actually computed from: raw
+    # marks_obtained/total_marks when the exam's components carry no
+    # weightage, otherwise the weightage-adjusted percentage. Kept alongside
+    # grade so report cards and rank calculations use the same number the
+    # grade came from instead of re-deriving a (possibly different) raw
+    # percentage from marks_obtained/total_marks.
+    percentage = Column(Float, nullable=True)
+
     remarks = Column(String, nullable=True)
 
 

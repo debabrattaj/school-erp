@@ -335,6 +335,29 @@ class AttendanceResponse(AttendanceBase):
         from_attributes = True
 
 
+class AttendanceRosterEntry(BaseModel):
+    student_id: int
+    student_name: str
+    roll_no: Optional[str] = None
+    attendance_id: Optional[int] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+    source: Optional[str] = None
+
+
+class AttendanceBulkEntry(BaseModel):
+    student_id: int
+    status: str
+    remarks: Optional[str] = None
+
+
+class AttendanceBulkCreate(BaseModel):
+    attendance_date: date
+    class_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    entries: List[AttendanceBulkEntry]
+
+
 # =========================
 # Fees
 # =========================
@@ -624,6 +647,10 @@ class MarkBase(BaseModel):
     total_marks: Optional[float] = 100
 
     grade: Optional[str] = None
+    # Server-computed like grade, never trusted from a client: raw
+    # marks_obtained/total_marks when the exam's components carry no
+    # weightage, otherwise the weightage-adjusted percentage.
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -674,6 +701,7 @@ class MarkUpdate(BaseModel):
     max_marks: Optional[float] = None
     total_marks: Optional[float] = None
     grade: Optional[str] = None
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
     component_scores: Optional[list[MarkComponentScoreCreate]] = None
 
