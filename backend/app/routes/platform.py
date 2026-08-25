@@ -81,7 +81,6 @@ FEATURE_LABELS = {
     "multi_curriculum": "Multi Curriculum",
     "academic_years": "Academic Years",
     "parent_portal": "Parent/Student Portal",
-    "ai_chatbot": "AI Assistant",
     "timetable": "Timetable",
     "online_tests": "Online Exam (add-on)",
     "online_test_proctoring": "Online Exam Proctoring (add-on)",
