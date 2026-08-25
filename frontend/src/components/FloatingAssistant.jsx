@@ -126,7 +126,7 @@ export default function FloatingAssistant() {
             </span>
             <div className="floating-assistant-panel-header-text">
               <div className="floating-assistant-panel-header-title">
-                School Assistant
+                Sai
                 <span className="floating-assistant-status-dot" title="Online" />
               </div>
               <div className="floating-assistant-panel-header-subtitle">

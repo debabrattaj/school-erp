@@ -5,7 +5,7 @@ import API from "../api";
 
 const INITIAL_MESSAGE = {
   from: "bot",
-  text: "Hello! I'm the school assistant. Ask me about attendance, fees, marks, timetable, upcoming exams, class details or academic history.",
+  text: "Hello! I'm Sai, your school assistant. Ask me about attendance, fees, marks, timetable, upcoming exams, class details or academic history.",
   suggestions: ["Attendance", "Fees pending", "Exam results", "Timetable", "Help"],
 };
 
