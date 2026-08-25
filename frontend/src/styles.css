@@ -4412,7 +4412,7 @@ body,
   padding: 14px;
 }
 
-.student360-metric-icon {
+.student360-metric-icon.student360-metric-icon {
   align-items: center;
   background: var(--warning-100);
   border-radius: 8px;
@@ -7686,7 +7686,7 @@ textarea {
   padding: 14px;
 }
 
-.student360-metric-icon {
+.student360-metric-icon.student360-metric-icon {
   align-items: center;
   background: var(--saas-accent-soft);
   border-radius: 8px;
