@@ -93,6 +93,11 @@ class SchoolSettingsBase(BaseModel):
     receipt_prefix: Optional[str] = "REC"
     upi_id: Optional[str] = None
     late_fee_rule: Optional[str] = None
+    # Structured fields run_late_fee_charges.py actually computes from;
+    # late_fee_rule above stays a free-text description shown to parents.
+    late_fee_amount: Optional[float] = None
+    late_fee_frequency: Optional[str] = None  # One-Time, Weekly, Monthly
+    late_fee_grace_days: Optional[int] = 0
 
     pass_percentage: Optional[float] = 40
     grade_rules: Optional[str] = (
@@ -335,6 +340,29 @@ class AttendanceResponse(AttendanceBase):
         from_attributes = True
 
 
+class AttendanceRosterEntry(BaseModel):
+    student_id: int
+    student_name: str
+    roll_no: Optional[str] = None
+    attendance_id: Optional[int] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+    source: Optional[str] = None
+
+
+class AttendanceBulkEntry(BaseModel):
+    student_id: int
+    status: str
+    remarks: Optional[str] = None
+
+
+class AttendanceBulkCreate(BaseModel):
+    attendance_date: date
+    class_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    entries: List[AttendanceBulkEntry]
+
+
 # =========================
 # Fees
 # =========================
@@ -379,6 +407,9 @@ class FeeResponse(FeeBase):
     # Discount applied; total_amount stays the gross figure so a receipt can
     # show what was charged and what was waived, not just the net.
     concession_amount: float = 0
+    # Server-computed by run_late_fee_charges.py; zero unless the school has
+    # configured a late fee rule and this fee is actually overdue.
+    late_fee_charged: float = 0
 
     class Config:
         from_attributes = True
@@ -624,6 +655,10 @@ class MarkBase(BaseModel):
     total_marks: Optional[float] = 100
 
     grade: Optional[str] = None
+    # Server-computed like grade, never trusted from a client: raw
+    # marks_obtained/total_marks when the exam's components carry no
+    # weightage, otherwise the weightage-adjusted percentage.
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -674,6 +709,7 @@ class MarkUpdate(BaseModel):
     max_marks: Optional[float] = None
     total_marks: Optional[float] = None
     grade: Optional[str] = None
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
     component_scores: Optional[list[MarkComponentScoreCreate]] = None
 
@@ -1357,6 +1393,25 @@ class CommunicationLogResponse(CommunicationLogBase):
 
     class Config:
         from_attributes = True
+
+
+class CommunicationBulkClassCreate(BaseModel):
+    """Send one message to every active student's guardian in a class
+    (optionally scoped to one section) -- one CommunicationLog per
+    recipient, same delivery path as a single create_log call."""
+    class_name: str
+    section: Optional[str] = None
+    template_id: Optional[int] = None
+    channel: Optional[str] = "WhatsApp"
+    category: str
+    message_body: str
+
+
+class CommunicationBulkResult(BaseModel):
+    matched_count: int
+    sent_count: int
+    failed_count: int
+    skipped_count: int  # matched student had no contact info for this channel
 
 
 class StudentServiceTicketBase(BaseModel):
@@ -2681,3 +2736,33 @@ class BiometricConfigUpdate(BaseModel):
 class BiometricDeriveRequest(BaseModel):
     target_date: Optional[date] = None
     academic_year: Optional[str] = None
+
+
+# =========================
+# Student Leave Requests
+# =========================
+
+class StudentLeaveRequestCreate(BaseModel):
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+
+
+class StudentLeaveDecision(BaseModel):
+    note: Optional[str] = None
+
+
+class StudentLeaveRequestResponse(BaseModel):
+    id: int
+    student_id: int
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+    status: str
+    requested_by: str
+    decided_by: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+
+    class Config:
+        from_attributes = True

@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Fee, Student, SchoolSettings, User
+from app.models import Fee, ReceiptSequence, Student, SchoolSettings, User
 from app import concessions
 from app.notifications import notify_guardian_fee_added
 from app.payment_links import verify_payment_link_token
@@ -63,16 +63,23 @@ def get_settings(db: Session):
     return settings
 
 
-def calculate_fee_status(total_amount: float, paid_amount: float, concession_amount: float = 0):
+def calculate_fee_status(
+    total_amount: float,
+    paid_amount: float,
+    concession_amount: float = 0,
+    late_fee_charged: float = 0,
+):
     """Outstanding amount and status for a fee.
 
-    concession_amount defaults to zero so the seven call sites that predate
-    concessions keep their exact previous behaviour; only callers holding a Fee
-    row pass it. What a guardian owes is total minus the discount, so a fee
-    fully covered by a scholarship reads as Paid with nothing outstanding
-    rather than sitting Unpaid forever.
+    concession_amount and late_fee_charged default to zero so call sites
+    that predate concessions/late fees keep their exact previous behaviour;
+    only callers holding a Fee row pass them. What a guardian owes is total
+    minus any discount plus any fine, so a fee fully covered by a
+    scholarship reads as Paid with nothing outstanding, and an overdue fee
+    a school has started fining shows the real amount now due rather than
+    just the original total.
     """
-    payable = (total_amount or 0) - (concession_amount or 0)
+    payable = (total_amount or 0) - (concession_amount or 0) + (late_fee_charged or 0)
     payable = max(payable, 0)
     due_amount = round(payable - (paid_amount or 0), 2)
 
@@ -83,6 +90,19 @@ def calculate_fee_status(total_amount: float, paid_amount: float, concession_amo
         return due_amount, "Partial"
 
     return due_amount, "Unpaid"
+
+
+def outstanding_balance(fee: Fee) -> float:
+    """What's actually left to pay on a fee -- total minus any concession
+    plus any late fee charged, minus what's already been paid. The UPI
+    payment paths used to compute this as a bare total_amount - paid_amount,
+    which quietly ignored both concessions and late fees; routed through
+    calculate_fee_status here so a parent's UPI QR always asks for the real
+    amount owed."""
+    due_amount, _ = calculate_fee_status(
+        fee.total_amount, fee.paid_amount, fee.concession_amount, fee.late_fee_charged
+    )
+    return due_amount
 
 
 def validate_fee_amounts(fee_type: str, total_amount: float, paid_amount: float):
@@ -111,15 +131,41 @@ def validate_fee_amounts(fee_type: str, total_amount: float, paid_amount: float)
         )
 
 
+def financial_year_label(on_date) -> str:
+    """Indian school financial year, April to March: "2026-27" for any date
+    from 1 Apr 2026 to 31 Mar 2027."""
+    start_year = on_date.year if on_date.month >= 4 else on_date.year - 1
+    return f"{start_year}-{str(start_year + 1)[-2:]}"
+
+
 def generate_receipt_no(db: Session):
+    """Financial-year-scoped and tracked in its own ratcheting counter
+    rather than a running COUNT(*) or MAX() over the fees table: counting
+    every Fee row ever created meant the number reset with the calendar
+    year (not the school's financial year), and deriving the next number
+    from what's currently in the fees table -- via COUNT or MAX alike --
+    means deleting the most-recently-numbered fee exposes the previous
+    number again, so the very next receipt generated collides with the
+    deleted one. A separate sequence row per financial year, incremented
+    and never decremented, can't be rewound by a delete.
+    """
     settings = get_settings(db)
-
     prefix = settings.receipt_prefix or "REC"
-    year = datetime.now().year
+    fy = financial_year_label(datetime.now().date())
 
-    count = db.query(Fee).count() + 1
+    sequence = (
+        db.query(ReceiptSequence)
+        .filter(ReceiptSequence.financial_year == fy)
+        .first()
+    )
+    if not sequence:
+        sequence = ReceiptSequence(financial_year=fy, last_number=0)
+        db.add(sequence)
 
-    return f"{prefix}-{year}-{str(count).zfill(5)}"
+    sequence.last_number += 1
+    db.flush()
+
+    return f"{prefix}-{fy}-{str(sequence.last_number).zfill(5)}"
 
 
 @router.post("/", response_model=FeeResponse)
@@ -467,7 +513,9 @@ def update_fee(
         exclude_unset=True
     )
 
-    _, original_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+    _, original_status = calculate_fee_status(
+        fee.total_amount, fee.paid_amount, fee.concession_amount, fee.late_fee_charged
+    )
 
     if original_status == "Paid":
         raise HTTPException(
@@ -539,7 +587,9 @@ def update_fee(
 
     due_amount, payment_status = calculate_fee_status(
         fee.total_amount,
-        fee.paid_amount
+        fee.paid_amount,
+        fee.concession_amount,
+        fee.late_fee_charged,
     )
 
     fee.due_amount = due_amount
@@ -597,7 +647,7 @@ def upi_payment_details(
     if not fee:
         raise HTTPException(status_code=404, detail="Fee record not found")
 
-    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    balance = outstanding_balance(fee)
     if balance <= 0:
         raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
 
@@ -643,14 +693,16 @@ def confirm_upi_payment(
     if not fee:
         raise HTTPException(status_code=404, detail="Fee record not found")
 
-    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    balance = outstanding_balance(fee)
     if balance <= 0:
         raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
 
-    # Payment received: settle the balance.
-    fee.paid_amount = fee.total_amount
+    # Payment received: settle the balance, including any concession/late fee.
+    fee.paid_amount = (fee.paid_amount or 0) + balance
     fee.payment_date = datetime.now().date()
-    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+    due_amount, payment_status = calculate_fee_status(
+        fee.total_amount, fee.paid_amount, fee.concession_amount, fee.late_fee_charged
+    )
     fee.due_amount = due_amount
     fee.payment_status = payment_status
     if not fee.receipt_no:
@@ -695,7 +747,7 @@ def public_payment_page(fee_id: int, token: str, db: Session = Depends(get_db)):
     if not fee:
         return _payment_page("<h2>Fee record not found.</h2>", status_code=404)
 
-    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
+    balance = outstanding_balance(fee)
     if balance <= 0:
         return _payment_page("<h2>This fee is already fully paid.</h2><p>Thank you!</p>")
 

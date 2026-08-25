@@ -9,6 +9,7 @@ import {
   FileText,
   Layers,
   Wallet,
+  X,
 } from "lucide-react";
 
 import API from "../api";
@@ -88,6 +89,10 @@ export default function StudentDetails() {
 
   const [showDocsMenu, setShowDocsMenu] = useState(false);
   const docsMenuRef = useRef(null);
+
+  const [showTcModal, setShowTcModal] = useState(false);
+  const [tcReason, setTcReason] = useState("");
+  const [tcConduct, setTcConduct] = useState("Good");
 
   useEffect(() => {
     if (!showDocsMenu) return undefined;
@@ -453,10 +458,11 @@ export default function StudentDetails() {
     : `${student.class_name || "-"} ${student.section || ""}`.trim();
   const studentStatus = student.student_status || student.status || "Active";
 
-  async function downloadDoc(endpoint, filePrefix) {
+  async function downloadDoc(endpoint, filePrefix, params) {
     try {
       const response = await API.get(`/students/${student.id}/${endpoint}`, {
         responseType: "blob",
+        params,
       });
       const url = window.URL.createObjectURL(
         new Blob([response.data], { type: "application/pdf" })
@@ -472,6 +478,21 @@ export default function StudentDetails() {
       const detail = error.response?.data?.detail;
       setMessage(typeof detail === "string" ? detail : "Unable to download document.");
     }
+  }
+
+  function openTcModal() {
+    setTcReason("");
+    setTcConduct("Good");
+    setShowTcModal(true);
+  }
+
+  async function handleTcSubmit(e) {
+    e.preventDefault();
+    setShowTcModal(false);
+    await downloadDoc("transfer-certificate", "transfer_certificate", {
+      reason: tcReason || undefined,
+      conduct: tcConduct || undefined,
+    });
   }
 
   return (
@@ -534,7 +555,11 @@ export default function StudentDetails() {
                     role="menuitem"
                     onClick={() => {
                       setShowDocsMenu(false);
-                      downloadDoc(doc.endpoint, doc.filePrefix);
+                      if (doc.endpoint === "transfer-certificate") {
+                        openTcModal();
+                      } else {
+                        downloadDoc(doc.endpoint, doc.filePrefix);
+                      }
                     }}
                   >
                     <Download size={15} />
@@ -548,6 +573,51 @@ export default function StudentDetails() {
       </section>
 
       {message && <div className="toast-notification">{message}</div>}
+
+      {showTcModal && (
+        <div className="layout-modal-backdrop" onClick={() => setShowTcModal(false)}>
+          <div className="layout-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="layout-modal-header">
+              <h3>Transfer Certificate Details</h3>
+              <button type="button" className="light-icon-button" onClick={() => setShowTcModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form className="classic-form" onSubmit={handleTcSubmit}>
+              <div className="form-field">
+                <label>Reason for Leaving</label>
+                <input
+                  type="text"
+                  value={tcReason}
+                  onChange={(e) => setTcReason(e.target.value)}
+                  placeholder="e.g. Relocation, completed schooling"
+                />
+              </div>
+
+              <div className="form-field">
+                <label>Conduct</label>
+                <select value={tcConduct} onChange={(e) => setTcConduct(e.target.value)}>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Satisfactory">Satisfactory</option>
+                  <option value="Needs Improvement">Needs Improvement</option>
+                </select>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  <Download size={16} />
+                  Generate Certificate
+                </button>
+                <button type="button" className="light-button" onClick={() => setShowTcModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <section className="student-profile-tabs">
         {tabs.map(([tab, label]) => (

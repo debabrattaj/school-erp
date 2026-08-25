@@ -63,13 +63,7 @@ def get_school_settings(db: Session):
     return settings
 
 
-def calculate_grade(
-    marks_obtained: float,
-    total_marks: float,
-    db: Session
-):
-    percentage = (marks_obtained / total_marks) * 100
-
+def calculate_grade_from_percentage(percentage: float, db: Session):
     settings = get_school_settings(db)
 
     grade_rules = settings.grade_rules or (
@@ -96,6 +90,63 @@ def calculate_grade(
         return "F"
 
     return "Pass"
+
+
+def calculate_grade(
+    marks_obtained: float,
+    total_marks: float,
+    db: Session
+):
+    percentage = (marks_obtained / total_marks) * 100 if total_marks else 0.0
+    return calculate_grade_from_percentage(percentage, db)
+
+
+def compute_weighted_percentage(db: Session, normalized_scores: list):
+    """The percentage implied by each component's weightage, when every
+    component tied to this mark carries one. A component left without a
+    weightage means the exam hasn't opted into weighted grading, so the
+    caller falls back to raw marks_obtained/total_marks instead of treating
+    a partial weighting scheme as complete."""
+    component_ids = [
+        score["exam_component_id"] for score in normalized_scores
+        if score.get("exam_component_id")
+    ]
+
+    if len(component_ids) != len(normalized_scores):
+        return None
+
+    components = db.query(ExamComponent).filter(
+        ExamComponent.id.in_(component_ids)
+    ).all()
+    weightage_by_id = {component.id: component.weightage for component in components}
+
+    if any(weightage_by_id.get(cid) is None for cid in component_ids):
+        return None
+
+    total_weightage = sum(weightage_by_id[cid] for cid in component_ids)
+    if total_weightage <= 0:
+        return None
+
+    weighted_sum = sum(
+        (score["marks_obtained"] / score["max_marks"])
+        * weightage_by_id[score["exam_component_id"]]
+        for score in normalized_scores
+    )
+
+    return (weighted_sum / total_weightage) * 100
+
+
+def resolve_grade_and_percentage(data: dict, db: Session):
+    percentage = data.get("percentage")
+
+    if percentage is None:
+        percentage = (
+            (data["marks_obtained"] / data["total_marks"]) * 100
+            if data["total_marks"] else 0.0
+        )
+
+    grade = calculate_grade_from_percentage(percentage, db)
+    return grade, percentage
 
 
 def find_student_class_id(student: Student):
@@ -181,8 +232,69 @@ def normalize_mark_payload(db: Session, mark_data):
             )
             data["max_marks"] = sum(score["max_marks"] for score in normalized_scores)
             data["total_marks"] = data["max_marks"]
+            data["percentage"] = compute_weighted_percentage(db, normalized_scores)
 
     return data
+
+
+def compute_exam_ranks(db: Session, exam_id: int, class_id: int | None = None):
+    """Class rank for every student with marks recorded for this exam, keyed
+    by student_id. Ranked on the same weighted-if-available percentage the
+    report card shows -- a rank based on a different number than the one
+    printed next to it would just be confusing. Students are only ever
+    ranked against their own class_id, never across classes, since raw
+    percentage isn't comparable across different cohorts/curricula. Ties
+    share a rank and the next distinct score skips accordingly (1, 1, 3)."""
+    query = db.query(Mark).filter(Mark.exam_id == exam_id)
+    if class_id is not None:
+        query = query.filter(Mark.class_id == class_id)
+    marks = query.all()
+
+    totals_by_student = {}
+    for mark in marks:
+        key = (mark.class_id, mark.student_id)
+        bucket = totals_by_student.setdefault(key, {"total_obtained": 0.0, "total_max": 0.0})
+        maximum = float(mark.max_marks or mark.total_marks or 0)
+        effective_obtained = (
+            (mark.percentage / 100) * maximum
+            if mark.percentage is not None else float(mark.marks_obtained or 0)
+        )
+        bucket["total_obtained"] += effective_obtained
+        bucket["total_max"] += maximum
+
+    by_class = {}
+    for (cls_id, student_id), totals in totals_by_student.items():
+        by_class.setdefault(cls_id, []).append((student_id, totals))
+
+    ranks_by_student = {}
+    for cls_id, entries in by_class.items():
+        scored = []
+        for student_id, totals in entries:
+            percentage = (
+                totals["total_obtained"] / totals["total_max"] * 100
+                if totals["total_max"] else 0.0
+            )
+            scored.append((student_id, totals["total_obtained"], totals["total_max"], percentage))
+
+        scored.sort(key=lambda row: row[3], reverse=True)
+
+        rank = 0
+        previous_percentage = None
+        for position, (student_id, total_obtained, total_max, percentage) in enumerate(scored, start=1):
+            if percentage != previous_percentage:
+                rank = position
+                previous_percentage = percentage
+            ranks_by_student[student_id] = {
+                "student_id": student_id,
+                "class_id": cls_id,
+                "total_obtained": total_obtained,
+                "total_max": total_max,
+                "percentage": percentage,
+                "rank": rank,
+                "out_of": len(scored),
+            }
+
+    return ranks_by_student
 
 
 def attach_component_scores(db: Session, mark: Mark):
@@ -355,11 +467,7 @@ def create_mark(
             detail="Marks already added for this student, exam and subject"
         )
 
-    grade = calculate_grade(
-        data["marks_obtained"],
-        data["total_marks"],
-        db
-    )
+    grade, percentage = resolve_grade_and_percentage(data, db)
 
     new_mark = Mark(
         student_id=data["student_id"],
@@ -376,6 +484,7 @@ def create_mark(
         max_marks=data["max_marks"],
         total_marks=data["total_marks"],
         grade=grade,
+        percentage=percentage,
         remarks=data.get("remarks")
     )
 
@@ -417,7 +526,17 @@ def report_card(
     for mark in marks:
         obtained = float(mark.marks_obtained or 0)
         maximum = float(mark.max_marks or mark.total_marks or 0)
-        total_obtained += obtained
+        # The subject row shows the raw marks the student actually scored.
+        # The overall total below instead folds in each subject's weighted
+        # percentage (when its exam components carry one) so the report
+        # card's bottom line matches the same number that decided the
+        # subject's own grade, not a re-derived raw sum that could disagree
+        # with it.
+        effective_obtained = (
+            (mark.percentage / 100) * maximum
+            if mark.percentage is not None else obtained
+        )
+        total_obtained += effective_obtained
         total_max += maximum
         rows.append({
             "subject": mark.subject_name or mark.subject or "-",
@@ -442,6 +561,12 @@ def report_card(
     if section:
         class_label = f"{class_label} - {section}"
 
+    mark_class_id = marks[0].class_id
+    rank_info = (
+        compute_exam_ranks(db, exam_id, mark_class_id).get(student_id)
+        if mark_class_id is not None else None
+    )
+
     pdf_bytes = report_card_pdf({
         "school_name": settings.school_name,
         "student_name": student_name,
@@ -454,6 +579,8 @@ def report_card(
         "total_max": total_max,
         "percentage": percentage,
         "overall_grade": overall_grade,
+        "rank": rank_info["rank"] if rank_info else None,
+        "out_of": rank_info["out_of"] if rank_info else None,
     })
 
     filename = f"report_card_{student.admission_no or student.id}.pdf"
@@ -462,6 +589,40 @@ def report_card(
         media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename={filename}"},
     )
+
+
+@router.get("/rank")
+def get_exam_rank(
+    exam_id: int,
+    class_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
+):
+    """Class rank for every student with marks recorded for this exam."""
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    ranks = compute_exam_ranks(db, exam_id, class_id)
+
+    students = (
+        db.query(Student).filter(Student.id.in_(ranks.keys())).all()
+        if ranks else []
+    )
+    student_by_id = {student.id: student for student in students}
+
+    rows = []
+    for student_id, info in ranks.items():
+        student = student_by_id.get(student_id)
+        student_name = (
+            f"{student.first_name or ''} {student.last_name or ''}".strip()
+            if student else f"Student {student_id}"
+        ) or f"Student {student_id}"
+
+        rows.append({**info, "student_name": student_name})
+
+    rows.sort(key=lambda row: (row["class_id"] or 0, row["rank"]))
+    return rows
 
 
 @router.get("/", response_model=list[MarkResponse])
@@ -681,10 +842,13 @@ def update_mark(
             detail="Marks obtained cannot be greater than total marks"
         )
 
-    mark.grade = calculate_grade(
-        mark.marks_obtained,
-        mark.total_marks,
-        db
+    mark.grade, mark.percentage = resolve_grade_and_percentage(
+        {
+            "marks_obtained": mark.marks_obtained,
+            "total_marks": mark.total_marks,
+            "percentage": merged_data.get("percentage"),
+        },
+        db,
     )
 
     db.commit()

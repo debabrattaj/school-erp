@@ -128,6 +128,7 @@ DEFAULT_FEATURES = {
     # templates freely, but nothing fires unattended until enabled here.
     "fee_auto_generation": False,
     "fee_reminders": False,
+    "fee_late_charges": False,
     # Emails/SMSes borrowers about overdue library books on a schedule, same
     # opt-in gating as fee_reminders -- a module that messages parents/staff
     # unattended must not switch itself on.

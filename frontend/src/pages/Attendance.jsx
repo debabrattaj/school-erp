@@ -8,6 +8,7 @@ import {
   Eye,
   X,
   CalendarCheck,
+  Users,
 } from "lucide-react";
 
 import API from "../api";
@@ -69,6 +70,15 @@ export default function Attendance() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  const [classOptions, setClassOptions] = useState([]);
+  const [bulkClassId, setBulkClassId] = useState("");
+  const [bulkDate, setBulkDate] = useState("");
+  const [bulkRoster, setBulkRoster] = useState([]);
+  const [bulkRosterLoaded, setBulkRosterLoaded] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState("");
+
   useEffect(() => {
     if (!message) return undefined;
 
@@ -116,6 +126,114 @@ export default function Attendance() {
   async function loadStudents() {
     const response = await API.get("/students/");
     setStudents(response.data || []);
+  }
+
+  async function loadClassOptions() {
+    try {
+      const response = await API.get("/classes/");
+      setClassOptions(response.data || []);
+    } catch (error) {
+      console.error("Unable to load classes", error);
+    }
+  }
+
+  function classLabel(schoolClass) {
+    if (!schoolClass) return "-";
+    return schoolClass.section
+      ? `${schoolClass.class_name} - ${schoolClass.section}`
+      : schoolClass.class_name;
+  }
+
+  function handleOpenBulkMark() {
+    setBulkClassId("");
+    setBulkDate("");
+    setBulkRoster([]);
+    setBulkRosterLoaded(false);
+    setBulkMessage("");
+    setPageMode("bulk");
+
+    if (classOptions.length === 0) {
+      loadClassOptions();
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function loadBulkRoster() {
+    if (!bulkClassId || !bulkDate) {
+      setBulkMessage("Select a class and date first.");
+      return;
+    }
+
+    setBulkMessage("");
+    setBulkLoading(true);
+
+    try {
+      const response = await API.get("/attendance/roster", {
+        params: { class_id: bulkClassId, attendance_date: bulkDate },
+      });
+
+      setBulkRoster(
+        (response.data || []).map((entry) => ({
+          ...entry,
+          status: entry.status || "Present",
+          remarks: entry.remarks || "",
+        }))
+      );
+      setBulkRosterLoaded(true);
+    } catch (error) {
+      console.error(error);
+      setBulkMessage(
+        error.response?.data?.detail || "Unable to load class roster."
+      );
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  function updateBulkRow(studentId, field, value) {
+    setBulkRoster((prev) =>
+      prev.map((row) =>
+        row.student_id === studentId ? { ...row, [field]: value } : row
+      )
+    );
+  }
+
+  function markAllBulkRows(status) {
+    setBulkRoster((prev) => prev.map((row) => ({ ...row, status })));
+  }
+
+  async function handleBulkSubmit() {
+    if (bulkRoster.length === 0) {
+      setBulkMessage("Nothing to save -- load a class roster first.");
+      return;
+    }
+
+    setBulkMessage("");
+    setBulkSaving(true);
+
+    try {
+      await API.post("/attendance/bulk", {
+        attendance_date: bulkDate,
+        class_id: Number(bulkClassId),
+        entries: bulkRoster.map((row) => ({
+          student_id: row.student_id,
+          status: row.status,
+          remarks: row.remarks || null,
+        })),
+      });
+
+      setMessage(`Attendance saved for ${bulkRoster.length} student(s).`);
+      setPageMode("list");
+      await loadAttendance();
+    } catch (error) {
+      console.error(error);
+      setBulkMessage(
+        error.response?.data?.detail || "Unable to save attendance."
+      );
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   async function loadMasterDropdowns(layoutToRead = layout) {
@@ -608,18 +726,25 @@ export default function Attendance() {
         </div>
 
         <div className="module-header-actions">
-          {pageMode === "form" && (
+          {(pageMode === "form" || pageMode === "bulk") && (
             <button
               type="button"
               className="light-button"
-              onClick={handleCancelEdit}
+              onClick={pageMode === "bulk" ? () => setPageMode("list") : handleCancelEdit}
             >
               <ArrowLeft size={17} />
               Back
             </button>
           )}
 
-          {pageMode !== "form" && (
+          {pageMode === "list" && (
+            <button type="button" className="light-button" onClick={handleOpenBulkMark}>
+              <Users size={18} />
+              Mark by Class
+            </button>
+          )}
+
+          {pageMode !== "form" && pageMode !== "bulk" && (
             <button type="button" className="primary-button" onClick={handleAddAttendance}>
               <PlusCircle size={18} />
               Add Attendance
@@ -663,6 +788,124 @@ export default function Attendance() {
       </section>
 
       {message && <div className="toast-notification">{message}</div>}
+
+      {pageMode === "bulk" && (
+        <section className="form-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Mark Attendance by Class</h3>
+              <p>Pick a class and date, then mark the whole roster in one go.</p>
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Class *</label>
+              <select value={bulkClassId} onChange={(e) => setBulkClassId(e.target.value)}>
+                <option value="">Select Class</option>
+                {classOptions.map((schoolClass) => (
+                  <option key={schoolClass.id} value={schoolClass.id}>
+                    {classLabel(schoolClass)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label>Date *</label>
+              <input
+                type="date"
+                value={bulkDate}
+                onChange={(e) => setBulkDate(e.target.value)}
+              />
+            </div>
+
+            <div className="form-field bulk-roster-load">
+              <label>&nbsp;</label>
+              <button
+                type="button"
+                className="light-button"
+                onClick={loadBulkRoster}
+                disabled={bulkLoading}
+              >
+                {bulkLoading ? "Loading..." : "Load Roster"}
+              </button>
+            </div>
+          </div>
+
+          {bulkMessage && <div className="toast-notification">{bulkMessage}</div>}
+
+          {bulkRosterLoaded && (
+            bulkRoster.length === 0 ? (
+              <div className="empty-table">No active students found in this class.</div>
+            ) : (
+              <>
+                <div className="form-actions" style={{ marginBottom: "0.75rem" }}>
+                  <button type="button" className="light-button" onClick={() => markAllBulkRows("Present")}>
+                    Mark All Present
+                  </button>
+                  <button type="button" className="light-button" onClick={() => markAllBulkRows("Absent")}>
+                    Mark All Absent
+                  </button>
+                </div>
+
+                <div className="table-wrapper">
+                  <table className="classic-table">
+                    <thead>
+                      <tr>
+                        <th>Roll No</th>
+                        <th>Student</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkRoster.map((row) => (
+                        <tr key={row.student_id}>
+                          <td>{row.roll_no || "-"}</td>
+                          <td>{row.student_name}</td>
+                          <td>
+                            <select
+                              value={row.status}
+                              onChange={(e) => updateBulkRow(row.student_id, "status", e.target.value)}
+                            >
+                              {fallbackStatusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={row.remarks}
+                              onChange={(e) => updateBulkRow(row.student_id, "remarks", e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleBulkSubmit}
+                    disabled={bulkSaving}
+                  >
+                    <PlusCircle size={18} />
+                    {bulkSaving ? "Saving..." : `Save Attendance for ${bulkRoster.length} Student(s)`}
+                  </button>
+                </div>
+              </>
+            )
+          )}
+        </section>
+      )}
 
       {pageMode === "form" && (
       <section className="form-panel">

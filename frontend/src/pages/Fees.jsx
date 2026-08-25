@@ -3206,7 +3206,7 @@ export default function Fees() {
           <ManagedRecordsTable
             count={filteredFees.length}
             emptyText="No fee records found."
-            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Balance", "Due Date", "Payment Date", "Status", "Actions"]}
+            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Late Fee", "Balance", "Due Date", "Payment Date", "Status", "Actions"]}
             loading={loading}
             loadingText="Loading fees..."
             searchPlaceholder="Search student, class, year, fee type, status..."
@@ -3221,6 +3221,11 @@ export default function Fees() {
                       <td>{fee.fee_type || "-"}</td>
                       <td>{money(getFeeAmount(fee))}</td>
                       <td>{money(getPaidAmount(fee))}</td>
+                      <td>
+                        {fee.late_fee_charged > 0
+                          ? <span className="status danger">{money(fee.late_fee_charged)}</span>
+                          : "-"}
+                      </td>
                       <td>{money(getBalanceAmount(fee))}</td>
                       <td>{normalizeDateInput(fee.due_date) || "-"}</td>
                       <td>{normalizeDateInput(fee.payment_date) || "-"}</td>

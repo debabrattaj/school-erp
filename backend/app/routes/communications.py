@@ -5,8 +5,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import CommunicationLog, CommunicationTemplate, User
+from app.models import CommunicationLog, CommunicationTemplate, Student, User
 from app.schemas import (
+    CommunicationBulkClassCreate,
+    CommunicationBulkResult,
     CommunicationLogCreate,
     CommunicationLogResponse,
     CommunicationTemplateCreate,
@@ -276,6 +278,89 @@ def create_log(
     db.commit()
     db.refresh(log)
     return serialize_log(log, db)
+
+
+@router.post("/logs/bulk-class", response_model=CommunicationBulkResult)
+def create_log_bulk_class(
+    payload: CommunicationBulkClassCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher", "Accounts"])),
+):
+    """Send one message to every active student's guardian in a class
+    (optionally one section) -- the "all parents of Class X" segment the
+    single-recipient create_log above has no way to express. One
+    CommunicationLog per recipient, same delivery path as create_log."""
+    if payload.channel and payload.channel not in VALID_CHANNELS:
+        raise HTTPException(status_code=400, detail="Invalid communication channel")
+    if not payload.category.strip():
+        raise HTTPException(status_code=400, detail="Category is required")
+    if not payload.message_body.strip():
+        raise HTTPException(status_code=400, detail="Message body is required")
+    if payload.template_id:
+        get_or_404(db, CommunicationTemplate, payload.template_id, "Communication template")
+
+    query = db.query(Student).filter(
+        Student.class_name == payload.class_name,
+        Student.student_status == "Active",
+    )
+    if payload.section:
+        query = query.filter(Student.section == payload.section)
+    students = query.all()
+
+    if not students:
+        raise HTTPException(
+            status_code=404,
+            detail="No active students found for this class/section",
+        )
+
+    channel = payload.channel or "WhatsApp"
+    sent_count = 0
+    failed_count = 0
+    skipped_count = 0
+
+    for student in students:
+        if channel == "Email":
+            has_contact = bool((student.guardian_email or "").strip())
+        elif channel in ("WhatsApp", "SMS"):
+            has_contact = bool((student.guardian_phone or "").strip())
+        else:  # In App
+            has_contact = True
+
+        if not has_contact:
+            skipped_count += 1
+            continue
+
+        recipient_name = (student.guardian_name or "").strip() or f"Parent of {student.first_name}"
+
+        log = CommunicationLog(
+            template_id=payload.template_id,
+            channel=channel,
+            category=payload.category.strip(),
+            recipient_name=recipient_name,
+            recipient_phone=student.guardian_phone,
+            recipient_email=student.guardian_email,
+            message_body=payload.message_body,
+            related_module="students",
+            related_record_id=student.id,
+            status="Queued",
+        )
+        db.add(log)
+        db.flush()
+
+        deliver_message(log, db)
+        if log.status == "Sent":
+            sent_count += 1
+        else:
+            failed_count += 1
+
+    db.commit()
+
+    return CommunicationBulkResult(
+        matched_count=len(students),
+        sent_count=sent_count,
+        failed_count=failed_count,
+        skipped_count=skipped_count,
+    )
 
 
 @router.post("/logs/{log_id}/send", response_model=CommunicationLogResponse)

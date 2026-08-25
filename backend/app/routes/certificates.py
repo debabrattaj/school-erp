@@ -164,7 +164,11 @@ def transcript(
             for mark in exam_info["marks"]:
                 obtained = float(mark.marks_obtained or 0)
                 maximum = float(mark.max_marks or mark.total_marks or 0)
-                total_obtained += obtained
+                effective_obtained = (
+                    (mark.percentage / 100) * maximum
+                    if mark.percentage is not None else obtained
+                )
+                total_obtained += effective_obtained
                 total_max += maximum
                 rows.append({
                     "subject": mark.subject_name or mark.subject or "-",

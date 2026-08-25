@@ -944,6 +944,53 @@ source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activa
    with `--dry-run` appended, check the logged cycles look right, then run
    it for real once before trusting the schedule to fire unattended.
 
+## 9b. Scheduled late fee charging
+
+Institution Settings gained three fields for computing a real fine on
+overdue fees, alongside the pre-existing free-text "Late Fee Rule"
+description shown to parents (which nothing ever computed from):
+
+- `late_fee_amount` — the fine amount.
+- `late_fee_frequency` — `One-Time` | `Weekly` | `Monthly`.
+- `late_fee_grace_days` — days after `due_date` before a fine starts.
+
+`run_late_fee_charges.py` finds every Fee with an outstanding balance and a
+past-due `due_date` (past the grace period), computes what the fine should
+be as of today (`app/late_fee_scheduling.py`, always recomputed from
+scratch so re-running is idempotent rather than compounding), and — if it
+changed — updates the fee's `late_fee_charged`, `due_amount` and
+`payment_status`.
+
+**Off by default, platform-owner gated**, same pattern as §9: a school's
+own Admin can fill in the three Settings fields freely, but nothing is
+actually charged until the platform owner enables `fee_late_charges` via
+the Platform Console (Manage Modules → Automatic Late Fee Charges) or
+`PUT /platform/schools/{id}/features` with `{"fee_late_charges": true}`.
+
+### Running it
+
+```bash
+cd backend
+python run_late_fee_charges.py             # apply late fees where due, for every school
+python run_late_fee_charges.py --dry-run   # log what would change, change nothing
+```
+
+**Before relying on the schedule**, apply the migration on every tenant DB
+(§4): `python manage_migrations.py upgrade head`.
+
+### Wiring it up in cPanel
+
+Same shape as §9's cron job — add a second Cron Job entry calling this
+script instead:
+
+```
+source /home/schoolm1/virtualenv/repositories/school-erp/backend/3.11/bin/activate && cd /home/schoolm1/repositories/school-erp/backend && python run_late_fee_charges.py >> /home/schoolm1/logs/late_fee_cron.log 2>&1
+```
+
+Once a day is plenty. Test with `--dry-run` from cPanel's Terminal first,
+check the logged changes look right, then run it for real once before
+trusting the schedule to fire unattended.
+
 ## 10. Online admission form
 
 Prospective parents can submit an admission inquiry themselves, without an

@@ -8751,6 +8751,7 @@ textarea:focus-visible {
   border-radius: var(--radius-pill);
   font-size: 0;
   gap: 0;
+  justify-content: center;
   background: linear-gradient(135deg, var(--brand-400), var(--primary));
   border: none;
   box-shadow: 0 10px 24px rgba(37, 41, 219, 0.35), 0 2px 6px rgba(15, 23, 42, 0.12);

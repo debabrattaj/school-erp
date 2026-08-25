@@ -80,7 +80,16 @@ class SchoolSettings(Base):
     # letting it decide what it pays us.
     razorpay_linked_account_id = Column(String, nullable=True)   # acc_XXXXXXXX
     platform_commission_percent = Column(Float, nullable=False, default=0)
+
+    # late_fee_rule is a free-text description shown to parents ("₹50 per
+    # week after due date") -- kept as-is for that. The three fields below
+    # are what the run_late_fee_charges.py cron actually computes from; all
+    # nullable/zero so a school that never touches this new UI section
+    # continues to have no fine ever charged, matching current behavior.
     late_fee_rule = Column(String, nullable=True)
+    late_fee_amount = Column(Float, nullable=True)
+    late_fee_frequency = Column(String, nullable=True)  # One-Time, Weekly, Monthly
+    late_fee_grace_days = Column(Integer, nullable=False, default=0)
 
     # Assessment
     pass_percentage = Column(Float, nullable=True, default=40)
@@ -260,6 +269,18 @@ class Attendance(Base):
     source = Column(String, nullable=False, default="Manual", index=True)
 
 
+class ReceiptSequence(Base):
+    """A ratcheting counter per financial year, tracked independently of the
+    fees table so deleting a fee (even the most-recently-numbered one)
+    never rewinds it -- a number generate_receipt_no() hands out is never
+    handed out again, regardless of what happens to the fee it was for."""
+    __tablename__ = "receipt_sequences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    financial_year = Column(String, nullable=False, unique=True, index=True)
+    last_number = Column(Integer, nullable=False, default=0)
+
+
 class Fee(Base):
     __tablename__ = "fees"
 
@@ -277,6 +298,11 @@ class Fee(Base):
     # total_amount - concession_amount; see calculate_fee_status. Defaults to
     # zero so every fee written before concessions existed is unaffected.
     concession_amount = Column(Float, nullable=False, default=0)
+    # Cumulative fine from run_late_fee_charges.py, recomputed from scratch
+    # each run (not incremented) so a re-run is idempotent rather than
+    # compounding. Zero for every school that hasn't configured a late fee
+    # rule, and for every fee predating this column.
+    late_fee_charged = Column(Float, nullable=False, default=0)
     paid_amount = Column(Float, default=0)
     due_amount = Column(Float, default=0)
 
@@ -421,6 +447,15 @@ class Mark(Base):
     total_marks = Column(Float, default=100)
 
     grade = Column(String, nullable=True)
+
+    # The percentage grade was actually computed from: raw
+    # marks_obtained/total_marks when the exam's components carry no
+    # weightage, otherwise the weightage-adjusted percentage. Kept alongside
+    # grade so report cards and rank calculations use the same number the
+    # grade came from instead of re-deriving a (possibly different) raw
+    # percentage from marks_obtained/total_marks.
+    percentage = Column(Float, nullable=True)
+
     remarks = Column(String, nullable=True)
 
 
@@ -2469,6 +2504,39 @@ class LeaveRequest(Base):
     reason = Column(Text, nullable=True)
     status = Column(String, nullable=False, default="Requested", index=True)
     # Requested, Approved, Rejected, Cancelled
+
+    decided_by = Column(String, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    decision_note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StudentLeaveRequest(Base):
+    """A guardian's application for a child to be away.
+
+    Deliberately not the staff LeaveRequest model reused: there is no
+    quota/balance/accrual concept for a student absence, and no cover to
+    raise. Approval's only effect is marking Attendance "Excused" for each
+    working day in range -- the thing the staff-only leave module left with
+    nothing to point at.
+    """
+
+    __tablename__ = "student_leave_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    from_date = Column(Date, nullable=False, index=True)
+    to_date = Column(Date, nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="Requested", index=True)
+    # Requested, Approved, Rejected, Cancelled
+
+    # Email snapshot of the guardian who submitted it, same convention as
+    # every other "who did X" field in this app.
+    requested_by = Column(String, nullable=False)
 
     decided_by = Column(String, nullable=True)
     decided_at = Column(DateTime, nullable=True)
