@@ -1952,6 +1952,44 @@ tr[draggable="true"]:active{cursor:grabbing}
     <div class="loader-text">Working&hellip;</div>
 </div>
 
+<div id="startModal" class="modal-backdrop">
+
+    <div class="modal">
+
+        <div class="modal-head">
+            <h3 class="modal-title">Start or open a plan</h3>
+            <p class="modal-sub">Create a new implementation plan, or open one already saved on this record.</p>
+        </div>
+
+        <div class="modal-body">
+
+            <div class="field" style="margin-bottom:16px;">
+                <label class="field-label" for="startFileNameInput">New plan name</label>
+                <input
+                    class="input"
+                    type="text"
+                    id="startFileNameInput"
+                    placeholder="e.g. Untitled Implementation Plan"
+                />
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="startVersionSelect">Or open a saved plan</label>
+                <select class="select" id="startVersionSelect">
+                    <option value="">— Select a saved plan —</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="modal-foot">
+            <button class="btn btn-primary" onclick="handleStartModalCreate()">Create</button>
+        </div>
+
+    </div>
+
+</div>
+
 <div id="milestoneModal" class="modal-backdrop">
 
     <div class="modal">
@@ -4265,11 +4303,11 @@ console.error("Error loading versions",e);
 
 /* LOAD VERSION USING getFile */
 
-async function loadVersion(){
-
-/* persist any pending edits to the document we're switching away from
-   before loading a different one */
-await flushAutosave()
+/* Core "open this saved attachment into the tables" logic, shared by the
+   main version dropdown (loadVersion, below) and the startup modal
+   (handleStartModalCreate). fileId === "" / "Select Version" / falsy
+   resets to a blank plan instead of loading anything. */
+async function loadVersionById(fileId, selectedLabel){
 
 /* Rebuilding the tables below (and loadTables()'s own date-picker
    restore) runs through the same code paths a user edit would —
@@ -4288,13 +4326,7 @@ updateActionButtons()
 if(startPicker) startPicker.clear()
 if(endPicker) endPicker.clear()
 
-
-let dropdown = document.getElementById("versionDropdown")
-let fileId = dropdown.value
-let selectedLabel = dropdown.options[dropdown.selectedIndex]?.text || ""
-
-
-if(fileId === "Select Version"){
+if(!fileId || fileId === "Select Version"){
 
 currentVersionFileId = null
 currentVersionName = null
@@ -4310,8 +4342,6 @@ setAutosaveStatus("")
 
 return
 }
-
-if(!fileId) return
 
 showLoader()
 
@@ -4352,6 +4382,20 @@ hideLoader()
     suppressAutosave = false
 }
 
+}
+
+/* bound to the main toolbar's #versionDropdown onchange */
+async function loadVersion(){
+
+/* persist any pending edits to the document we're switching away from
+   before loading a different one */
+await flushAutosave()
+
+let dropdown = document.getElementById("versionDropdown")
+let fileId = dropdown.value
+let selectedLabel = dropdown.options[dropdown.selectedIndex]?.text || ""
+
+await loadVersionById(fileId, selectedLabel)
 }
 
 /* populate tables */
@@ -5326,6 +5370,98 @@ async function reloadWidget(){
 
 }
 
+/* =========================================
+   Startup modal — "start a new plan or open
+   a saved one" gate shown once on load
+========================================= */
+
+async function openStartModal(){
+
+    document.getElementById("startFileNameInput").value = getDefaultVersionName()
+    document.getElementById("startVersionSelect").value = ""
+
+    document.getElementById("startModal").style.display = "flex"
+
+    await populateStartModalVersions()
+}
+
+function closeStartModal(){
+    document.getElementById("startModal").style.display = "none"
+}
+
+async function populateStartModalVersions(){
+
+    try{
+
+        let files = await fetchAttachmentList()
+
+        let select = document.getElementById("startVersionSelect")
+        select.innerHTML = "<option value=''>— Select a saved plan —</option>"
+
+        files.forEach(f=>{
+            let op = document.createElement("option")
+            op.value = f.file_id
+            op.text = f.name.replace(".json","")
+            select.appendChild(op)
+        })
+
+    }catch(e){
+        console.error("Error loading versions for start modal", e)
+    }
+}
+
+/* a deliberate dropdown pick always wins over whatever is sitting in the
+   name field (which starts pre-filled with a default name), since
+   picking a specific saved plan is the more explicit of the two actions */
+async function handleStartModalCreate(){
+
+    let nameInput = document.getElementById("startFileNameInput")
+    let versionSelect = document.getElementById("startVersionSelect")
+
+    let selectedFileId = versionSelect.value
+    let selectedLabel = versionSelect.options[versionSelect.selectedIndex]?.text || ""
+
+    let name = nameInput.value.trim()
+
+    if(selectedFileId){
+        closeStartModal()
+        await loadVersionById(selectedFileId, selectedLabel)
+        loadVersions(selectedFileId)
+        return
+    }
+
+    if(name){
+        closeStartModal()
+        await startFreshPlan(name)
+        return
+    }
+
+    showToast("Enter a name for a new plan, or pick a saved one to open")
+}
+
+/* brand-new blank plan under a chosen name — saved immediately rather
+   than waiting out the usual autosave interval, since the user just
+   explicitly asked to create it */
+async function startFreshPlan(name){
+
+    currentVersionFileId = null
+    currentVersionName = null
+
+    milestoneBody.innerHTML = ""
+    resourceBody.innerHTML = ""
+    addMilestoneRow()
+    addResourceRow()
+
+    document.getElementById("versionName").value = name
+    setAutosaveStatus("")
+
+    generateSummary()
+
+    /* performAutosave() (inside flushAutosave) refreshes the version
+       dropdown itself once the save succeeds */
+    await flushAutosave(true)
+}
+
 function openMilestoneModal(){
 
     document.getElementById("milestoneModal").style.display = "flex"
@@ -5469,9 +5605,6 @@ await loadMilestones()
 buildHeaders()
 generateEffortTable()
 fetchRecordDetails()
-// createMilestoneRow()
-addMilestoneRow()
-addResourceRow()
 loadVersions()
 
 enableRowDrag(milestoneBody)
@@ -5481,6 +5614,10 @@ isVersionSaved = false
 isSummaryGenerated = false
 updateActionButtons()
 setAutosaveStatus("")
+
+/* gate the widget behind a "start a new plan or open a saved one"
+   choice instead of defaulting straight into a blank plan */
+await openStartModal()
 
 })
 

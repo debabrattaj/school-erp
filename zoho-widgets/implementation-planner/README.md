@@ -45,6 +45,25 @@ data model, CRM calls and table logic untouched:
   development-phase field is touched, and computed effort values are rounded
   for display.
 
+## Startup: new plan or open a saved one
+
+On load, before the widget is usable, a modal asks you to either name a new
+plan or pick one already saved on the record:
+
+- **New plan name** — pre-filled with the same default name autosave would
+  otherwise pick (`<Record Name> - Implementation Plan`, or "Untitled
+  Implementation Plan"). Click **Create** to start blank under that name;
+  unlike the regular autosave interval, this save happens immediately.
+- **Or open a saved plan** — a dropdown of this record's existing plans
+  (same list as the toolbar's version dropdown). Picking one and clicking
+  **Create** loads it exactly as saved.
+- If both are set when you click Create, the dropdown pick wins — a
+  specific saved plan is the more deliberate of the two choices.
+
+The rest of the widget (tables, toolbar, action bar) still renders behind
+the modal's backdrop, just not usable until a choice is made — there's no
+row data yet at that point, so nothing is lost either way.
+
 ## Autosave
 
 The plan saves itself as you work, the way Google Docs/Sheets do, instead of
