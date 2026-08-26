@@ -336,8 +336,10 @@ export default function PlatformConsole() {
                             <td>{s.stats?.students ?? "-"}</td>
                             <td>{s.features_enabled}/{s.features_total}</td>
                             <td>
-                              <button type="button" className="secondary-button" onClick={() => openManage(s)}><Settings2 size={15} /> Manage</button>{" "}
-                              <button type="button" className="light-button" onClick={() => handleToggleStatus(s)}>{s.status === "Active" ? "Suspend" : "Activate"}</button>
+                              <div className="action-buttons">
+                                <button type="button" className="secondary-button" onClick={() => openManage(s)}><Settings2 size={15} /> Manage</button>
+                                <button type="button" className="light-button" onClick={() => handleToggleStatus(s)}>{s.status === "Active" ? "Suspend" : "Activate"}</button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -554,8 +556,10 @@ export default function PlatformConsole() {
                     <div className="form-field"><label>Actor Email</label>
                       <input value={auditFilters.actor_email} onChange={(e) => setAuditFilters({ ...auditFilters, actor_email: e.target.value })} placeholder="e.g. admin@school.com" /></div>
                   </div>
-                  <button type="submit" className="primary-button"><RefreshCcw size={16} /> Apply Filters</button>{" "}
-                  <button type="button" className="light-button" onClick={() => { setAuditFilters({ account_code: "", actor_email: "" }); }}>Clear</button>
+                  <div className="form-actions">
+                    <button type="submit" className="primary-button"><RefreshCcw size={16} /> Apply Filters</button>
+                    <button type="button" className="light-button" onClick={() => { setAuditFilters({ account_code: "", actor_email: "" }); }}>Clear</button>
+                  </div>
                 </form>
               </section>
 
