@@ -4141,7 +4141,13 @@ async function fetchAttachmentList(){
 
     if(!output) return []
 
-    return JSON.parse(output)
+    console.info("Autosave: getPlannerAttachments raw output: " + output)
+
+    let parsed = JSON.parse(output)
+
+    console.info("Autosave: getPlannerAttachments parsed (" + parsed.length + " entries): " + JSON.stringify(parsed))
+
+    return parsed
 }
 
 /* fallback when attachFile's resolved value doesn't carry a usable id —
