@@ -2018,7 +2018,21 @@ let currentVersionName = null
 let autosaveTimer = null
 let isAutosaving = false
 let autosaveQueued = false
-const AUTOSAVE_DELAY_MS = 1500
+
+/* When true, markAsDirty()/scheduleAutosave() are no-ops — set around
+   code that rebuilds the tables programmatically (loading a saved
+   version, reloading the widget) so that restoring already-saved data
+   isn't mistaken for a user edit and doesn't schedule a save of its own. */
+let suppressAutosave = false
+
+/* Autosave runs on a fixed interval, not a debounce: the first edit after
+   a save starts this countdown, and it fires once regardless of whether
+   more edits keep coming in — see scheduleAutosave(). This keeps a busy
+   editing session from perpetually pushing the save out (as a plain
+   debounce would) while still avoiding a save per keystroke, since each
+   autosave here is a create-then-delete round trip against the CRM, not
+   a cheap local write. */
+const AUTOSAVE_DELAY_MS = 120000
 
 /* Base URL for this org's Zoho CRM API data centre — used by the
    delete-attachment call in deleteAttachmentSafely(). zohoapis.com is the
@@ -4084,14 +4098,21 @@ async function deleteAttachmentSafely(fileId){
 function scheduleAutosave(){
 
     if(!recordId) return
+    if(suppressAutosave) return
 
     setAutosaveStatus("pending")
 
-    clearTimeout(autosaveTimer)
+    /* throttle, not debounce: leave an already-pending timer alone so a
+       steady stream of edits still saves every AUTOSAVE_DELAY_MS instead
+       of never firing until the user stops for a full interval */
+    if(autosaveTimer) return
+
     autosaveTimer = setTimeout(performAutosave, AUTOSAVE_DELAY_MS)
 }
 
 async function performAutosave(){
+
+    autosaveTimer = null
 
     if(!recordId) return
 
@@ -4168,11 +4189,12 @@ async function performAutosave(){
     }
 }
 
-/* cancel the pending debounce and save right now — used when closing the
-   widget, switching versions, or the user clicks "Save now" */
+/* cancel the pending interval timer and save right now — used when
+   closing the widget, switching versions, or the user clicks "Save now" */
 async function flushAutosave(force){
 
     clearTimeout(autosaveTimer)
+    autosaveTimer = null
 
     if(!force && isVersionSaved) return
 
@@ -4249,6 +4271,15 @@ async function loadVersion(){
    before loading a different one */
 await flushAutosave()
 
+/* Rebuilding the tables below (and loadTables()'s own date-picker
+   restore) runs through the same code paths a user edit would —
+   including calculateWeeksFromDates(), which ends in markAsDirty().
+   Suppress autosave scheduling for the duration so opening a saved
+   plan doesn't itself get treated as an edit and queue a save. */
+suppressAutosave = true
+
+try{
+
 isVersionSaved = false
 isSummaryGenerated = false
 updateActionButtons()
@@ -4316,6 +4347,10 @@ showToast("Error loading version")
 }
 
 hideLoader()
+
+}finally{
+    suppressAutosave = false
+}
 
 }
 
@@ -5225,6 +5260,13 @@ showToast("Error pushing data")
 async function reloadWidget(){
 
     clearTimeout(autosaveTimer)
+    autosaveTimer = null
+
+    /* same reasoning as loadVersion() — this rebuilds the tables from
+       scratch and shouldn't have that mistaken for a user edit */
+    suppressAutosave = true
+
+    try{
 
     await loadMilestones()
 
@@ -5277,6 +5319,10 @@ async function reloadWidget(){
     setAutosaveStatus("")
 
     showToast("Widget Reloaded")
+
+    }finally{
+        suppressAutosave = false
+    }
 
 }
 

@@ -55,11 +55,17 @@ requiring a name up front and a manual "Save" click:
   "Untitled Implementation Plan" if the record has no name yet). You can
   edit it at any time — typing a new name is just another change that gets
   autosaved.
-- **Debounced autosave.** Any edit (painting the timeline, editing effort
-  rows, resource numbers, dates, view mode, dragging rows, renaming the
-  plan…) restarts a ~1.5s idle timer; once it elapses the plan is saved.
-  The status text next to the name field reflects this: "Unsaved changes"
-  → "Saving…" → "Saved HH:MM" (or "Save failed — will retry on next
+- **Autosave on a fixed interval, not a debounce.** Any edit (painting the
+  timeline, editing effort rows, resource numbers, dates, view mode,
+  dragging rows, renaming the plan…) starts a timer (`AUTOSAVE_DELAY_MS`
+  in `widget.html`, currently 2 minutes) if one isn't already running;
+  further edits don't push it back out. This is deliberate: each autosave
+  is a create-then-delete round trip against the CRM, not a cheap local
+  write, so a plain debounce (reset on every keystroke) would either fire
+  too often during active editing or, worse, never fire at all during a
+  long uninterrupted editing stretch. The status text next to the name
+  field reflects this: "Unsaved changes" → "Saving…" → "Saved HH:MM" (or
+  "Save failed — will retry on next
   change" if a save attempt errors).
 - **One file, kept up to date.** The CRM Attachments API has no "update
   file content in place" call, so each autosave uploads the current
@@ -96,7 +102,10 @@ requiring a name up front and a manual "Save" click:
   the dropdown and before the widget closes, so no edits are lost.
 - Opening a plan from the version dropdown makes it the active document:
   further edits autosave back into that same attachment, and the name
-  field shows its name so you can rename it too.
+  field shows its name so you can rename it too. Loading a version (and
+  reloading the widget) rebuilds the tables the same way a user edit
+  would internally, so both are wrapped in a `suppressAutosave` guard —
+  otherwise restoring already-saved data would itself queue a save.
 
 ## Required Zoho CRM setup: deleting the superseded attachment
 
