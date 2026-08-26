@@ -176,7 +176,7 @@ string deletePlannerAttachment(recordId, fileId)
 	[
 		url :"https://www.zohoapis.com/crm/v2/Pricing/" + recordId + "/Attachments/" + fileId
 		type :DELETE
-		connection:"crm_conn"
+		connection:"conn_crm"
 	];
 
 	return response.toString();
