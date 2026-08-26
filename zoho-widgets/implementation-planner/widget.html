@@ -3969,28 +3969,43 @@ async function findAttachmentIdByName(fileName, excludeId){
       in case a given SDK build supports it.
    2. ZOHO.CRM.HTTP.delete against the documented "Delete an Attachment"
       REST endpoint (DELETE /crm/v8/{module}/{record}/Attachments/{id}),
-      called directly from the widget. Whether this works depends on
-      whether the SDK auto-attaches CRM auth for ZOHO.CRM.HTTP calls
-      against the account's own API domain — that isn't documented
-      anywhere reachable from here, so this is genuinely untested; if it
-      401/403s it just falls through to step 3.
+      called directly from the widget. Confirmed in testing: this call
+      resolves rather than throwing even when it fails, with a body like
+      {code:"AUTHENTICATION_FAILURE", status:"error"} — the widget isn't
+      handed the CRM auth this endpoint needs, so the response is checked
+      for status:"success" explicitly instead of trusting "didn't throw".
    3. A companion Deluge function (deletePlannerAttachment) mirroring
       getPlannerAttachments, called the same way — see the widget's
       README for the function to add in Zoho CRM. This is the one path
-      guaranteed to work, since it uses the same mechanism the existing
-      getPlannerAttachments listing already relies on. */
+      confirmed to work end-to-end, since it uses the same mechanism the
+      existing getPlannerAttachments listing already relies on. */
+function isSuccessResponse(response){
+
+    if(!response) return false
+
+    let status =
+        response.status ||
+        response.data?.[0]?.status ||
+        ""
+
+    return String(status).toLowerCase() === "success"
+}
+
 async function deleteAttachmentSafely(fileId){
 
     if(!fileId) return
 
     if(typeof ZOHO?.CRM?.API?.deleteFile === "function"){
         try{
-            await ZOHO.CRM.API.deleteFile({
+            let response = await ZOHO.CRM.API.deleteFile({
                 Entity:"Pricing",
                 RecordID:recordId,
                 FileId:fileId
             })
-            return
+
+            if(isSuccessResponse(response)) return
+
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile did not confirm success, trying ZOHO.CRM.HTTP.delete next", fileId, response)
         }catch(e){
             console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.HTTP.delete next", fileId, e)
         }
@@ -4005,19 +4020,24 @@ async function deleteAttachmentSafely(fileId){
             })
 
             console.info("Autosave: ZOHO.CRM.HTTP.delete response", response)
-            return
+
+            if(isSuccessResponse(response)) return
+
+            console.warn("Autosave: ZOHO.CRM.HTTP.delete did not confirm success, falling back to deletePlannerAttachment function", fileId, response)
         }catch(e){
             console.warn("Autosave: ZOHO.CRM.HTTP.delete failed, falling back to deletePlannerAttachment function", fileId, e)
         }
     }
 
     try{
-        await ZOHO.CRM.FUNCTIONS.execute("deletePlannerAttachment",{
+        let response = await ZOHO.CRM.FUNCTIONS.execute("deletePlannerAttachment",{
             arguments:JSON.stringify({
                 recordId: String(Array.isArray(recordId) ? recordId[0] : recordId),
                 fileId: fileId
             })
         })
+
+        console.info("Autosave: deletePlannerAttachment response", response)
     }catch(e){
         console.warn("Autosave: could not remove previous copy — is the deletePlannerAttachment Deluge function set up? See README.", fileId, e)
     }
