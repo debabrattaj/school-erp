@@ -29,7 +29,7 @@
 # "Marketing site deployment" for how to find it and for the --delete caveat.
 #
 # CRITICAL: PUBLIC_HTML is NOT exclusive to the marketing site. Known
-# subdirectories that must stay excluded:
+# subdirectories/files that must stay excluded:
 #   - school-admin/  — the admin app frontend. This is ALSO the document
 #                      root of the login.schoolment.com subdomain, and is
 #                      where frontend/'s build output gets deployed below.
@@ -43,11 +43,15 @@
 #                      live app
 #   - .well-known/   — SSL/ACME verification files
 #   - cgi-bin/       — cPanel's own cgi-bin
+#   - banner.png     — the login page's background photo (see styles.css's
+#                      .login-page rule), uploaded by hand straight into this
+#                      docroot since it's a licensed image, not a repo asset.
 # --delete will erase any of these the next time this runs if they're not
 # excluded (this has already happened once to school-admin — see git
-# history / SETUP.md §16). If anything else ever gets added under
-# $PUBLIC_HTML outside of landing-page/'s own files, add it to --exclude
-# here BEFORE the next deploy, not after.
+# history / SETUP.md §16 — and once to banner.png before this exclude was
+# added). If anything else ever gets added under $PUBLIC_HTML outside of
+# landing-page/'s own files, add it to --exclude here BEFORE the next
+# deploy, not after.
 #
 # THE FRONTEND IS NOT BUILT HERE. This deploy covers the backend and the
 # marketing site only; frontend/ (the admin app) is built off-server and its
@@ -91,4 +95,4 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
     - export PUBLIC_HTML=/home/schoolm1/public_html
-    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' --exclude='nodebuild' --exclude='school-erp' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' --exclude='nodebuild' --exclude='school-erp' --exclude='banner.png' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
