@@ -2020,12 +2020,22 @@ let isAutosaving = false
 let autosaveQueued = false
 const AUTOSAVE_DELAY_MS = 1500
 
-/* Base URL for this org's Zoho CRM API data centre — used only for the
-   direct ZOHO.CRM.HTTP delete-attachment call in deleteAttachmentSafely().
-   zohoapis.com is the US DC; switch to .eu/.in/.com.au/.jp/.ca to match
-   where this CRM account actually lives (same domain your CRM login
-   uses, e.g. crm.zoho.eu -> zohoapis.eu). */
+/* Base URL for this org's Zoho CRM API data centre — used by the
+   delete-attachment call in deleteAttachmentSafely(). zohoapis.com is the
+   US DC; switch to .eu/.in/.com.au/.jp/.ca to match where this CRM
+   account actually lives (same domain your CRM login uses, e.g.
+   crm.zoho.eu -> zohoapis.eu). */
 const CRM_API_DOMAIN = "https://www.zohoapis.com"
+
+/* Name of a pre-configured Zoho CRM Connection (Setup > Developer Space >
+   Connections) with CRM API scope. deleteAttachmentSafely() calls the
+   delete-attachment REST endpoint through ZOHO.CRM.CONNECTION.invoke()
+   using this connection, so the widget authenticates without ever
+   handling a raw OAuth token itself (Zoho refreshes it server-side).
+   Point this at an existing connection — e.g. whichever one your
+   getPlannerAttachments Deluge function's invokeurl already uses — or
+   create one if none exists yet. */
+const CRM_CONNECTION_NAME = "crm_conn"
 
 let milestoneBody=document.getElementById("milestoneBody")
 let resourceBody=document.getElementById("resourceBody")
@@ -3967,18 +3977,21 @@ async function findAttachmentIdByName(fileName, excludeId){
 
    1. ZOHO.CRM.API.deleteFile — not a documented method, but cheap to try
       in case a given SDK build supports it.
-   2. ZOHO.CRM.HTTP.delete against the documented "Delete an Attachment"
-      REST endpoint (DELETE /crm/v8/{module}/{record}/Attachments/{id}),
-      called directly from the widget. Confirmed in testing: this call
-      resolves rather than throwing even when it fails, with a body like
-      {code:"AUTHENTICATION_FAILURE", status:"error"} — the widget isn't
-      handed the CRM auth this endpoint needs, so the response is checked
-      for status:"success" explicitly instead of trusting "didn't throw".
+   2. ZOHO.CRM.CONNECTION.invoke(CRM_CONNECTION_NAME, ...) against the
+      documented "Delete an Attachment" REST endpoint
+      (DELETE /crm/v8/{module}/{record}/Attachments/{id}). A direct
+      ZOHO.CRM.HTTP.delete call was tried first (see git history) but
+      confirmed in testing to resolve with
+      {code:"AUTHENTICATION_FAILURE", status:"error"} instead of
+      throwing — the widget isn't handed raw CRM auth. Routing the same
+      call through a named Connection lets Zoho authenticate it
+      server-side instead.
    3. A companion Deluge function (deletePlannerAttachment) mirroring
       getPlannerAttachments, called the same way — see the widget's
       README for the function to add in Zoho CRM. This is the one path
-      confirmed to work end-to-end, since it uses the same mechanism the
-      existing getPlannerAttachments listing already relies on. */
+      confirmed to work end-to-end without any extra CRM configuration,
+      since it uses the same mechanism the existing getPlannerAttachments
+      listing already relies on. */
 function isSuccessResponse(response){
 
     if(!response) return false
@@ -3989,6 +4002,27 @@ function isSuccessResponse(response){
         ""
 
     return String(status).toLowerCase() === "success"
+}
+
+/* ZOHO.CRM.CONNECTION.invoke wraps the called endpoint's own response
+   inside `details`, whose shape depends on what that endpoint returns —
+   checked defensively across the couple of shapes a CRM delete response
+   is documented to take. */
+function isConnectionCallSuccessful(response){
+
+    if(!isSuccessResponse(response)) return false
+
+    let details = response.details
+
+    if(!details) return false
+
+    if(String(details.status || "").toLowerCase() === "success") return true
+
+    if(Array.isArray(details.data) && details.data[0]){
+        return String(details.data[0].status || "").toLowerCase() === "success"
+    }
+
+    return false
 }
 
 async function deleteAttachmentSafely(fileId){
@@ -4005,27 +4039,31 @@ async function deleteAttachmentSafely(fileId){
 
             if(isSuccessResponse(response)) return
 
-            console.warn("Autosave: ZOHO.CRM.API.deleteFile did not confirm success, trying ZOHO.CRM.HTTP.delete next", fileId, response)
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile did not confirm success, trying ZOHO.CRM.CONNECTION.invoke next", fileId, response)
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.HTTP.delete next", fileId, e)
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.CONNECTION.invoke next", fileId, e)
         }
     }
 
-    if(typeof ZOHO?.CRM?.HTTP?.delete === "function"){
+    if(typeof ZOHO?.CRM?.CONNECTION?.invoke === "function"){
         try{
             let id = String(Array.isArray(recordId) ? recordId[0] : recordId)
 
-            let response = await ZOHO.CRM.HTTP.delete({
-                url: CRM_API_DOMAIN + "/crm/v8/Pricing/" + id + "/Attachments/" + fileId
-            })
+            let reqData = {
+                method:"DELETE",
+                url: CRM_API_DOMAIN + "/crm/v8/Pricing/" + id + "/Attachments/" + fileId,
+                param_type:1
+            }
 
-            console.info("Autosave: ZOHO.CRM.HTTP.delete response", response)
+            let response = await ZOHO.CRM.CONNECTION.invoke(CRM_CONNECTION_NAME, reqData)
 
-            if(isSuccessResponse(response)) return
+            console.info("Autosave: ZOHO.CRM.CONNECTION.invoke response", response)
 
-            console.warn("Autosave: ZOHO.CRM.HTTP.delete did not confirm success, falling back to deletePlannerAttachment function", fileId, response)
+            if(isConnectionCallSuccessful(response)) return
+
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke did not confirm success, falling back to deletePlannerAttachment function", fileId, response)
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.HTTP.delete failed, falling back to deletePlannerAttachment function", fileId, e)
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke failed, falling back to deletePlannerAttachment function — is CRM_CONNECTION_NAME set to a real connection?", fileId, e)
         }
     }
 

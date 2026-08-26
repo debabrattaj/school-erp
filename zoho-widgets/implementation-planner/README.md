@@ -68,22 +68,25 @@ requiring a name up front and a manual "Save" click:
   (`deleteAttachmentSafely` in `widget.html`) tries three things in order
   and stops at the first that works:
   1. `ZOHO.CRM.API.deleteFile` — not documented, but free to try.
-  2. `ZOHO.CRM.HTTP.delete` calling the documented REST "Delete an
-     Attachment" endpoint directly
-     (`DELETE /crm/v8/Pricing/{record}/Attachments/{id}`) against
-     `CRM_API_DOMAIN` (a constant near the top of the script — set it to
-     match your data centre, see the comment there). **Confirmed not to
-     work**: in testing it resolves with
-     `{code:"AUTHENTICATION_FAILURE", status:"error"}` rather than
-     throwing — the widget isn't handed the CRM auth this endpoint needs.
-     The response is checked for `status:"success"` explicitly (rather
-     than "didn't throw") so this correctly falls through to step 3
-     instead of masking the failure; the raw response is still logged via
-     `console.info` for visibility.
+  2. `ZOHO.CRM.CONNECTION.invoke(CRM_CONNECTION_NAME, …)` calling the
+     documented REST "Delete an Attachment" endpoint
+     (`DELETE /crm/v8/Pricing/{record}/Attachments/{id}`) through a named
+     Zoho CRM Connection, so Zoho authenticates the call server-side
+     instead of the widget needing a raw token. Requires
+     `CRM_CONNECTION_NAME` and `CRM_API_DOMAIN` (constants near the top
+     of the script) to point at a real Connection and your data centre —
+     see **Required Zoho CRM setup** below. A direct
+     `ZOHO.CRM.HTTP.delete` call was tried first but confirmed in testing
+     to resolve with `{code:"AUTHENTICATION_FAILURE", status:"error"}`
+     rather than throw, since the widget isn't handed raw CRM auth for
+     that call; every response here is checked for an explicit success
+     status (not just "didn't throw") so a failure correctly falls
+     through to step 3 instead of being masked, and the raw response is
+     logged via `console.info` for visibility either way.
   3. The `deletePlannerAttachment` Deluge function (see **Required Zoho
-     CRM setup** below) — the one path confirmed to work end-to-end,
-     since it's the same mechanism the existing `getPlannerAttachments`
-     listing already relies on.
+     CRM setup** below) — works with zero extra CRM configuration beyond
+     what already exists, since it's the same mechanism the existing
+     `getPlannerAttachments` listing already relies on.
 
   A cleanup failure at every step only leaves one extra attachment behind
   — it never blocks or loses the save itself.
@@ -95,19 +98,43 @@ requiring a name up front and a manual "Save" click:
   further edits autosave back into that same attachment, and the name
   field shows its name so you can rename it too.
 
-## Required Zoho CRM setup: `deletePlannerAttachment`
+## Required Zoho CRM setup: deleting the superseded attachment
 
 Autosave overwrites the plan in place by uploading the new copy and then
-deleting the old one. Listing attachments already goes through a Deluge
-function (`getPlannerAttachments`, configured directly in Zoho CRM, not in
-this repo) because the widget SDK doesn't expose that either — deletion
-needs the same kind of function, since there's no documented
-`ZOHO.CRM.API` call for it. Without it, cleanup silently no-ops (logged as
-a console warning) and the record accumulates one attachment per autosave.
+deleting the old one. Neither `ZOHO.CRM.API` nor a bare `ZOHO.CRM.HTTP`
+call can do that delete — the widget is never handed a raw CRM OAuth
+token, so a direct `ZOHO.CRM.HTTP.delete` call fails with
+`AUTHENTICATION_FAILURE` (confirmed in testing). One of the two options
+below is required for cleanup to actually happen; without either, it
+silently no-ops (logged as a console warning) and the record accumulates
+one attachment per autosave.
 
-Add a function named **`deletePlannerAttachment`** next to
-`getPlannerAttachments` (Zoho CRM → Setup → Developer Space → Functions),
-taking `recordId` and `fileId` arguments:
+### Option A — a Zoho CRM Connection (no server-side function needed)
+
+`ZOHO.CRM.CONNECTION.invoke(name, request)` calls a REST endpoint through
+a named Connection, letting Zoho authenticate it server-side without the
+widget ever seeing a token. This is what `deleteAttachmentSafely` tries
+first (after the free `ZOHO.CRM.API.deleteFile` check).
+
+1. Under Setup → Developer Space → Connections, create (or reuse) a
+   connection to Zoho CRM's own API with attachments delete scope
+   (`ZohoCRM.modules.ALL` covers it).
+2. In `widget.html`, set `CRM_CONNECTION_NAME` (near the top of the
+   `<script>` block) to that connection's name, and confirm
+   `CRM_API_DOMAIN` matches your data centre.
+
+No Deluge function is needed if this works — check the console for
+`Autosave: ZOHO.CRM.CONNECTION.invoke response` to confirm the nested
+response actually shows success (see the comment above
+`isConnectionCallSuccessful` in `widget.html` for the shapes it checks).
+
+### Option B — a `deletePlannerAttachment` Deluge function (fallback)
+
+If a Connection isn't available, this is the same mechanism the existing
+`getPlannerAttachments` listing already relies on, so it's the option
+guaranteed to work. Add a function named **`deletePlannerAttachment`**
+next to `getPlannerAttachments` (Zoho CRM → Setup → Developer Space →
+Functions), taking `recordId` and `fileId` arguments:
 
 ```deluge
 string deletePlannerAttachment(recordId, fileId)
@@ -131,11 +158,11 @@ Adjust two things to match your org before saving it:
 - **`connection`** — reuse the same OAuth connection name
   `getPlannerAttachments` uses (it needs the CRM attachments-delete scope);
   create one under Setup → Developer Space → Connections if none exists
-  yet.
+  yet — this can be the same connection as Option A.
 
 The widget calls this function by name (`ZOHO.CRM.FUNCTIONS.execute`), so
-no changes to `widget.html` are needed once it's added — autosave will
-start deleting the superseded copy automatically the next time it runs.
+no changes to `widget.html` are needed once it's added — autosave falls
+through to it automatically whenever options 1–2 don't confirm success.
 
 ## Local preview
 
