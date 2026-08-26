@@ -4066,6 +4066,16 @@ function isConnectionCallSuccessful(response){
 
     let details = response.details
 
+    /* CONNECTION.invoke may hand back the called endpoint's body as a raw
+       JSON string instead of an already-parsed object */
+    if(typeof details === "string"){
+        try{
+            details = JSON.parse(details)
+        }catch(e){
+            /* not JSON — fall through, the checks below will just fail */
+        }
+    }
+
     if(!details) return false
 
     if(String(details.status || "").toLowerCase() === "success") return true
@@ -4109,13 +4119,17 @@ async function deleteAttachmentSafely(fileId){
 
             let response = await ZOHO.CRM.CONNECTION.invoke(CRM_CONNECTION_NAME, reqData)
 
-            console.info("Autosave: ZOHO.CRM.CONNECTION.invoke response", response)
+            /* logged flat via JSON.stringify (not just the raw object) so
+               the actual shape is readable straight in the console line —
+               no need to expand a collapsed object to see why the check
+               below passed or failed */
+            console.info("Autosave: ZOHO.CRM.CONNECTION.invoke response for fileId " + fileId + ": " + JSON.stringify(response) + " | typeof details = " + typeof response?.details)
 
             if(isConnectionCallSuccessful(response)) return
 
-            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke did not confirm success, falling back to deletePlannerAttachment function", fileId, response)
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke did not confirm success, falling back to deletePlannerAttachment function. Response: " + JSON.stringify(response), fileId)
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke failed, falling back to deletePlannerAttachment function — is CRM_CONNECTION_NAME set to a real connection?", fileId, e)
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke failed, falling back to deletePlannerAttachment function — is CRM_CONNECTION_NAME (\"" + CRM_CONNECTION_NAME + "\") set to a real connection with CRM API scope? Error: " + (e?.message || JSON.stringify(e)), fileId, e)
         }
     }
 
