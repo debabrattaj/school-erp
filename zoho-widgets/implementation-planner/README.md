@@ -30,6 +30,13 @@ data model, CRM calls and table logic untouched:
   proper `Total` column width, hover rows, and restyled in-cell selects and
   number inputs.
 - **Overlays** — toast, loader and the add-milestone modal restyled.
+- **Collapsible effort table** — the "Total project effort" card's
+  breakdown table can be hidden via the "Hide table" / "Show table"
+  button in its toolbar (`toggleEffortTable()`). Collapsing it swaps in a
+  row of compact pills (development-phase days, total effort, share
+  total, phase count) so the key numbers stay visible either way instead
+  of disappearing with the table. This is a display preference only
+  (`isEffortTableVisible`) — it isn't written to the saved plan.
 
 ### Behaviour fixes made along the way
 

@@ -1027,6 +1027,40 @@ tr[draggable="true"]:active{cursor:grabbing}
    10. EFFORT TABLE
 ========================================================= */
 
+/* shown instead of the full breakdown while it's collapsed, via
+   toggleEffortTable() — keeps the key numbers visible either way */
+.effort-summary-compact{
+    display:none;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.effort-summary-item{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+
+    padding:7px 13px;
+
+    background:var(--surface-inset);
+    border:1px solid var(--border);
+    border-radius:var(--radius-pill);
+
+    font-size:12.5px;
+    font-weight:650;
+    color:var(--text);
+    font-variant-numeric:tabular-nums;
+}
+
+.effort-summary-label{
+    font-size:10.5px;
+    font-weight:650;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--text-soft);
+}
+
 .effort-container{
     max-width:560px;
     max-height:none;
@@ -1698,13 +1732,36 @@ tr[draggable="true"]:active{cursor:grabbing}
                 Add effort line
             </button>
 
+            <button class="btn btn-secondary" id="toggleEffortTableBtn" onclick="toggleEffortTable()">
+                Hide table
+            </button>
+
         </div>
 
     </div>
 
     <div class="card-body">
 
-        <div class="table-wrap effort-container">
+        <div class="effort-summary-compact" id="effortSummaryCompact">
+            <span class="effort-summary-item">
+                <span class="effort-summary-label">Development phase</span>
+                <span id="effortSummaryDevDays">0</span>&nbsp;days
+            </span>
+            <span class="effort-summary-item">
+                <span class="effort-summary-label">Total effort</span>
+                <span id="effortSummaryTotalDays">0</span>&nbsp;days
+            </span>
+            <span class="effort-summary-item">
+                <span class="effort-summary-label">Share total</span>
+                <span id="effortSummaryTotalPercent">0</span>%
+            </span>
+            <span class="effort-summary-item">
+                <span class="effort-summary-label">Phases</span>
+                <span id="effortSummaryPhaseCount">0</span>
+            </span>
+        </div>
+
+        <div class="table-wrap effort-container" id="effortTableWrap">
             <table id="effortTable">
                 <thead>
                     <tr>
@@ -2031,6 +2088,10 @@ tr[draggable="true"]:active{cursor:grabbing}
 
     
 let currentViewMode = "week"
+
+/* whether the Total Project Effort table is expanded — a UI display
+   preference, not saved plan data, so it isn't part of collectData() */
+let isEffortTableVisible = true
 let actionHistory = []
 let maxHistory = 500
 let isCtrlPressed = false
@@ -2366,7 +2427,39 @@ function generateEffortTable(){
 
     tbody.appendChild(totalRow)
 
+    updateEffortSummaryCompact(devEffort, totalPercent, totalEffort, effortRows.length)
+
     updateStats()
+}
+
+/* keeps the collapsed-view pills in sync with the table, whether or not
+   the table itself is currently visible */
+function updateEffortSummaryCompact(devDays, totalPercent, totalDays, phaseCount){
+
+    let devDaysEl = document.getElementById("effortSummaryDevDays")
+    let totalDaysEl = document.getElementById("effortSummaryTotalDays")
+    let totalPercentEl = document.getElementById("effortSummaryTotalPercent")
+    let phaseCountEl = document.getElementById("effortSummaryPhaseCount")
+
+    if(devDaysEl) devDaysEl.textContent = formatEffort(devDays)
+    if(totalDaysEl) totalDaysEl.textContent = formatEffort(totalDays)
+    if(totalPercentEl) totalPercentEl.textContent = formatEffort(totalPercent)
+    if(phaseCountEl) phaseCountEl.textContent = phaseCount
+}
+
+/* show/hide the Total Project Effort table, leaving the compact summary
+   pills as the always-visible stand-in for its key numbers */
+function toggleEffortTable(){
+
+    isEffortTableVisible = !isEffortTableVisible
+
+    let tableWrap = document.getElementById("effortTableWrap")
+    let summary = document.getElementById("effortSummaryCompact")
+    let btn = document.getElementById("toggleEffortTableBtn")
+
+    if(tableWrap) tableWrap.style.display = isEffortTableVisible ? "" : "none"
+    if(summary) summary.style.display = isEffortTableVisible ? "none" : "flex"
+    if(btn) btn.textContent = isEffortTableVisible ? "Hide table" : "Show table"
 }
 
 /* rounds away floating point noise for display */
