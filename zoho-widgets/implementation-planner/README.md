@@ -82,10 +82,15 @@ requiring a name up front and a manual "Save" click:
   is a create-then-delete round trip against the CRM, not a cheap local
   write, so a plain debounce (reset on every keystroke) would either fire
   too often during active editing or, worse, never fire at all during a
-  long uninterrupted editing stretch. The status text next to the name
-  field reflects this: "Unsaved changes" → "Saving…" → "Saved HH:MM" (or
-  "Save failed — will retry on next
-  change" if a save attempt errors).
+  long uninterrupted editing stretch. The status text under the "Save
+  now" button reflects this — "Saving…" while a save is in flight, then
+  "Last saved HH:MM" once it succeeds. That last-saved time is tracked
+  separately from the pending/error state (`lastSavedAt` in
+  `widget.html`) and never gets overwritten by them: once you make
+  another edit it becomes "Unsaved changes — Last saved HH:MM" rather
+  than losing the timestamp outright, and a failed save shows "Save
+  failed — Last saved HH:MM" (or "…will retry on next change" if nothing
+  has saved yet).
 - **One file, kept up to date.** The CRM Attachments API has no "update
   file content in place" call, so each autosave uploads the current
   content first, then deletes the previously saved copy of the same plan.

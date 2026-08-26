@@ -1298,7 +1298,10 @@ tr[draggable="true"]:active{cursor:grabbing}
 
 .actionbar-controls{
     display:flex;
-    align-items:center;
+    /* top-align: the autosave-field's extra status line under "Save now"
+       is taller than the plain input/buttons beside it, and centering
+       would pull those out of line with each other */
+    align-items:flex-start;
     gap:10px;
     flex-wrap:wrap;
 }
@@ -1314,6 +1317,13 @@ tr[draggable="true"]:active{cursor:grabbing}
     font-weight:600;
     color:var(--text-soft);
     padding-left:2px;
+
+    /* the combined "Unsaved changes — Last saved …" text runs longer
+       than the "Save now" button above it — wrap it in place instead of
+       stretching the whole toolbar row to fit one line */
+    max-width:170px;
+    white-space:normal;
+    line-height:1.4;
 }
 
 .autosave-status.is-pending{color:var(--warning)}
@@ -1920,12 +1930,12 @@ tr[draggable="true"]:active{cursor:grabbing}
 
     <div class="actionbar-controls">
 
+        <input class="input field-w-lg" id="versionName" placeholder="Untitled Implementation Plan" autocomplete="off"/>
+
         <div class="autosave-field">
-            <input class="input field-w-lg" id="versionName" placeholder="Untitled Implementation Plan" autocomplete="off"/>
+            <button class="btn btn-secondary" onclick="saveVersion()">Save now</button>
             <span class="autosave-status" id="autosaveStatus">Not saved yet</span>
         </div>
-
-        <button class="btn btn-secondary" onclick="saveVersion()">Save now</button>
 
         <button class="btn btn-secondary" id="summaryBtn" onclick="generateSummary(true)" disabled>
             Generate Summary
@@ -3932,6 +3942,21 @@ function initializeVersionName(){
     input.value = getDefaultVersionName()
 }
 
+/* when this was last actually saved — kept separate from the transient
+   state word so it stays visible even while there are unsaved changes,
+   instead of "Unsaved changes" wiping out the last-saved time entirely */
+let lastSavedAt = null
+
+function formatLastSaved(){
+
+    if(!lastSavedAt) return null
+
+    return "Last saved " + lastSavedAt.toLocaleTimeString("en-US",{
+        hour:"2-digit",
+        minute:"2-digit"
+    })
+}
+
 function setAutosaveStatus(state){
 
     let el = document.getElementById("autosaveStatus")
@@ -3940,23 +3965,23 @@ function setAutosaveStatus(state){
 
     el.classList.remove("is-pending", "is-saving", "is-saved", "is-error")
 
+    let lastSavedText = formatLastSaved()
+
     if(state === "pending"){
-        el.textContent = "Unsaved changes"
+        el.textContent = lastSavedText ? "Unsaved changes — " + lastSavedText : "Unsaved changes"
         el.classList.add("is-pending")
     }else if(state === "saving"){
         el.textContent = "Saving…"
         el.classList.add("is-saving")
     }else if(state === "saved"){
-        let time = new Date().toLocaleTimeString("en-US",{
-            hour:"2-digit",
-            minute:"2-digit"
-        })
-        el.textContent = "Saved " + time
+        lastSavedAt = new Date()
+        el.textContent = formatLastSaved()
         el.classList.add("is-saved")
     }else if(state === "error"){
-        el.textContent = "Save failed — will retry on next change"
+        el.textContent = lastSavedText ? "Save failed — " + lastSavedText : "Save failed — will retry on next change"
         el.classList.add("is-error")
     }else{
+        lastSavedAt = null
         el.textContent = "Not saved yet"
     }
 }
