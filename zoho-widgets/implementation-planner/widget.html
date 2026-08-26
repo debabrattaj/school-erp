@@ -1860,7 +1860,7 @@ tr[draggable="true"]:active{cursor:grabbing}
             <div class="field field-w-lg">
                 <label class="field-label" for="versionDropdown">Saved version</label>
                 <select class="select" id="versionDropdown" onchange="loadVersion()">
-                    <option>Select Version</option>
+                    <option value="">Select Version</option>
                 </select>
             </div>
 
@@ -2116,14 +2116,24 @@ let mouseDown=false
 /* =========================================
    Autosave state
    Google Docs-style: the plan saves itself as
-   you work. currentVersionFileId/currentVersionName
+   you work. currentVersionAttachmentId/currentVersionName
    track which attachment is the "open document" —
    every autosave overwrites that same attachment
    (delete previous copy, then re-upload) instead of
    piling up a new timestamped file per save.
+
+   currentVersionAttachmentId is the CRM Attachment record's real id
+   (getPlannerAttachments' "attachment_id", same as attachFile's own
+   response id) — the value the delete endpoint needs. It is NOT the
+   same as the "file_id" ($file_id) that getPlannerAttachments also
+   returns, which is a separate download-reference token that
+   ZOHO.CRM.API.getFile() needs but the delete endpoint rejects with
+   INVALID_URL_PATTERN. Mixing the two up was the root cause of
+   reopened plans failing to delete their previous copy on save —
+   see git history for the diagnosis.
 ========================================= */
 
-let currentVersionFileId = null
+let currentVersionAttachmentId = null
 let currentVersionName = null
 let autosaveTimer = null
 let isAutosaving = false
@@ -4028,7 +4038,7 @@ toast.classList.remove("toast-show")
    an autosave is implemented as delete-previous
    -copy + upload-new-copy, keeping exactly one
    attachment as the "open document" per plan
-   (tracked by currentVersionFileId).
+   (tracked by currentVersionAttachmentId).
 ========================================= */
 
 function getDefaultVersionName(){
@@ -4047,7 +4057,7 @@ function initializeVersionName(){
 
     let input = document.getElementById("versionName")
 
-    if(!input || currentVersionFileId) return
+    if(!input || currentVersionAttachmentId) return
 
     if(input.value.trim() !== "") return
 
@@ -4136,7 +4146,9 @@ async function fetchAttachmentList(){
 
 /* fallback when attachFile's resolved value doesn't carry a usable id —
    look the file we just saved up by name instead, excluding whichever
-   attachment we're about to replace */
+   attachment we're about to replace. Returns attachment_id (the real
+   CRM attachment id needed for delete), not file_id (the separate
+   $file_id download token getPlannerAttachments also returns). */
 async function findAttachmentIdByName(fileName, excludeId){
 
     try{
@@ -4144,15 +4156,15 @@ async function findAttachmentIdByName(fileName, excludeId){
         let files = await fetchAttachmentList()
 
         let matches = files.filter(f=>
-            f.name === fileName && f.file_id !== excludeId
+            f.name === fileName && f.attachment_id !== excludeId
         )
 
         if(matches.length >= 1){
-            return matches[matches.length - 1].file_id
+            return matches[matches.length - 1].attachment_id
         }
 
     }catch(e){
-        console.warn("Autosave: could not resolve saved file id by name", e)
+        console.warn("Autosave: could not resolve saved attachment id by name", e)
     }
 
     return null
@@ -4247,23 +4259,23 @@ function isConnectionCallSuccessful(response){
     return false
 }
 
-async function deleteAttachmentSafely(fileId){
+async function deleteAttachmentSafely(attachmentId){
 
-    if(!fileId) return
+    if(!attachmentId) return
 
     if(typeof ZOHO?.CRM?.API?.deleteFile === "function"){
         try{
             let response = await ZOHO.CRM.API.deleteFile({
                 Entity:"Pricing",
                 RecordID:recordId,
-                FileId:fileId
+                FileId:attachmentId
             })
 
             if(isSuccessResponse(response)) return
 
-            console.warn("Autosave: ZOHO.CRM.API.deleteFile did not confirm success, trying ZOHO.CRM.CONNECTION.invoke next", fileId, response)
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile did not confirm success, trying ZOHO.CRM.CONNECTION.invoke next", attachmentId, response)
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.CONNECTION.invoke next", fileId, e)
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.CONNECTION.invoke next", attachmentId, e)
         }
     }
 
@@ -4273,7 +4285,7 @@ async function deleteAttachmentSafely(fileId){
 
             let reqData = {
                 method:"DELETE",
-                url: CRM_API_DOMAIN + "/crm/v8/Pricing/" + id + "/Attachments/" + fileId,
+                url: CRM_API_DOMAIN + "/crm/v8/Pricing/" + id + "/Attachments/" + attachmentId,
                 param_type:1
             }
 
@@ -4283,13 +4295,13 @@ async function deleteAttachmentSafely(fileId){
                the actual shape is readable straight in the console line —
                no need to expand a collapsed object to see why the check
                below passed or failed */
-            console.info("Autosave: ZOHO.CRM.CONNECTION.invoke response for fileId " + fileId + ": " + JSON.stringify(response) + " | typeof details = " + typeof response?.details)
+            console.info("Autosave: ZOHO.CRM.CONNECTION.invoke response for attachmentId " + attachmentId + ": " + JSON.stringify(response) + " | typeof details = " + typeof response?.details)
 
             if(isConnectionCallSuccessful(response)) return
 
-            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke did not confirm success, falling back to deletePlannerAttachment function. Response: " + JSON.stringify(response), fileId)
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke did not confirm success, falling back to deletePlannerAttachment function. Response: " + JSON.stringify(response), attachmentId)
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke failed, falling back to deletePlannerAttachment function — is CRM_CONNECTION_NAME (\"" + CRM_CONNECTION_NAME + "\") set to a real connection with CRM API scope? Error: " + (e?.message || JSON.stringify(e)), fileId, e)
+            console.warn("Autosave: ZOHO.CRM.CONNECTION.invoke failed, falling back to deletePlannerAttachment function — is CRM_CONNECTION_NAME (\"" + CRM_CONNECTION_NAME + "\") set to a real connection with CRM API scope? Error: " + (e?.message || JSON.stringify(e)), attachmentId, e)
         }
     }
 
@@ -4297,13 +4309,13 @@ async function deleteAttachmentSafely(fileId){
         let response = await ZOHO.CRM.FUNCTIONS.execute("deletePlannerAttachment",{
             arguments:JSON.stringify({
                 recordId: String(Array.isArray(recordId) ? recordId[0] : recordId),
-                fileId: fileId
+                attachmentId: attachmentId
             })
         })
 
         console.info("Autosave: deletePlannerAttachment response", response)
     }catch(e){
-        console.warn("Autosave: could not remove previous copy — is the deletePlannerAttachment Deluge function set up? See README.", fileId, e)
+        console.warn("Autosave: could not remove previous copy — is the deletePlannerAttachment Deluge function set up? See README.", attachmentId, e)
     }
 }
 
@@ -4351,9 +4363,9 @@ async function performAutosave(){
         let blob = new Blob([json], {type:"application/json"})
         let fileName = name + ".json"
 
-        let oldFileId = currentVersionFileId
+        let oldAttachmentId = currentVersionAttachmentId
 
-        console.info("Autosave: starting save — oldFileId (currentVersionFileId before this save) = " + oldFileId)
+        console.info("Autosave: starting save — oldAttachmentId (currentVersionAttachmentId before this save) = " + oldAttachmentId)
 
         let response = await ZOHO.CRM.API.attachFile({
             Entity:"Pricing",
@@ -4366,17 +4378,20 @@ async function performAutosave(){
 
         console.info("Autosave: attachFile response: " + JSON.stringify(response))
 
-        let newFileId = extractAttachmentId(response)
+        /* attachFile's own response id IS the real attachment record id
+           (confirmed: matches getPlannerAttachments' "attachment_id" for
+           the same file) — never the $file_id download token */
+        let newAttachmentId = extractAttachmentId(response)
         let idSource = "attachFile response"
 
-        if(!newFileId){
-            newFileId = await findAttachmentIdByName(fileName, oldFileId)
+        if(!newAttachmentId){
+            newAttachmentId = await findAttachmentIdByName(fileName, oldAttachmentId)
             idSource = "name lookup against getPlannerAttachments"
         }
 
-        console.info("Autosave: new attachment id \"" + newFileId + "\" resolved via " + idSource)
+        console.info("Autosave: new attachment id \"" + newAttachmentId + "\" resolved via " + idSource)
 
-        currentVersionFileId = newFileId || oldFileId
+        currentVersionAttachmentId = newAttachmentId || oldAttachmentId
         currentVersionName = name
 
         isVersionSaved = true
@@ -4386,11 +4401,11 @@ async function performAutosave(){
         /* drop the previous copy of this same document now that the new
            one is confirmed saved — this is what makes autosave overwrite
            in place instead of piling up a new attachment per save */
-        if(oldFileId && oldFileId !== currentVersionFileId){
-            await deleteAttachmentSafely(oldFileId)
+        if(oldAttachmentId && oldAttachmentId !== currentVersionAttachmentId){
+            await deleteAttachmentSafely(oldAttachmentId)
         }
 
-        loadVersions(currentVersionFileId)
+        loadVersions(currentVersionAttachmentId)
 
     }catch(e){
 
@@ -4432,7 +4447,7 @@ async function saveVersion(){
         return
     }
 
-    if(isVersionSaved && currentVersionFileId){
+    if(isVersionSaved && currentVersionAttachmentId){
         showToast("Already up to date")
         return
     }
@@ -4449,7 +4464,7 @@ async function saveVersion(){
 
 /* LOAD VERSIONS FROM CRM FUNCTION */
 
-async function loadVersions(selectedFileId){
+async function loadVersions(selectedAttachmentId){
 
 try{
 
@@ -4460,20 +4475,25 @@ console.warn("No versions returned");
 }
 
 let drop=document.getElementById("versionDropdown");
-drop.innerHTML="<option>Select Version</option>";
+drop.innerHTML="<option value=''>Select Version</option>";
 
 files.forEach(f=>{
 
 let op=document.createElement("option");
-op.value=f.file_id;
+/* value/selection is keyed by attachment_id (the real CRM id, needed
+   to delete/track this version) — file_id (the $file_id download
+   token needed only for ZOHO.CRM.API.getFile) rides along as a data
+   attribute for loadVersion() to read when this option is chosen */
+op.value=f.attachment_id;
+op.dataset.fileId=f.file_id;
 op.text = f.name.replace(".json","");
 
 drop.appendChild(op);
 
 });
 
-if(selectedFileId){
-    drop.value = selectedFileId
+if(selectedAttachmentId){
+    drop.value = selectedAttachmentId
 }
 
 }catch(e){
@@ -4489,9 +4509,18 @@ console.error("Error loading versions",e);
 
 /* Core "open this saved attachment into the tables" logic, shared by the
    main version dropdown (loadVersion, below) and the startup modal
-   (handleStartModalCreate). fileId === "" / "Select Version" / falsy
-   resets to a blank plan instead of loading anything. */
-async function loadVersionById(fileId, selectedLabel){
+   (handleStartModalCreate).
+
+   Takes fileId (the $file_id download token — needed only to fetch the
+   content via ZOHO.CRM.API.getFile) and attachmentId (the real CRM
+   Attachment record id — what gets stored as currentVersionAttachmentId
+   for future overwrite/delete) as two SEPARATE values. Conflating them
+   was the root cause of a reopened plan's autosave creating a new file
+   without deleting the old one: the delete REST endpoint rejects the
+   $file_id token with INVALID_URL_PATTERN, since it isn't the record's
+   real id. A falsy attachmentId resets to a blank plan instead of
+   loading anything. */
+async function loadVersionById(fileId, attachmentId, selectedLabel){
 
 /* Rebuilding the tables below (and loadTables()'s own date-picker
    restore) runs through the same code paths a user edit would —
@@ -4511,9 +4540,9 @@ updateActionButtons()
 if(startPicker) startPicker.clear()
 if(endPicker) endPicker.clear()
 
-if(!fileId || fileId === "Select Version"){
+if(!attachmentId){
 
-currentVersionFileId = null
+currentVersionAttachmentId = null
 currentVersionName = null
 
 milestoneBody.innerHTML=""
@@ -4544,10 +4573,10 @@ let data=JSON.parse(text)
 loadTables(data)
 
 /* further edits autosave back into this same attachment */
-currentVersionFileId = fileId
+currentVersionAttachmentId = attachmentId
 currentVersionName = selectedLabel
 
-console.info("Autosave: loaded version \"" + selectedLabel + "\" — currentVersionFileId is now " + currentVersionFileId)
+console.info("Autosave: loaded version \"" + selectedLabel + "\" — currentVersionAttachmentId is now " + currentVersionAttachmentId + " (downloaded via file_id " + fileId + ")")
 
 document.getElementById("versionName").value = selectedLabel
 
@@ -4580,10 +4609,11 @@ async function loadVersion(){
 await flushAutosave()
 
 let dropdown = document.getElementById("versionDropdown")
-let fileId = dropdown.value
+let attachmentId = dropdown.value
+let fileId = dropdown.options[dropdown.selectedIndex]?.dataset.fileId
 let selectedLabel = dropdown.options[dropdown.selectedIndex]?.text || ""
 
-await loadVersionById(fileId, selectedLabel)
+await loadVersionById(fileId, attachmentId, selectedLabel)
 }
 
 /* populate tables */
@@ -5530,7 +5560,7 @@ async function reloadWidget(){
     selectedCells = []
     actionHistory = []
 
-    currentVersionFileId = null
+    currentVersionAttachmentId = null
     currentVersionName = null
 
     /* RESET INPUTS */
@@ -5603,7 +5633,11 @@ async function populateStartModalVersions(){
 
         files.forEach(f=>{
             let op = document.createElement("option")
-            op.value = f.file_id
+            /* value/selection keyed by attachment_id (the real CRM id) —
+               file_id (the $file_id download token) rides along as a
+               data attribute for handleStartModalCreate() to read */
+            op.value = f.attachment_id
+            op.dataset.fileId = f.file_id
             op.text = f.name.replace(".json","")
             select.appendChild(op)
         })
@@ -5621,15 +5655,16 @@ async function handleStartModalCreate(){
     let nameInput = document.getElementById("startFileNameInput")
     let versionSelect = document.getElementById("startVersionSelect")
 
-    let selectedFileId = versionSelect.value
+    let selectedAttachmentId = versionSelect.value
+    let selectedFileId = versionSelect.options[versionSelect.selectedIndex]?.dataset.fileId
     let selectedLabel = versionSelect.options[versionSelect.selectedIndex]?.text || ""
 
     let name = nameInput.value.trim()
 
-    if(selectedFileId){
+    if(selectedAttachmentId){
         closeStartModal()
-        await loadVersionById(selectedFileId, selectedLabel)
-        loadVersions(selectedFileId)
+        await loadVersionById(selectedFileId, selectedAttachmentId, selectedLabel)
+        loadVersions(selectedAttachmentId)
         return
     }
 
@@ -5647,7 +5682,7 @@ async function handleStartModalCreate(){
    explicitly asked to create it */
 async function startFreshPlan(name){
 
-    currentVersionFileId = null
+    currentVersionAttachmentId = null
     currentVersionName = null
 
     milestoneBody.innerHTML = ""

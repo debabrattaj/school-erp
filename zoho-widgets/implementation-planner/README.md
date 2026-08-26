@@ -149,6 +149,21 @@ requiring a name up front and a manual "Save" click:
 
   A cleanup failure at every step only leaves one extra attachment behind
   — it never blocks or loses the save itself.
+- **file_id vs. attachment_id.** `getPlannerAttachments` returns two
+  different identifiers per attachment: `file_id` (its `$file_id` field —
+  a download-reference token that `ZOHO.CRM.API.getFile()` needs to fetch
+  content) and `attachment_id` (its `id` field — the real CRM Attachment
+  record id, the same value `attachFile`'s own response returns for a
+  freshly-created file, and the only one the delete endpoint accepts).
+  Confirmed in testing: passing `file_id` to the delete endpoint fails
+  with `INVALID_URL_PATTERN`. `currentVersionAttachmentId` — the value
+  autosave deletes on the next save — must always be an `attachment_id`,
+  never a `file_id`. Both version dropdowns (`versionDropdown` and the
+  startup modal's `startVersionSelect`) key their `<option value>` by
+  `attachment_id` and carry the matching `file_id` in a `data-file-id`
+  attribute, read only at the moment of calling `getFile()`
+  (`loadVersionById(fileId, attachmentId, label)` takes both, explicitly,
+  so the two can't get conflated again).
 - **"Save now"** forces an immediate save instead of waiting for the idle
   timer — useful right before generating the summary. The autosave also
   flushes automatically before switching to a different saved version in
@@ -196,14 +211,18 @@ If a Connection isn't available, this is the same mechanism the existing
 `getPlannerAttachments` listing already relies on, so it's the option
 guaranteed to work. Add a function named **`deletePlannerAttachment`**
 next to `getPlannerAttachments` (Zoho CRM → Setup → Developer Space →
-Functions), taking `recordId` and `fileId` arguments:
+Functions), taking `recordId` and `attachmentId` arguments — `attachmentId`
+here must be the real Attachment record id (`getPlannerAttachments`'
+`attachment_id`, its `id` field), not `file_id`/`$file_id`; the latter is a
+separate download-reference token the delete endpoint rejects with
+`INVALID_URL_PATTERN`:
 
 ```deluge
-string deletePlannerAttachment(recordId, fileId)
+string deletePlannerAttachment(recordId, attachmentId)
 {
 	response = invokeurl
 	[
-		url :"https://www.zohoapis.com/crm/v2/Pricing/" + recordId + "/Attachments/" + fileId
+		url :"https://www.zohoapis.com/crm/v2/Pricing/" + recordId + "/Attachments/" + attachmentId
 		type :DELETE
 		connection:"conn_crm"
 	];
