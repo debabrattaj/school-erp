@@ -4353,6 +4353,8 @@ async function performAutosave(){
 
         let oldFileId = currentVersionFileId
 
+        console.info("Autosave: starting save — oldFileId (currentVersionFileId before this save) = " + oldFileId)
+
         let response = await ZOHO.CRM.API.attachFile({
             Entity:"Pricing",
             RecordID:recordId,
@@ -4544,6 +4546,8 @@ loadTables(data)
 /* further edits autosave back into this same attachment */
 currentVersionFileId = fileId
 currentVersionName = selectedLabel
+
+console.info("Autosave: loaded version \"" + selectedLabel + "\" — currentVersionFileId is now " + currentVersionFileId)
 
 document.getElementById("versionName").value = selectedLabel
 
