@@ -2038,6 +2038,7 @@ let selectedCells = []
 let isSelecting = false
 let isVersionSaved = false
 let isSummaryGenerated = false
+let isPushed = false
 let isDragging = false
 let dragValue = null
 
@@ -2208,7 +2209,7 @@ let skillOptions = [
     "AI/ML"
 ]
 
-let effortRows = [
+const DEFAULT_EFFORT_ROWS = [
     { name: "Build, UT", percent: 40 },
     { name: "Requirement Gathering and Design", percent: 10 },
     { name: "SIT", percent: 15 },
@@ -2217,6 +2218,18 @@ let effortRows = [
     { name: "PM Effort", percent: 0 },
     { name: "Documentation", percent: 10 }
 ]
+
+let effortRows = DEFAULT_EFFORT_ROWS.map(r=>({...r}))
+
+/* resets the Total Project Effort section back to the defaults above —
+   used whenever a genuinely new/blank plan is started, so it doesn't
+   inherit whatever was left in memory from a previously open plan */
+function resetEffortRowsToDefault(){
+    effortRows = DEFAULT_EFFORT_ROWS.map(r=>({...r}))
+    let input = document.getElementById("developmentPhase")
+    if(input) input.value = ""
+    generateEffortTable()
+}
 
 document.body.onmousedown=()=>mouseDown=true
 document.body.onmouseup=()=>mouseDown=false
@@ -2618,6 +2631,7 @@ tbody.addEventListener("drop", ()=>{
 function markAsDirty(){
     isVersionSaved = false
     isSummaryGenerated = false
+    isPushed = false
     updateActionButtons()
     updateStats()
     scheduleAutosave()
@@ -2658,7 +2672,9 @@ function updateSteps(){
 
     setStepState(
         "step3",
-        (isVersionSaved && isSummaryGenerated) ? "is-active" : ""
+        isPushed
+        ? "is-done"
+        : ((isVersionSaved && isSummaryGenerated) ? "is-active" : "")
     )
 }
 
@@ -3852,7 +3868,10 @@ return{
     /* save dynamic milestone list */
     milestoneOptions,
     startDate: startDate ? startDate.toISOString() : null,
-    endDate: endDate ? endDate.toISOString() : null
+    endDate: endDate ? endDate.toISOString() : null,
+    /* Total Project Effort */
+    developmentPhase: document.getElementById("developmentPhase")?.value || "",
+    effortRows
 }
 
 }
@@ -4359,6 +4378,7 @@ try{
 
 isVersionSaved = false
 isSummaryGenerated = false
+isPushed = false
 updateActionButtons()
 
 /* ✅ CLEAR DATE RANGE */
@@ -4374,6 +4394,7 @@ milestoneBody.innerHTML=""
 resourceBody.innerHTML=""
 addMilestoneRow()
 addResourceRow()
+resetEffortRowsToDefault()
 
 document.getElementById("versionName").value = ""
 initializeVersionName()
@@ -4470,6 +4491,16 @@ if(data.milestoneOptions && Array.isArray(data.milestoneOptions)){
     milestoneOptions = data.milestoneOptions
 
 }
+
+/* restore Total Project Effort — falls back to the current defaults for
+   plans saved before this was persisted */
+if(Array.isArray(data.effortRows) && data.effortRows.length){
+    effortRows = data.effortRows
+}
+
+document.getElementById("developmentPhase").value = data.developmentPhase || ""
+
+generateEffortTable()
 
 /* -------- STEP 3: BUILD HEADERS (CRITICAL) -------- */
 // buildHeaders() is called inside changeViewMode() which is triggered on date load to ensure correct number of columns based on weeks
@@ -5325,6 +5356,9 @@ Table_Altered: true
 trigger: ["workflow"]
 })
 
+isPushed = true
+updateActionButtons()
+
 hideLoader()
 showToast("Summary pushed to Quote successfully. Click Close to see the updates in CRM.")
 
@@ -5362,6 +5396,7 @@ async function reloadWidget(){
 
     isVersionSaved = false
     isSummaryGenerated = false
+    isPushed = false
     updateActionButtons()
 
     selectedCells = []
@@ -5395,6 +5430,7 @@ async function reloadWidget(){
     addMilestoneRow()
 
     addResourceRow()
+    resetEffortRowsToDefault()
 
     generateSummary()
 
@@ -5490,6 +5526,7 @@ async function startFreshPlan(name){
     resourceBody.innerHTML = ""
     addMilestoneRow()
     addResourceRow()
+    resetEffortRowsToDefault()
 
     document.getElementById("versionName").value = name
     setAutosaveStatus("")
@@ -5651,6 +5688,7 @@ enableRowDrag(resourceBody)
 
 isVersionSaved = false
 isSummaryGenerated = false
+isPushed = false
 updateActionButtons()
 setAutosaveStatus("")
 

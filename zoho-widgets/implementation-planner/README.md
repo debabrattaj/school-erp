@@ -44,6 +44,22 @@ data model, CRM calls and table logic untouched:
 - The effort table is rendered on load instead of staying empty until the
   development-phase field is touched, and computed effort values are rounded
   for display.
+- **Push to CRM never showed as done.** The step indicator's third step
+  (`updateSteps()`) only ever went `""` → `is-active`; nothing set it to
+  `is-done` after a successful push, so step 3 stayed blue forever. Added
+  an `isPushed` flag, set on a successful `pushToSubform()` and cleared
+  everywhere `isVersionSaved`/`isSummaryGenerated` already get cleared
+  (`markAsDirty()`, loading a version, starting fresh, reload) — step 3
+  now turns green with a checkmark like steps 1–2 do.
+- **Total Project Effort wasn't part of the saved plan.** `collectData()`
+  only captured the milestone/resource tables and dates — the development-
+  phase days and the effort-row percentages (`effortRows`) were never
+  written to the saved JSON, so opening a saved plan reset that section to
+  whatever was left in memory rather than what was actually saved. Both
+  are now included in `collectData()`/`loadTables()`; a new/blank plan
+  (via the startup modal, the toolbar's "Select Version", or Reload) resets
+  them to `DEFAULT_EFFORT_ROWS` via `resetEffortRowsToDefault()` instead of
+  inheriting whatever a previously open plan left behind.
 
 ## Startup: new plan or open a saved one
 
