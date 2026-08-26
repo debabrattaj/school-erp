@@ -2020,6 +2020,13 @@ let isAutosaving = false
 let autosaveQueued = false
 const AUTOSAVE_DELAY_MS = 1500
 
+/* Base URL for this org's Zoho CRM API data centre — used only for the
+   direct ZOHO.CRM.HTTP delete-attachment call in deleteAttachmentSafely().
+   zohoapis.com is the US DC; switch to .eu/.in/.com.au/.jp/.ca to match
+   where this CRM account actually lives (same domain your CRM login
+   uses, e.g. crm.zoho.eu -> zohoapis.eu). */
+const CRM_API_DOMAIN = "https://www.zohoapis.com"
+
 let milestoneBody=document.getElementById("milestoneBody")
 let resourceBody=document.getElementById("resourceBody")
 
@@ -3954,12 +3961,24 @@ async function findAttachmentIdByName(fileName, excludeId){
 
 /* best-effort cleanup of the previous autosave copy, so the plan behaves
    like one continuously-updated document instead of a new attachment per
-   save. The widget SDK has no documented client-side "delete attachment"
-   call, so the primary path is a companion Deluge function
-   (deletePlannerAttachment) mirroring getPlannerAttachments — see the
-   widget's README for the exact function to add in Zoho CRM.
-   ZOHO.CRM.API.deleteFile is tried first in case it exists in this SDK
-   build; either way a failure here never blocks the autosave itself. */
+   save. ZOHO.CRM.API has no documented "delete attachment" method, so
+   this tries three things in order and stops at the first that succeeds;
+   a failure here never blocks the autosave itself:
+
+   1. ZOHO.CRM.API.deleteFile — not a documented method, but cheap to try
+      in case a given SDK build supports it.
+   2. ZOHO.CRM.HTTP.delete against the documented "Delete an Attachment"
+      REST endpoint (DELETE /crm/v8/{module}/{record}/Attachments/{id}),
+      called directly from the widget. Whether this works depends on
+      whether the SDK auto-attaches CRM auth for ZOHO.CRM.HTTP calls
+      against the account's own API domain — that isn't documented
+      anywhere reachable from here, so this is genuinely untested; if it
+      401/403s it just falls through to step 3.
+   3. A companion Deluge function (deletePlannerAttachment) mirroring
+      getPlannerAttachments, called the same way — see the widget's
+      README for the function to add in Zoho CRM. This is the one path
+      guaranteed to work, since it uses the same mechanism the existing
+      getPlannerAttachments listing already relies on. */
 async function deleteAttachmentSafely(fileId){
 
     if(!fileId) return
@@ -3973,7 +3992,22 @@ async function deleteAttachmentSafely(fileId){
             })
             return
         }catch(e){
-            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, falling back to deletePlannerAttachment function", fileId, e)
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, trying ZOHO.CRM.HTTP.delete next", fileId, e)
+        }
+    }
+
+    if(typeof ZOHO?.CRM?.HTTP?.delete === "function"){
+        try{
+            let id = String(Array.isArray(recordId) ? recordId[0] : recordId)
+
+            let response = await ZOHO.CRM.HTTP.delete({
+                url: CRM_API_DOMAIN + "/crm/v8/Pricing/" + id + "/Attachments/" + fileId
+            })
+
+            console.info("Autosave: ZOHO.CRM.HTTP.delete response", response)
+            return
+        }catch(e){
+            console.warn("Autosave: ZOHO.CRM.HTTP.delete failed, falling back to deletePlannerAttachment function", fileId, e)
         }
     }
 

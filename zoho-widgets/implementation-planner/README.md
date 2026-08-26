@@ -64,12 +64,28 @@ requiring a name up front and a manual "Save" click:
 - **One file, kept up to date.** The CRM Attachments API has no "update
   file content in place" call, so each autosave uploads the current
   content first, then deletes the previously saved copy of the same plan.
-  The widget SDK doesn't expose a client-side "delete attachment" call, so
-  cleanup goes through a companion Deluge function,
-  `deletePlannerAttachment` (see **Required Zoho CRM setup** below); a
-  `ZOHO.CRM.API.deleteFile` call is tried first in case a given SDK build
-  happens to support it. Either way, a cleanup failure only leaves one
-  extra attachment behind — it never blocks or loses the save itself.
+  `ZOHO.CRM.API` has no documented delete-attachment method, so cleanup
+  (`deleteAttachmentSafely` in `widget.html`) tries three things in order
+  and stops at the first that works:
+  1. `ZOHO.CRM.API.deleteFile` — not documented, but free to try.
+  2. `ZOHO.CRM.HTTP.delete` calling the documented REST "Delete an
+     Attachment" endpoint directly
+     (`DELETE /crm/v8/Pricing/{record}/Attachments/{id}`) against
+     `CRM_API_DOMAIN` (a constant near the top of the script — set it to
+     match your data centre, see the comment there). **This path is
+     untested**: whether `ZOHO.CRM.HTTP` auto-attaches CRM auth for calls
+     back to the account's own API domain isn't documented anywhere
+     reachable while building this, so it may 401/403. Its raw response
+     is logged via `console.info` the first time it runs — worth checking
+     once to confirm it's really succeeding and not just resolving on a
+     non-2xx.
+  3. The `deletePlannerAttachment` Deluge function (see **Required Zoho
+     CRM setup** below) — the one path guaranteed to work, since it's the
+     same mechanism the existing `getPlannerAttachments` listing already
+     relies on.
+
+  A cleanup failure at every step only leaves one extra attachment behind
+  — it never blocks or loses the save itself.
 - **"Save now"** forces an immediate save instead of waiting for the idle
   timer — useful right before generating the summary. The autosave also
   flushes automatically before switching to a different saved version in
