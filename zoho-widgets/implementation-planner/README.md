@@ -136,6 +136,12 @@ requiring a name up front and a manual "Save" click:
      status (not just "didn't throw") so a failure correctly falls
      through to step 3 instead of being masked, and the raw response is
      logged via `console.info` for visibility either way.
+     `isConnectionCallSuccessful()` also had to be widened after testing
+     showed the real delete response nested one level deeper than
+     expected — `details.statusMessage.data[0].status`, not
+     `details.data[0].status` or `details.status` — which was making a
+     delete that had actually succeeded look like a failure and fall
+     through to step 3 unnecessarily.
   3. The `deletePlannerAttachment` Deluge function (see **Required Zoho
      CRM setup** below) — works with zero extra CRM configuration beyond
      what already exists, since it's the same mechanism the existing

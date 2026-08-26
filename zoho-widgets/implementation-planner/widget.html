@@ -4221,6 +4221,29 @@ function isConnectionCallSuccessful(response){
         return String(details.data[0].status || "").toLowerCase() === "success"
     }
 
+    /* confirmed in testing: the actual "Delete an Attachment" response
+       comes back nested one level deeper still, under
+       details.statusMessage — {data:[{status:"success", ...}], status:"true"} —
+       rather than directly under details */
+    let statusMessage = details.statusMessage
+
+    if(typeof statusMessage === "string"){
+        try{
+            statusMessage = JSON.parse(statusMessage)
+        }catch(e){
+            /* not JSON — fall through, the checks below will just fail */
+        }
+    }
+
+    if(statusMessage){
+
+        if(String(statusMessage.status || "").toLowerCase() === "success") return true
+
+        if(Array.isArray(statusMessage.data) && statusMessage.data[0]){
+            return String(statusMessage.data[0].status || "").toLowerCase() === "success"
+        }
+    }
+
     return false
 }
 
