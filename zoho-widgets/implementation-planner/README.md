@@ -45,6 +45,37 @@ data model, CRM calls and table logic untouched:
   development-phase field is touched, and computed effort values are rounded
   for display.
 
+## Autosave
+
+The plan saves itself as you work, the way Google Docs/Sheets do, instead of
+requiring a name up front and a manual "Save" click:
+
+- **Default name.** As soon as the linked Pricing record loads, the name
+  field is pre-filled with `<Record Name> - Implementation Plan` (or
+  "Untitled Implementation Plan" if the record has no name yet). You can
+  edit it at any time — typing a new name is just another change that gets
+  autosaved.
+- **Debounced autosave.** Any edit (painting the timeline, editing effort
+  rows, resource numbers, dates, view mode, dragging rows, renaming the
+  plan…) restarts a ~1.5s idle timer; once it elapses the plan is saved.
+  The status text next to the name field reflects this: "Unsaved changes"
+  → "Saving…" → "Saved HH:MM" (or "Save failed — will retry on next
+  change" if a save attempt errors).
+- **One file, kept up to date.** The CRM Attachments API has no "update
+  file content in place" call, so each autosave deletes the previously
+  saved copy (`ZOHO.CRM.API.deleteFile`, best-effort — if the SDK build in
+  use doesn't support it, the old copy is simply left behind rather than
+  blocking the save) and re-uploads the current content under the current
+  name. This keeps one attachment per open plan instead of a new
+  timestamped file every save.
+- **"Save now"** forces an immediate save instead of waiting for the idle
+  timer — useful right before generating the summary. The autosave also
+  flushes automatically before switching to a different saved version in
+  the dropdown and before the widget closes, so no edits are lost.
+- Opening a plan from the version dropdown makes it the active document:
+  further edits autosave back into that same attachment, and the name
+  field shows its name so you can rename it too.
+
 ## Local preview
 
 The widget expects `ZOHO.embeddedApp`; to view it outside CRM, stub the SDK

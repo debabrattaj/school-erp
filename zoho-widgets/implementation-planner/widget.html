@@ -1303,6 +1303,24 @@ tr[draggable="true"]:active{cursor:grabbing}
     flex-wrap:wrap;
 }
 
+.autosave-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.autosave-status{
+    font-size:11px;
+    font-weight:600;
+    color:var(--text-soft);
+    padding-left:2px;
+}
+
+.autosave-status.is-pending{color:var(--warning)}
+.autosave-status.is-saving{color:var(--info)}
+.autosave-status.is-saved{color:var(--success)}
+.autosave-status.is-error{color:var(--danger)}
+
 /* =========================================================
    13. HELP TOOLTIP
 ========================================================= */
@@ -1902,9 +1920,12 @@ tr[draggable="true"]:active{cursor:grabbing}
 
     <div class="actionbar-controls">
 
-        <input class="input field-w-lg" id="versionName" placeholder="Name this plan before saving"/>
+        <div class="autosave-field">
+            <input class="input field-w-lg" id="versionName" placeholder="Untitled Implementation Plan" autocomplete="off"/>
+            <span class="autosave-status" id="autosaveStatus">Not saved yet</span>
+        </div>
 
-        <button class="btn btn-secondary" onclick="saveVersion()">Save</button>
+        <button class="btn btn-secondary" onclick="saveVersion()">Save now</button>
 
         <button class="btn btn-secondary" id="summaryBtn" onclick="generateSummary(true)" disabled>
             Generate Summary
@@ -1981,6 +2002,23 @@ let weeks = 52
 let months = []
 let recordId=null
 let mouseDown=false
+
+/* =========================================
+   Autosave state
+   Google Docs-style: the plan saves itself as
+   you work. currentVersionFileId/currentVersionName
+   track which attachment is the "open document" —
+   every autosave overwrites that same attachment
+   (delete previous copy, then re-upload) instead of
+   piling up a new timestamped file per save.
+========================================= */
+
+let currentVersionFileId = null
+let currentVersionName = null
+let autosaveTimer = null
+let isAutosaving = false
+let autosaveQueued = false
+const AUTOSAVE_DELAY_MS = 1500
 
 let milestoneBody=document.getElementById("milestoneBody")
 let resourceBody=document.getElementById("resourceBody")
@@ -2136,6 +2174,30 @@ let endPicker = flatpickr("#endDate", {
     dateFormat: "d M, Y",
     onChange: function(selectedDates){
         handleDateChange()
+    }
+})
+
+/* =========================================
+   Plan name field — renaming is just another
+   edit: it feeds the same autosave debounce
+   that content changes use.
+========================================= */
+
+let versionNameInput = document.getElementById("versionName")
+
+versionNameInput.addEventListener("input", scheduleAutosave)
+
+versionNameInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        e.preventDefault()
+        this.blur()
+        flushAutosave()
+    }
+})
+
+versionNameInput.addEventListener("blur", function(){
+    if(this.value.trim() === ""){
+        this.value = currentVersionName || getDefaultVersionName()
     }
 })
 
@@ -2375,7 +2437,11 @@ function changeViewMode(){
     )
 }
 
-function closeWidget(){
+async function closeWidget(){
+
+/* make sure the last few edits aren't lost between the debounce window
+   and the widget popup closing */
+await flushAutosave()
 
 ZOHO.CRM.UI.Popup.closeReload()
 .then(function(data){
@@ -2475,6 +2541,7 @@ function markAsDirty(){
     isSummaryGenerated = false
     updateActionButtons()
     updateStats()
+    scheduleAutosave()
 }
 
 function updateActionButtons(){
@@ -3759,73 +3826,226 @@ toast.classList.remove("toast-show")
 
 }
 
-/* save planner version */
+/* =========================================
+   Autosave engine
 
+   Behaves like Google Docs/Sheets: the plan is
+   saved automatically a short idle-moment after
+   each change, under a default name the user can
+   edit at any time. Because the CRM attachments
+   API has no "update file content in place" call,
+   an autosave is implemented as delete-previous
+   -copy + upload-new-copy, keeping exactly one
+   attachment as the "open document" per plan
+   (tracked by currentVersionFileId).
+========================================= */
+
+function getDefaultVersionName(){
+
+    let quoteName =
+        document.getElementById("quoteName")?.innerText?.trim()
+
+    if(quoteName && quoteName !== "-"){
+        return quoteName + " - Implementation Plan"
+    }
+
+    return "Untitled Implementation Plan"
+}
+
+function initializeVersionName(){
+
+    let input = document.getElementById("versionName")
+
+    if(!input || currentVersionFileId) return
+
+    if(input.value.trim() !== "") return
+
+    input.value = getDefaultVersionName()
+}
+
+function setAutosaveStatus(state){
+
+    let el = document.getElementById("autosaveStatus")
+
+    if(!el) return
+
+    el.classList.remove("is-pending", "is-saving", "is-saved", "is-error")
+
+    if(state === "pending"){
+        el.textContent = "Unsaved changes"
+        el.classList.add("is-pending")
+    }else if(state === "saving"){
+        el.textContent = "Saving…"
+        el.classList.add("is-saving")
+    }else if(state === "saved"){
+        let time = new Date().toLocaleTimeString("en-US",{
+            hour:"2-digit",
+            minute:"2-digit"
+        })
+        el.textContent = "Saved " + time
+        el.classList.add("is-saved")
+    }else if(state === "error"){
+        el.textContent = "Save failed — will retry on next change"
+        el.classList.add("is-error")
+    }else{
+        el.textContent = "Not saved yet"
+    }
+}
+
+/* pull an attachment id out of whatever shape attachFile resolves with */
+function extractAttachmentId(response){
+
+    if(!response) return null
+
+    if(response.details?.id) return response.details.id
+
+    if(Array.isArray(response.data) && response.data[0]){
+        let d = response.data[0]
+        if(d.details?.id) return d.details.id
+        if(d.id) return d.id
+    }
+
+    if(response.id) return response.id
+
+    return null
+}
+
+/* best-effort cleanup of the previous autosave copy — if the SDK in use
+   has no deleteFile, or the call fails, we still save the latest content
+   as a new attachment rather than losing the user's work */
+async function deleteAttachmentSafely(fileId){
+
+    if(!fileId) return
+
+    if(typeof ZOHO?.CRM?.API?.deleteFile !== "function") return
+
+    try{
+        await ZOHO.CRM.API.deleteFile({
+            Entity:"Pricing",
+            RecordID:recordId,
+            FileId:fileId
+        })
+    }catch(e){
+        console.warn("Autosave: could not remove previous copy", fileId, e)
+    }
+}
+
+function scheduleAutosave(){
+
+    if(!recordId) return
+
+    setAutosaveStatus("pending")
+
+    clearTimeout(autosaveTimer)
+    autosaveTimer = setTimeout(performAutosave, AUTOSAVE_DELAY_MS)
+}
+
+async function performAutosave(){
+
+    if(!recordId) return
+
+    if(isAutosaving){
+        autosaveQueued = true
+        return
+    }
+
+    isAutosaving = true
+    setAutosaveStatus("saving")
+
+    try{
+
+        let nameInput = document.getElementById("versionName")
+        let name = nameInput.value.trim()
+
+        if(name === ""){
+            name = getDefaultVersionName()
+            nameInput.value = name
+        }
+
+        let data = collectData()
+        let json = JSON.stringify(data, null, 2)
+        let blob = new Blob([json], {type:"application/json"})
+        let fileName = name + ".json"
+
+        if(currentVersionFileId){
+            await deleteAttachmentSafely(currentVersionFileId)
+        }
+
+        let response = await ZOHO.CRM.API.attachFile({
+            Entity:"Pricing",
+            RecordID:recordId,
+            File:{
+                Name:fileName,
+                Content:blob
+            }
+        })
+
+        currentVersionFileId = extractAttachmentId(response) || currentVersionFileId
+        currentVersionName = name
+
+        isVersionSaved = true
+        updateActionButtons()
+        setAutosaveStatus("saved")
+
+        loadVersions(currentVersionFileId)
+
+    }catch(e){
+
+        console.error("Autosave failed", e)
+        setAutosaveStatus("error")
+
+        isVersionSaved = false
+        updateActionButtons()
+
+    }finally{
+
+        isAutosaving = false
+
+        if(autosaveQueued){
+            autosaveQueued = false
+            performAutosave()
+        }
+    }
+}
+
+/* cancel the pending debounce and save right now — used when closing the
+   widget, switching versions, or the user clicks "Save now" */
+async function flushAutosave(force){
+
+    clearTimeout(autosaveTimer)
+
+    if(!force && isVersionSaved) return
+
+    await performAutosave()
+}
+
+/* manual "Save now" button — the plan already autosaves, this just forces
+   an immediate save instead of waiting out the debounce */
 async function saveVersion(){
 
-let versionName=document.getElementById("versionName").value.trim()
+    if(!recordId){
+        showToast("Record not ready yet")
+        return
+    }
 
-if(versionName === ""){
-    showToast("Please Enter Project Plan Name")
-    return
-}
+    if(isVersionSaved && currentVersionFileId){
+        showToast("Already up to date")
+        return
+    }
 
-try{
+    await flushAutosave(true)
 
-    let data=collectData()
-
-    let json=JSON.stringify(data,null,2)
-
-    let blob=new Blob([json],{type:"application/json"})
-
-    let today = new Date()
-
-    let formattedDate = today.toLocaleDateString("en-US",{
-        month:"short",
-        day:"2-digit",
-        year:"numeric"
-    })
-
-    let time = today.toLocaleTimeString("en-US",{
-        hour:"2-digit",
-        minute:"2-digit",
-        hour12:false
-    }).replace(":","-")
-
-    let fileName = versionName + "_" + formattedDate + "_" + time + ".json"
-
-    await ZOHO.CRM.API.attachFile({
-        Entity:"Pricing",
-        RecordID:recordId,
-        File:{
-            Name:fileName,
-            Content:blob
-        }
-    })
-
-    showToast("Version Saved Successfully")
-    loadVersions()
-
-    isVersionSaved = true
-    isSummaryGenerated = false
-    updateActionButtons()   // ✅ Save enables Generate Summary only
-
-}catch(e){
-
-    console.error(e)
-    showToast("Error saving version")
-
-    isVersionSaved = false
-    isSummaryGenerated = false
-    updateActionButtons()   // ❌ keep Generate Summary and Push disabled
-
-}
+    showToast(
+        isVersionSaved
+        ? "Version Saved Successfully"
+        : "Error saving version"
+    )
 }
 
 
 /* LOAD VERSIONS FROM CRM FUNCTION */
 
-async function loadVersions(){
+async function loadVersions(selectedFileId){
 
 try{
 
@@ -3858,6 +4078,10 @@ drop.appendChild(op);
 
 });
 
+if(selectedFileId){
+    drop.value = selectedFileId
+}
+
 }catch(e){
 
 console.error("Error loading versions",e);
@@ -3871,6 +4095,10 @@ console.error("Error loading versions",e);
 
 async function loadVersion(){
 
+/* persist any pending edits to the document we're switching away from
+   before loading a different one */
+await flushAutosave()
+
 isVersionSaved = false
 isSummaryGenerated = false
 updateActionButtons()
@@ -3880,14 +4108,25 @@ if(startPicker) startPicker.clear()
 if(endPicker) endPicker.clear()
 
 
-let fileId=document.getElementById("versionDropdown").value
+let dropdown = document.getElementById("versionDropdown")
+let fileId = dropdown.value
+let selectedLabel = dropdown.options[dropdown.selectedIndex]?.text || ""
 
 
 if(fileId === "Select Version"){
+
+currentVersionFileId = null
+currentVersionName = null
+
 milestoneBody.innerHTML=""
 resourceBody.innerHTML=""
-createMilestoneRow()
-createResourceRow()
+addMilestoneRow()
+addResourceRow()
+
+document.getElementById("versionName").value = ""
+initializeVersionName()
+setAutosaveStatus("")
+
 return
 }
 
@@ -3906,6 +4145,16 @@ let text=await response.text()
 let data=JSON.parse(text)
 
 loadTables(data)
+
+/* further edits autosave back into this same attachment */
+currentVersionFileId = fileId
+currentVersionName = selectedLabel
+
+document.getElementById("versionName").value = selectedLabel
+
+isVersionSaved = true
+updateActionButtons()
+setAutosaveStatus("saved")
 
 showToast("Selected Version Loaded ")
 
@@ -4751,6 +5000,10 @@ console.error("Error fetching record", e)
 
 }
 
+/* now that the record's own name is known (or not), give the plan its
+   default title if the user hasn't already opened/typed one */
+initializeVersionName()
+
 }
 
 
@@ -4821,6 +5074,8 @@ showToast("Error pushing data")
 
 async function reloadWidget(){
 
+    clearTimeout(autosaveTimer)
+
     await loadMilestones()
 
     /* RESET TABLES */
@@ -4836,6 +5091,9 @@ async function reloadWidget(){
 
     selectedCells = []
     actionHistory = []
+
+    currentVersionFileId = null
+    currentVersionName = null
 
     /* RESET INPUTS */
 
@@ -4864,6 +5122,9 @@ async function reloadWidget(){
     addResourceRow()
 
     generateSummary()
+
+    initializeVersionName()
+    setAutosaveStatus("")
 
     showToast("Widget Reloaded")
 
@@ -5023,6 +5284,7 @@ enableRowDrag(resourceBody)
 isVersionSaved = false
 isSummaryGenerated = false
 updateActionButtons()
+setAutosaveStatus("")
 
 })
 
