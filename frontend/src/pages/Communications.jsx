@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle,
+  Copy,
   Edit,
   MessageCircle,
   PlusCircle,
@@ -52,6 +53,71 @@ const categories = ["Admissions", "Fees", "Attendance", "Documents", "Academics"
 const templateStatuses = ["Active", "Inactive", "Draft"];
 const logStatuses = ["Queued", "Sent", "Failed"];
 
+// Merge fields a template can reference. {student_name}, {recipient_name},
+// {guardian_name} and {school_name} are filled in on every automated send
+// (Fee Reminders, Library Reminders); the rest render only where the
+// matching scheduler already builds that context (Fees group in Fee
+// Reminders, Library group in Library Reminders). Elsewhere -- Compose
+// Message, Send to Class -- the body goes out as literal text, so a
+// placeholder typed there won't substitute yet.
+const VARIABLE_GROUPS = [
+  {
+    group: "Student",
+    options: [
+      { token: "{student_name}", label: "Student's full name" },
+      { token: "{admission_no}", label: "Admission number" },
+      { token: "{recipient_name}", label: "Guardian/recipient's name" },
+      { token: "{guardian_name}", label: "Guardian's name" },
+      { token: "{class_name}", label: "Class" },
+      { token: "{section}", label: "Section" },
+    ],
+  },
+  {
+    group: "Fees",
+    options: [
+      { token: "{fee_type}", label: "Fee type" },
+      { token: "{amount_due}", label: "Amount outstanding" },
+      { token: "{total_amount}", label: "Total fee amount" },
+      { token: "{paid_amount}", label: "Amount already paid" },
+      { token: "{due_date}", label: "Fee due date" },
+      { token: "{days_overdue}", label: "Days overdue" },
+      { token: "{billing_period}", label: "Billing period" },
+    ],
+  },
+  {
+    group: "Exams",
+    options: [
+      { token: "{exam_name}", label: "Exam name" },
+      { token: "{exam_type}", label: "Exam type" },
+      { token: "{exam_date}", label: "Exam date" },
+    ],
+  },
+  {
+    group: "Marks",
+    options: [
+      { token: "{subject_name}", label: "Subject" },
+      { token: "{marks_obtained}", label: "Marks obtained" },
+      { token: "{max_marks}", label: "Maximum marks" },
+      { token: "{percentage}", label: "Percentage" },
+      { token: "{grade}", label: "Grade" },
+    ],
+  },
+  {
+    group: "Attendance",
+    options: [
+      { token: "{attendance_status}", label: "Present/Absent/Late status" },
+      { token: "{attendance_date}", label: "Attendance date" },
+      { token: "{days_present}", label: "Days present" },
+      { token: "{days_absent}", label: "Days absent" },
+      { token: "{attendance_percent}", label: "Attendance percentage" },
+    ],
+  },
+  {
+    group: "School",
+    options: [{ token: "{school_name}", label: "School name" }],
+  },
+];
+
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
 
@@ -85,6 +151,7 @@ export default function Communications() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [pickedVariable, setPickedVariable] = useState(VARIABLE_GROUPS[0].options[0].token);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -151,6 +218,15 @@ export default function Communications() {
   function handleTemplateChange(event) {
     const { name, value } = event.target;
     setTemplateForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleCopyVariable() {
+    try {
+      await navigator.clipboard.writeText(pickedVariable);
+      setMessage(`Copied ${pickedVariable} — paste it into Subject or Body.`);
+    } catch {
+      setMessage(`Couldn't copy automatically — this is the merge field: ${pickedVariable}`);
+    }
   }
 
   function handleMessageChange(event) {
@@ -499,7 +575,33 @@ export default function Communications() {
               </div>
               <div className="form-field span-2">
                 <label>Variables</label>
+                <div className="variable-picker-row">
+                  <select value={pickedVariable} onChange={(event) => setPickedVariable(event.target.value)}>
+                    {VARIABLE_GROUPS.map((group) => (
+                      <optgroup key={group.group} label={group.group}>
+                        {group.options.map((option) => (
+                          <option key={option.token} value={option.token}>
+                            {option.token} — {option.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="icon-button variable-copy-button"
+                    onClick={handleCopyVariable}
+                    title="Copy this merge field"
+                  >
+                    <Copy size={15} />
+                  </button>
+                </div>
                 <input name="variables" value={templateForm.variables} onChange={handleTemplateChange} />
+                <small>
+                  {"Pick a merge field, copy it, then paste it into Subject or Body. "}
+                  {"{student_name}, {guardian_name} and {school_name} fill in on every automated send; "}
+                  {"the rest render today only in Fee Reminders and Library Reminders — elsewhere the text is sent as-is."}
+                </small>
               </div>
               <div className="form-field span-2">
                 <label>Remarks</label>
