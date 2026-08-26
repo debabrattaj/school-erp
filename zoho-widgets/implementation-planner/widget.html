@@ -3910,23 +3910,82 @@ function extractAttachmentId(response){
     return null
 }
 
-/* best-effort cleanup of the previous autosave copy — if the SDK in use
-   has no deleteFile, or the call fails, we still save the latest content
-   as a new attachment rather than losing the user's work */
+/* shared attachment-list fetch, backed by the getPlannerAttachments Deluge
+   function — used to populate the version dropdown and, below, to recover
+   an attachment's id when the attachFile response doesn't carry one */
+async function fetchAttachmentList(){
+
+    let response = await ZOHO.CRM.FUNCTIONS.execute("getPlannerAttachments",{
+        arguments:JSON.stringify({
+            recordId: String(Array.isArray(recordId) ? recordId[0] : recordId)
+        })
+    })
+
+    let output = response?.details?.output
+
+    if(!output) return []
+
+    return JSON.parse(output)
+}
+
+/* fallback when attachFile's resolved value doesn't carry a usable id —
+   look the file we just saved up by name instead, excluding whichever
+   attachment we're about to replace */
+async function findAttachmentIdByName(fileName, excludeId){
+
+    try{
+
+        let files = await fetchAttachmentList()
+
+        let matches = files.filter(f=>
+            f.name === fileName && f.file_id !== excludeId
+        )
+
+        if(matches.length >= 1){
+            return matches[matches.length - 1].file_id
+        }
+
+    }catch(e){
+        console.warn("Autosave: could not resolve saved file id by name", e)
+    }
+
+    return null
+}
+
+/* best-effort cleanup of the previous autosave copy, so the plan behaves
+   like one continuously-updated document instead of a new attachment per
+   save. The widget SDK has no documented client-side "delete attachment"
+   call, so the primary path is a companion Deluge function
+   (deletePlannerAttachment) mirroring getPlannerAttachments — see the
+   widget's README for the exact function to add in Zoho CRM.
+   ZOHO.CRM.API.deleteFile is tried first in case it exists in this SDK
+   build; either way a failure here never blocks the autosave itself. */
 async function deleteAttachmentSafely(fileId){
 
     if(!fileId) return
 
-    if(typeof ZOHO?.CRM?.API?.deleteFile !== "function") return
+    if(typeof ZOHO?.CRM?.API?.deleteFile === "function"){
+        try{
+            await ZOHO.CRM.API.deleteFile({
+                Entity:"Pricing",
+                RecordID:recordId,
+                FileId:fileId
+            })
+            return
+        }catch(e){
+            console.warn("Autosave: ZOHO.CRM.API.deleteFile failed, falling back to deletePlannerAttachment function", fileId, e)
+        }
+    }
 
     try{
-        await ZOHO.CRM.API.deleteFile({
-            Entity:"Pricing",
-            RecordID:recordId,
-            FileId:fileId
+        await ZOHO.CRM.FUNCTIONS.execute("deletePlannerAttachment",{
+            arguments:JSON.stringify({
+                recordId: String(Array.isArray(recordId) ? recordId[0] : recordId),
+                fileId: fileId
+            })
         })
     }catch(e){
-        console.warn("Autosave: could not remove previous copy", fileId, e)
+        console.warn("Autosave: could not remove previous copy — is the deletePlannerAttachment Deluge function set up? See README.", fileId, e)
     }
 }
 
@@ -3967,9 +4026,7 @@ async function performAutosave(){
         let blob = new Blob([json], {type:"application/json"})
         let fileName = name + ".json"
 
-        if(currentVersionFileId){
-            await deleteAttachmentSafely(currentVersionFileId)
-        }
+        let oldFileId = currentVersionFileId
 
         let response = await ZOHO.CRM.API.attachFile({
             Entity:"Pricing",
@@ -3980,12 +4037,23 @@ async function performAutosave(){
             }
         })
 
-        currentVersionFileId = extractAttachmentId(response) || currentVersionFileId
+        let newFileId =
+            extractAttachmentId(response) ||
+            await findAttachmentIdByName(fileName, oldFileId)
+
+        currentVersionFileId = newFileId || oldFileId
         currentVersionName = name
 
         isVersionSaved = true
         updateActionButtons()
         setAutosaveStatus("saved")
+
+        /* drop the previous copy of this same document now that the new
+           one is confirmed saved — this is what makes autosave overwrite
+           in place instead of piling up a new attachment per save */
+        if(oldFileId && oldFileId !== currentVersionFileId){
+            await deleteAttachmentSafely(oldFileId)
+        }
 
         loadVersions(currentVersionFileId)
 
@@ -4049,21 +4117,11 @@ async function loadVersions(selectedFileId){
 
 try{
 
-console.log(recordId)
-let response = await ZOHO.CRM.FUNCTIONS.execute("getPlannerAttachments",{
-arguments:JSON.stringify({
-recordId: String(Array.isArray(recordId) ? recordId[0] : recordId)
-})
-});
+let files = await fetchAttachmentList();
 
-let output = response.details.output;
-
-if(!output){
+if(!files.length){
 console.warn("No versions returned");
-return;
 }
-
-let files = JSON.parse(output);
 
 let drop=document.getElementById("versionDropdown");
 drop.innerHTML="<option>Select Version</option>";

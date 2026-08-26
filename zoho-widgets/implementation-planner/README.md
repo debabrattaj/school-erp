@@ -62,12 +62,14 @@ requiring a name up front and a manual "Save" click:
   → "Saving…" → "Saved HH:MM" (or "Save failed — will retry on next
   change" if a save attempt errors).
 - **One file, kept up to date.** The CRM Attachments API has no "update
-  file content in place" call, so each autosave deletes the previously
-  saved copy (`ZOHO.CRM.API.deleteFile`, best-effort — if the SDK build in
-  use doesn't support it, the old copy is simply left behind rather than
-  blocking the save) and re-uploads the current content under the current
-  name. This keeps one attachment per open plan instead of a new
-  timestamped file every save.
+  file content in place" call, so each autosave uploads the current
+  content first, then deletes the previously saved copy of the same plan.
+  The widget SDK doesn't expose a client-side "delete attachment" call, so
+  cleanup goes through a companion Deluge function,
+  `deletePlannerAttachment` (see **Required Zoho CRM setup** below); a
+  `ZOHO.CRM.API.deleteFile` call is tried first in case a given SDK build
+  happens to support it. Either way, a cleanup failure only leaves one
+  extra attachment behind — it never blocks or loses the save itself.
 - **"Save now"** forces an immediate save instead of waiting for the idle
   timer — useful right before generating the summary. The autosave also
   flushes automatically before switching to a different saved version in
@@ -75,6 +77,48 @@ requiring a name up front and a manual "Save" click:
 - Opening a plan from the version dropdown makes it the active document:
   further edits autosave back into that same attachment, and the name
   field shows its name so you can rename it too.
+
+## Required Zoho CRM setup: `deletePlannerAttachment`
+
+Autosave overwrites the plan in place by uploading the new copy and then
+deleting the old one. Listing attachments already goes through a Deluge
+function (`getPlannerAttachments`, configured directly in Zoho CRM, not in
+this repo) because the widget SDK doesn't expose that either — deletion
+needs the same kind of function, since there's no documented
+`ZOHO.CRM.API` call for it. Without it, cleanup silently no-ops (logged as
+a console warning) and the record accumulates one attachment per autosave.
+
+Add a function named **`deletePlannerAttachment`** next to
+`getPlannerAttachments` (Zoho CRM → Setup → Developer Space → Functions),
+taking `recordId` and `fileId` arguments:
+
+```deluge
+string deletePlannerAttachment(recordId, fileId)
+{
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2/Pricing/" + recordId + "/Attachments/" + fileId
+		type :DELETE
+		connection:"crm_conn"
+	];
+
+	return response.toString();
+}
+```
+
+Adjust two things to match your org before saving it:
+
+- **API domain** — `zohoapis.com` only applies to the US data centre;
+  swap it for whichever one `getPlannerAttachments` already calls
+  (`.eu`, `.in`, `.com.au`, `.jp`, `.ca`, …).
+- **`connection`** — reuse the same OAuth connection name
+  `getPlannerAttachments` uses (it needs the CRM attachments-delete scope);
+  create one under Setup → Developer Space → Connections if none exists
+  yet.
+
+The widget calls this function by name (`ZOHO.CRM.FUNCTIONS.execute`), so
+no changes to `widget.html` are needed once it's added — autosave will
+start deleting the superseded copy automatically the next time it runs.
 
 ## Local preview
 
