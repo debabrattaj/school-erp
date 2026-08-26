@@ -4362,9 +4362,17 @@ async function performAutosave(){
             }
         })
 
-        let newFileId =
-            extractAttachmentId(response) ||
-            await findAttachmentIdByName(fileName, oldFileId)
+        console.info("Autosave: attachFile response: " + JSON.stringify(response))
+
+        let newFileId = extractAttachmentId(response)
+        let idSource = "attachFile response"
+
+        if(!newFileId){
+            newFileId = await findAttachmentIdByName(fileName, oldFileId)
+            idSource = "name lookup against getPlannerAttachments"
+        }
+
+        console.info("Autosave: new attachment id \"" + newFileId + "\" resolved via " + idSource)
 
         currentVersionFileId = newFileId || oldFileId
         currentVersionName = name
