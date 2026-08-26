@@ -1185,6 +1185,28 @@ input {
   margin-bottom: 0;
 }
 
+.variable-picker-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.variable-picker-row select {
+  flex: 1;
+}
+
+.variable-picker-row .icon-button.variable-copy-button {
+  width: 40px;
+  height: auto;
+  min-height: 40px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 /* Responsive Management */
 
 @media (max-width: 1100px) {
