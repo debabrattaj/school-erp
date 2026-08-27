@@ -8740,12 +8740,26 @@ h3 { font-size: 14px; font-weight: 650; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   background: transparent;
   border: 0;
   box-shadow: none;
   padding: 4px 0 14px;
   margin: 0 0 16px;
+}
+
+/* Once the title text and the action row can no longer share one line, the
+   whole action row drops to a line of its own -- rather than getting
+   squeezed into whatever sliver is left beside the title, which is what
+   forced individual buttons to wrap one at a time (see .student-edit-page's
+   and :has(.form-panel)'s own justify-content: flex-end below, patched
+   piecemeal for the same reason before this exists here). This is why a
+   title's own div needs no explicit width: as a flex item it already claims
+   however much space it needs up to the point the row wraps. */
+.page-heading.page-heading.page-heading .module-header-actions {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .page-head.page-head p,
