@@ -3654,6 +3654,7 @@ body,
 .student-heading-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
   position: relative;
@@ -7072,6 +7073,7 @@ textarea {
 .student-heading-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
   position: relative;
@@ -7522,10 +7524,6 @@ textarea {
   color: var(--text-muted);
   font-size: 13px;
   margin-top: 7px;
-}
-
-.students-list-page > .page-heading .module-header-actions > button:not(:last-child) {
-  display: none;
 }
 
 .students-list-page > .summary-strip,
