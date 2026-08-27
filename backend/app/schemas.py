@@ -1056,6 +1056,9 @@ class DemoRequestCreate(BaseModel):
 
     name: str
     school: str
+    city: Optional[str] = None
+    student_count: Optional[str] = None
+    current_system: Optional[str] = None
     email: str
     phone: Optional[str] = None
     message: Optional[str] = None

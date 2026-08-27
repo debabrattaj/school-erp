@@ -50,3 +50,32 @@ def test_demo_request_sends_email_to_info_cc_owner(client, caplog):
     assert "To=info@schoolment.com" in caplog.text
     assert "Cc=debabrattaj@gmail.com" in caplog.text
     assert "Cc Test School" in caplog.text
+
+
+def test_demo_request_includes_qualifying_fields_and_ip_in_email(client, caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="mailer"):
+        resp = client.post(
+            "/leads/",
+            json=_payload(
+                city="Bhubaneswar",
+                student_count="450",
+                current_system="Excel / Google Sheets",
+            ),
+        )
+    assert resp.status_code == 200, resp.text
+    # None of these ever come back in the API response -- they only ever
+    # reach the internal sales-notification email.
+    assert "city" not in resp.json()
+    assert "Bhubaneswar" in caplog.text
+    assert "450" in caplog.text
+    assert "Excel / Google Sheets" in caplog.text
+    assert "Submitted from IP:" in caplog.text
+
+
+def test_demo_request_qualifying_fields_are_optional(client):
+    # _payload() doesn't set city/student_count/current_system at all --
+    # confirms the endpoint doesn't require them.
+    resp = client.post("/leads/", json=_payload())
+    assert resp.status_code == 200, resp.text
