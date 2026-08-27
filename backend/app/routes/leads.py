@@ -50,6 +50,9 @@ def submit_demo_request(payload: schemas.DemoRequestCreate, request: Request):
 
     name = payload.name.strip()
     school = payload.school.strip()
+    city = (payload.city or "").strip()
+    student_count = (payload.student_count or "").strip()
+    current_system = (payload.current_system or "").strip()
     email = payload.email.strip()
     phone = (payload.phone or "").strip()
     message = (payload.message or "").strip()
@@ -58,13 +61,24 @@ def submit_demo_request(payload: schemas.DemoRequestCreate, request: Request):
     body_lines = [
         f"Name: {name}",
         f"School: {school}",
+        f"City: {city or '-'}",
         f"Email: {email}",
         f"Phone: {phone or '-'}",
+        f"Student count: {student_count or '-'}",
+        f"Current system: {current_system or '-'}",
     ]
     if message:
         body_lines.append(f"Message: {message}")
     if page_url:
         body_lines.append(f"Submitted from: {page_url}")
+    # Not shown on the form or in the API response -- read straight off the
+    # request like every other IP capture in this codebase (rate limiting,
+    # login audit rows, portal action logs). Included here only so sales can
+    # spot obvious bot/spam patterns; never geolocated or sent to a third
+    # party. See privacy-and-security/index.html's "What we collect".
+    submitter_ip = request.client.host if request.client else None
+    if submitter_ip:
+        body_lines.append(f"Submitted from IP: {submitter_ip}")
 
     send_email(
         to=DEMO_REQUEST_TO,

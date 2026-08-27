@@ -132,7 +132,7 @@
 
         <div class="policy-block">
           <h2>What we collect</h2>
-          <p>To run the portal, we store what your school's staff enters directly: student and guardian records, attendance, exam and fee data, and the login details of staff, parents and students who use the system. We also keep basic account details for the people who sign up for a demo or contact our sales team.</p>
+          <p>To run the portal, we store what your school's staff enters directly: student and guardian records, attendance, exam and fee data, and the login details of staff, parents and students who use the system. We also keep basic account details for the people who sign up for a demo or contact our sales team — name, school, city, school size and current system if you tell us, and the IP address a demo request was sent from, which helps us spot spam. We don't look up or store your location beyond that.</p>
         </div>
 
         <div class="policy-block">
@@ -183,6 +183,25 @@
           <div class="field">
             <label for="school">School name</label>
             <input id="school" name="school" type="text" placeholder="Your school" required />
+          </div>
+          <div class="field">
+            <label for="city">City</label>
+            <input id="city" name="city" type="text" placeholder="Your city" />
+          </div>
+          <div class="field">
+            <label for="student_count">Number of students</label>
+            <input id="student_count" name="student_count" type="number" min="0" placeholder="e.g. 450" />
+          </div>
+          <div class="field">
+            <label for="current_system">Current system</label>
+            <select id="current_system" name="current_system">
+              <option value="">Select one</option>
+              <option value="Excel / Google Sheets">Excel / Google Sheets</option>
+              <option value="Paper records">Paper records</option>
+              <option value="Another ERP / software">Another ERP / software</option>
+              <option value="Nothing centralized">Nothing centralized</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="email">Work email</label>

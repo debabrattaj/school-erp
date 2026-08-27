@@ -102,6 +102,9 @@
     const name = (data.get("name") || "").toString().trim();
     const email = (data.get("email") || "").toString().trim();
     const school = (data.get("school") || "").toString().trim();
+    const city = (data.get("city") || "").toString().trim();
+    const studentCount = (data.get("student_count") || "").toString().trim();
+    const currentSystem = (data.get("current_system") || "").toString().trim();
     const phone = (data.get("phone") || "").toString().trim();
     const website = (data.get("website") || "").toString().trim(); // honeypot
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -126,6 +129,9 @@
       body: JSON.stringify({
         name: name,
         school: school,
+        city: city,
+        student_count: studentCount,
+        current_system: currentSystem,
         email: email,
         phone: phone,
         website: website,
