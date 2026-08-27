@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import CustomSelect from "../components/CustomSelect";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptyTemplateForm = {
@@ -777,10 +778,14 @@ export default function Communications() {
         </div>
         <div className="module-header-actions">
           <div className="form-field" style={{ minWidth: 180 }}>
-            <select value={activeView} onChange={(event) => { setActiveView(event.target.value); setSearchText(""); setStatusFilter(""); }}>
-              <option value="templates">Templates</option>
-              <option value="logs">Message Logs</option>
-            </select>
+            <CustomSelect
+              value={activeView}
+              onChange={(next) => { setActiveView(next); setSearchText(""); setStatusFilter(""); }}
+              options={[
+                { value: "templates", label: "Templates" },
+                { value: "logs", label: "Message Logs" },
+              ]}
+            />
           </div>
           <button type="button" className="secondary-button" onClick={handleComposeMessage}><Send size={17} />Compose</button>
           <button type="button" className="secondary-button" onClick={handleComposeBulkClass}><Users size={17} />Send to Class</button>
