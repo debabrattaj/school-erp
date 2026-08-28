@@ -954,6 +954,17 @@ input {
   background: var(--warning-50);
 }
 
+.module-filter-panel {
+  display: none;
+}
+
+/* Scoped back on for these two pages only -- see Reports.jsx's
+   "reports-page" class and ReportCard.jsx's "report-card-page" class. */
+.reports-page .module-filter-panel,
+.report-card-page .module-filter-panel {
+  display: block;
+}
+
 .feature-account-badge {
   align-items: center;
   background: var(--surface-subtle);

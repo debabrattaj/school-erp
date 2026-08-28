@@ -747,7 +747,7 @@ export default function Reports() {
   }
 
   return (
-    <div className="management-page">
+    <div className="management-page reports-page">
       <section className="page-heading">
         <div>
           <p className="eyebrow">Reports</p>
