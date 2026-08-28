@@ -61,12 +61,16 @@ def submit_demo_request(payload: schemas.DemoRequestCreate, request: Request):
     body_lines = [
         f"Name: {name}",
         f"School: {school}",
-        f"City: {city or '-'}",
         f"Email: {email}",
         f"Phone: {phone or '-'}",
         f"Student count: {student_count or '-'}",
         f"Current system: {current_system or '-'}",
     ]
+    # The demo form no longer asks for City, so this would be a permanent
+    # "City: -" line. Kept read-and-render for any client that still sends
+    # one (a cached page, the Zoho widget), but only when it has a value.
+    if city:
+        body_lines.insert(2, f"City: {city}")
     if message:
         body_lines.append(f"Message: {message}")
     if page_url:

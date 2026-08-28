@@ -22,6 +22,7 @@
   --radius-lg: 20px;
   --maxw: 1200px;
   --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -39,6 +40,7 @@
   --shadow: 0 4px 12px -2px rgba(0, 0, 0, .5), 0 2px 6px -2px rgba(0, 0, 0, .35);
   --shadow-lg: 0 18px 40px -12px rgba(0, 0, 0, .7), 0 6px 14px -6px rgba(0, 0, 0, .5);
   --ring: rgba(109, 100, 244, .4);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa4b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* ===== Reset-ish ===== */
@@ -453,6 +455,24 @@ p { margin: 0; }
   background: var(--surface); color: var(--text); font: inherit; font-size: .95rem;
 }
 .field input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--ring); }
+/* Native selects ignore the tokens above -- default height, Arial, square
+   corners, and a grey background of the browser's choosing on dark. Match
+   them to .field input, and supply our own chevron since appearance:none
+   removes the native one. */
+.field select {
+  padding: .75rem 2.4rem .75rem .9rem; border-radius: 10px; border: 1px solid var(--border);
+  background-color: var(--surface); color: var(--text); font: inherit; font-size: .95rem;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right .85rem center;
+  background-size: 14px;
+  cursor: pointer;
+}
+.field select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--ring); }
+/* The popup list is painted by the OS, so it needs the colours spelled out
+   too or dark mode shows black text on a dark sheet. */
+.field select option { background: var(--surface); color: var(--text); }
 /* Honeypot: hidden from real visitors, invisible to screen readers, left for bots to fill in. */
 .hp-field { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .form-note { text-align: center; font-size: .9rem; margin: 0; min-height: 1.2rem; }
