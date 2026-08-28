@@ -22,8 +22,17 @@ import threading
 import subprocess
 from datetime import datetime
 
-from app.tenant import CentralSessionLocal
-from app.tenant_models import SchoolAccount
+# Before app.tenant, which resolves its database URLs at import time. Run from
+# a plain shell with no environment exported, this module would otherwise fall
+# back to the SQLite defaults and cheerfully back up the wrong databases --
+# reporting ok:true the whole way, which is the worst possible failure for a
+# backup. load_dotenv does not override variables already set, so a process
+# that has real environment (Passenger, cron with vars) is unaffected.
+from dotenv import load_dotenv
+load_dotenv()
+
+from app.tenant import CentralSessionLocal  # noqa: E402
+from app.tenant_models import SchoolAccount  # noqa: E402
 
 logger = logging.getLogger("backup")
 
@@ -36,6 +45,21 @@ CENTRAL_DATABASE_URL = os.getenv("CENTRAL_DATABASE_URL", "sqlite:///./school_acc
 _SQLITE_PREFIX = "sqlite:///"
 
 
+def _libpq_url(url: str) -> str:
+    """A SQLAlchemy URL rewritten into something libpq tools accept.
+
+    pg_dump recognises a connection URI only when it begins "postgresql://" or
+    "postgres://". SQLAlchemy's driver suffix -- postgresql+psycopg:// -- is
+    not part of libpq's grammar, so pg_dump falls back to treating the whole
+    string as a database *name* and fails with a connection error that names
+    the URL, which reads like a network problem rather than a parsing one.
+    """
+    scheme, separator, rest = url.partition("://")
+    if not separator:
+        return url
+    return f"{scheme.split('+', 1)[0]}{separator}{rest}"
+
+
 def _sqlite_path(url: str):
     if url and url.startswith(_SQLITE_PREFIX):
         return url[len(_SQLITE_PREFIX):]
@@ -43,13 +67,31 @@ def _sqlite_path(url: str):
 
 
 def _discover_databases() -> dict:
-    """Map a label -> database URL for the central DB and every tenant DB."""
+    """Map a label -> database URL for the central DB and every tenant DB.
+
+    Must cover exactly what manage_migrations.tenant_urls() touches, or a
+    migration alters a database the backup never captured. That means the
+    default school's URL is taken from the environment and added here even
+    when it has no row in the registry -- single-tenant installs, and any
+    deployment that pointed DEFAULT_SCHOOL_DATABASE_URL somewhere new without
+    registering it, otherwise back up everything except their main database.
+    """
     databases = {"central": CENTRAL_DATABASE_URL}
+
+    default_url = os.getenv("DEFAULT_SCHOOL_DATABASE_URL", "sqlite:///./school_erp.db")
+    if default_url:
+        databases["default"] = default_url
+
     db = CentralSessionLocal()
     try:
         for account in db.query(SchoolAccount).all():
-            if account.database_url:
-                databases[account.account_code] = account.database_url
+            if not account.database_url:
+                continue
+            # A registered account naming the same database as the default
+            # school must not be backed up twice under two labels.
+            if account.database_url in databases.values() and account.account_code not in databases:
+                continue
+            databases[account.account_code] = account.database_url
     finally:
         db.close()
     return databases
@@ -83,7 +125,7 @@ def _backup_one(name: str, url: str, target_dir: str) -> dict:
         dst = os.path.join(target_dir, f"{name}.sql")
         with open(dst, "wb") as out:
             proc = subprocess.run(
-                ["pg_dump", "--dbname", url], stdout=out, stderr=subprocess.PIPE
+                ["pg_dump", "--dbname", _libpq_url(url)], stdout=out, stderr=subprocess.PIPE
             )
         if proc.returncode != 0:
             return {"name": name, "ok": False, "error": proc.stderr.decode(errors="replace")[:500]}

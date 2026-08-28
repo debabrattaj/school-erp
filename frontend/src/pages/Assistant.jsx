@@ -6,7 +6,7 @@ export default function Assistant() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Assistant</p>
-          <h2>School Assistant</h2>
+          <h2>Sai</h2>
           <p>Quick answers about students, fees, attendance and results.</p>
         </div>
       </section>

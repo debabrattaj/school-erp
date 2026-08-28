@@ -102,7 +102,7 @@ export default function MfaCard() {
               fontFamily: "monospace",
               fontSize: "1.05rem",
               letterSpacing: "2px",
-              background: "var(--saas-surface-2, #f1f5f9)",
+              background: "var(--saas-surface-2, var(--surface-soft))",
               padding: "10px 14px",
               borderRadius: 8,
               wordBreak: "break-all",

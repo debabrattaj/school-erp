@@ -93,6 +93,11 @@ class SchoolSettingsBase(BaseModel):
     receipt_prefix: Optional[str] = "REC"
     upi_id: Optional[str] = None
     late_fee_rule: Optional[str] = None
+    # Structured fields run_late_fee_charges.py actually computes from;
+    # late_fee_rule above stays a free-text description shown to parents.
+    late_fee_amount: Optional[float] = None
+    late_fee_frequency: Optional[str] = None  # One-Time, Weekly, Monthly
+    late_fee_grace_days: Optional[int] = 0
 
     pass_percentage: Optional[float] = 40
     grade_rules: Optional[str] = (
@@ -325,9 +330,37 @@ class AttendanceUpdate(BaseModel):
 
 class AttendanceResponse(AttendanceBase):
     id: int
+    # Read-only. Absent from Create/Update on purpose: a mark made through
+    # the API is a human's by definition, and letting a client declare
+    # source="Biometric" would let it dodge the protection that keeps
+    # derivation from overwriting teachers.
+    source: str = "Manual"
 
     class Config:
         from_attributes = True
+
+
+class AttendanceRosterEntry(BaseModel):
+    student_id: int
+    student_name: str
+    roll_no: Optional[str] = None
+    attendance_id: Optional[int] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+    source: Optional[str] = None
+
+
+class AttendanceBulkEntry(BaseModel):
+    student_id: int
+    status: str
+    remarks: Optional[str] = None
+
+
+class AttendanceBulkCreate(BaseModel):
+    attendance_date: date
+    class_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    entries: List[AttendanceBulkEntry]
 
 
 # =========================
@@ -371,6 +404,12 @@ class FeeResponse(FeeBase):
     id: int
     due_amount: float
     payment_status: str
+    # Discount applied; total_amount stays the gross figure so a receipt can
+    # show what was charged and what was waived, not just the net.
+    concession_amount: float = 0
+    # Server-computed by run_late_fee_charges.py; zero unless the school has
+    # configured a late fee rule and this fee is actually overdue.
+    late_fee_charged: float = 0
 
     class Config:
         from_attributes = True
@@ -616,6 +655,10 @@ class MarkBase(BaseModel):
     total_marks: Optional[float] = 100
 
     grade: Optional[str] = None
+    # Server-computed like grade, never trusted from a client: raw
+    # marks_obtained/total_marks when the exam's components carry no
+    # weightage, otherwise the weightage-adjusted percentage.
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -666,6 +709,7 @@ class MarkUpdate(BaseModel):
     max_marks: Optional[float] = None
     total_marks: Optional[float] = None
     grade: Optional[str] = None
+    percentage: Optional[float] = None
     remarks: Optional[str] = None
     component_scores: Optional[list[MarkComponentScoreCreate]] = None
 
@@ -939,6 +983,7 @@ class AdmissionInquiryBase(BaseModel):
     stage: Optional[str] = "Inquiry"
     follow_up_date: Optional[date] = None
     assigned_to: Optional[str] = None
+    assigned_to_user_id: Optional[int] = None
     converted_student_id: Optional[int] = None
     notes: Optional[str] = None
 
@@ -953,11 +998,22 @@ class AdmissionInquiryUpdate(AdmissionInquiryBase):
 
 class AdmissionInquiryResponse(AdmissionInquiryBase):
     id: int
+    possible_duplicate_of_id: Optional[int] = None
     created_at: Optional[Any] = None
     updated_at: Optional[Any] = None
 
     class Config:
         from_attributes = True
+
+
+class AdmissionDuplicateCandidate(BaseModel):
+    id: int
+    inquiry_no: str
+    student_name: str
+    guardian_name: str
+    stage: Optional[str] = None
+    matched_on: str  # "phone" or "email"
+    created_at: Optional[Any] = None
 
 
 class PublicAdmissionInquiryCreate(BaseModel):
@@ -1000,6 +1056,9 @@ class DemoRequestCreate(BaseModel):
 
     name: str
     school: str
+    city: Optional[str] = None
+    student_count: Optional[str] = None
+    current_system: Optional[str] = None
     email: str
     phone: Optional[str] = None
     message: Optional[str] = None
@@ -1054,6 +1113,107 @@ class AdmissionFollowUpCreate(AdmissionFollowUpBase):
 
 class AdmissionFollowUpResponse(AdmissionFollowUpBase):
     id: int
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionStageHistoryResponse(BaseModel):
+    id: int
+    inquiry_id: int
+    from_stage: Optional[str] = None
+    to_stage: str
+    changed_at: Optional[Any] = None
+    changed_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionStageTaskTemplateBase(BaseModel):
+    stage: str
+    title: str
+    description: Optional[str] = None
+    due_in_days: Optional[int] = 2
+    sort_order: Optional[int] = 0
+    is_active: Optional[bool] = True
+
+
+class AdmissionStageTaskTemplateCreate(AdmissionStageTaskTemplateBase):
+    pass
+
+
+class AdmissionStageTaskTemplateUpdate(BaseModel):
+    stage: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_in_days: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class AdmissionStageTaskTemplateResponse(AdmissionStageTaskTemplateBase):
+    id: int
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionTaskBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    assigned_to_user_id: Optional[int] = None
+    stage: Optional[str] = None
+
+
+class AdmissionTaskCreate(AdmissionTaskBase):
+    pass
+
+
+class AdmissionTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    assigned_to_user_id: Optional[int] = None
+    status: Optional[str] = None
+
+
+class AdmissionTaskResponse(AdmissionTaskBase):
+    id: int
+    inquiry_id: int
+    status: str
+    completed_at: Optional[Any] = None
+    completed_by: Optional[str] = None
+    source_template_id: Optional[int] = None
+    created_at: Optional[Any] = None
+    # Denormalized for the queue view, which lists tasks across many
+    # inquiries and would otherwise need one lookup per row.
+    inquiry_no: Optional[str] = None
+    student_name: Optional[str] = None
+    assigned_to_user_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdmissionDocumentBase(BaseModel):
+    document_type: str
+    file_name: Optional[str] = None
+    file_url: str
+    remarks: Optional[str] = None
+
+
+class AdmissionDocumentCreate(AdmissionDocumentBase):
+    pass
+
+
+class AdmissionDocumentResponse(AdmissionDocumentBase):
+    id: int
+    inquiry_id: int
+    uploaded_by: Optional[str] = None
     created_at: Optional[Any] = None
 
     class Config:
@@ -1236,6 +1396,25 @@ class CommunicationLogResponse(CommunicationLogBase):
 
     class Config:
         from_attributes = True
+
+
+class CommunicationBulkClassCreate(BaseModel):
+    """Send one message to every active student's guardian in a class
+    (optionally scoped to one section) -- one CommunicationLog per
+    recipient, same delivery path as a single create_log call."""
+    class_name: str
+    section: Optional[str] = None
+    template_id: Optional[int] = None
+    channel: Optional[str] = "WhatsApp"
+    category: str
+    message_body: str
+
+
+class CommunicationBulkResult(BaseModel):
+    matched_count: int
+    sent_count: int
+    failed_count: int
+    skipped_count: int  # matched student had no contact info for this channel
 
 
 class StudentServiceTicketBase(BaseModel):
@@ -1682,8 +1861,16 @@ class LibraryBookResponse(LibraryBookBase):
 
 class LibraryIssueBase(BaseModel):
     book_id: int
-    student_id: int
+    borrower_type: str = "Student"
+    # Exactly one of student_id/staff_id is required, matching borrower_type
+    # -- enforced in the route rather than here, since it depends on which
+    # field is set, not just presence.
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    copy_id: Optional[int] = None
     issue_date: date
+    # Left blank to have the route compute it from LibrarySettings' loan
+    # period, or set explicitly to override that default for one issue.
     due_date: Optional[date] = None
     return_date: Optional[date] = None
     status: str = "Issued"
@@ -1697,12 +1884,118 @@ class LibraryIssueCreate(LibraryIssueBase):
 
 class LibraryIssueResponse(LibraryIssueBase):
     id: int
+    renewal_count: int = 0
+    fine_paid: bool = False
+    reservation_id: Optional[int] = None
     book_title: Optional[str] = None
     accession_no: Optional[str] = None
     student_name: Optional[str] = None
     admission_no: Optional[str] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
+    staff_name: Optional[str] = None
+    employee_no: Optional[str] = None
+    copy_barcode: Optional[str] = None
+    days_overdue: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibrarySettingsBase(BaseModel):
+    loan_period_days: int = 14
+    loan_period_days_staff: int = 30
+    fine_per_day: float = 2
+    fine_grace_days: int = 0
+    max_books_student: int = 3
+    max_books_staff: int = 5
+    max_renewals: int = 2
+    block_renewal_if_reserved: bool = True
+    reservation_hold_days: int = 2
+
+
+class LibrarySettingsUpdate(BaseModel):
+    loan_period_days: Optional[int] = None
+    loan_period_days_staff: Optional[int] = None
+    fine_per_day: Optional[float] = None
+    fine_grace_days: Optional[int] = None
+    max_books_student: Optional[int] = None
+    max_books_staff: Optional[int] = None
+    max_renewals: Optional[int] = None
+    block_renewal_if_reserved: Optional[bool] = None
+    reservation_hold_days: Optional[int] = None
+
+
+class LibrarySettingsResponse(LibrarySettingsBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryBookCopyCreate(BaseModel):
+    barcode: Optional[str] = None
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class LibraryBookCopyUpdate(BaseModel):
+    barcode: Optional[str] = None
+    status: Optional[str] = None
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class LibraryBookCopyResponse(BaseModel):
+    id: int
+    book_id: int
+    copy_no: int
+    barcode: str
+    status: str
+    shelf_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryReservationCreate(BaseModel):
+    book_id: int
+    borrower_type: str = "Student"
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    remarks: Optional[str] = None
+
+
+class LibraryReservationResponse(BaseModel):
+    id: int
+    book_id: int
+    borrower_type: str
+    student_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    status: str
+    queue_position: int
+    reserved_at: Optional[datetime] = None
+    ready_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    remarks: Optional[str] = None
+    book_title: Optional[str] = None
+    accession_no: Optional[str] = None
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    staff_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryRenewalResponse(BaseModel):
+    id: int
+    issue_id: int
+    previous_due_date: date
+    new_due_date: date
+    renewed_at: Optional[datetime] = None
+    remarks: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -1711,6 +2004,7 @@ class LibraryIssueResponse(LibraryIssueBase):
 class InventoryItemBase(BaseModel):
     item_name: str
     item_code: Optional[str] = None
+    barcode: Optional[str] = None
     category: Optional[str] = None
     unit: Optional[str] = "pcs"
     quantity_available: Optional[float] = 0
@@ -1739,6 +2033,8 @@ class InventoryTransactionBase(BaseModel):
     quantity: float
     issued_to_student_id: Optional[int] = None
     issued_to_staff: Optional[str] = None
+    issued_to_teacher_id: Optional[int] = None
+    kit_id: Optional[int] = None
     reference_no: Optional[str] = None
     unit_cost: Optional[float] = None
     remarks: Optional[str] = None
@@ -1762,9 +2058,46 @@ class InventoryTransactionResponse(InventoryTransactionBase):
     admission_no: Optional[str] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
+    teacher_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class InventoryKitItemCreate(BaseModel):
+    item_id: int
+    quantity: float = 1
+
+
+class InventoryKitItemResponse(BaseModel):
+    id: int
+    item_id: int
+    item_name: str
+    unit: Optional[str] = None
+    quantity: float
+
+
+class InventoryKitCreate(BaseModel):
+    name: str
+    applies_to: str  # Student, Staff
+    is_active: bool = True
+    remarks: Optional[str] = None
+
+
+class InventoryKitUpdate(BaseModel):
+    name: Optional[str] = None
+    applies_to: Optional[str] = None
+    is_active: Optional[bool] = None
+    remarks: Optional[str] = None
+
+
+class InventoryKitResponse(BaseModel):
+    id: int
+    name: str
+    applies_to: str
+    is_active: bool
+    remarks: Optional[str] = None
+    items: list[InventoryKitItemResponse] = []
 
 
 class InventoryBulkIssueItem(BaseModel):
@@ -1773,8 +2106,11 @@ class InventoryBulkIssueItem(BaseModel):
 
 
 class InventoryBulkIssueRequest(BaseModel):
-    items: list[InventoryBulkIssueItem]
-    student_ids: list[int]
+    # Either a saved kit, or an ad-hoc item list -- not both.
+    kit_id: Optional[int] = None
+    items: Optional[list[InventoryBulkIssueItem]] = None
+    student_ids: Optional[list[int]] = None
+    teacher_ids: Optional[list[int]] = None
     transaction_date: date
     cycle: str
     academic_year: str
@@ -2159,6 +2495,8 @@ class OnlineTestBase(BaseModel):
     teacher_id: Optional[int] = None
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    proctoring_enabled: bool = False
+    proctoring_policy_id: Optional[int] = None
 
 
 class OnlineTestCreate(OnlineTestBase):
@@ -2179,6 +2517,8 @@ class OnlineTestUpdate(BaseModel):
     status: Optional[str] = None
     shuffle_questions: Optional[bool] = None
     shuffle_options: Optional[bool] = None
+    proctoring_enabled: Optional[bool] = None
+    proctoring_policy_id: Optional[int] = None
 
 
 class OnlineTestResponse(OnlineTestBase):
@@ -2216,6 +2556,128 @@ class OnlineTestAttemptResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Online exam proctoring add-on ----------------
+
+class ProctoringPolicyBase(BaseModel):
+    name: str
+    require_fullscreen: bool = True
+    block_copy_paste: bool = True
+    max_violations_before_autosubmit: int = 5
+    require_webcam: bool = False
+    require_mic: bool = False
+    capture_interval_seconds: Optional[int] = None
+    retention_days: int = 90
+
+
+class ProctoringPolicyCreate(ProctoringPolicyBase):
+    pass
+
+
+class ProctoringPolicyUpdate(BaseModel):
+    name: Optional[str] = None
+    require_fullscreen: Optional[bool] = None
+    block_copy_paste: Optional[bool] = None
+    max_violations_before_autosubmit: Optional[int] = None
+    require_webcam: Optional[bool] = None
+    require_mic: Optional[bool] = None
+    capture_interval_seconds: Optional[int] = None
+    retention_days: Optional[int] = None
+
+
+class ProctoringPolicyResponse(ProctoringPolicyBase):
+    id: int
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringConsentResponse(BaseModel):
+    id: int
+    student_id: int
+    granted_by: str
+    granted_at: Optional[Any] = None
+    revoked_by: Optional[str] = None
+    revoked_at: Optional[Any] = None
+    scope: str
+    consent_text_version: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringEventSubmit(BaseModel):
+    event_type: str
+    detail: Optional[str] = None
+    # Only meaningful for client-side AI signals (no_face/multiple_faces) --
+    # the detector's own confidence in that reading. Stored as reported, but
+    # never used to decide severity: severity is still a fixed server-side
+    # lookup by event_type, same as every other proctoring event.
+    confidence: Optional[float] = None
+
+
+class ProctoringEventBatchSubmit(BaseModel):
+    events: List[ProctoringEventSubmit] = []
+
+
+class ProctoringEventResponse(BaseModel):
+    id: int
+    occurred_at: Optional[Any] = None
+    event_type: str
+    severity: str
+    source: str
+    confidence: Optional[float] = None
+    detail: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringEventBatchResult(BaseModel):
+    logged: int
+    violation_count: int
+    auto_submitted: bool
+
+
+class ProctoringSessionResponse(BaseModel):
+    id: int
+    attempt_id: int
+    started_at: Optional[Any] = None
+    ended_at: Optional[Any] = None
+    review_status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[Any] = None
+    reviewer_notes: Optional[str] = None
+    flag_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringSnapshotResponse(BaseModel):
+    """Snapshot metadata only -- storage_path never leaves the server. The
+    actual image is fetched separately through the authenticated streaming
+    endpoint, never inlined here."""
+
+    id: int
+    captured_at: Optional[Any] = None
+    content_type: str
+
+    class Config:
+        from_attributes = True
+
+
+class ProctoringSessionDetailResponse(ProctoringSessionResponse):
+    events: List[ProctoringEventResponse] = []
+    snapshots: List[ProctoringSnapshotResponse] = []
+
+
+class ProctoringReviewUpdate(BaseModel):
+    review_status: str  # Pending | Cleared | Flagged
+    reviewer_notes: Optional[str] = None
 
 
 # ---------------- Biometric attendance ----------------
@@ -2277,3 +2739,33 @@ class BiometricConfigUpdate(BaseModel):
 class BiometricDeriveRequest(BaseModel):
     target_date: Optional[date] = None
     academic_year: Optional[str] = None
+
+
+# =========================
+# Student Leave Requests
+# =========================
+
+class StudentLeaveRequestCreate(BaseModel):
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+
+
+class StudentLeaveDecision(BaseModel):
+    note: Optional[str] = None
+
+
+class StudentLeaveRequestResponse(BaseModel):
+    id: int
+    student_id: int
+    from_date: date
+    to_date: date
+    reason: Optional[str] = None
+    status: str
+    requested_by: str
+    decided_by: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+
+    class Config:
+        from_attributes = True

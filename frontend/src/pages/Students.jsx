@@ -966,33 +966,79 @@ export default function Students() {
     }
 
     if (field.name === "class_name" || field.name === "class_id") {
+      const uniqueClassNames = Array.from(
+        new Set(classes.map((item) => item.class_name).filter(Boolean))
+      ).sort((a, b) => {
+        const numA = Number(a);
+        const numB = Number(b);
+        if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
+        return String(a).localeCompare(String(b));
+      });
+
       return (
         <select
-          name="class_id"
-          value={formData.class_id || ""}
+          name="class_name"
+          value={formData.class_name || ""}
           required={Boolean(field.required)}
+          onChange={(e) => {
+            const selectedClassName = e.target.value;
+
+            setFormData((prev) => ({
+              ...prev,
+              class_name: selectedClassName,
+              section: "",
+              class_id: "",
+              roll_no:
+                (prev.roll_no_mode || "auto") === "auto" ? "" : prev.roll_no,
+            }));
+          }}
+        >
+          <option value="">Select Class</option>
+
+          {uniqueClassNames.map((className) => (
+            <option key={className} value={className}>
+              {className}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (field.name === "section") {
+      const availableSections = classes
+        .filter((item) => item.class_name === formData.class_name)
+        .map((item) => item.section)
+        .filter(Boolean);
+
+      return (
+        <select
+          name="section"
+          value={formData.section || ""}
+          required={Boolean(field.required)}
+          disabled={!formData.class_name}
           onChange={async (e) => {
-            const selectedClassId = e.target.value;
+            const selectedSection = e.target.value;
 
             const selectedClass = classes.find(
-              (item) => String(item.id) === String(selectedClassId)
+              (item) =>
+                item.class_name === formData.class_name &&
+                item.section === selectedSection
             );
 
             setFormData((prev) => ({
               ...prev,
-              class_id: selectedClassId,
-              class_name: selectedClass?.class_name || "",
-              section: selectedClass?.section || "",
+              section: selectedSection,
+              class_id: selectedClass?.id || "",
             }));
 
             if ((formData.roll_no_mode || "auto") === "auto") {
-              if (!selectedClassId) {
+              if (!selectedClass) {
                 setFormData((prev) => ({ ...prev, roll_no: "" }));
                 return;
               }
               try {
                 const response = await API.get("/students/next-roll-no", {
-                  params: { class_id: selectedClassId },
+                  params: { class_id: selectedClass.id },
                 });
                 setFormData((prev) => ({
                   ...prev,
@@ -1004,16 +1050,18 @@ export default function Students() {
             }
           }}
         >
-          <option value="">Select Class</option>
+          <option value="">
+            {formData.class_name ? "Select Section" : "Select Class first"}
+          </option>
 
-          {classes.map((classItem) => (
-            <option key={classItem.id} value={classItem.id}>
-              {classItem.class_name} - Section {classItem.section}
+          {availableSections.map((section) => (
+            <option key={section} value={section}>
+              Section {section}
             </option>
           ))}
         </select>
       );
-  }
+    }
 
     if (field.type === "picklist") {
       const values = field.masterCategory

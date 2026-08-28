@@ -1,5 +1,5 @@
 .report-card-page {
-  background: #f6f7fb;
+  background: var(--surface-subtle);
 }
 
 .report-card-search {
@@ -7,8 +7,8 @@
 }
 
 .report-card-paper {
-  background: #ffffff;
-  border: 1px solid #d8dee9;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: 18px;
   padding: 28px;
   max-width: 1050px;
@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  border-bottom: 2px solid #1e3a8a;
+  border-bottom: 2px solid var(--brand-800);
   padding-bottom: 18px;
   margin-bottom: 18px;
 }
@@ -29,12 +29,12 @@
   width: 74px;
   height: 74px;
   border-radius: 16px;
-  border: 1px solid #d8dee9;
-  background: #f8fafc;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1e3a8a;
+  color: var(--brand-800);
   overflow: hidden;
 }
 
@@ -46,14 +46,14 @@
 
 .report-card-header h1 {
   margin: 0;
-  color: #172554;
+  color: var(--brand-900);
   font-size: 28px;
   font-weight: 800;
 }
 
 .report-card-header p {
   margin: 4px 0 0;
-  color: #475569;
+  color: var(--text);
 }
 
 .report-card-title {
@@ -65,20 +65,20 @@
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 21px;
 }
 
 .report-card-title p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
 .report-card-info-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid #d8dee9;
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
   overflow: hidden;
   margin-bottom: 22px;
@@ -86,9 +86,9 @@
 
 .report-card-info-grid div {
   padding: 12px 14px;
-  border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .report-card-info-grid div:nth-child(3n) {
@@ -103,13 +103,13 @@
 .report-card-result-grid span {
   display: block;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .report-card-info-grid strong,
 .report-card-result-grid strong {
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 14px;
 }
 
@@ -125,22 +125,22 @@
 }
 
 .report-card-table th {
-  background: #1e3a8a;
-  color: #ffffff;
+  background: var(--brand-800);
+  color: var(--surface);
   text-align: left;
   padding: 12px;
-  border: 1px solid #1e3a8a;
+  border: 1px solid var(--brand-800);
 }
 
 .report-card-table td {
   padding: 11px 12px;
-  border: 1px solid #d8dee9;
-  color: #0f172a;
+  border: 1px solid var(--border-strong);
+  color: var(--text-strong);
 }
 
 .report-card-table tfoot td {
   font-weight: 800;
-  background: #eff6ff;
+  background: var(--brand-50);
 }
 
 .report-card-result-grid {
@@ -151,8 +151,8 @@
 }
 
 .report-card-result-grid div {
-  background: #f8fafc;
-  border: 1px solid #d8dee9;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
   padding: 14px;
 }
@@ -165,10 +165,10 @@
 }
 
 .report-card-signatures div {
-  border-top: 1px solid #0f172a;
+  border-top: 1px solid var(--text-strong);
   text-align: center;
   padding-top: 8px;
-  color: #334155;
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -179,7 +179,7 @@
 
 @media print {
   body {
-    background: #ffffff !important;
+    background: var(--surface) !important;
   }
 
   .no-print,
@@ -195,7 +195,7 @@
   .management-page {
     padding: 0 !important;
     margin: 0 !important;
-    background: #ffffff !important;
+    background: var(--surface) !important;
   }
 
   .print-area,
@@ -208,8 +208,11 @@
     padding: 12px !important;
   }
 
+  /* Literal black, not a token: print wants maximum contrast on a
+   * photocopy, and the neutral ramp's darkest step is a slate that
+   * washes out on a mono printer. */
   .report-card-table th {
-    background: #e5e7eb !important;
+    background: var(--border) !important;
     color: #000000 !important;
     border-color: #000000 !important;
   }

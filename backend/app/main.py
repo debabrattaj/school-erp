@@ -20,9 +20,11 @@ from app.routes import transport
 from app.routes import health_infirmary
 from app.routes import mess
 from app.routes import library
+from app.routes import library_reminders
 from app.routes import inventory
 from app.routes import accounting
 from app.routes import admissions
+from app.routes import admission_reminders
 from app.routes import admission_workflow
 from app.routes import international_documents
 from app.routes import multi_curriculum
@@ -43,6 +45,14 @@ from app.routes import payroll
 from app.routes import homework
 from app.routes import online_tests
 from app.routes import biometric
+from app.routes import payments as payments_routes
+from app.routes import concessions as concessions_routes
+from app.routes import leave as leave_routes
+from app.routes import student_leave as student_leave_routes
+from app.routes import visitors as visitor_routes
+from app.routes import syllabus as syllabus_routes
+from app.routes import tracking as tracking_routes
+from app.routes import fee_reminders as fee_reminder_routes
 from app.routes import leads
 from app.tenant import init_tenant_registry
 from app.routes import (
@@ -1165,6 +1175,14 @@ app.include_router(payroll.router)
 app.include_router(homework.router)
 app.include_router(online_tests.router)
 app.include_router(biometric.router)
+app.include_router(payments_routes.router)
+app.include_router(concessions_routes.router)
+app.include_router(leave_routes.router)
+app.include_router(student_leave_routes.router)
+app.include_router(visitor_routes.router)
+app.include_router(syllabus_routes.router)
+app.include_router(tracking_routes.router)
+app.include_router(fee_reminder_routes.router)
 app.include_router(exams.router)
 app.include_router(marks.router)
 app.include_router(users.router)
@@ -1182,9 +1200,11 @@ app.include_router(transport.router)
 app.include_router(health_infirmary.router)
 app.include_router(mess.router)
 app.include_router(library.router)
+app.include_router(library_reminders.router)
 app.include_router(inventory.router)
 app.include_router(accounting.router)
 app.include_router(admissions.router)
+app.include_router(admission_reminders.router)
 app.include_router(leads.router)
 app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)

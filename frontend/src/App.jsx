@@ -68,6 +68,8 @@ import Payroll from "./pages/Payroll";
 import Homework from "./pages/Homework";
 import OnlineTests from "./pages/OnlineTests";
 import Biometric from "./pages/Biometric";
+import Leave from "./pages/Leave";
+import Syllabus from "./pages/Syllabus";
 
 const MOBILE_BREAKPOINT = 900;
 
@@ -587,6 +589,26 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
               <ProtectedLayout>
                 <Transport />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leave"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Leave />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/syllabus"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Syllabus />
               </ProtectedLayout>
             </ProtectedRoute>
           }

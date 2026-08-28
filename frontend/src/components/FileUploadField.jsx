@@ -49,9 +49,9 @@ export default function FileUploadField({ value, onChange, accept = "image/*,app
       ) : (
         <div
           style={{
-            width: 56, height: 56, borderRadius: 8, background: "#f1f5f9",
+            width: 56, height: 56, borderRadius: 8, background: "var(--surface-soft)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#94a3b8",
+            color: "var(--text-subtle)",
           }}
         >
           <FileText size={20} />
@@ -80,7 +80,7 @@ export default function FileUploadField({ value, onChange, accept = "image/*,app
             <X size={15} />
           </button>
         )}
-        {error && <div style={{ color: "#be123c", fontSize: "0.8rem", marginTop: 4 }}>{error}</div>}
+        {error && <div style={{ color: "var(--danger-600)", fontSize: "0.8rem", marginTop: 4 }}>{error}</div>}
       </div>
     </div>
   );

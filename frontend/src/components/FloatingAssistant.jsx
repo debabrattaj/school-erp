@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { Bot, MessageCircle, X } from "lucide-react";
 
 import ChatWidget from "./ChatWidget";
 
@@ -111,10 +111,7 @@ export default function FloatingAssistant() {
     });
   }
 
-  const buttonStyle = {
-    padding: open ? "0.85rem" : "0.85rem 1.25rem",
-    ...(pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : {}),
-  };
+  const buttonStyle = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined;
 
   return (
     <>
@@ -124,9 +121,15 @@ export default function FloatingAssistant() {
           style={panelPos ? { top: panelPos.top, left: panelPos.left, right: "auto", bottom: "auto" } : undefined}
         >
           <div className="floating-assistant-panel-header">
-            <div>
-              <div style={{ fontWeight: 600 }}>School Assistant</div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            <span className="floating-assistant-avatar">
+              <Bot size={19} />
+            </span>
+            <div className="floating-assistant-panel-header-text">
+              <div className="floating-assistant-panel-header-title">
+                Sai
+                <span className="floating-assistant-status-dot" title="Online" />
+              </div>
+              <div className="floating-assistant-panel-header-subtitle">
                 Ask about attendance, fees, marks & more
               </div>
             </div>
@@ -136,7 +139,7 @@ export default function FloatingAssistant() {
               aria-label="Close chat"
               className="floating-assistant-close"
             >
-              <X size={20} />
+              <X size={17} />
             </button>
           </div>
 
@@ -158,7 +161,6 @@ export default function FloatingAssistant() {
         style={buttonStyle}
       >
         {open ? <X size={20} /> : <MessageCircle size={20} />}
-        {!open && "Ask Now"}
       </button>
     </>
   );

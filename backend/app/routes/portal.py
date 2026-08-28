@@ -1,18 +1,19 @@
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app import proctoring_storage
 from app.database import get_db
 from app import models, schemas
 from app.models import User
 from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
-from app.tenant import require_feature
+from app.tenant import get_account_code_from_request, is_feature_enabled, require_feature
 
 router = APIRouter(
     prefix="/portal",
@@ -206,6 +207,57 @@ def portal_student_attendance(
     }
 
 
+@router.get(
+    "/students/{student_id}/leave-requests",
+    response_model=list[schemas.StudentLeaveRequestResponse],
+)
+def portal_list_leave_requests(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+
+    return (
+        db.query(models.StudentLeaveRequest)
+        .filter(models.StudentLeaveRequest.student_id == student_id)
+        .order_by(models.StudentLeaveRequest.id.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/students/{student_id}/leave-requests",
+    response_model=schemas.StudentLeaveRequestResponse,
+)
+def portal_create_leave_request(
+    student_id: int,
+    payload: schemas.StudentLeaveRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """A guardian applying for their child to be away. Approval (staff-side,
+    app/routes/student_leave.py) is what actually marks Attendance Excused
+    for the range -- submitting here only records the request."""
+    ensure_student_access(db, current_user, student_id)
+
+    if payload.to_date < payload.from_date:
+        raise HTTPException(status_code=400, detail="The end date cannot be before the start date.")
+
+    request = models.StudentLeaveRequest(
+        student_id=student_id,
+        from_date=payload.from_date,
+        to_date=payload.to_date,
+        reason=payload.reason,
+        status="Requested",
+        requested_by=current_user.email,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
 @router.get("/students/{student_id}/marks")
 def portal_student_marks(
     student_id: int,
@@ -296,6 +348,74 @@ def portal_student_fees(
             }
             for fee in fees
         ],
+    }
+
+
+LIBRARY_GATE = [Depends(require_feature("library"))]
+
+
+@router.get("/students/{student_id}/library", dependencies=LIBRARY_GATE)
+def portal_student_library(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """A child's currently issued books, due dates and fines, plus history
+    and any active reservations. Read-only -- returns/renewals/reservations
+    are made at the school desk, not from the portal."""
+    ensure_student_access(db, current_user, student_id)
+
+    issues = (
+        db.query(models.LibraryIssue)
+        .filter(models.LibraryIssue.student_id == student_id)
+        .order_by(models.LibraryIssue.issue_date.desc())
+        .all()
+    )
+    books = {b.id: b for b in db.query(models.LibraryBook).all()}
+    reservations = (
+        db.query(models.LibraryReservation)
+        .filter(
+            models.LibraryReservation.student_id == student_id,
+            models.LibraryReservation.status.in_(["Waiting", "Ready"]),
+        )
+        .all()
+    )
+    today = date.today()
+
+    def serialize(issue: models.LibraryIssue):
+        book = books.get(issue.book_id)
+        overdue = issue.status == "Issued" and issue.due_date and issue.due_date < today
+        return {
+            "id": issue.id,
+            "book_title": book.title if book else "-",
+            "accession_no": book.accession_no if book else None,
+            "issue_date": issue.issue_date,
+            "due_date": issue.due_date,
+            "return_date": issue.return_date,
+            "status": issue.status,
+            "fine_amount": issue.fine_amount,
+            "fine_paid": issue.fine_paid,
+            "days_overdue": (today - issue.due_date).days if overdue else 0,
+        }
+
+    current = [serialize(i) for i in issues if i.status == "Issued"]
+    history = [serialize(i) for i in issues if i.status != "Issued"]
+    total_fine_due = sum((i.fine_amount or 0) for i in issues if not i.fine_paid)
+
+    return {
+        "current": current,
+        "history": history,
+        "reservations": [
+            {
+                "id": r.id,
+                "book_title": books.get(r.book_id).title if books.get(r.book_id) else "-",
+                "status": r.status,
+                "queue_position": r.queue_position,
+                "expires_at": r.expires_at,
+            }
+            for r in reservations
+        ],
+        "total_fine_due": round(total_fine_due, 2),
     }
 
 
@@ -732,6 +852,17 @@ def _grade_attempt(
     attempt.max_score = max_score
     attempt.auto_submitted_reason = reason
 
+    # Single choke point for closing an attempt, whether by the student
+    # pressing Submit, the deadline lapsing, or a proctoring auto-submit --
+    # so a proctored session's ended_at is always stamped exactly once, here.
+    open_session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id, models.ProctoringSession.ended_at.is_(None))
+        .first()
+    )
+    if open_session:
+        open_session.ended_at = attempt.submitted_at
+
     db.commit()
     db.refresh(attempt)
     return attempt
@@ -755,6 +886,137 @@ def _expire_attempt_if_due(db: Session, test: models.OnlineTest, attempt: models
             submitted_at=deadline,
         )
     return attempt
+
+
+# ---------------- Online test proctoring add-on ----------------
+
+# Sold separately from online_tests itself -- a school can run online tests
+# without ever buying this. Attempt-level enforcement (does *this* test
+# require it) is checked inline in portal_get_online_test instead, since most
+# tests on a school with the add-on switched on still aren't proctored.
+PROCTORING_GATE = [Depends(require_feature("online_test_proctoring"))]
+
+# Severity is always decided here, from event_type -- a client could claim any
+# severity it likes, so whatever it sends is never trusted. An unrecognized
+# event_type (e.g. a newer frontend build talking to an older backend)
+# defaults to "warning" rather than being rejected.
+PROCTORING_EVENT_SEVERITY = {
+    "fullscreen_exit": "warning",
+    "tab_blur": "warning",
+    "window_blur": "warning",
+    "copy_attempt": "warning",
+    "paste_attempt": "warning",
+    "context_menu": "info",
+    "devtools_open": "critical",
+    # Phase 2 (webcam snapshots): a policy that requires the camera but never
+    # gets one is a real monitoring gap, not a minor annoyance like a menu
+    # click -- critical so a teacher notices, but still just a flag to review,
+    # never a block on the student taking the test.
+    "camera_denied": "critical",
+    "camera_unavailable": "critical",
+    # On-device face detection (browser-side AI, source="client" -- there is
+    # no server_ai yet). no_face is common and often innocent (leaning out of
+    # frame for a second), so it stays a warning; a second face appearing is
+    # a much stronger signal, so it's critical. Either way this is still just
+    # a flag a teacher reviews, never an automated verdict -- the detector
+    # runs entirely in the student's browser and only ever sends this single
+    # event, never the video itself.
+    "no_face": "warning",
+    "multiple_faces": "critical",
+}
+
+
+def _current_consent(db: Session, student_id: int) -> models.ProctoringConsent | None:
+    """The active consent for a student, or None. "Active" = the most recent
+    grant that has not been revoked; a revoked row is never resurrected."""
+    return (
+        db.query(models.ProctoringConsent)
+        .filter(
+            models.ProctoringConsent.student_id == student_id,
+            models.ProctoringConsent.scope == "online_test_proctoring",
+            models.ProctoringConsent.revoked_at.is_(None),
+        )
+        .order_by(models.ProctoringConsent.id.desc())
+        .first()
+    )
+
+
+def _policy_for_test(db: Session, test: models.OnlineTest) -> models.ProctoringPolicy | None:
+    if not test.proctoring_policy_id:
+        return None
+    return (
+        db.query(models.ProctoringPolicy)
+        .filter(models.ProctoringPolicy.id == test.proctoring_policy_id)
+        .first()
+    )
+
+
+def _violation_count(db: Session, session_id: int) -> int:
+    return (
+        db.query(models.ProctoringEvent)
+        .filter(models.ProctoringEvent.session_id == session_id, models.ProctoringEvent.severity != "info")
+        .count()
+    )
+
+
+@router.get("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_get_proctoring_consent(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    consent = _current_consent(db, student_id)
+    return {
+        "granted": consent is not None,
+        "consent": schemas.ProctoringConsentResponse.model_validate(consent) if consent else None,
+    }
+
+
+@router.post("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_grant_proctoring_consent(
+    student_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Parent"] + ADMIN_ROLES)),
+):
+    """Grant proctoring consent for a student. A student can never call this
+    themselves -- PORTAL_ROLES includes "Student" but the roles allowed here
+    deliberately don't, because a student must not be able to self-consent to
+    being monitored."""
+    ensure_student_access(db, current_user, student_id)
+    existing = _current_consent(db, student_id)
+    if existing:
+        return {"granted": True, "consent": schemas.ProctoringConsentResponse.model_validate(existing)}
+
+    consent = models.ProctoringConsent(
+        student_id=student_id,
+        granted_by=current_user.email,
+        scope="online_test_proctoring",
+        consent_text_version="v1",
+        ip_address=request.client.host if request.client else None,
+    )
+    db.add(consent)
+    db.commit()
+    db.refresh(consent)
+    return {"granted": True, "consent": schemas.ProctoringConsentResponse.model_validate(consent)}
+
+
+@router.delete("/students/{student_id}/proctoring/consent", dependencies=PROCTORING_GATE)
+def portal_revoke_proctoring_consent(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Parent"] + ADMIN_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    consent = _current_consent(db, student_id)
+    if not consent:
+        return {"granted": False}
+
+    consent.revoked_by = current_user.email
+    consent.revoked_at = datetime.utcnow()
+    db.commit()
+    return {"granted": False}
 
 
 @router.get("/students/{student_id}/online-tests", dependencies=ONLINE_TEST_GATE)
@@ -803,6 +1065,7 @@ def portal_list_online_tests(
             "attempt_status": attempt.status if attempt else None,
             "score": attempt.score if attempt else None,
             "max_score": attempt.max_score if attempt else None,
+            "proctoring_enabled": bool(test.proctoring_enabled),
         })
     return results
 
@@ -811,6 +1074,7 @@ def portal_list_online_tests(
 def portal_get_online_test(
     student_id: int,
     test_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
 ):
@@ -821,6 +1085,8 @@ def portal_get_online_test(
         raise HTTPException(status_code=404, detail="Test not found")
     if test.section and test.section != student.section:
         raise HTTPException(status_code=404, detail="Test not found")
+
+    policy = _policy_for_test(db, test) if test.proctoring_enabled else None
 
     attempt = (
         db.query(models.OnlineTestAttempt)
@@ -834,6 +1100,24 @@ def portal_get_online_test(
         if not _online_test_is_open(test):
             raise HTTPException(status_code=400, detail="This test is not currently open")
 
+        consent = None
+        if test.proctoring_enabled:
+            # Fail closed: a proctored test with the add-on off, or with no
+            # consent on file, must refuse to start rather than silently run
+            # unproctored -- never the reverse.
+            account_code = get_account_code_from_request(request)
+            if not is_feature_enabled(account_code, "online_test_proctoring"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Proctoring is not enabled for this school. Contact your administrator.",
+                )
+            consent = _current_consent(db, student_id)
+            if not consent:
+                raise HTTPException(
+                    status_code=403,
+                    detail="A guardian must grant proctoring consent before this test can be started.",
+                )
+
         questions = db.query(models.OnlineTestQuestion).filter(
             models.OnlineTestQuestion.test_id == test_id
         ).order_by(models.OnlineTestQuestion.sort_order).all()
@@ -844,6 +1128,15 @@ def portal_get_online_test(
         db.add(attempt)
         db.commit()
         db.refresh(attempt)
+
+        if test.proctoring_enabled:
+            retention_days = policy.retention_days if policy else 90
+            db.add(models.ProctoringSession(
+                attempt_id=attempt.id,
+                consent_id=consent.id,
+                retention_expires_at=datetime.utcnow() + timedelta(days=retention_days),
+            ))
+            db.commit()
 
     # An attempt left open past its deadline is closed here rather than resumed.
     attempt = _expire_attempt_if_due(db, test, attempt)
@@ -868,6 +1161,26 @@ def portal_get_online_test(
     if test.shuffle_questions and not submitted:
         questions = _shuffled_for_attempt(questions, attempt.id)
     shuffle_options_for = attempt.id if (test.shuffle_options and not submitted) else None
+
+    proctoring = None
+    if test.proctoring_enabled:
+        proctoring_session = (
+            db.query(models.ProctoringSession)
+            .filter(models.ProctoringSession.attempt_id == attempt.id)
+            .first()
+        )
+        proctoring = {
+            "enabled": True,
+            "session_id": proctoring_session.id if proctoring_session else None,
+            "require_fullscreen": policy.require_fullscreen if policy else True,
+            "block_copy_paste": policy.block_copy_paste if policy else True,
+            "max_violations_before_autosubmit": policy.max_violations_before_autosubmit if policy else 5,
+            # Phase 2: camera capture is opt-in per policy, unlike the Phase 1
+            # browser signals above -- no policy assigned means no webcam,
+            # not the strict-default treatment the other fields get.
+            "require_webcam": bool(policy.require_webcam) if policy else False,
+            "capture_interval_seconds": policy.capture_interval_seconds if policy else None,
+        }
 
     return {
         "test": {
@@ -900,6 +1213,7 @@ def portal_get_online_test(
             }
             for q in questions
         ],
+        "proctoring": proctoring,
     }
 
 
@@ -1055,6 +1369,153 @@ def portal_submit_online_test(
     }
 
 
+@router.post(
+    "/students/{student_id}/online-tests/{test_id}/proctoring/events",
+    dependencies=ONLINE_TEST_GATE + PROCTORING_GATE,
+    response_model=schemas.ProctoringEventBatchResult,
+)
+def portal_report_proctoring_events(
+    student_id: int,
+    test_id: int,
+    payload: schemas.ProctoringEventBatchSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Batch-ingest browser-reported proctoring signals for the current
+    attempt. Client-side signals are evidence for a human reviewer, not proof
+    of misconduct -- this endpoint only logs and, past the policy threshold,
+    auto-submits; it never itself marks anything Flagged."""
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can report proctoring events")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="No attempt found for this test — open it first")
+
+    session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt is not being proctored")
+
+    if attempt.status != "In Progress":
+        return schemas.ProctoringEventBatchResult(
+            logged=0, violation_count=_violation_count(db, session.id), auto_submitted=False
+        )
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    policy = _policy_for_test(db, test) if test else None
+    max_violations = policy.max_violations_before_autosubmit if policy else 5
+
+    logged = 0
+    for item in payload.events[:50]:  # defensive cap on one batch
+        # Confidence is display-only (shown to the reviewing teacher), never
+        # part of any severity or auto-submit decision -- but still clamped
+        # to a sane [0, 1] range rather than trusting whatever a client sends.
+        confidence = item.confidence
+        if confidence is not None:
+            confidence = max(0.0, min(1.0, confidence))
+        db.add(models.ProctoringEvent(
+            session_id=session.id,
+            event_type=item.event_type,
+            severity=PROCTORING_EVENT_SEVERITY.get(item.event_type, "warning"),
+            source="client",
+            confidence=confidence,
+            detail=item.detail,
+        ))
+        logged += 1
+    db.commit()
+
+    violation_count = _violation_count(db, session.id)
+    auto_submitted = False
+    if violation_count >= max_violations:
+        attempt = _grade_attempt(db, test_id, attempt, reason="proctoring_violation")
+        auto_submitted = attempt.status == "Submitted"
+
+    return schemas.ProctoringEventBatchResult(
+        logged=logged, violation_count=violation_count, auto_submitted=auto_submitted
+    )
+
+
+@router.post(
+    "/students/{student_id}/online-tests/{test_id}/proctoring/snapshot",
+    dependencies=ONLINE_TEST_GATE + PROCTORING_GATE,
+    response_model=schemas.ProctoringSnapshotResponse,
+)
+async def portal_upload_proctoring_snapshot(
+    student_id: int,
+    test_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Accept one periodic webcam frame for a proctored, in-progress attempt.
+
+    Only accepted when the test's policy has require_webcam=True -- a session
+    without that requirement refuses uploads outright, so nothing gets stored
+    that the guardian's consent and the policy didn't actually call for.
+    """
+    ensure_student_access(db, current_user, student_id)
+    if current_user.role != "Student":
+        raise HTTPException(status_code=403, detail="Only the student can upload a proctoring snapshot")
+
+    attempt = (
+        db.query(models.OnlineTestAttempt)
+        .filter(models.OnlineTestAttempt.test_id == test_id, models.OnlineTestAttempt.student_id == student_id)
+        .first()
+    )
+    if not attempt or attempt.status != "In Progress":
+        raise HTTPException(status_code=404, detail="No in-progress attempt found for this test")
+
+    session = (
+        db.query(models.ProctoringSession)
+        .filter(models.ProctoringSession.attempt_id == attempt.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt is not being proctored")
+
+    test = db.query(models.OnlineTest).filter(models.OnlineTest.id == test_id).first()
+    policy = _policy_for_test(db, test) if test else None
+    if not policy or not policy.require_webcam:
+        raise HTTPException(
+            status_code=400, detail="This test's proctoring policy does not require webcam capture"
+        )
+
+    if (file.content_type or "").lower() not in proctoring_storage.ALLOWED_SNAPSHOT_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG snapshots are accepted")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty snapshot")
+    if len(contents) > proctoring_storage.MAX_SNAPSHOT_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=400, detail=f"Snapshot is too large (max {proctoring_storage.MAX_SNAPSHOT_MB} MB)"
+        )
+
+    account_code = get_account_code_from_request(request)
+    storage_path = proctoring_storage.save_snapshot(account_code, session.id, contents)
+
+    snapshot = models.ProctoringSnapshot(
+        session_id=session.id,
+        storage_path=storage_path,
+        file_size=len(contents),
+        content_type="image/jpeg",
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
+
+
 # ---------------- Admin: manage portal links ----------------
 
 
@@ -1187,3 +1648,78 @@ def delete_portal_link(
     db.delete(link)
     db.commit()
     return {"message": "Portal link removed"}
+
+
+# ---------------------------------------------------------------------------
+# Where is my child's bus
+#
+# Lives here rather than in the tracking router because this is the one
+# tracking view a parent may see, and ensure_student_access is the guard that
+# already decides which children a parent may look at. Duplicating that check
+# somewhere else is how a parent ends up able to follow another family's bus.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/students/{student_id}/bus")
+def student_bus(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """The bus this student is assigned to, where it is, and its next stop."""
+    from app import tracking as tracking_logic
+
+    ensure_student_access(db, current_user, student_id)
+
+    assignment = (
+        db.query(models.TransportAssignment)
+        .filter(
+            models.TransportAssignment.student_id == student_id,
+            models.TransportAssignment.status == "Active",
+        )
+        .first()
+    )
+    if not assignment:
+        return {"assigned": False, "reason": "This student does not use school transport."}
+
+    vehicle = (
+        db.query(models.TransportVehicle)
+        .filter(models.TransportVehicle.id == assignment.vehicle_id)
+        .first()
+    )
+    route = (
+        db.query(models.TransportRoute)
+        .filter(models.TransportRoute.id == assignment.route_id)
+        .first()
+    )
+    stop = (
+        db.query(models.TransportStop)
+        .filter(models.TransportStop.id == assignment.stop_id)
+        .first()
+    )
+
+    body = {
+        "assigned": True,
+        "route": route.route_name if route else None,
+        "stop": stop.stop_name if stop else None,
+        "vehicle_no": vehicle.vehicle_no if vehicle else None,
+        # Deliberately not the driver's personal mobile: the school's own
+        # record already holds it for staff, and publishing it to every parent
+        # on the route is a different decision from showing a bus on a map.
+        "attendant_name": vehicle.attendant_name if vehicle else None,
+    }
+
+    if not vehicle:
+        return {**body, "position": None,
+                "reason": "No vehicle is assigned to this route yet."}
+
+    body["position"] = tracking_logic.position_report(db, vehicle)
+    if stop:
+        body["eta"] = tracking_logic.eta_to_stop(db, vehicle.id, stop)
+
+    trip = tracking_logic.current_trip(db, vehicle.id, date.today())
+    body["trip"] = (
+        {"id": trip.id, "direction": trip.direction, "started_at": trip.started_at}
+        if trip else None
+    )
+    return body

@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   GraduationCap,
+  Book,
   BookOpen,
   ClipboardCheck,
   Wallet,
@@ -21,7 +22,6 @@ import {
   Boxes,
   UserPlus,
   FileCheck,
-  Fingerprint,
   CalendarCheck,
   MessageCircle,
   LifeBuoy,
@@ -31,6 +31,8 @@ import {
   ShieldCheck,
   Landmark,
   ChevronDown,
+  CalendarOff,
+  BookMarked,
 } from "lucide-react";
 import { getUser } from "../auth";
 import { useI18n } from "../i18n";
@@ -87,6 +89,13 @@ export default function Sidebar({ onNavigate }) {
       group: "Academics",
     },
     {
+      label: "Subjects",
+      icon: Book,
+      path: "/subjects",
+      roles: ["Admin", "Principal", "Teacher"],
+      group: "Academics",
+    },
+    {
       label: "Attendance",
       icon: ClipboardCheck,
       path: "/attendance",
@@ -111,19 +120,19 @@ export default function Sidebar({ onNavigate }) {
       group: "Academics",
     },
     {
+      label: "Syllabus & Lesson Plans",
+      icon: BookMarked,
+      path: "/syllabus",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "syllabus",
+      group: "Academics",
+    },
+    {
       label: "Online Tests",
       icon: FileCheck,
       path: "/online-tests",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "online_tests",
-      group: "Academics",
-    },
-    {
-      label: "Biometric",
-      icon: Fingerprint,
-      path: "/biometric",
-      roles: ["Admin", "Principal"],
-      feature: "biometric_attendance",
       group: "Academics",
     },
     {
@@ -260,6 +269,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/teachers",
       roles: ["Admin", "Principal"],
       feature: "teachers",
+      group: "People & Access",
+    },
+    {
+      label: "Leave",
+      icon: CalendarOff,
+      path: "/leave",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "leave",
       group: "People & Access",
     },
     {

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw, Send, X } from "lucide-react";
+import { Bot, RotateCcw, Send, X } from "lucide-react";
 
 import API from "../api";
 
 const INITIAL_MESSAGE = {
   from: "bot",
-  text: "Hello! I'm the school assistant. Ask me about attendance, fees, marks, timetable, upcoming exams, class details or academic history.",
+  text: "Hello! I'm Sai, your school assistant. Ask me about attendance, fees, marks, timetable, upcoming exams, class details or academic history.",
   suggestions: ["Attendance", "Fees pending", "Exam results", "Timetable", "Help"],
 };
 
@@ -36,6 +36,11 @@ export default function ChatWidget({ compact = false }) {
     const message = (text ?? input).trim();
     if (!message || sending) return;
 
+    const history = messages
+      .filter((msg) => msg.text)
+      .slice(-20)
+      .map((msg) => ({ role: msg.from === "user" ? "user" : "assistant", text: msg.text }));
+
     setMessages((prev) => [...prev, { from: "user", text: message }]);
     setInput("");
     setSending(true);
@@ -44,6 +49,7 @@ export default function ChatWidget({ compact = false }) {
       const response = await API.post("/chatbot/ask", {
         message,
         student_id: studentId || null,
+        history,
       });
       const data = response.data;
       if (data.student_id) {
@@ -82,97 +88,42 @@ export default function ChatWidget({ compact = false }) {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: compact ? "100%" : "60vh",
-      }}
-    >
+    <div className="chat-widget" style={{ height: compact ? "100%" : "60vh" }}>
       {(activeStudentName || messages.length > 1) && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.5rem",
-            padding: "0 0.5rem 0.5rem",
-            fontSize: "0.8rem",
-            color: "var(--saas-muted)",
-          }}
-        >
+        <div className="chat-widget-toolbar">
           <span>
             {activeStudentName ? (
-              <>
-                Asking about: <strong>{activeStudentName}</strong>{" "}
-                <button
-                  type="button"
-                  onClick={clearStudent}
-                  title="Stop asking about this student"
-                  style={{
-                    border: "none",
-                    background: "none",
-                    cursor: "pointer",
-                    verticalAlign: "middle",
-                    color: "inherit",
-                    padding: 0,
-                  }}
-                >
-                  <X size={13} />
+              <span className="chat-widget-active-student">
+                Asking about {activeStudentName}
+                <button type="button" onClick={clearStudent} title="Stop asking about this student">
+                  <X size={12} />
                 </button>
-              </>
+              </span>
             ) : null}
           </span>
-          <button
-            type="button"
-            onClick={clearChat}
-            title="Clear the conversation"
-            style={{
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.25rem",
-              color: "inherit",
-              padding: 0,
-            }}
-          >
+          <button type="button" onClick={clearChat} className="chat-widget-clear-button" title="Clear the conversation">
             <RotateCcw size={13} />
             Clear
           </button>
         </div>
       )}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0.5rem" }}>
+      <div className="chat-widget-messages">
         {messages.map((msg, index) => (
-          <div
-            key={index}
-            style={{
-              display: "flex",
-              justifyContent: msg.from === "user" ? "flex-end" : "flex-start",
-              marginBottom: "0.75rem",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: "80%",
-                padding: "0.6rem 0.9rem",
-                borderRadius: "12px",
-                whiteSpace: "pre-wrap",
-                fontSize: compact ? "0.9rem" : "1rem",
-                background: msg.from === "user" ? "var(--saas-primary)" : "var(--saas-surface-soft)",
-                color: msg.from === "user" ? "#fff" : "var(--saas-text)",
-              }}
-            >
+          <div key={index} className={msg.from === "user" ? "chat-message-row user" : "chat-message-row"}>
+            {msg.from === "bot" && (
+              <span className="chat-avatar">
+                <Bot size={14} />
+              </span>
+            )}
+            <div className={msg.from === "user" ? "chat-bubble user" : "chat-bubble bot"}>
               {msg.text}
               {msg.children?.length > 0 && (
-                <div style={{ marginTop: "0.5rem" }}>
+                <div className="chat-suggestions">
                   {msg.children.map((child) => (
                     <button
                       key={child.id}
                       type="button"
-                      className="secondary-button"
-                      style={{ marginRight: "0.4rem", marginTop: "0.3rem" }}
+                      className="chat-suggestion-chip"
                       onClick={() => pickChild(child, msg.originalMessage)}
                     >
                       {child.name}
@@ -181,13 +132,12 @@ export default function ChatWidget({ compact = false }) {
                 </div>
               )}
               {msg.from === "bot" && msg.suggestions?.length > 0 && (
-                <div style={{ marginTop: "0.5rem" }}>
+                <div className="chat-suggestions">
                   {msg.suggestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       type="button"
-                      className="secondary-button"
-                      style={{ marginRight: "0.4rem", marginTop: "0.3rem" }}
+                      className="chat-suggestion-chip"
                       onClick={() => send(suggestion)}
                     >
                       {suggestion}
@@ -198,13 +148,26 @@ export default function ChatWidget({ compact = false }) {
             </div>
           </div>
         ))}
-        {sending && <p style={{ color: "#64748b" }}>Thinking…</p>}
+        {sending && (
+          <div className="chat-message-row">
+            <span className="chat-avatar">
+              <Bot size={14} />
+            </span>
+            <div className="chat-bubble bot">
+              <span className="chat-typing">
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem", paddingTop: "0.75rem" }}>
+      <div className="chat-composer">
         <input
-          style={{ flex: 1 }}
+          className="chat-composer-input"
           value={input}
           placeholder='Try "How much fee is pending?"'
           onChange={(event) => setInput(event.target.value)}
@@ -214,12 +177,12 @@ export default function ChatWidget({ compact = false }) {
         />
         <button
           type="button"
-          className="primary-button"
+          className="chat-composer-send"
           onClick={() => send()}
           disabled={sending}
+          aria-label="Send"
         >
-          <Send size={17} />
-          Send
+          <Send size={16} />
         </button>
       </div>
     </div>

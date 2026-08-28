@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Award,
   CalendarDays,
+  Fingerprint,
   Save,
   School,
   Settings2,
   Wallet,
 } from "lucide-react";
 import API from "../api";
-import { getUser, saveAuth } from "../auth";
+import { getUser, isFeatureEnabled, saveAuth } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
 import MfaCard from "../components/MfaCard";
 import PhotoUploadField from "../components/PhotoUploadField";
@@ -30,6 +32,9 @@ const emptyForm = {
   receipt_prefix: "REC",
   upi_id: "",
   late_fee_rule: "",
+  late_fee_amount: "",
+  late_fee_frequency: "",
+  late_fee_grace_days: 0,
 
   pass_percentage: 35,
   grade_rules: "",
@@ -164,6 +169,9 @@ export default function Settings() {
         receipt_prefix: settingsResponse.data.receipt_prefix || "REC",
         upi_id: settingsResponse.data.upi_id || "",
         late_fee_rule: settingsResponse.data.late_fee_rule || "",
+        late_fee_amount: settingsResponse.data.late_fee_amount ?? "",
+        late_fee_frequency: settingsResponse.data.late_fee_frequency || "",
+        late_fee_grace_days: settingsResponse.data.late_fee_grace_days ?? 0,
 
         pass_percentage: settingsResponse.data.pass_percentage || 35,
         grade_rules: settingsResponse.data.grade_rules || "",
@@ -190,7 +198,10 @@ export default function Settings() {
 
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "pass_percentage" ? Number(value) : value,
+      [name]:
+        name === "pass_percentage" || name === "late_fee_grace_days"
+          ? Number(value)
+          : value,
     }));
   }
 
@@ -212,7 +223,12 @@ export default function Settings() {
       setSaving(true);
       setMessage("");
 
-      await API.put("/settings/", formData);
+      await API.put("/settings/", {
+        ...formData,
+        late_fee_amount:
+          formData.late_fee_amount === "" ? null : Number(formData.late_fee_amount),
+        late_fee_frequency: formData.late_fee_frequency || null,
+      });
 
       setMessage("School settings saved successfully.");
       await loadSettings();
@@ -454,9 +470,83 @@ export default function Settings() {
                   placeholder="Example: ₹50 per week after due date"
                   disabled={user?.role !== "Admin"}
                 ></textarea>
+                <small>
+                  Shown to parents as a description. The fields below are what
+                  actually get charged, if your platform administrator has
+                  enabled automatic late fee charging for your school.
+                </small>
+              </div>
+
+              <div className="form-field">
+                <label>Late Fee Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="late_fee_amount"
+                  value={formData.late_fee_amount}
+                  onChange={handleChange}
+                  placeholder="e.g. 50"
+                  disabled={user?.role !== "Admin"}
+                />
+              </div>
+
+              <div className="form-field">
+                <label>Late Fee Frequency</label>
+                <select
+                  name="late_fee_frequency"
+                  value={formData.late_fee_frequency}
+                  onChange={handleChange}
+                  disabled={user?.role !== "Admin"}
+                >
+                  <option value="">Not configured</option>
+                  <option value="One-Time">One-Time</option>
+                  <option value="Weekly">Weekly, for every week overdue</option>
+                  <option value="Monthly">Monthly, for every month overdue</option>
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Grace Period (days)</label>
+                <input
+                  type="number"
+                  min="0"
+                  name="late_fee_grace_days"
+                  value={formData.late_fee_grace_days}
+                  onChange={handleChange}
+                  disabled={user?.role !== "Admin"}
+                />
+                <small>Days after the due date before a fine starts.</small>
               </div>
             </div>
           </section>
+
+          {isFeatureEnabled("biometric_attendance") && (
+            <section className="form-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>
+                    <Fingerprint size={20} /> Biometric Attendance
+                  </h3>
+                  <p>
+                    Connect a fingerprint or face terminal. Once a device is
+                    registered and students are enrolled, punches are turned
+                    into attendance automatically — the register fills itself
+                    and shows up under Attendance, with a teacher's own marks
+                    left untouched.
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-field full-width">
+                  <Link className="btn secondary" to="/biometric">
+                    Devices, enrolment and rules
+                  </Link>
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className="form-panel">
             <div className="panel-header">

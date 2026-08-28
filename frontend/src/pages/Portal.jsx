@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QrCode, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -16,6 +16,8 @@ const TABS = [
   ["timetable", "Timetable"],
   ["homework", "Homework"],
   ["tests", "Online Tests", "online_tests"],
+  ["leave", "Leave"],
+  ["library", "Library", "library"],
   ["messages", "Messages"],
   ["history", "History"],
 ].filter(([, , feature]) => !feature || isFeatureEnabled(feature));
@@ -30,10 +32,26 @@ function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
 }
 
+// On-device face-presence check during a proctored, webcam-required attempt.
+// Both the WASM runtime and the model itself are fetched from Google's
+// MediaPipe CDN, pinned to the installed @mediapipe/tasks-vision version so
+// the JS API and the WASM binary stay compatible -- the video frame itself
+// never leaves the browser for this, only the resulting 0/1/2+ face count.
+// If either fetch fails (offline, a school firewall blocking the CDN), face
+// detection is silently skipped; snapshot capture and the rest of proctoring
+// are unaffected, since this is a supplementary signal, not a requirement.
+const FACE_DETECTOR_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
+const FACE_DETECTOR_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+const FACE_CHECK_INTERVAL_MS = 2000;
+
 export default function Portal() {
   const user = getUser();
   const isParent = user?.role === "Parent";
   const isStudent = user?.role === "Student";
+  // A student cannot self-consent to being monitored -- only these roles can
+  // grant/revoke, matching the same restriction the backend enforces.
+  const canManageProctoringConsent = ["Parent", "Admin", "Principal"].includes(user?.role);
   const [children, setChildren] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("summary");
@@ -69,12 +87,36 @@ export default function Portal() {
   const [messageBody, setMessageBody] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveRequestsLoading, setLeaveRequestsLoading] = useState(false);
+  const [leaveFromDate, setLeaveFromDate] = useState("");
+  const [leaveToDate, setLeaveToDate] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [submittingLeave, setSubmittingLeave] = useState(false);
+
+  const [library, setLibrary] = useState(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
   const [onlineTests, setOnlineTests] = useState([]);
   const [onlineTestsLoading, setOnlineTestsLoading] = useState(false);
   const [activeOnlineTest, setActiveOnlineTest] = useState(null);
   const [testAnswers, setTestAnswers] = useState({});
   const [submittingTest, setSubmittingTest] = useState(false);
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(null);
+
+  // Proctoring add-on: null while unknown/not applicable, otherwise
+  // {granted, consent}. Only fetched when the school has the add-on.
+  const [proctoringConsent, setProctoringConsent] = useState(null);
+  const [proctoringViolationCount, setProctoringViolationCount] = useState(0);
+  const proctoringQueueRef = useRef([]);
+  const flushProctoringEventsRef = useRef(() => {});
+
+  // Phase 2: periodic webcam snapshots. "pending" until getUserMedia
+  // resolves, then "active" | "denied" | "unavailable". The <video> element
+  // is just a live local preview for the student's own reassurance -- the
+  // stream itself is never sent anywhere, only individual captured frames.
+  const [cameraStatus, setCameraStatus] = useState("pending");
+  const videoRef = useRef(null);
 
   async function loadChildren() {
     try {
@@ -143,6 +185,48 @@ export default function Portal() {
     }
   }, [activeTab, selectedId]);
 
+  async function loadLeaveRequests(studentId) {
+    if (!studentId) return;
+    setLeaveRequestsLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/leave-requests`);
+      setLeaveRequests(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load leave requests."));
+    } finally {
+      setLeaveRequestsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "leave" && selectedId) {
+      loadLeaveRequests(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
+  async function submitLeaveRequest(event) {
+    event.preventDefault();
+    if (!selectedId || !leaveFromDate || !leaveToDate) return;
+
+    setSubmittingLeave(true);
+    try {
+      await API.post(`/portal/students/${selectedId}/leave-requests`, {
+        from_date: leaveFromDate,
+        to_date: leaveToDate,
+        reason: leaveReason.trim() || null,
+      });
+      setLeaveFromDate("");
+      setLeaveToDate("");
+      setLeaveReason("");
+      setMessage("Leave request submitted.");
+      await loadLeaveRequests(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to submit leave request."));
+    } finally {
+      setSubmittingLeave(false);
+    }
+  }
+
   async function sendMessage(event) {
     event.preventDefault();
     const body = messageBody.trim();
@@ -160,6 +244,25 @@ export default function Portal() {
     }
   }
 
+  async function loadLibrary(studentId) {
+    if (!studentId) return;
+    setLibraryLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/library`);
+      setLibrary(response.data);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load library data."));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "library" && selectedId) {
+      loadLibrary(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
   async function loadOnlineTests(studentId) {
     if (!studentId) return;
     setOnlineTestsLoading(true);
@@ -173,11 +276,47 @@ export default function Portal() {
     }
   }
 
+  async function loadProctoringConsent(studentId) {
+    if (!studentId || !isFeatureEnabled("online_test_proctoring")) {
+      setProctoringConsent(null);
+      return;
+    }
+    try {
+      const response = await API.get(`/portal/students/${studentId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+    } catch {
+      setProctoringConsent(null);
+    }
+  }
+
   useEffect(() => {
     if (activeTab === "tests" && selectedId && !activeOnlineTest) {
       loadOnlineTests(selectedId);
+      loadProctoringConsent(selectedId);
     }
   }, [activeTab, selectedId, activeOnlineTest]);
+
+  async function grantProctoringConsent() {
+    setMessage("");
+    try {
+      const response = await API.post(`/portal/students/${selectedId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+      setMessage("Proctoring consent granted.");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to grant consent."));
+    }
+  }
+
+  async function revokeProctoringConsent() {
+    setMessage("");
+    try {
+      const response = await API.delete(`/portal/students/${selectedId}/proctoring/consent`);
+      setProctoringConsent(response.data);
+      setMessage("Proctoring consent revoked.");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to revoke consent."));
+    }
+  }
 
   async function openOnlineTest(testId) {
     setMessage("");
@@ -201,6 +340,9 @@ export default function Portal() {
       } else {
         setTimeLeftSeconds(null);
       }
+      proctoringQueueRef.current = [];
+      setProctoringViolationCount(0);
+      setCameraStatus("pending");
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to open this test."));
     }
@@ -210,6 +352,9 @@ export default function Portal() {
     setActiveOnlineTest(null);
     setTestAnswers({});
     setTimeLeftSeconds(null);
+    proctoringQueueRef.current = [];
+    setProctoringViolationCount(0);
+    setCameraStatus("pending");
     loadOnlineTests(selectedId);
   }
 
@@ -263,6 +408,244 @@ export default function Portal() {
     return () => window.clearTimeout(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeftSeconds]);
+
+  function queueProctoringEvent(eventType, detail, confidence) {
+    proctoringQueueRef.current.push({ event_type: eventType, detail, confidence });
+  }
+
+  // Client-side signals are evidence for a human reviewer, not proof --
+  // severity is decided server-side from event_type, this just reports what
+  // happened. Reads activeOnlineTest/selectedId directly (fresh every render,
+  // since this function is redefined each render); it is called only through
+  // flushProctoringEventsRef so a setInterval created once still always runs
+  // the latest version.
+  async function flushProctoringEvents() {
+    if (!activeOnlineTest?.proctoring?.enabled || activeOnlineTest.attempt.status !== "In Progress") return;
+    const events = proctoringQueueRef.current;
+    if (!events.length) return;
+    proctoringQueueRef.current = [];
+    try {
+      const response = await API.post(
+        `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/proctoring/events`,
+        { events }
+      );
+      setProctoringViolationCount(response.data.violation_count);
+      if (response.data.auto_submitted) {
+        setMessage("This attempt was submitted automatically after repeated proctoring violations.");
+        await openOnlineTest(activeOnlineTest.test.id);
+      }
+    } catch {
+      // Best-effort: put the events back so the next flush retries them.
+      proctoringQueueRef.current = [...events, ...proctoringQueueRef.current];
+    }
+  }
+
+  useEffect(() => {
+    flushProctoringEventsRef.current = flushProctoringEvents;
+  });
+
+  // Browser lockdown for a proctored attempt: fullscreen on start, and
+  // listeners that turn tab switches / window blur / copy-paste into queued
+  // events flushed every few seconds. Keyed on the attempt id *and* status so
+  // this tears itself down (exiting fullscreen, flushing anything queued)
+  // the moment the attempt stops being "In Progress" -- including the
+  // auto-submit triggered by flushProctoringEvents itself.
+  useEffect(() => {
+    const proctoring = activeOnlineTest?.proctoring;
+    if (!proctoring?.enabled || activeOnlineTest.attempt.status !== "In Progress") {
+      return undefined;
+    }
+
+    if (proctoring.require_fullscreen && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {
+        // Some browsers refuse without a fresh user gesture -- the exit this
+        // would otherwise suppress simply gets reported the normal way.
+      });
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) queueProctoringEvent("tab_blur");
+    }
+    function onWindowBlur() {
+      queueProctoringEvent("window_blur");
+    }
+    function onFullscreenChange() {
+      if (proctoring.require_fullscreen && !document.fullscreenElement) {
+        queueProctoringEvent("fullscreen_exit");
+      }
+    }
+    function onCopy(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("copy_attempt");
+      }
+    }
+    function onPaste(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("paste_attempt");
+      }
+    }
+    function onContextMenu(event) {
+      if (proctoring.block_copy_paste) {
+        event.preventDefault();
+        queueProctoringEvent("context_menu");
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", onWindowBlur);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("paste", onPaste);
+    document.addEventListener("contextmenu", onContextMenu);
+
+    const flushIntervalId = window.setInterval(() => flushProctoringEventsRef.current(), 5000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onWindowBlur);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("paste", onPaste);
+      document.removeEventListener("contextmenu", onContextMenu);
+      window.clearInterval(flushIntervalId);
+      flushProctoringEventsRef.current();
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOnlineTest?.attempt?.id, activeOnlineTest?.attempt?.status]);
+
+  // Phase 2: periodic webcam snapshots, only when the policy actually asks
+  // for them. Separate from the lockdown effect above -- a denied/missing
+  // camera must not stop fullscreen/tab-switch enforcement from working, and
+  // vice versa. Same attempt-id/status-keyed lifecycle as that effect.
+  useEffect(() => {
+    const proctoring = activeOnlineTest?.proctoring;
+    if (!proctoring?.enabled || !proctoring.require_webcam || activeOnlineTest.attempt.status !== "In Progress") {
+      return undefined;
+    }
+
+    let stream = null;
+    let captureIntervalId = null;
+    let firstCaptureTimeoutId = null;
+    let faceCheckIntervalId = null;
+    let faceDetector = null;
+    let cancelled = false;
+    const videoEl = videoRef.current;
+    // Local bookkeeping, not React state: only used to detect a state
+    // *transition* (ok -> no_face, no_face -> multiple_faces, ...) so a
+    // sustained absence reports once, not every 2s. Recovery back to "ok" is
+    // deliberately not itself reported -- it isn't a violation.
+    let lastFaceState = "ok";
+
+    async function captureFrame() {
+      const video = videoRef.current;
+      if (!video || !video.videoWidth) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) return;
+          const formData = new FormData();
+          formData.append("file", blob, "snapshot.jpg");
+          try {
+            await API.post(
+              `/portal/students/${selectedId}/online-tests/${activeOnlineTest.test.id}/proctoring/snapshot`,
+              formData
+            );
+          } catch {
+            // Best-effort -- a missed frame isn't retried, the next interval
+            // tick just captures a fresh one.
+          }
+        },
+        "image/jpeg",
+        0.8
+      );
+    }
+
+    // On-device face-presence check, reusing this same camera stream (never
+    // a second getUserMedia call). Runs entirely in the browser -- only the
+    // resulting face count, not any image data, is ever sent to the server.
+    async function setUpFaceDetector() {
+      try {
+        const { FaceDetector, FilesetResolver } = await import("@mediapipe/tasks-vision");
+        if (cancelled) return;
+        const vision = await FilesetResolver.forVisionTasks(FACE_DETECTOR_WASM_URL);
+        if (cancelled) return;
+        faceDetector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL },
+          runningMode: "VIDEO",
+        });
+        if (cancelled) {
+          faceDetector.close();
+          faceDetector = null;
+          return;
+        }
+        faceCheckIntervalId = window.setInterval(() => {
+          const video = videoRef.current;
+          if (!faceDetector || !video || !video.videoWidth) return;
+          let result;
+          try {
+            result = faceDetector.detectForVideo(video, performance.now());
+          } catch {
+            return; // a transient decode error on one frame isn't worth acting on
+          }
+          const faceCount = result.detections.length;
+          const state = faceCount === 0 ? "no_face" : faceCount === 1 ? "ok" : "multiple_faces";
+          if (state !== lastFaceState && state !== "ok") {
+            const confidence =
+              state === "multiple_faces"
+                ? Math.min(...result.detections.map((d) => d.categories?.[0]?.score ?? 1))
+                : undefined;
+            queueProctoringEvent(state, `${faceCount} face(s) detected`, confidence);
+          }
+          lastFaceState = state;
+        }, FACE_CHECK_INTERVAL_MS);
+      } catch {
+        // CDN unreachable, WASM unsupported, or model load failed -- face
+        // detection is a bonus signal, not a requirement; skip it silently
+        // and leave snapshot capture and lockdown enforcement unaffected.
+      }
+    }
+
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        setCameraStatus("active");
+        if (videoEl) videoEl.srcObject = stream;
+
+        const intervalMs = (proctoring.capture_interval_seconds || 30) * 1000;
+        firstCaptureTimeoutId = window.setTimeout(captureFrame, 1000);
+        captureIntervalId = window.setInterval(captureFrame, intervalMs);
+        setUpFaceDetector();
+      } catch (err) {
+        if (cancelled) return;
+        const denied = err && err.name === "NotAllowedError";
+        setCameraStatus(denied ? "denied" : "unavailable");
+        queueProctoringEvent(denied ? "camera_denied" : "camera_unavailable", err?.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (firstCaptureTimeoutId) window.clearTimeout(firstCaptureTimeoutId);
+      if (captureIntervalId) window.clearInterval(captureIntervalId);
+      if (faceCheckIntervalId) window.clearInterval(faceCheckIntervalId);
+      if (faceDetector) faceDetector.close();
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (videoEl) videoEl.srcObject = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOnlineTest?.attempt?.id, activeOnlineTest?.attempt?.status]);
 
   function formatTimeLeft(seconds) {
     const m = Math.floor(seconds / 60);
@@ -595,6 +978,85 @@ export default function Portal() {
             </>
           )}
 
+          {activeTab === "library" && (
+            <>
+              {libraryLoading && <p>Loading library data…</p>}
+              {!libraryLoading && library && (
+                <>
+                  <div className="message-box">
+                    Currently issued: {library.current.length} | Total fine due: {library.total_fine_due}
+                  </div>
+
+                  <div className="table-wrapper">
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Book</th><th>Issued</th><th>Due</th><th>Status</th><th>Days Overdue</th><th>Fine</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {library.current.map((issue) => (
+                          <tr key={issue.id}>
+                            <td>{issue.accession_no} - {issue.book_title}</td>
+                            <td>{issue.issue_date}</td>
+                            <td>{issue.due_date || "-"}</td>
+                            <td>{issue.status}</td>
+                            <td>{issue.days_overdue || 0}</td>
+                            <td>{issue.fine_amount || 0}{issue.fine_paid ? " (paid)" : ""}</td>
+                          </tr>
+                        ))}
+                        {!library.current.length && (
+                          <tr><td colSpan={6}>No books currently issued.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {!!library.reservations.length && (
+                    <>
+                      <h4 style={{ marginTop: 20 }}>Reservations</h4>
+                      <div className="table-wrapper">
+                        <table className="classic-table">
+                          <thead><tr><th>Book</th><th>Status</th><th>Queue #</th></tr></thead>
+                          <tbody>
+                            {library.reservations.map((r) => (
+                              <tr key={r.id}>
+                                <td>{r.book_title}</td><td>{r.status}</td><td>{r.queue_position}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
+                  <h4 style={{ marginTop: 20 }}>History</h4>
+                  <div className="table-wrapper">
+                    <table className="classic-table">
+                      <thead>
+                        <tr><th>Book</th><th>Issued</th><th>Return</th><th>Status</th><th>Fine</th></tr>
+                      </thead>
+                      <tbody>
+                        {library.history.map((issue) => (
+                          <tr key={issue.id}>
+                            <td>{issue.accession_no} - {issue.book_title}</td>
+                            <td>{issue.issue_date}</td>
+                            <td>{issue.return_date || "-"}</td>
+                            <td>{issue.status}</td>
+                            <td>{issue.fine_amount || 0}</td>
+                          </tr>
+                        ))}
+                        {!library.history.length && (
+                          <tr><td colSpan={5}>No past library records.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
           {!loading && activeTab === "timetable" && (
             <div className="table-wrapper">
             <table className="classic-table">
@@ -669,6 +1131,40 @@ export default function Portal() {
             </div>
           )}
 
+          {!loading && activeTab === "tests" && !activeOnlineTest && isFeatureEnabled("online_test_proctoring") && (
+            <div className="message-box proctoring-consent-banner">
+              {proctoringConsent?.granted ? (
+                <>
+                  <strong>Exam proctoring consent: granted.</strong>{" "}
+                  Proctored tests for this student may request fullscreen and report browser
+                  activity such as tab switches or copy/paste attempts while an attempt is open.
+                  {canManageProctoringConsent && (
+                    <div className="form-actions">
+                      <button type="button" className="light-button" onClick={revokeProctoringConsent}>
+                        Revoke Consent
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>Exam proctoring consent: not granted.</strong>{" "}
+                  A proctored test cannot be started for this student until a guardian or
+                  administrator grants consent.
+                  {canManageProctoringConsent ? (
+                    <div className="form-actions">
+                      <button type="button" className="primary-button" onClick={grantProctoringConsent}>
+                        Grant Consent
+                      </button>
+                    </div>
+                  ) : (
+                    <div>Ask a parent or the school office to grant consent from this page.</div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {!loading && activeTab === "tests" && !activeOnlineTest && (
             <div className="table-wrapper">
             <table className="classic-table">
@@ -692,7 +1188,10 @@ export default function Portal() {
                   onlineTests.map((test) => (
                     <tr key={test.id}>
                       <td>{test.subject || "-"}</td>
-                      <td>{test.title}</td>
+                      <td>
+                        {test.title}
+                        {test.proctoring_enabled && <span className="status pending online-test-proctored-badge">Proctored</span>}
+                      </td>
                       <td>{test.total_marks}</td>
                       <td>
                         {test.attempt_status === "Submitted"
@@ -749,6 +1248,29 @@ export default function Portal() {
                 )}
               </div>
 
+              {activeOnlineTest.proctoring?.enabled && activeOnlineTest.attempt.status === "In Progress" && (
+                <div className="message-box online-test-proctoring-notice">
+                  This attempt is proctored: stay in fullscreen and do not switch tabs, copy or
+                  paste. Flags reported so far: {proctoringViolationCount}
+                  {activeOnlineTest.proctoring.max_violations_before_autosubmit
+                    ? ` / ${activeOnlineTest.proctoring.max_violations_before_autosubmit}`
+                    : ""}
+                  . Reaching the limit submits this attempt automatically.
+                  {activeOnlineTest.proctoring.require_webcam && (
+                    <div className="online-test-camera-status">
+                      {cameraStatus === "active" && "Camera: on — a still photo is captured periodically, not a continuous recording. An on-device check also flags if no face or more than one face is visible; no video is sent anywhere for this."}
+                      {cameraStatus === "pending" && "Camera: requesting permission..."}
+                      {cameraStatus === "denied" && "Camera: permission denied — this has been flagged for the teacher."}
+                      {cameraStatus === "unavailable" && "Camera: not available on this device — this has been flagged for the teacher."}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeOnlineTest.proctoring?.require_webcam && activeOnlineTest.attempt.status === "In Progress" && (
+                <video ref={videoRef} autoPlay muted playsInline className="online-test-camera-preview" />
+              )}
+
               {activeOnlineTest.attempt.status === "Submitted" && (
                 <div className="message-box">
                   Score: {activeOnlineTest.attempt.score} / {activeOnlineTest.attempt.max_score}
@@ -757,6 +1279,9 @@ export default function Portal() {
                   )}
                   {activeOnlineTest.attempt.auto_submitted_reason === "window_closed" && (
                     <div>This test closed before it was submitted. Answers saved before it closed were marked.</div>
+                  )}
+                  {activeOnlineTest.attempt.auto_submitted_reason === "proctoring_violation" && (
+                    <div>This test was submitted automatically after repeated proctoring violations. Answers saved before then were marked.</div>
                   )}
                 </div>
               )}
@@ -802,6 +1327,81 @@ export default function Portal() {
                   Back to Tests
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === "leave" && (
+            <div className="portal-messages">
+              <div className="portal-messages-list">
+                {leaveRequestsLoading && <p>Loading...</p>}
+                {!leaveRequestsLoading && !leaveRequests.length && (
+                  <p>No leave requests yet. Submit one below.</p>
+                )}
+                {!leaveRequestsLoading &&
+                  leaveRequests.map((request) => (
+                    <div key={request.id} className="portal-message portal-message-staff">
+                      <div className="portal-message-meta">
+                        <strong>
+                          {request.from_date}
+                          {request.to_date !== request.from_date ? ` to ${request.to_date}` : ""}
+                        </strong>
+                        <span
+                          className={
+                            request.status === "Approved"
+                              ? "status active"
+                              : request.status === "Rejected"
+                              ? "status danger"
+                              : "status warning"
+                          }
+                        >
+                          {request.status}
+                        </span>
+                      </div>
+                      {request.reason && <p>{request.reason}</p>}
+                      {request.decision_note && (
+                        <p>
+                          <em>School note: {request.decision_note}</em>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              <form className="portal-message-form" onSubmit={submitLeaveRequest}>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>From</label>
+                    <input
+                      type="date"
+                      value={leaveFromDate}
+                      onChange={(event) => setLeaveFromDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>To</label>
+                    <input
+                      type="date"
+                      value={leaveToDate}
+                      onChange={(event) => setLeaveToDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <textarea
+                  value={leaveReason}
+                  onChange={(event) => setLeaveReason(event.target.value)}
+                  placeholder="Reason (optional)"
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={submittingLeave || !leaveFromDate || !leaveToDate}
+                >
+                  <Send size={16} /> Submit Request
+                </button>
+              </form>
             </div>
           )}
 
@@ -925,7 +1525,7 @@ export default function Portal() {
               <p style={{ margin: "10px 0 2px", fontSize: "1.05rem" }}>
                 <strong>{upiPayment.details.amount}</strong>
               </p>
-              <p style={{ margin: 0, color: "#667085" }}>
+              <p style={{ margin: 0, color: "var(--text-muted)" }}>
                 to <strong>{upiPayment.details.upi_id}</strong>
                 {upiPayment.details.payee_name
                   ? ` (${upiPayment.details.payee_name})`
@@ -949,7 +1549,7 @@ export default function Portal() {
                 onChange={(event) => setUpiReference(event.target.value)}
                 style={{ width: "100%", marginTop: 6 }}
               />
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#667085" }}>
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
                 After the payment succeeds in the UPI app, enter its reference
                 number here to record the fee as paid.
               </p>

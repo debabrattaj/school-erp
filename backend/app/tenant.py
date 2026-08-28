@@ -25,6 +25,47 @@ DEFAULT_SCHOOL_DATABASE_URL = os.getenv(
     "sqlite:///./school_erp.db",
 )
 
+def backend_of(url: str | None) -> str:
+    """"postgresql", "sqlite", or "" -- the dialect part of a database URL."""
+    if not url:
+        return ""
+    return url.split("://", 1)[0].split("+", 1)[0].strip().lower()
+
+
+def database_config_problems() -> list[str]:
+    """Configuration mistakes worth shouting about at startup.
+
+    The one that matters is a split backend: the registry on SQLite while the
+    schools are on Postgres, or the reverse. Nothing errors in that state --
+    both halves work -- but the SQLite half is a file resolved relative to the
+    working directory, so two commands run from different places silently read
+    two different registries and disagree about which schools exist. That is
+    exactly the failure this check exists to make visible.
+    """
+    problems = []
+    central = backend_of(CENTRAL_DATABASE_URL)
+    default = backend_of(DEFAULT_SCHOOL_DATABASE_URL)
+
+    if central and default and central != default:
+        problems.append(
+            f"Split backend: the central registry is on {central} but the default "
+            f"school is on {default}. A relative SQLite path is resolved against "
+            f"the working directory, so commands run from different directories "
+            f"will read different registries."
+        )
+
+    for label, url in (("CENTRAL_DATABASE_URL", CENTRAL_DATABASE_URL),
+                       ("DEFAULT_SCHOOL_DATABASE_URL", DEFAULT_SCHOOL_DATABASE_URL)):
+        if backend_of(url) == "sqlite" and url.startswith("sqlite:///./"):
+            problems.append(
+                f"{label} is a SQLite path relative to the working directory "
+                f"({url}). Use an absolute path, or Postgres, so every entry "
+                f"point reads the same file."
+            )
+
+    return problems
+
+
 DEFAULT_FEATURES = {
     "dashboard": True,
     "students": True,
@@ -69,6 +110,12 @@ DEFAULT_FEATURES = {
     # require_feature("online_tests") on the staff and portal routes, not just
     # by hiding the sidebar entry.
     "online_tests": False,
+    # Proctoring add-on for Online Tests: browser lockdown (fullscreen,
+    # visibility/blur, copy-paste) signal capture and teacher review. A
+    # separate SKU from online_tests itself -- a school can run online tests
+    # without ever buying this. Requires per-student guardian consent on top
+    # of this flag; see is_feature_enabled() calls in routes/portal.py.
+    "online_test_proctoring": False,
     # Sold separately: biometric attendance (device registry, punch ingest and
     # attendance derivation). Off until the platform owner enables it, and the
     # gate covers the device ingest endpoint too, so a lapsed school stops
@@ -80,8 +127,30 @@ DEFAULT_FEATURES = {
     # configure fee structures / academic-year promotion settings / exam
     # templates freely, but nothing fires unattended until enabled here.
     "fee_auto_generation": False,
+    "fee_reminders": False,
+    "fee_late_charges": False,
+    # Emails/SMSes borrowers about overdue library books on a schedule, same
+    # opt-in gating as fee_reminders -- a module that messages parents/staff
+    # unattended must not switch itself on.
+    "library_reminders": False,
     "promotion_auto_generation": False,
     "exam_auto_generation": False,
+    # Staff HR module, not every school runs leave/substitution through the
+    # ERP yet -- off by default like the other operational add-ons (hostel,
+    # transport, library), on once a school opts in via the Platform Console.
+    "leave": False,
+    # Core teaching workflow, alongside Homework and Timetable -- on by
+    # default rather than an opt-in add-on.
+    "syllabus": True,
+    # Bulk-writes the whole school's period grid in one action, so it stays
+    # opt-in like the other *_auto_generation automations even though it has
+    # no cron component -- a school must choose to hand scheduling to the
+    # algorithm rather than find their manually-built timetable overwritten.
+    "timetable_auto_generation": False,
+    # Emails staff on a schedule, so it stays opt-in like the other
+    # unattended automations -- a school must choose this before the ERP
+    # starts sending mail on its own.
+    "admission_reminders": False,
 }
 
 ensure_database_exists(CENTRAL_DATABASE_URL)

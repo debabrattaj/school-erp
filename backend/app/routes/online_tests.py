@@ -7,15 +7,25 @@ submission is scored immediately, so there is no manual-grading queue or
 """
 
 import json
+import os
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app import proctoring_storage
 from app.database import get_db
 from app.models import (
     OnlineTest,
     OnlineTestAttempt,
     OnlineTestQuestion,
+    ProctoringAccessLog,
+    ProctoringEvent,
+    ProctoringPolicy,
+    ProctoringSession,
+    ProctoringSnapshot,
     Student,
     Teacher,
     User,
@@ -27,9 +37,22 @@ from app.schemas import (
     OnlineTestQuestionUpdate,
     OnlineTestResponse,
     OnlineTestUpdate,
+    ProctoringEventResponse,
+    ProctoringPolicyCreate,
+    ProctoringPolicyResponse,
+    ProctoringPolicyUpdate,
+    ProctoringReviewUpdate,
+    ProctoringSessionDetailResponse,
+    ProctoringSessionResponse,
+    ProctoringSnapshotResponse,
 )
 from app.security import require_roles
 from app.tenant import require_feature
+
+# Proctoring is a separate SKU from online_tests -- a school can run online
+# tests without ever buying this, so the policy/review routes below carry
+# their own entitlement check on top of the router-wide online_tests gate.
+PROCTORING_GATE = [Depends(require_feature("online_test_proctoring"))]
 
 # Online Tests is sold separately and ships disabled. The entitlement check
 # sits on the router itself so every route below inherits it -- including any
@@ -77,6 +100,8 @@ def _test_to_response(db: Session, test: OnlineTest) -> OnlineTestResponse:
         status=test.status,
         shuffle_questions=bool(test.shuffle_questions),
         shuffle_options=bool(test.shuffle_options),
+        proctoring_enabled=bool(test.proctoring_enabled),
+        proctoring_policy_id=test.proctoring_policy_id,
         teacher_name_snapshot=test.teacher_name_snapshot,
         total_marks=sum(q.marks or 0 for q in questions),
         question_count=len(questions),
@@ -90,6 +115,73 @@ def _get_test_or_404(db: Session, test_id: int) -> OnlineTest:
     if not test:
         raise HTTPException(status_code=404, detail="Online test not found")
     return test
+
+
+def _get_policy_or_404(db: Session, policy_id: int) -> ProctoringPolicy:
+    policy = db.query(ProctoringPolicy).filter(ProctoringPolicy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Proctoring policy not found")
+    return policy
+
+
+# Registered ahead of GET/PUT/DELETE /{test_id} so "proctoring-policies" is
+# never swallowed by the {test_id} path parameter (FastAPI matches routes in
+# registration order; a literal segment declared after a same-shape
+# parameterized route never gets a chance to match).
+@router.get(
+    "/proctoring-policies", response_model=list[ProctoringPolicyResponse], dependencies=PROCTORING_GATE
+)
+def list_proctoring_policies(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    return db.query(ProctoringPolicy).order_by(ProctoringPolicy.name).all()
+
+
+@router.post(
+    "/proctoring-policies", response_model=ProctoringPolicyResponse, dependencies=PROCTORING_GATE
+)
+def create_proctoring_policy(
+    payload: ProctoringPolicyCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    policy = ProctoringPolicy(**payload.model_dump())
+    db.add(policy)
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+@router.put(
+    "/proctoring-policies/{policy_id}", response_model=ProctoringPolicyResponse, dependencies=PROCTORING_GATE
+)
+def update_proctoring_policy(
+    policy_id: int,
+    payload: ProctoringPolicyUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    policy = _get_policy_or_404(db, policy_id)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(policy, key, value)
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+@router.delete("/proctoring-policies/{policy_id}", dependencies=PROCTORING_GATE)
+def delete_proctoring_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    policy = _get_policy_or_404(db, policy_id)
+    db.delete(policy)
+    db.commit()
+    return {"message": "Proctoring policy deleted successfully"}
 
 
 @router.get("/", response_model=list[OnlineTestResponse])
@@ -307,9 +399,28 @@ def get_online_test_results(
         ).all()
     } if attempts else {}
 
+    # Proctoring is optional per test -- most attempts have no session, so
+    # these lookups stay empty dicts and every attempt below just gets None.
+    sessions_by_attempt = {
+        s.attempt_id: s
+        for s in db.query(ProctoringSession).filter(
+            ProctoringSession.attempt_id.in_([a.id for a in attempts])
+        ).all()
+    } if attempts else {}
+    flag_counts = {}
+    if sessions_by_attempt:
+        session_ids = [s.id for s in sessions_by_attempt.values()]
+        flag_counts = dict(
+            db.query(ProctoringEvent.session_id, func.count(ProctoringEvent.id))
+            .filter(ProctoringEvent.session_id.in_(session_ids), ProctoringEvent.severity != "info")
+            .group_by(ProctoringEvent.session_id)
+            .all()
+        )
+
     results = []
     for attempt in attempts:
         student = students.get(attempt.student_id)
+        session = sessions_by_attempt.get(attempt.id)
         results.append({
             "id": attempt.id,
             "student_id": attempt.student_id,
@@ -323,5 +434,170 @@ def get_online_test_results(
             "score": attempt.score,
             "max_score": attempt.max_score,
             "status": attempt.status,
+            "proctoring_flag_count": flag_counts.get(session.id, 0) if session else None,
+            "proctoring_review_status": session.review_status if session else None,
         })
     return results
+
+
+@router.get(
+    "/{test_id}/results/{attempt_id}/proctoring",
+    response_model=ProctoringSessionDetailResponse,
+    dependencies=PROCTORING_GATE,
+)
+def get_proctoring_session_detail(
+    test_id: int,
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    _get_test_or_404(db, test_id)
+    attempt = (
+        db.query(OnlineTestAttempt)
+        .filter(OnlineTestAttempt.id == attempt_id, OnlineTestAttempt.test_id == test_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    session = db.query(ProctoringSession).filter(ProctoringSession.attempt_id == attempt_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt was not proctored")
+
+    events = (
+        db.query(ProctoringEvent)
+        .filter(ProctoringEvent.session_id == session.id)
+        .order_by(ProctoringEvent.occurred_at)
+        .all()
+    )
+    flag_count = sum(1 for e in events if e.severity != "info")
+
+    snapshots = (
+        db.query(ProctoringSnapshot)
+        .filter(ProctoringSnapshot.session_id == session.id)
+        .order_by(ProctoringSnapshot.captured_at)
+        .all()
+    )
+
+    # Every view of a session's data is logged, so "who watched this
+    # student's session" stays answerable.
+    db.add(ProctoringAccessLog(session_id=session.id, viewed_by=current_user.email, action="view"))
+    db.commit()
+
+    return ProctoringSessionDetailResponse(
+        id=session.id,
+        attempt_id=session.attempt_id,
+        started_at=session.started_at,
+        ended_at=session.ended_at,
+        review_status=session.review_status,
+        reviewed_by=session.reviewed_by,
+        reviewed_at=session.reviewed_at,
+        reviewer_notes=session.reviewer_notes,
+        flag_count=flag_count,
+        events=[ProctoringEventResponse.model_validate(e) for e in events],
+        snapshots=[ProctoringSnapshotResponse.model_validate(s) for s in snapshots],
+    )
+
+
+@router.get(
+    "/{test_id}/results/{attempt_id}/proctoring/snapshots/{snapshot_id}",
+    dependencies=PROCTORING_GATE,
+)
+def get_proctoring_snapshot(
+    test_id: int,
+    attempt_id: int,
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    """Stream one webcam frame. Deliberately not served through the public
+    /uploads static mount -- this route re-checks the full test/attempt/
+    session/snapshot ownership chain and logs the view, same as the timeline
+    endpoint above, before ever touching the file."""
+    _get_test_or_404(db, test_id)
+    attempt = (
+        db.query(OnlineTestAttempt)
+        .filter(OnlineTestAttempt.id == attempt_id, OnlineTestAttempt.test_id == test_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    session = db.query(ProctoringSession).filter(ProctoringSession.attempt_id == attempt_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt was not proctored")
+
+    snapshot = (
+        db.query(ProctoringSnapshot)
+        .filter(ProctoringSnapshot.id == snapshot_id, ProctoringSnapshot.session_id == session.id)
+        .first()
+    )
+    if not snapshot or not snapshot.storage_path:
+        raise HTTPException(status_code=404, detail="Snapshot not found or has been purged by retention")
+
+    absolute_path = proctoring_storage.absolute_path_for(snapshot.storage_path)
+    if not os.path.isfile(absolute_path):
+        raise HTTPException(status_code=404, detail="Snapshot file is missing on disk")
+
+    db.add(ProctoringAccessLog(session_id=session.id, viewed_by=current_user.email, action="view_snapshot"))
+    db.commit()
+
+    return FileResponse(absolute_path, media_type=snapshot.content_type)
+
+
+@router.put(
+    "/{test_id}/results/{attempt_id}/proctoring/review",
+    response_model=ProctoringSessionResponse,
+    dependencies=PROCTORING_GATE,
+)
+def review_proctoring_session(
+    test_id: int,
+    attempt_id: int,
+    payload: ProctoringReviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
+):
+    """Human review verdict on a proctoring session. Never set automatically --
+    a high violation count is a prompt to look, not an accusation the system
+    makes on its own; only a person can move a session out of Pending."""
+    _get_test_or_404(db, test_id)
+    attempt = (
+        db.query(OnlineTestAttempt)
+        .filter(OnlineTestAttempt.id == attempt_id, OnlineTestAttempt.test_id == test_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    session = db.query(ProctoringSession).filter(ProctoringSession.attempt_id == attempt_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="This attempt was not proctored")
+
+    valid_statuses = ("Pending", "Cleared", "Flagged")
+    if payload.review_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"review_status must be one of {valid_statuses}")
+
+    session.review_status = payload.review_status
+    session.reviewer_notes = payload.reviewer_notes
+    session.reviewed_by = current_user.email
+    session.reviewed_at = datetime.utcnow()
+    db.add(ProctoringAccessLog(session_id=session.id, viewed_by=current_user.email, action="review"))
+    db.commit()
+    db.refresh(session)
+
+    flag_count = (
+        db.query(ProctoringEvent)
+        .filter(ProctoringEvent.session_id == session.id, ProctoringEvent.severity != "info")
+        .count()
+    )
+    return ProctoringSessionResponse(
+        id=session.id,
+        attempt_id=session.attempt_id,
+        started_at=session.started_at,
+        ended_at=session.ended_at,
+        review_status=session.review_status,
+        reviewed_by=session.reviewed_by,
+        reviewed_at=session.reviewed_at,
+        reviewer_notes=session.reviewer_notes,
+        flag_count=flag_count,
+    )

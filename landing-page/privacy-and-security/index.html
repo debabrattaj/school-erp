@@ -133,7 +133,7 @@
 
         <div class="policy-block">
           <h2>What we collect</h2>
-          <p>To run the portal, we store what your school's staff enters directly: student and guardian records, attendance, exam and fee data, and the login details of staff, parents and students who use the system. We also keep basic account details for the people who sign up for a demo or contact our sales team.</p>
+          <p>To run the portal, we store what your school's staff enters directly: student and guardian records, attendance, exam and fee data, and the login details of staff, parents and students who use the system. We also keep basic account details for the people who sign up for a demo or contact our sales team — name, school, city, school size and current system if you tell us, and the IP address a demo request was sent from, which helps us spot spam. We don't look up or store your location beyond that.</p>
         </div>
 
         <div class="policy-block">
@@ -144,7 +144,17 @@
             <li>Every school's records live in an isolated database, keyed to that school's own account — one school's staff cannot query another school's data.</li>
             <li>Access inside the portal is role-based: what a Teacher, Accountant, or Parent can see and change is limited to their role, enforced on every request, not just hidden in the interface.</li>
             <li>Scheduled automation (auto fee generation, auto promotion, auto exam creation) only runs for a school once that school's administrator has explicitly turned it on for a specific fee, year, or exam — nothing fires silently by default.</li>
+            <li>Exam proctoring (see below) refuses to start a proctored test for a student with no guardian consent on file — it never falls back to running the test unproctored.</li>
           </ul>
+        </div>
+
+        <div class="policy-block">
+          <h2>Optional exam proctoring</h2>
+          <p>Online Exam Proctoring is a paid add-on a school switches on separately — it does nothing unless the school has it enabled and a guardian or the school office has granted consent for a specific student. A student can never grant this consent for themselves.</p>
+          <p>What it logs, on a proctored test only: the type and time of a browser event during the attempt — leaving fullscreen, switching tabs or windows, or attempting to copy or paste. We do not capture keystrokes, screen recordings, or microphone data in any version of proctoring.</p>
+          <p>A school can separately opt a proctoring policy into periodic webcam snapshots — still photos taken every so many seconds while an attempt is in progress, never a continuous video recording or live stream, and never audio. This still requires the same guardian or school-office consent as the browser signals above; it is not a separate consent step. Each event and each snapshot is kept only long enough to serve the retention window the school's administrator has set (90 days by default) — after that, snapshot images are deleted from storage while the record that a snapshot was taken is kept, and every time a teacher or admin views a student's proctoring record or an individual snapshot, that access is itself logged.</p>
+          <p>The same webcam opt-in also runs an on-device check, entirely inside the student's own browser, for whether a face is visible in the camera feed — flagging when none is found or when more than one is. This runs on the live camera feed to decide whether to raise a flag; it is not run again afterwards on the saved snapshot images. Nothing about who the student is, or what they look like, is extracted, stored, or sent to us — the only thing that ever leaves the browser for this check is the flag itself (that a face was or wasn't detected, and the model's confidence in that reading), never image or video data. There is no facial recognition and no identity matching anywhere in Online Exam Proctoring.</p>
+          <p>These signals are shown to a teacher as flags for their own judgement, not as an automated finding — the system never marks a student as having cheated on its own.</p>
         </div>
 
         <div class="policy-block">
@@ -174,6 +184,25 @@
           <div class="field">
             <label for="school">School name</label>
             <input id="school" name="school" type="text" placeholder="Your school" required />
+          </div>
+          <div class="field">
+            <label for="city">City</label>
+            <input id="city" name="city" type="text" placeholder="Your city" />
+          </div>
+          <div class="field">
+            <label for="student_count">Number of students</label>
+            <input id="student_count" name="student_count" type="number" min="0" placeholder="e.g. 450" />
+          </div>
+          <div class="field">
+            <label for="current_system">Current system</label>
+            <select id="current_system" name="current_system">
+              <option value="">Select one</option>
+              <option value="Excel / Google Sheets">Excel / Google Sheets</option>
+              <option value="Paper records">Paper records</option>
+              <option value="Another ERP / software">Another ERP / software</option>
+              <option value="Nothing centralized">Nothing centralized</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="email">Work email</label>

@@ -272,6 +272,8 @@ def report_card_pdf(data: dict) -> bytes:
     c.drawRightString(right, y, f"Percentage: {data.get('percentage', 0):.2f}%")
     y -= 7 * mm
     c.drawString(left, y, f"Overall Grade: {data.get('overall_grade') or '-'}")
+    if data.get("rank") and data.get("out_of"):
+        c.drawRightString(right, y, f"Class Rank: {data['rank']} of {data['out_of']}")
 
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(left, 20 * mm, "This is a computer-generated report card.")

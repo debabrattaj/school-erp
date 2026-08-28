@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle,
+  Copy,
   Edit,
   MessageCircle,
   PlusCircle,
   Send,
   Trash2,
+  Users,
 } from "lucide-react";
 
 import API from "../api";
+import CustomSelect from "../components/CustomSelect";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 
 const emptyTemplateForm = {
@@ -38,10 +41,83 @@ const emptyMessageForm = {
   status: "Queued",
 };
 
+const emptyBulkClassForm = {
+  class_id: "",
+  template_id: "",
+  channel: "WhatsApp",
+  category: "Admissions",
+  message_body: "",
+};
+
 const channels = ["WhatsApp", "SMS", "Email", "In App"];
 const categories = ["Admissions", "Fees", "Attendance", "Documents", "Academics", "General"];
 const templateStatuses = ["Active", "Inactive", "Draft"];
 const logStatuses = ["Queued", "Sent", "Failed"];
+
+// Merge fields a template can reference. {student_name}, {recipient_name},
+// {guardian_name} and {school_name} are filled in on every automated send
+// (Fee Reminders, Library Reminders); the rest render only where the
+// matching scheduler already builds that context (Fees group in Fee
+// Reminders, Library group in Library Reminders). Elsewhere -- Compose
+// Message, Send to Class -- the body goes out as literal text, so a
+// placeholder typed there won't substitute yet.
+const VARIABLE_GROUPS = [
+  {
+    group: "Student",
+    options: [
+      { token: "{student_name}", label: "Student's full name" },
+      { token: "{admission_no}", label: "Admission number" },
+      { token: "{recipient_name}", label: "Guardian/recipient's name" },
+      { token: "{guardian_name}", label: "Guardian's name" },
+      { token: "{class_name}", label: "Class" },
+      { token: "{section}", label: "Section" },
+    ],
+  },
+  {
+    group: "Fees",
+    options: [
+      { token: "{fee_type}", label: "Fee type" },
+      { token: "{amount_due}", label: "Amount outstanding" },
+      { token: "{total_amount}", label: "Total fee amount" },
+      { token: "{paid_amount}", label: "Amount already paid" },
+      { token: "{due_date}", label: "Fee due date" },
+      { token: "{days_overdue}", label: "Days overdue" },
+      { token: "{billing_period}", label: "Billing period" },
+    ],
+  },
+  {
+    group: "Exams",
+    options: [
+      { token: "{exam_name}", label: "Exam name" },
+      { token: "{exam_type}", label: "Exam type" },
+      { token: "{exam_date}", label: "Exam date" },
+    ],
+  },
+  {
+    group: "Marks",
+    options: [
+      { token: "{subject_name}", label: "Subject" },
+      { token: "{marks_obtained}", label: "Marks obtained" },
+      { token: "{max_marks}", label: "Maximum marks" },
+      { token: "{percentage}", label: "Percentage" },
+      { token: "{grade}", label: "Grade" },
+    ],
+  },
+  {
+    group: "Attendance",
+    options: [
+      { token: "{attendance_status}", label: "Present/Absent/Late status" },
+      { token: "{attendance_date}", label: "Attendance date" },
+      { token: "{days_present}", label: "Days present" },
+      { token: "{days_absent}", label: "Days absent" },
+      { token: "{attendance_percent}", label: "Attendance percentage" },
+    ],
+  },
+  {
+    group: "School",
+    options: [{ token: "{school_name}", label: "School name" }],
+  },
+];
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -66,6 +142,8 @@ export default function Communications() {
   const [logs, setLogs] = useState([]);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [messageForm, setMessageForm] = useState(emptyMessageForm);
+  const [bulkClassForm, setBulkClassForm] = useState(emptyBulkClassForm);
+  const [classOptions, setClassOptions] = useState([]);
   const [editingTemplateId, setEditingTemplateId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
   const [activeView, setActiveView] = useState("templates");
@@ -74,6 +152,7 @@ export default function Communications() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [pickedVariable, setPickedVariable] = useState(VARIABLE_GROUPS[0].options[0].token);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -121,9 +200,34 @@ export default function Communications() {
     loadAll();
   }, []);
 
+  async function loadClassOptions() {
+    try {
+      const response = await API.get("/classes/");
+      setClassOptions(response.data || []);
+    } catch (error) {
+      console.error("Unable to load classes", error);
+    }
+  }
+
+  function classLabel(schoolClass) {
+    if (!schoolClass) return "-";
+    return schoolClass.section
+      ? `${schoolClass.class_name} - ${schoolClass.section}`
+      : schoolClass.class_name;
+  }
+
   function handleTemplateChange(event) {
     const { name, value } = event.target;
     setTemplateForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleCopyVariable() {
+    try {
+      await navigator.clipboard.writeText(pickedVariable);
+      setMessage(`Copied ${pickedVariable} — paste it into Subject or Body.`);
+    } catch {
+      setMessage(`Couldn't copy automatically — this is the merge field: ${pickedVariable}`);
+    }
   }
 
   function handleMessageChange(event) {
@@ -135,6 +239,23 @@ export default function Communications() {
     const template = templates.find((item) => String(item.id) === String(templateId));
 
     setMessageForm((current) => ({
+      ...current,
+      template_id: templateId,
+      channel: template?.channel || current.channel,
+      category: template?.category || current.category,
+      message_body: template?.body || current.message_body,
+    }));
+  }
+
+  function handleBulkClassChange(event) {
+    const { name, value } = event.target;
+    setBulkClassForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function applyBulkClassTemplate(templateId) {
+    const template = templates.find((item) => String(item.id) === String(templateId));
+
+    setBulkClassForm((current) => ({
       ...current,
       template_id: templateId,
       channel: template?.channel || current.channel,
@@ -170,6 +291,21 @@ export default function Communications() {
       related_module: messageForm.related_module.trim() || null,
       related_record_id: messageForm.related_record_id ? Number(messageForm.related_record_id) : null,
       status: messageForm.status || "Queued",
+    };
+  }
+
+  function buildBulkClassPayload() {
+    const selectedClass = classOptions.find(
+      (schoolClass) => String(schoolClass.id) === String(bulkClassForm.class_id)
+    );
+
+    return {
+      class_name: selectedClass?.class_name || "",
+      section: selectedClass?.section || null,
+      template_id: bulkClassForm.template_id ? Number(bulkClassForm.template_id) : null,
+      channel: bulkClassForm.channel,
+      category: bulkClassForm.category,
+      message_body: bulkClassForm.message_body.trim(),
     };
   }
 
@@ -238,6 +374,42 @@ export default function Communications() {
     }
   }
 
+  async function handleBulkClassSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+
+    try {
+      if (!bulkClassForm.class_id) {
+        setMessage("Select a class to send to.");
+        return;
+      }
+
+      const payload = buildBulkClassPayload();
+
+      if (!payload.message_body) {
+        setMessage("Message body is required.");
+        return;
+      }
+
+      const response = await API.post("/communications/logs/bulk-class", payload);
+      const result = response?.data;
+      setMessage(
+        `Sent to ${result?.sent_count ?? 0} of ${result?.matched_count ?? 0} matched guardians` +
+          (result?.failed_count ? ` (${result.failed_count} failed)` : "") +
+          (result?.skipped_count ? ` (${result.skipped_count} skipped, no contact on file)` : "") +
+          "."
+      );
+
+      setBulkClassForm(emptyBulkClassForm);
+      setPageMode("list");
+      setActiveView("logs");
+      await loadLogs();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to send class message."));
+    }
+  }
+
   function handleAddTemplate() {
     setEditingTemplateId(null);
     setTemplateForm(emptyTemplateForm);
@@ -249,6 +421,16 @@ export default function Communications() {
     setMessageForm(emptyMessageForm);
     setMessage("");
     setPageMode("message-form");
+  }
+
+  function handleComposeBulkClass() {
+    setBulkClassForm(emptyBulkClassForm);
+    setMessage("");
+    setPageMode("bulk-class-form");
+
+    if (classOptions.length === 0) {
+      loadClassOptions();
+    }
   }
 
   async function handleSendLog(log) {
@@ -307,6 +489,7 @@ export default function Communications() {
   function handleCancel() {
     setTemplateForm(emptyTemplateForm);
     setMessageForm(emptyMessageForm);
+    setBulkClassForm(emptyBulkClassForm);
     setEditingTemplateId(null);
     setMessage("");
     setPageMode("list");
@@ -393,7 +576,33 @@ export default function Communications() {
               </div>
               <div className="form-field span-2">
                 <label>Variables</label>
+                <div className="variable-picker-row">
+                  <select value={pickedVariable} onChange={(event) => setPickedVariable(event.target.value)}>
+                    {VARIABLE_GROUPS.map((group) => (
+                      <optgroup key={group.group} label={group.group}>
+                        {group.options.map((option) => (
+                          <option key={option.token} value={option.token}>
+                            {option.token} — {option.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="icon-button variable-copy-button"
+                    onClick={handleCopyVariable}
+                    title="Copy this merge field"
+                  >
+                    <Copy size={15} />
+                  </button>
+                </div>
                 <input name="variables" value={templateForm.variables} onChange={handleTemplateChange} />
+                <small>
+                  {"Pick a merge field, copy it, then paste it into Subject or Body. "}
+                  {"{student_name}, {guardian_name} and {school_name} fill in on every automated send; "}
+                  {"the rest render today only in Fee Reminders and Library Reminders — elsewhere the text is sent as-is."}
+                </small>
               </div>
               <div className="form-field span-2">
                 <label>Remarks</label>
@@ -492,6 +701,73 @@ export default function Communications() {
     );
   }
 
+  if (pageMode === "bulk-class-form") {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Communication</p>
+            <h2>Send to Class</h2>
+            <p>Message every active student's guardian in a class, or one section of it, in one send.</p>
+          </div>
+          <button type="button" className="light-button" onClick={handleCancel}>
+            <ArrowLeft size={17} />
+            Back
+          </button>
+        </section>
+
+        {message && <div className="toast-notification">{message}</div>}
+
+        <section className="form-panel">
+          <form className="classic-form" onSubmit={handleBulkClassSubmit}>
+            <div className="form-grid">
+              <div className="form-field span-2">
+                <label>Class *</label>
+                <select name="class_id" value={bulkClassForm.class_id} onChange={handleBulkClassChange} required>
+                  <option value="">Select a class</option>
+                  {classOptions.map((schoolClass) => (
+                    <option key={schoolClass.id} value={schoolClass.id}>
+                      {classLabel(schoolClass)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field span-2">
+                <label>Template</label>
+                <select value={bulkClassForm.template_id} onChange={(event) => applyBulkClassTemplate(event.target.value)}>
+                  <option value="">No template</option>
+                  {templates.filter((template) => template.status === "Active").map((template) => (
+                    <option key={template.id} value={template.id}>{template.template_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Channel</label>
+                <select name="channel" value={bulkClassForm.channel} onChange={handleBulkClassChange}>
+                  {channels.map((channel) => <option key={channel} value={channel}>{channel}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Category</label>
+                <select name="category" value={bulkClassForm.category} onChange={handleBulkClassChange}>
+                  {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                </select>
+              </div>
+              <div className="form-field span-2">
+                <label>Message *</label>
+                <textarea name="message_body" value={bulkClassForm.message_body} onChange={handleBulkClassChange} rows="5" required />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="primary-button"><Users size={18} />Send to Class</button>
+              <button type="button" className="light-button" onClick={handleCancel}>Cancel</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="management-page">
       <section className="page-heading">
@@ -502,12 +778,17 @@ export default function Communications() {
         </div>
         <div className="module-header-actions">
           <div className="form-field" style={{ minWidth: 180 }}>
-            <select value={activeView} onChange={(event) => { setActiveView(event.target.value); setSearchText(""); setStatusFilter(""); }}>
-              <option value="templates">Templates</option>
-              <option value="logs">Message Logs</option>
-            </select>
+            <CustomSelect
+              value={activeView}
+              onChange={(next) => { setActiveView(next); setSearchText(""); setStatusFilter(""); }}
+              options={[
+                { value: "templates", label: "Templates" },
+                { value: "logs", label: "Message Logs" },
+              ]}
+            />
           </div>
           <button type="button" className="secondary-button" onClick={handleComposeMessage}><Send size={17} />Compose</button>
+          <button type="button" className="secondary-button" onClick={handleComposeBulkClass}><Users size={17} />Send to Class</button>
           <button type="button" className="primary-button" onClick={handleAddTemplate}><PlusCircle size={18} />Add Template</button>
         </div>
       </section>

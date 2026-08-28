@@ -18,6 +18,23 @@ def csv_template_response(columns: list[str], example_row: dict, filename: str) 
     )
 
 
+def csv_export_response(columns: list[str], rows: list[dict], filename: str) -> StreamingResponse:
+    """A CSV download of already-serialized rows -- the export counterpart
+    to csv_template_response. Missing keys in a row become blank cells
+    rather than raising, since callers pass loosely-shaped dicts (a
+    serialize_* function's output), not a schema."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: row.get(key, "") for key in columns})
+    return StreamingResponse(
+        io.BytesIO(buf.getvalue().encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 def read_csv_upload(file: UploadFile, allowed_columns: list[str]):
     """Parses an uploaded CSV into (rows, unknown_columns).
 

@@ -15,10 +15,17 @@ import {
   Settings2,
   Download,
   History,
+  Bell,
+  Send,
+  Percent,
+  Check,
+  Undo2,
+  RefreshCcw,
+  CreditCard,
 } from "lucide-react";
 
 import API from "../api";
-import { isFeatureEnabled } from "../auth";
+import { isFeatureEnabled, hasAccess } from "../auth";
 import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 import BulkImportModal from "../components/BulkImportModal";
@@ -89,6 +96,87 @@ const statusOptions = [
   "Partial",
   "Unpaid",
 ];
+
+const emptyReminderForm = {
+  name: "",
+  offset_days: "-3",
+  channel: "Email",
+  template_id: "",
+  min_due_amount: "0",
+  is_active: true,
+  remarks: "",
+};
+
+const reminderChannelOptions = ["Email", "SMS", "WhatsApp", "In App"];
+const reminderStatusOptions = ["Sent", "Failed", "Skipped", "Superseded"];
+
+function offsetDaysLabel(days) {
+  const n = Number(days || 0);
+  if (n < 0) return `${Math.abs(n)} day(s) before due`;
+  if (n === 0) return "On the due date";
+  return `${n} day(s) after due (overdue)`;
+}
+
+function reminderStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "sent") return "status active";
+  if (text === "failed") return "status danger";
+  if (text === "superseded") return "status pending";
+  return "status warning"; // Skipped
+}
+
+const emptySchemeForm = {
+  code: "",
+  name: "",
+  category: "",
+  discount_type: "percent",
+  discount_value: "0",
+  applies_to_fee_type: "",
+  is_active: true,
+  remarks: "",
+};
+
+const emptyGrantForm = {
+  student_id: "",
+  scheme_id: "",
+  academic_year: "",
+  discount_type: "",
+  discount_value: "",
+  reason: "",
+  valid_from: "",
+  valid_to: "",
+};
+
+const grantStatusOptions = ["Requested", "Approved", "Rejected", "Revoked"];
+
+function discountLabel(discountType, value, money) {
+  const v = Number(value || 0);
+  if (String(discountType || "percent").toLowerCase() === "fixed") return money(v);
+  return `${v}%`;
+}
+
+function grantStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "approved") return "status active";
+  if (text === "rejected" || text === "revoked") return "status danger";
+  return "status warning"; // Requested
+}
+
+const emptyPaymentConfigForm = {
+  payment_provider: "",
+  payment_key_id: "",
+  payment_key_secret: "",
+  payment_webhook_secret: "",
+};
+
+const orderStatusOptions = ["Created", "Paid", "Failed"];
+
+function orderStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "paid") return "status active";
+  if (text === "failed") return "status danger";
+  return "status warning"; // Created
+}
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -234,6 +322,60 @@ export default function Fees() {
   const [generationRuns, setGenerationRuns] = useState([]);
   const [generationRunsLoading, setGenerationRunsLoading] = useState(false);
 
+  const feeRemindersEnabled = isFeatureEnabled("fee_reminders");
+  const canRunRemindersNow = hasAccess(["Admin", "Principal"]);
+
+  const [reminderView, setReminderView] = useState("rules");
+  const [reminderRules, setReminderRules] = useState([]);
+  const [reminderRulesLoading, setReminderRulesLoading] = useState(false);
+  const [reminderForm, setReminderForm] = useState(emptyReminderForm);
+  const [editingReminderRuleId, setEditingReminderRuleId] = useState(null);
+  const [communicationTemplates, setCommunicationTemplates] = useState([]);
+
+  const [reminderPreviewDate, setReminderPreviewDate] = useState(getTodayDateString());
+  const [reminderPreview, setReminderPreview] = useState(null);
+  const [reminderPreviewLoading, setReminderPreviewLoading] = useState(false);
+  const [reminderRunResult, setReminderRunResult] = useState(null);
+  const [reminderRunning, setReminderRunning] = useState(false);
+
+  const [reminderHistory, setReminderHistory] = useState([]);
+  const [reminderHistoryLoading, setReminderHistoryLoading] = useState(false);
+  const [reminderHistoryStatusFilter, setReminderHistoryStatusFilter] = useState("");
+
+  const canApproveConcessions = hasAccess(["Admin", "Principal"]);
+
+  const [concessionView, setConcessionView] = useState("schemes");
+
+  const [concessionSchemes, setConcessionSchemes] = useState([]);
+  const [concessionSchemesLoading, setConcessionSchemesLoading] = useState(false);
+  const [schemeForm, setSchemeForm] = useState(emptySchemeForm);
+  const [editingSchemeId, setEditingSchemeId] = useState(null);
+
+  const [concessionGrants, setConcessionGrants] = useState([]);
+  const [concessionGrantsLoading, setConcessionGrantsLoading] = useState(false);
+  const [grantForm, setGrantForm] = useState(emptyGrantForm);
+  const [grantStatusFilter, setGrantStatusFilter] = useState("");
+
+  const [previewStudentId, setPreviewStudentId] = useState("");
+  const [previewAmount, setPreviewAmount] = useState("");
+  const [previewFeeType, setPreviewFeeType] = useState("");
+  const [previewAcademicYear, setPreviewAcademicYear] = useState("");
+  const [concessionPreview, setConcessionPreview] = useState(null);
+  const [concessionPreviewLoading, setConcessionPreviewLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+
+  const canEditPaymentConfig = hasAccess(["Admin", "Principal"]);
+
+  const [paymentView, setPaymentView] = useState("settings");
+  const [paymentConfig, setPaymentConfig] = useState(null);
+  const [paymentConfigLoading, setPaymentConfigLoading] = useState(false);
+  const [paymentConfigForm, setPaymentConfigForm] = useState(emptyPaymentConfigForm);
+  const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
+
+  const [paymentOrders, setPaymentOrders] = useState([]);
+  const [paymentOrdersLoading, setPaymentOrdersLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState("");
+
   const [searchText, setSearchText] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -319,6 +461,105 @@ export default function Fees() {
     loadGenerationRuns();
   }
 
+  async function loadReminderRules() {
+    try {
+      setReminderRulesLoading(true);
+      const response = await API.get("/fee-reminders/rules");
+      setReminderRules(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load fee reminder rules."));
+    } finally {
+      setReminderRulesLoading(false);
+    }
+  }
+
+  async function loadCommunicationTemplates() {
+    try {
+      const response = await API.get("/communications/templates/");
+      setCommunicationTemplates(response.data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadReminderHistory() {
+    try {
+      setReminderHistoryLoading(true);
+      const response = await API.get("/fee-reminders/history", {
+        params: { status: reminderHistoryStatusFilter || undefined, limit: 200 },
+      });
+      setReminderHistory(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load reminder history."));
+    } finally {
+      setReminderHistoryLoading(false);
+    }
+  }
+
+  async function loadConcessionSchemes() {
+    try {
+      setConcessionSchemesLoading(true);
+      const response = await API.get("/concessions/schemes");
+      setConcessionSchemes(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load concession schemes."));
+    } finally {
+      setConcessionSchemesLoading(false);
+    }
+  }
+
+  async function loadConcessionGrants() {
+    try {
+      setConcessionGrantsLoading(true);
+      const response = await API.get("/concessions/grants", {
+        params: { status: grantStatusFilter || undefined },
+      });
+      setConcessionGrants(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load concession grants."));
+    } finally {
+      setConcessionGrantsLoading(false);
+    }
+  }
+
+  async function loadPaymentConfig() {
+    try {
+      setPaymentConfigLoading(true);
+      const response = await API.get("/payments/config");
+      setPaymentConfig(response.data);
+      setPaymentConfigForm({
+        payment_provider: response.data.provider || "",
+        payment_key_id: response.data.key_id || "",
+        payment_key_secret: "",
+        payment_webhook_secret: "",
+      });
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load payment gateway settings."));
+    } finally {
+      setPaymentConfigLoading(false);
+    }
+  }
+
+  async function loadPaymentOrders() {
+    try {
+      setPaymentOrdersLoading(true);
+      const response = await API.get("/payments/orders", {
+        params: { status: orderStatusFilter || undefined, limit: 200 },
+      });
+      setPaymentOrders(response.data || []);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to load payment orders."));
+    } finally {
+      setPaymentOrdersLoading(false);
+    }
+  }
+
   async function loadPageData() {
     try {
       setLoading(true);
@@ -343,6 +584,43 @@ export default function Fees() {
   useEffect(() => {
     loadPageData();
   }, []);
+
+  useEffect(() => {
+    if (pageMode !== "reminders" || !feeRemindersEnabled) return;
+    loadReminderRules();
+    loadCommunicationTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, feeRemindersEnabled]);
+
+  useEffect(() => {
+    if (pageMode !== "reminders" || !feeRemindersEnabled || reminderView !== "history") return;
+    loadReminderHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, feeRemindersEnabled, reminderView, reminderHistoryStatusFilter]);
+
+  useEffect(() => {
+    if (pageMode !== "concessions") return;
+    loadConcessionSchemes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode]);
+
+  useEffect(() => {
+    if (pageMode !== "concessions" || concessionView !== "grants") return;
+    loadConcessionGrants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, concessionView, grantStatusFilter]);
+
+  useEffect(() => {
+    if (pageMode !== "payments") return;
+    loadPaymentConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode]);
+
+  useEffect(() => {
+    if (pageMode !== "payments" || paymentView !== "orders") return;
+    loadPaymentOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageMode, paymentView, orderStatusFilter]);
 
   const studentMap = useMemo(() => {
     const map = {};
@@ -920,6 +1198,357 @@ export default function Fees() {
     }
   }
 
+  function handleReminderFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setReminderForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleEditReminderRule(rule) {
+    setEditingReminderRuleId(rule.id);
+    setReminderForm({
+      name: rule.name || "",
+      offset_days: String(rule.offset_days ?? 0),
+      channel: rule.channel || "Email",
+      template_id: rule.template_id ? String(rule.template_id) : "",
+      min_due_amount: String(rule.min_due_amount ?? 0),
+      is_active: rule.is_active !== false,
+      remarks: rule.remarks || "",
+    });
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelReminderForm() {
+    setEditingReminderRuleId(null);
+    setReminderForm(emptyReminderForm);
+    setMessage("");
+  }
+
+  async function handleReminderRuleSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!reminderForm.name.trim()) {
+      setMessage("A rule name is required.");
+      return;
+    }
+
+    const payload = {
+      name: reminderForm.name.trim(),
+      offset_days: Number(reminderForm.offset_days || 0),
+      channel: reminderForm.channel,
+      template_id: reminderForm.template_id ? Number(reminderForm.template_id) : null,
+      min_due_amount: Number(reminderForm.min_due_amount || 0),
+      is_active: reminderForm.is_active,
+      remarks: reminderForm.remarks || null,
+    };
+
+    try {
+      if (editingReminderRuleId) {
+        await API.put(`/fee-reminders/rules/${editingReminderRuleId}`, payload);
+        setMessage("Reminder rule updated.");
+      } else {
+        await API.post("/fee-reminders/rules", payload);
+        setMessage("Reminder rule added.");
+      }
+      handleCancelReminderForm();
+      await loadReminderRules();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save reminder rule."));
+    }
+  }
+
+  async function handleDeleteReminderRule(rule) {
+    const confirmDelete = window.confirm(`Delete the reminder rule "${rule.name}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/fee-reminders/rules/${rule.id}`);
+      setMessage("Reminder rule deleted.");
+      await loadReminderRules();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete reminder rule."));
+    }
+  }
+
+  async function runReminderPreview() {
+    try {
+      setReminderPreviewLoading(true);
+      setReminderPreview(null);
+      setReminderRunResult(null);
+      const response = await API.get("/fee-reminders/preview", {
+        params: { as_of: reminderPreviewDate || undefined, limit: 200 },
+      });
+      setReminderPreview(response.data);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to preview reminders."));
+    } finally {
+      setReminderPreviewLoading(false);
+    }
+  }
+
+  async function runRemindersNow() {
+    const confirmRun = window.confirm(
+      "This sends real reminders to parents/guardians right now — it is not a preview. Continue?"
+    );
+    if (!confirmRun) return;
+
+    try {
+      setReminderRunning(true);
+      setReminderRunResult(null);
+      setReminderPreview(null);
+      const response = await API.post("/fee-reminders/run", null, {
+        params: { as_of: reminderPreviewDate || undefined },
+      });
+      setReminderRunResult(response.data);
+      setMessage(
+        `Reminders sent: ${response.data.sent}, failed: ${response.data.failed}, skipped: ${response.data.skipped}.`
+      );
+      if (reminderView === "history") await loadReminderHistory();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to run reminders."));
+    } finally {
+      setReminderRunning(false);
+    }
+  }
+
+  const templateOptionsForChannel = useMemo(() => {
+    return communicationTemplates.filter(
+      (tpl) => tpl.status === "Active" && (!reminderForm.channel || tpl.channel === reminderForm.channel)
+    );
+  }, [communicationTemplates, reminderForm.channel]);
+
+  function handleSchemeFormChange(e) {
+    const { name, value, type, checked } = e.target;
+    setSchemeForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleEditScheme(scheme) {
+    setEditingSchemeId(scheme.id);
+    setSchemeForm({
+      code: scheme.code || "",
+      name: scheme.name || "",
+      category: scheme.category || "",
+      discount_type: scheme.discount_type || "percent",
+      discount_value: String(scheme.discount_value ?? 0),
+      applies_to_fee_type: scheme.applies_to_fee_type || "",
+      is_active: scheme.is_active !== false,
+      remarks: scheme.remarks || "",
+    });
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelSchemeForm() {
+    setEditingSchemeId(null);
+    setSchemeForm(emptySchemeForm);
+    setMessage("");
+  }
+
+  async function handleSchemeSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!schemeForm.code.trim() || !schemeForm.name.trim()) {
+      setMessage("Code and name are required.");
+      return;
+    }
+
+    const payload = {
+      name: schemeForm.name.trim(),
+      category: schemeForm.category || null,
+      discount_type: schemeForm.discount_type,
+      discount_value: Number(schemeForm.discount_value || 0),
+      applies_to_fee_type: schemeForm.applies_to_fee_type || null,
+      is_active: schemeForm.is_active,
+      remarks: schemeForm.remarks || null,
+    };
+
+    try {
+      if (editingSchemeId) {
+        await API.put(`/concessions/schemes/${editingSchemeId}`, payload);
+        setMessage("Scheme updated.");
+      } else {
+        await API.post("/concessions/schemes", { ...payload, code: schemeForm.code.trim() });
+        setMessage("Scheme added.");
+      }
+      handleCancelSchemeForm();
+      await loadConcessionSchemes();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save scheme."));
+    }
+  }
+
+  async function handleDeleteScheme(scheme) {
+    const confirmDelete = window.confirm(`Delete the concession scheme "${scheme.name}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/concessions/schemes/${scheme.id}`);
+      setMessage("Scheme deleted.");
+      await loadConcessionSchemes();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to delete scheme."));
+    }
+  }
+
+  function handleGrantFormChange(e) {
+    const { name, value } = e.target;
+    setGrantForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleCancelGrantForm() {
+    setGrantForm(emptyGrantForm);
+    setMessage("");
+  }
+
+  async function handleGrantSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    if (!grantForm.student_id || !grantForm.scheme_id) {
+      setMessage("Student and Scheme are required.");
+      return;
+    }
+
+    const payload = {
+      student_id: Number(grantForm.student_id),
+      scheme_id: Number(grantForm.scheme_id),
+      academic_year: grantForm.academic_year || null,
+      discount_type: grantForm.discount_type || null,
+      discount_value: grantForm.discount_value !== "" ? Number(grantForm.discount_value) : null,
+      reason: grantForm.reason || null,
+      valid_from: grantForm.valid_from || null,
+      valid_to: grantForm.valid_to || null,
+    };
+
+    try {
+      await API.post("/concessions/grants", payload);
+      setMessage("Concession requested — awaiting approval.");
+      handleCancelGrantForm();
+      await loadConcessionGrants();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to request concession."));
+    }
+  }
+
+  async function decideGrant(grant, action) {
+    const verb = action === "approve" ? "approve" : action === "reject" ? "reject" : "revoke";
+    const confirmDecide = window.confirm(
+      `${verb.charAt(0).toUpperCase()}${verb.slice(1)} the concession for ${getStudentName(grant.student_id)} (${grant.scheme_name})?`
+    );
+    if (!confirmDecide) return;
+
+    const note = window.prompt("Decision note (optional):") || undefined;
+
+    try {
+      const response = await API.post(`/concessions/grants/${grant.id}/${action}`, { note });
+      const updatedCount = response.data?.fees_updated?.length || 0;
+      setMessage(
+        updatedCount
+          ? `Grant ${verb}d — ${updatedCount} unpaid fee(s) recalculated.`
+          : `Grant ${verb}d.`
+      );
+      await loadConcessionGrants();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, `Unable to ${verb} grant.`));
+    }
+  }
+
+  async function runConcessionPreview() {
+    if (!previewStudentId || !previewAmount) {
+      setMessage("Select a student and enter an amount to preview.");
+      return;
+    }
+
+    try {
+      setConcessionPreviewLoading(true);
+      setConcessionPreview(null);
+      const response = await API.get("/concessions/preview", {
+        params: {
+          student_id: Number(previewStudentId),
+          amount: Number(previewAmount),
+          fee_type: previewFeeType || undefined,
+          academic_year: previewAcademicYear || undefined,
+        },
+      });
+      setConcessionPreview(response.data);
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to preview concession."));
+    } finally {
+      setConcessionPreviewLoading(false);
+    }
+  }
+
+  async function runRecalculateAll() {
+    const confirmRecalc = window.confirm(
+      previewStudentId
+        ? `Recalculate concessions on every unpaid fee for ${getStudentName(previewStudentId)}?`
+        : "Recalculate concessions on every unpaid fee, for every student? This can affect a lot of records."
+    );
+    if (!confirmRecalc) return;
+
+    try {
+      setRecalculating(true);
+      const response = await API.post("/concessions/recalculate", null, {
+        params: { student_id: previewStudentId ? Number(previewStudentId) : undefined },
+      });
+      setMessage(
+        `Recalculated: ${response.data.changed} fee(s) changed, ${response.data.skipped} skipped` +
+        (response.data.part_paid_skipped?.length
+          ? ` (${response.data.part_paid_skipped.length} already part-paid).`
+          : ".")
+      );
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to recalculate concessions."));
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
+  const activeConcessionSchemes = useMemo(
+    () => concessionSchemes.filter((s) => s.is_active),
+    [concessionSchemes]
+  );
+
+  function handlePaymentConfigChange(e) {
+    const { name, value } = e.target;
+    setPaymentConfigForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handlePaymentConfigSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      setSavingPaymentConfig(true);
+      await API.put("/payments/config", paymentConfigForm);
+      setMessage("Payment gateway settings saved.");
+      await loadPaymentConfig();
+    } catch (error) {
+      console.error(error);
+      setMessage(getApiErrorMessage(error, "Unable to save payment gateway settings."));
+    } finally {
+      setSavingPaymentConfig(false);
+    }
+  }
+
+  function feeLabelForOrder(feeId) {
+    const fee = fees.find((f) => f.id === feeId);
+    if (!fee) return `Fee #${feeId}`;
+    return `${getStudentName(fee.student_id)} — ${fee.fee_type || "Fee"}`;
+  }
+
   // Auto-generate metadata (last_generated_at) isn't part of the editable
   // form state — read it straight from the loaded list when editing.
   const editingStructure = editingStructureId
@@ -985,6 +1614,21 @@ export default function Fees() {
           <button type="button" className="secondary-button" onClick={handleAddStructure}>
             <Settings2 size={17} />
             Fee Structure
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("reminders")}>
+            <Bell size={17} />
+            Fee Reminders
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("concessions")}>
+            <Percent size={17} />
+            Concessions
+          </button>
+
+          <button type="button" className="secondary-button" onClick={() => setPageMode("payments")}>
+            <CreditCard size={17} />
+            Online Payments
           </button>
 
           <button type="button" className="primary-button" onClick={handleAddFee}>
@@ -1623,6 +2267,862 @@ export default function Fees() {
         </>
       )}
 
+      {pageMode === "reminders" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Fee Reminders</h3>
+              <p>Automatically chase overdue fees on a schedule you define.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          {!feeRemindersEnabled ? (
+            <div className="empty-state">
+              Fee Reminders isn't enabled for your school yet. Ask your platform
+              administrator to turn on "Automated Fee Reminders" first.
+            </div>
+          ) : (
+            <>
+              <div className="student-profile-tabs">
+                <button type="button" className={reminderView === "rules" ? "active" : ""} onClick={() => setReminderView("rules")}>Rules</button>
+                <button type="button" className={reminderView === "preview" ? "active" : ""} onClick={() => setReminderView("preview")}>Preview &amp; Run</button>
+                <button type="button" className={reminderView === "history" ? "active" : ""} onClick={() => setReminderView("history")}>Sent History</button>
+              </div>
+
+              {reminderView === "rules" && (
+                <>
+                  <form className="classic-form" onSubmit={handleReminderRuleSubmit} style={{ marginTop: 16 }}>
+                    <div className="sis-section-title">{editingReminderRuleId ? "Edit Rule" : "Add Reminder Rule"}</div>
+                    <div className="form-grid">
+                      <div className="form-field">
+                        <label>Rule Name *</label>
+                        <input type="text" name="name" value={reminderForm.name} onChange={handleReminderFormChange} required />
+                      </div>
+
+                      <div className="form-field">
+                        <label>Timing (days) *</label>
+                        <input type="number" name="offset_days" value={reminderForm.offset_days} onChange={handleReminderFormChange} required />
+                        <small>
+                          Negative = before the due date, 0 = on the due date, positive = after (overdue).
+                          Currently: {offsetDaysLabel(reminderForm.offset_days)}.
+                        </small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Channel *</label>
+                        <select name="channel" value={reminderForm.channel} onChange={handleReminderFormChange} required>
+                          {reminderChannelOptions.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Message Template</label>
+                        <select name="template_id" value={reminderForm.template_id} onChange={handleReminderFormChange}>
+                          <option value="">Default system message</option>
+                          {templateOptionsForChannel.map((tpl) => (
+                            <option key={tpl.id} value={tpl.id}>{tpl.template_name}</option>
+                          ))}
+                        </select>
+                        <small>Only Active templates for the selected channel are shown.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Minimum Due Amount</label>
+                        <input type="number" name="min_due_amount" min="0" step="0.01" value={reminderForm.min_due_amount} onChange={handleReminderFormChange} />
+                        <small>Don't chase balances smaller than this.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Status</label>
+                        <label className="switch-row">
+                          <input type="checkbox" name="is_active" checked={reminderForm.is_active} onChange={handleReminderFormChange} />
+                          <span>{reminderForm.is_active ? "Active" : "Inactive"}</span>
+                        </label>
+                      </div>
+
+                      <div className="form-field full-width">
+                        <label>Remarks</label>
+                        <textarea name="remarks" rows="2" value={reminderForm.remarks} onChange={handleReminderFormChange}></textarea>
+                      </div>
+                    </div>
+
+                    <div className="form-actions">
+                      <button type="submit" className="primary-button">
+                        <PlusCircle size={18} />
+                        {editingReminderRuleId ? "Update Rule" : "Add Rule"}
+                      </button>
+                      {editingReminderRuleId && (
+                        <button type="button" className="light-button" onClick={handleCancelReminderForm}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+
+                  <div className="table-wrapper" style={{ marginTop: 20 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th><th>When</th><th>Channel</th><th>Template</th>
+                          <th>Min Due</th><th>Status</th><th>Remarks</th><th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reminderRulesLoading && (
+                          <tr><td colSpan={8}>Loading...</td></tr>
+                        )}
+                        {!reminderRulesLoading && reminderRules.map((rule) => (
+                          <tr key={rule.id}>
+                            <td>{rule.name}</td>
+                            <td>{rule.when}</td>
+                            <td>{rule.channel}</td>
+                            <td>{communicationTemplates.find((t) => t.id === rule.template_id)?.template_name || "Default"}</td>
+                            <td>{money(Number(rule.min_due_amount || 0))}</td>
+                            <td>
+                              <span className={rule.is_active ? "status active" : "status warning"}>
+                                {rule.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td>{rule.remarks || "-"}</td>
+                            <td>
+                              <div className="action-buttons">
+                                <button type="button" className="edit-button" onClick={() => handleEditReminderRule(rule)} title="Edit">
+                                  <Edit size={15} />
+                                </button>
+                                <button type="button" className="delete-button" onClick={() => handleDeleteReminderRule(rule)} title="Delete">
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {!reminderRulesLoading && !reminderRules.length && (
+                          <tr><td colSpan={8}>No reminder rules configured yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {reminderView === "preview" && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="filter-row sis-filter-row">
+                    <div className="form-field">
+                      <label>As Of Date</label>
+                      <input
+                        type="date"
+                        value={reminderPreviewDate}
+                        onChange={(e) => setReminderPreviewDate(e.target.value)}
+                      />
+                    </div>
+
+                    <button type="button" className="secondary-button" onClick={runReminderPreview} disabled={reminderPreviewLoading}>
+                      {reminderPreviewLoading ? "Checking..." : "Preview"}
+                    </button>
+
+                    {canRunRemindersNow && (
+                      <button type="button" className="primary-button" onClick={runRemindersNow} disabled={reminderRunning}>
+                        <Send size={17} />
+                        {reminderRunning ? "Sending..." : "Run Now (sends real messages)"}
+                      </button>
+                    )}
+                  </div>
+
+                  {(reminderPreview || reminderRunResult) && (() => {
+                    const result = reminderRunResult || reminderPreview;
+                    return (
+                      <>
+                        <section className="summary-strip report-summary-grid" style={{ marginTop: 16 }}>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>Rules Considered</span><strong>{result.rules}</strong></div>
+                          </div>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>{reminderRunResult ? "Sent" : "Would Send"}</span><strong>{result.sent}</strong></div>
+                          </div>
+                          <div className="summary-card warning">
+                            <Bell size={20} />
+                            <div><span>Skipped</span><strong>{result.skipped}</strong></div>
+                          </div>
+                          <div className="summary-card">
+                            <Bell size={20} />
+                            <div><span>Failed</span><strong>{result.failed}</strong></div>
+                          </div>
+                        </section>
+
+                        {result.note && <p className="hint-text">{result.note}</p>}
+
+                        {result.detail && (
+                          <div className="table-wrapper" style={{ marginTop: 16 }}>
+                            <table className="classic-table">
+                              <thead>
+                                <tr><th>Student</th><th>Rule</th><th>Timing</th><th>Channel</th><th>Outstanding</th></tr>
+                              </thead>
+                              <tbody>
+                                {result.detail.map((row, i) => (
+                                  <tr key={`${row.fee_id}-${i}`}>
+                                    <td>{getStudentName(row.student_id)}</td>
+                                    <td>{row.rule}</td>
+                                    <td>{offsetDaysLabel(row.offset_days)}</td>
+                                    <td>{row.channel}</td>
+                                    <td>{money(Number(row.outstanding || 0))}</td>
+                                  </tr>
+                                ))}
+                                {!result.detail.length && (
+                                  <tr><td colSpan={5}>Nobody would be contacted right now.</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {reminderView === "history" && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="filter-row sis-filter-row">
+                    <div className="form-field">
+                      <label>Status</label>
+                      <select value={reminderHistoryStatusFilter} onChange={(e) => setReminderHistoryStatusFilter(e.target.value)}>
+                        <option value="">All Statuses</option>
+                        {reminderStatusOptions.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button type="button" className="light-button" onClick={loadReminderHistory}>
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="table-wrapper" style={{ marginTop: 12 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr>
+                          <th>Student</th><th>Rule</th><th>Status</th><th>Recipient</th>
+                          <th>Outstanding</th><th>Sent At</th><th>Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reminderHistoryLoading && (
+                          <tr><td colSpan={7}>Loading...</td></tr>
+                        )}
+                        {!reminderHistoryLoading && reminderHistory.map((entry) => (
+                          <tr key={entry.id}>
+                            <td>{entry.student || getStudentName(entry.student_id)}</td>
+                            <td>{reminderRules.find((r) => r.id === entry.rule_id)?.name || `Rule #${entry.rule_id}`}</td>
+                            <td>
+                              <span className={reminderStatusClass(entry.status)}>{entry.status}</span>
+                            </td>
+                            <td>{entry.recipient || "-"}</td>
+                            <td>{money(Number(entry.outstanding_amount || 0))}</td>
+                            <td>{formatDateTime(entry.sent_at)}</td>
+                            <td>{entry.error_message || entry.skip_reason || "-"}</td>
+                          </tr>
+                        ))}
+                        {!reminderHistoryLoading && !reminderHistory.length && (
+                          <tr><td colSpan={7}>No reminders sent yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {pageMode === "concessions" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Fee Concessions &amp; Scholarships</h3>
+              <p>Define what the school offers, and grant it to individual students with approval.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          <div className="student-profile-tabs">
+            <button type="button" className={concessionView === "schemes" ? "active" : ""} onClick={() => setConcessionView("schemes")}>Schemes</button>
+            <button type="button" className={concessionView === "grants" ? "active" : ""} onClick={() => setConcessionView("grants")}>Grants</button>
+            <button type="button" className={concessionView === "preview" ? "active" : ""} onClick={() => setConcessionView("preview")}>Preview &amp; Recalculate</button>
+          </div>
+
+          {concessionView === "schemes" && (
+            <>
+              <form className="classic-form" onSubmit={handleSchemeSubmit} style={{ marginTop: 16 }}>
+                <div className="sis-section-title">{editingSchemeId ? "Edit Scheme" : "Add Concession Scheme"}</div>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Code *</label>
+                    <input
+                      type="text"
+                      name="code"
+                      value={schemeForm.code}
+                      onChange={handleSchemeFormChange}
+                      required
+                      disabled={Boolean(editingSchemeId)}
+                    />
+                    {editingSchemeId && <small>Code cannot be changed after creation.</small>}
+                  </div>
+
+                  <div className="form-field">
+                    <label>Name *</label>
+                    <input type="text" name="name" value={schemeForm.name} onChange={handleSchemeFormChange} required />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Category</label>
+                    <input
+                      type="text"
+                      name="category"
+                      value={schemeForm.category}
+                      onChange={handleSchemeFormChange}
+                      placeholder="e.g. Sibling, Merit, Staff Ward"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Discount Type *</label>
+                    <select name="discount_type" value={schemeForm.discount_type} onChange={handleSchemeFormChange} required>
+                      <option value="percent">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Discount Value *</label>
+                    <input
+                      type="number"
+                      name="discount_value"
+                      min="0"
+                      step="0.01"
+                      max={schemeForm.discount_type === "percent" ? 100 : undefined}
+                      value={schemeForm.discount_value}
+                      onChange={handleSchemeFormChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Applies To Fee Type</label>
+                    <select name="applies_to_fee_type" value={schemeForm.applies_to_fee_type} onChange={handleSchemeFormChange}>
+                      <option value="">All Fee Types</option>
+                      {feeTypes.map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Status</label>
+                    <label className="switch-row">
+                      <input type="checkbox" name="is_active" checked={schemeForm.is_active} onChange={handleSchemeFormChange} />
+                      <span>{schemeForm.is_active ? "Active" : "Inactive"}</span>
+                    </label>
+                  </div>
+
+                  <div className="form-field full-width">
+                    <label>Remarks</label>
+                    <textarea name="remarks" rows="2" value={schemeForm.remarks} onChange={handleSchemeFormChange}></textarea>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    <PlusCircle size={18} />
+                    {editingSchemeId ? "Update Scheme" : "Add Scheme"}
+                  </button>
+                  {editingSchemeId && (
+                    <button type="button" className="light-button" onClick={handleCancelSchemeForm}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <div className="table-wrapper" style={{ marginTop: 20 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th><th>Name</th><th>Category</th><th>Discount</th>
+                      <th>Applies To</th><th>Status</th><th>Remarks</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {concessionSchemesLoading && (
+                      <tr><td colSpan={8}>Loading...</td></tr>
+                    )}
+                    {!concessionSchemesLoading && concessionSchemes.map((scheme) => (
+                      <tr key={scheme.id}>
+                        <td>{scheme.code}</td>
+                        <td>{scheme.name}</td>
+                        <td>{scheme.category || "-"}</td>
+                        <td>{discountLabel(scheme.discount_type, scheme.discount_value, money)}</td>
+                        <td>{scheme.applies_to_fee_type || "All"}</td>
+                        <td>
+                          <span className={scheme.is_active ? "status active" : "status warning"}>
+                            {scheme.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td>{scheme.remarks || "-"}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button type="button" className="edit-button" onClick={() => handleEditScheme(scheme)} title="Edit">
+                              <Edit size={15} />
+                            </button>
+                            <button type="button" className="delete-button" onClick={() => handleDeleteScheme(scheme)} title="Delete">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!concessionSchemesLoading && !concessionSchemes.length && (
+                      <tr><td colSpan={8}>No concession schemes configured yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {concessionView === "grants" && (
+            <>
+              <form className="classic-form" onSubmit={handleGrantSubmit} style={{ marginTop: 16 }}>
+                <div className="sis-section-title">Request a Concession</div>
+                <div className="form-grid">
+                  <StudentPicker students={students} value={grantForm.student_id} onChange={handleGrantFormChange} />
+
+                  <div className="form-field">
+                    <label>Scheme *</label>
+                    <select name="scheme_id" value={grantForm.scheme_id} onChange={handleGrantFormChange} required>
+                      <option value="">Select Scheme</option>
+                      {activeConcessionSchemes.map((scheme) => (
+                        <option key={scheme.id} value={scheme.id}>
+                          {scheme.name} ({discountLabel(scheme.discount_type, scheme.discount_value, money)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Academic Year</label>
+                    <select name="academic_year" value={grantForm.academic_year} onChange={handleGrantFormChange}>
+                      <option value="">Select academic year</option>
+                      {academicYears.map((year) => (
+                        <option key={year.id} value={year.name}>{year.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Override Discount Type</label>
+                    <select name="discount_type" value={grantForm.discount_type} onChange={handleGrantFormChange}>
+                      <option value="">Use scheme default</option>
+                      <option value="percent">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Override Discount Value</label>
+                    <input
+                      type="number"
+                      name="discount_value"
+                      min="0"
+                      step="0.01"
+                      value={grantForm.discount_value}
+                      onChange={handleGrantFormChange}
+                      placeholder="Leave blank to use scheme default"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Valid From</label>
+                    <input type="date" name="valid_from" value={grantForm.valid_from} onChange={handleGrantFormChange} />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Valid To</label>
+                    <input type="date" name="valid_to" value={grantForm.valid_to} onChange={handleGrantFormChange} />
+                  </div>
+
+                  <div className="form-field full-width">
+                    <label>Reason</label>
+                    <textarea name="reason" rows="2" value={grantForm.reason} onChange={handleGrantFormChange}></textarea>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    <PlusCircle size={18} />
+                    Request Concession
+                  </button>
+                </div>
+              </form>
+
+              <div className="filter-row sis-filter-row" style={{ marginTop: 20 }}>
+                <div className="form-field">
+                  <label>Status</label>
+                  <select value={grantStatusFilter} onChange={(e) => setGrantStatusFilter(e.target.value)}>
+                    <option value="">All Statuses</option>
+                    {grantStatusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="table-wrapper" style={{ marginTop: 12 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th><th>Scheme</th><th>Year</th><th>Discount</th>
+                      <th>Status</th><th>Requested</th><th>Decided</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {concessionGrantsLoading && (
+                      <tr><td colSpan={8}>Loading...</td></tr>
+                    )}
+                    {!concessionGrantsLoading && concessionGrants.map((grant) => (
+                      <tr key={grant.id}>
+                        <td>{getStudentName(grant.student_id)}</td>
+                        <td>{grant.scheme_name || `Scheme #${grant.scheme_id}`}</td>
+                        <td>{grant.academic_year || "-"}</td>
+                        <td>
+                          {grant.discount_value != null
+                            ? discountLabel(grant.discount_type, grant.discount_value, money)
+                            : "Scheme default"}
+                        </td>
+                        <td>
+                          <span className={grantStatusClass(grant.status)}>{grant.status}</span>
+                        </td>
+                        <td>
+                          {grant.requested_by || "-"}
+                          {grant.requested_at ? ` (${formatDateTime(grant.requested_at)})` : ""}
+                        </td>
+                        <td>
+                          {grant.decided_by ? `${grant.decided_by} (${formatDateTime(grant.decided_at)})` : "-"}
+                        </td>
+                        <td>
+                          {canApproveConcessions && grant.status === "Requested" && (
+                            <div className="action-buttons">
+                              <button type="button" className="edit-button" onClick={() => decideGrant(grant, "approve")} title="Approve">
+                                <Check size={15} />
+                              </button>
+                              <button type="button" className="delete-button" onClick={() => decideGrant(grant, "reject")} title="Reject">
+                                <X size={15} />
+                              </button>
+                            </div>
+                          )}
+                          {canApproveConcessions && grant.status === "Approved" && (
+                            <div className="action-buttons">
+                              <button type="button" className="delete-button" onClick={() => decideGrant(grant, "revoke")} title="Revoke">
+                                <Undo2 size={15} />
+                              </button>
+                            </div>
+                          )}
+                          {(!canApproveConcessions || (grant.status !== "Requested" && grant.status !== "Approved")) && "-"}
+                        </td>
+                      </tr>
+                    ))}
+                    {!concessionGrantsLoading && !concessionGrants.length && (
+                      <tr><td colSpan={8}>No concession grants yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {concessionView === "preview" && (
+            <div style={{ marginTop: 16 }}>
+              <div className="form-grid">
+                <StudentPicker
+                  students={students}
+                  value={previewStudentId}
+                  onChange={(e) => setPreviewStudentId(e.target.value)}
+                  label="Student"
+                  required={false}
+                />
+
+                <div className="form-field">
+                  <label>Amount *</label>
+                  <input type="number" min="0" step="0.01" value={previewAmount} onChange={(e) => setPreviewAmount(e.target.value)} />
+                </div>
+
+                <div className="form-field">
+                  <label>Fee Type</label>
+                  <select value={previewFeeType} onChange={(e) => setPreviewFeeType(e.target.value)}>
+                    <option value="">Any</option>
+                    {feeTypes.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Academic Year</label>
+                  <select value={previewAcademicYear} onChange={(e) => setPreviewAcademicYear(e.target.value)}>
+                    <option value="">Any</option>
+                    {academicYears.map((year) => (
+                      <option key={year.id} value={year.name}>{year.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="secondary-button" onClick={runConcessionPreview} disabled={concessionPreviewLoading}>
+                  {concessionPreviewLoading ? "Checking..." : "Preview"}
+                </button>
+                {canApproveConcessions && (
+                  <button type="button" className="primary-button" onClick={runRecalculateAll} disabled={recalculating}>
+                    <RefreshCcw size={17} />
+                    {recalculating
+                      ? "Recalculating..."
+                      : previewStudentId
+                      ? "Recalculate This Student"
+                      : "Recalculate All Unpaid Fees"}
+                  </button>
+                )}
+              </div>
+
+              {concessionPreview && (
+                <>
+                  <section className="summary-strip report-summary-grid" style={{ marginTop: 16 }}>
+                    <div className="summary-card">
+                      <Percent size={20} />
+                      <div><span>Base Amount</span><strong>{money(concessionPreview.base_amount)}</strong></div>
+                    </div>
+                    <div className="summary-card warning">
+                      <Percent size={20} />
+                      <div><span>Concession</span><strong>{money(concessionPreview.concession_amount)}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <Percent size={20} />
+                      <div><span>Payable</span><strong>{money(concessionPreview.payable_amount)}</strong></div>
+                    </div>
+                  </section>
+
+                  {concessionPreview.capped && (
+                    <p className="hint-text">
+                      This student's schemes add up to more than the fee itself — the discount shown is capped at the full amount.
+                    </p>
+                  )}
+
+                  <div className="table-wrapper" style={{ marginTop: 16 }}>
+                    <table className="classic-table">
+                      <thead>
+                        <tr><th>Scheme</th><th>Category</th><th>Rate</th><th>Amount</th></tr>
+                      </thead>
+                      <tbody>
+                        {concessionPreview.lines.map((line) => (
+                          <tr key={line.grant_id}>
+                            <td>{line.scheme_name}</td>
+                            <td>{line.category || "-"}</td>
+                            <td>{line.label}</td>
+                            <td>{money(line.amount)}</td>
+                          </tr>
+                        ))}
+                        {!concessionPreview.lines.length && (
+                          <tr><td colSpan={4}>No approved concessions apply.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {pageMode === "payments" && (
+        <section className="table-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Online Payments</h3>
+              <p>Configure the payment gateway parents use to pay fees online, and review transaction history.</p>
+            </div>
+            <button type="button" className="light-button" onClick={() => setPageMode("list")}>
+              <ArrowLeft size={17} />
+              Back
+            </button>
+          </div>
+
+          <div className="student-profile-tabs">
+            <button type="button" className={paymentView === "settings" ? "active" : ""} onClick={() => setPaymentView("settings")}>Gateway Settings</button>
+            <button type="button" className={paymentView === "orders" ? "active" : ""} onClick={() => setPaymentView("orders")}>Order History</button>
+          </div>
+
+          {paymentView === "settings" && (
+            <div style={{ marginTop: 16 }}>
+              {paymentConfigLoading && <p>Loading...</p>}
+
+              {!paymentConfigLoading && paymentConfig && (
+                <>
+                  <section className="summary-strip report-summary-grid">
+                    <div className={paymentConfig.enabled ? "summary-card" : "summary-card warning"}>
+                      <CreditCard size={20} />
+                      <div><span>Status</span><strong>{paymentConfig.enabled ? "Enabled" : "Not Configured"}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <CreditCard size={20} />
+                      <div><span>Mode</span><strong>{paymentConfig.mode || "-"}</strong></div>
+                    </div>
+                    <div className="summary-card">
+                      <CreditCard size={20} />
+                      <div><span>Platform Commission</span><strong>{paymentConfig.platform_commission_percent}%</strong></div>
+                    </div>
+                  </section>
+                  <p className="hint-text">
+                    Mode and commission are set by the platform owner, not editable here.
+                    {paymentConfig.linked_account_id && ` Linked account: ${paymentConfig.linked_account_id}.`}
+                  </p>
+
+                  <form className="classic-form" onSubmit={handlePaymentConfigSubmit} style={{ marginTop: 16 }}>
+                    <div className="sis-section-title">Gateway Credentials</div>
+                    <div className="form-grid">
+                      <div className="form-field">
+                        <label>Provider</label>
+                        <select
+                          name="payment_provider"
+                          value={paymentConfigForm.payment_provider}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                        >
+                          <option value="">Not selected</option>
+                          {(paymentConfig.supported_providers || []).map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Key ID</label>
+                        <input
+                          type="text"
+                          name="payment_key_id"
+                          value={paymentConfigForm.payment_key_id}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder="Publishable key"
+                        />
+                      </div>
+
+                      <div className="form-field">
+                        <label>Key Secret</label>
+                        <input
+                          type="password"
+                          name="payment_key_secret"
+                          value={paymentConfigForm.payment_key_secret}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder={paymentConfig.has_secret ? "Set — leave blank to keep it" : "Not set"}
+                          autoComplete="new-password"
+                        />
+                        <small>Write-only — never shown once saved. Leave blank to keep the current value.</small>
+                      </div>
+
+                      <div className="form-field">
+                        <label>Webhook Secret</label>
+                        <input
+                          type="password"
+                          name="payment_webhook_secret"
+                          value={paymentConfigForm.payment_webhook_secret}
+                          onChange={handlePaymentConfigChange}
+                          disabled={!canEditPaymentConfig}
+                          placeholder={paymentConfig.has_webhook_secret ? "Set — leave blank to keep it" : "Not set"}
+                          autoComplete="new-password"
+                        />
+                        <small>Used to verify the gateway's payment confirmation callback.</small>
+                      </div>
+                    </div>
+
+                    {canEditPaymentConfig ? (
+                      <div className="form-actions">
+                        <button type="submit" className="primary-button" disabled={savingPaymentConfig}>
+                          {savingPaymentConfig ? "Saving..." : "Save Settings"}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="hint-text">Only Admin/Principal can change gateway credentials.</p>
+                    )}
+                  </form>
+                </>
+              )}
+            </div>
+          )}
+
+          {paymentView === "orders" && (
+            <div style={{ marginTop: 16 }}>
+              <div className="filter-row sis-filter-row">
+                <div className="form-field">
+                  <label>Status</label>
+                  <select value={orderStatusFilter} onChange={(e) => setOrderStatusFilter(e.target.value)}>
+                    <option value="">All Statuses</option>
+                    {orderStatusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="light-button" onClick={loadPaymentOrders}>
+                  Refresh
+                </button>
+              </div>
+
+              <div className="table-wrapper" style={{ marginTop: 12 }}>
+                <table className="classic-table">
+                  <thead>
+                    <tr><th>Fee</th><th>Provider</th><th>Order ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Paid At</th></tr>
+                  </thead>
+                  <tbody>
+                    {paymentOrdersLoading && (
+                      <tr><td colSpan={7}>Loading...</td></tr>
+                    )}
+                    {!paymentOrdersLoading && paymentOrders.map((order) => (
+                      <tr key={order.id}>
+                        <td>{feeLabelForOrder(order.fee_id)}</td>
+                        <td>{order.provider}</td>
+                        <td>{order.order_id}</td>
+                        <td>{money(Number(order.amount || 0))}</td>
+                        <td>
+                          <span className={orderStatusClass(order.status)}>{order.status}</span>
+                        </td>
+                        <td>{order.method || "-"}</td>
+                        <td>{order.paid_at ? formatDateTime(order.paid_at) : "-"}</td>
+                      </tr>
+                    ))}
+                    {!paymentOrdersLoading && !paymentOrders.length && (
+                      <tr><td colSpan={7}>No payment orders yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {pageMode === "list" && (
         <>
           <section className="table-panel module-filter-panel">
@@ -1706,7 +3206,7 @@ export default function Fees() {
           <ManagedRecordsTable
             count={filteredFees.length}
             emptyText="No fee records found."
-            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Balance", "Due Date", "Payment Date", "Status", "Actions"]}
+            headers={["Student", "Class", "Academic Year", "Fee Type", "Total Amount", "Paid Amount", "Late Fee", "Balance", "Due Date", "Payment Date", "Status", "Actions"]}
             loading={loading}
             loadingText="Loading fees..."
             searchPlaceholder="Search student, class, year, fee type, status..."
@@ -1721,6 +3221,11 @@ export default function Fees() {
                       <td>{fee.fee_type || "-"}</td>
                       <td>{money(getFeeAmount(fee))}</td>
                       <td>{money(getPaidAmount(fee))}</td>
+                      <td>
+                        {fee.late_fee_charged > 0
+                          ? <span className="status danger">{money(fee.late_fee_charged)}</span>
+                          : "-"}
+                      </td>
                       <td>{money(getBalanceAmount(fee))}</td>
                       <td>{normalizeDateInput(fee.due_date) || "-"}</td>
                       <td>{normalizeDateInput(fee.payment_date) || "-"}</td>

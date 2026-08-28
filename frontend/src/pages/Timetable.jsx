@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Coffee, Download, PlusCircle, Trash2, Utensils, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Coffee, Download, PlusCircle, Trash2, Utensils, Wand2, X } from "lucide-react";
 import API from "../api";
+import { isFeatureEnabled } from "../auth";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ALL_WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MIN_ROWS = 1;
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const detail = error.response?.data?.detail;
+  if (Array.isArray(detail)) return detail.map((item) => item.msg).join(" | ");
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object") return detail.msg || JSON.stringify(detail);
+  return fallbackMessage;
+}
 
 function toMin(hhmm) {
   if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return null;
@@ -47,6 +57,18 @@ export default function Timetable() {
   const [formType, setFormType] = useState("period"); // period | recess | break
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
+
+  const canAutoGenerate = isFeatureEnabled("timetable_auto_generation");
+  const [showAutoGenerate, setShowAutoGenerate] = useState(false);
+  const [autoGenScope, setAutoGenScope] = useState("all"); // all | selected
+  const [autoGenClassIds, setAutoGenClassIds] = useState([]);
+  const [autoGenDays, setAutoGenDays] = useState(DAYS);
+  const [autoGenPeriods, setAutoGenPeriods] = useState(8);
+  const [autoGenStart, setAutoGenStart] = useState("09:00");
+  const [autoGenDuration, setAutoGenDuration] = useState(40);
+  const [autoGenLoading, setAutoGenLoading] = useState(false);
+  const [autoGenResult, setAutoGenResult] = useState(null);
+  const [autoGenApplied, setAutoGenApplied] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -374,6 +396,80 @@ export default function Timetable() {
     }
   }
 
+  function openAutoGenerate() {
+    if (!academicYear) {
+      setMessage("Select an academic year first.");
+      return;
+    }
+    setAutoGenResult(null);
+    setAutoGenApplied(false);
+    setAutoGenScope("all");
+    setAutoGenClassIds([]);
+    setShowAutoGenerate(true);
+  }
+
+  function toggleAutoGenClass(id) {
+    setAutoGenClassIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleAutoGenDay(day) {
+    setAutoGenDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+  }
+
+  function autoGeneratePayload() {
+    return {
+      academic_year: academicYear,
+      class_ids: autoGenScope === "selected" ? autoGenClassIds.map(Number) : null,
+      working_days: autoGenDays,
+      periods_per_day: Number(autoGenPeriods) || 8,
+      day_start_time: autoGenStart,
+      period_duration_min: Number(autoGenDuration) || 40,
+    };
+  }
+
+  async function runAutoGeneratePreview() {
+    setMessage("");
+    if (autoGenScope === "selected" && !autoGenClassIds.length) {
+      setMessage("Select at least one class.");
+      return;
+    }
+    if (!autoGenDays.length) {
+      setMessage("Select at least one working day.");
+      return;
+    }
+    try {
+      setAutoGenLoading(true);
+      setAutoGenApplied(false);
+      const r = await API.post("/timetable/auto-generate/preview", autoGeneratePayload());
+      setAutoGenResult(r.data);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to preview the auto-generated timetable."));
+    } finally {
+      setAutoGenLoading(false);
+    }
+  }
+
+  async function applyAutoGenerate() {
+    if (!autoGenResult) return;
+    const confirmApply = window.confirm(
+      `This replaces the existing period schedule for ${autoGenResult.classes_processed} class(es) in ${academicYear}. Recess/break rows are kept. Continue?`
+    );
+    if (!confirmApply) return;
+
+    try {
+      setAutoGenLoading(true);
+      const r = await API.post("/timetable/auto-generate/apply", autoGeneratePayload());
+      setAutoGenResult(r.data);
+      setAutoGenApplied(true);
+      setMessage(`Timetable generated: ${r.data.created} period(s) placed across ${r.data.classes_processed} class(es).`);
+      await loadEntries();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to generate the timetable."));
+    } finally {
+      setAutoGenLoading(false);
+    }
+  }
+
   // Build ordered rows; teaching-period rows get a running "P{n}" label.
   const slots = computeSlots();
   const rows = [];
@@ -397,6 +493,11 @@ export default function Timetable() {
           <p>Build a weekly period schedule per class. Click a cell to edit; teacher clashes are prevented automatically.</p>
         </div>
         <div className="module-header-actions">
+          {canAutoGenerate && (
+            <button type="button" className="primary-button" onClick={openAutoGenerate}>
+              <Wand2 size={16} /> Auto-Generate Timetable
+            </button>
+          )}
           <button type="button" className="secondary-button" onClick={downloadTimetablePdf}>
             <Download size={16} /> Download PDF
           </button>
@@ -567,7 +668,7 @@ export default function Timetable() {
           </div>
         </div>
         {!classId ? (
-          <div style={{ padding: "1.5rem", color: "#64748b" }}>Select a class to view its timetable.</div>
+          <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>Select a class to view its timetable.</div>
         ) : (
           <div className="table-wrapper"><table className="classic-table">
             <thead>
@@ -580,16 +681,16 @@ export default function Timetable() {
               {rows.map((row) => (
                 row.type === "break" ? (
                   <tr key={`b-${row.period_no}`}>
-                    <td style={{ fontWeight: 700, color: "#94a3b8" }}>—</td>
-                    <td colSpan={DAYS.length} style={{ background: "#fff7ed", textAlign: "center", position: "relative" }}>
+                    <td style={{ fontWeight: 700, color: "var(--text-subtle)" }}>—</td>
+                    <td colSpan={DAYS.length} style={{ background: "var(--warning-50)", textAlign: "center", position: "relative" }}>
                       <button
                         type="button"
                         onClick={() => openEditBreak(row.entry)}
-                        style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700, color: "#b45309" }}
+                        style={{ border: "none", background: "none", cursor: "pointer", fontWeight: 700, color: "var(--warning-600)" }}
                       >
                         {row.entry.label || (row.entry.entry_type === "recess" ? "Recess" : "Break")}
                         {slots[row.period_no] && (
-                          <span style={{ fontWeight: 400, color: "#92400e" }}>
+                          <span style={{ fontWeight: 400, color: "var(--warning-700)" }}>
                             {" "}· {slots[row.period_no].start}–{slots[row.period_no].end}
                             {row.entry.duration_min ? ` (${row.entry.duration_min}m)` : ""}
                           </span>
@@ -599,7 +700,7 @@ export default function Timetable() {
                         type="button"
                         onClick={() => handleDelete(row.entry.id)}
                         title="Remove"
-                        style={{ position: "absolute", top: 6, right: 8, border: "none", background: "none", cursor: "pointer", color: "#be123c" }}
+                        style={{ position: "absolute", top: 6, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--danger-600)" }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -610,7 +711,7 @@ export default function Timetable() {
                     <td style={{ fontWeight: 700 }}>
                       <div>{row.label}</div>
                       {slots[row.period_no] && (
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", fontWeight: 400 }}>
                           {slots[row.period_no].start}–{slots[row.period_no].end}
                         </div>
                       )}
@@ -622,7 +723,7 @@ export default function Timetable() {
                           {entry ? (
                             <div style={{ position: "relative", cursor: "pointer" }} onClick={() => openEditPeriod(entry)} title="Click to edit">
                               <strong>{entry.subject || "-"}</strong>
-                              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                                 {entry.teacher_name_snapshot || teacherName(entry.teacher_id) || "—"}
                                 {entry.room ? ` · ${entry.room}` : ""}
                               </div>
@@ -630,7 +731,7 @@ export default function Timetable() {
                                 type="button"
                                 onClick={(ev) => { ev.stopPropagation(); handleDelete(entry.id); }}
                                 title="Remove"
-                                style={{ position: "absolute", top: 0, right: 0, border: "none", background: "none", cursor: "pointer", color: "#be123c" }}
+                                style={{ position: "absolute", top: 0, right: 0, border: "none", background: "none", cursor: "pointer", color: "var(--danger-600)" }}
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -639,7 +740,7 @@ export default function Timetable() {
                             <button
                               type="button"
                               onClick={() => openAddPeriod(day, row.period_no)}
-                              style={{ border: "1px dashed #cbd5e1", background: "none", borderRadius: 6, color: "#94a3b8", width: "100%", padding: "6px", cursor: "pointer" }}
+                              style={{ border: "1px dashed var(--border-strong)", background: "none", borderRadius: 6, color: "var(--text-subtle)", width: "100%", padding: "6px", cursor: "pointer" }}
                             >
                               +
                             </button>
@@ -656,12 +757,12 @@ export default function Timetable() {
                     type="button"
                     onClick={addRow}
                     title="Add a period row"
-                    style={{ border: "1px dashed #cbd5e1", background: "none", borderRadius: 6, color: "#25324b", width: "100%", padding: "6px", cursor: "pointer", fontWeight: 700 }}
+                    style={{ border: "1px dashed var(--border-strong)", background: "none", borderRadius: 6, color: "var(--text-strong)", width: "100%", padding: "6px", cursor: "pointer", fontWeight: 700 }}
                   >
                     +
                   </button>
                 </td>
-                <td colSpan={DAYS.length} style={{ color: "#94a3b8", fontSize: "0.82rem" }}>
+                <td colSpan={DAYS.length} style={{ color: "var(--text-subtle)", fontSize: "0.82rem" }}>
                   Add the next period row
                 </td>
               </tr>
@@ -677,9 +778,9 @@ export default function Timetable() {
             <h3 style={{ margin: 0 }}><CalendarDays size={18} /> Teacher Weekly Schedule</h3>
           </div>
           {!teacherViewId ? (
-            <div style={{ padding: "1.5rem", color: "#64748b" }}>Select a teacher to view their timetable.</div>
+            <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>Select a teacher to view their timetable.</div>
           ) : teacherRows.length === 0 ? (
-            <div style={{ padding: "1.5rem", color: "#64748b" }}>No periods scheduled for this teacher.</div>
+            <div style={{ padding: "1.5rem", color: "var(--text-muted)" }}>No periods scheduled for this teacher.</div>
           ) : (
             <div className="table-wrapper"><table className="classic-table">
               <thead>
@@ -694,7 +795,7 @@ export default function Timetable() {
                     <td style={{ fontWeight: 700 }}>
                       <div>P{row.period_no}</div>
                       {row.start_time && row.end_time && (
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 400 }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", fontWeight: 400 }}>
                           {row.start_time}–{row.end_time}
                         </div>
                       )}
@@ -709,13 +810,13 @@ export default function Timetable() {
                                 {entry.class_name_snapshot || ""}
                                 {entry.section_snapshot ? `-${entry.section_snapshot}` : ""}
                               </strong>
-                              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                                 {entry.subject || "-"}
                                 {entry.room ? ` · ${entry.room}` : ""}
                               </div>
                             </div>
                           ) : (
-                            <span style={{ color: "#cbd5e1" }}>-</span>
+                            <span style={{ color: "var(--border-strong)" }}>-</span>
                           )}
                         </td>
                       );
@@ -726,6 +827,132 @@ export default function Timetable() {
             </table></div>
           )}
         </section>
+      )}
+
+      {showAutoGenerate && (
+        <div className="student-drawer-backdrop">
+          <aside className="student-drawer">
+            <button type="button" className="drawer-close" onClick={() => setShowAutoGenerate(false)}>
+              <X size={18} />
+            </button>
+            <div className="student-profile-head">
+              <div className="student-avatar"><Wand2 size={42} /></div>
+              <h3>Auto-Generate Timetable</h3>
+              <p>Fills every class's weekly periods from its mapped subjects, avoiding teacher clashes. Recess and break rows are left as they are.</p>
+            </div>
+
+            <div className="drawer-section">
+              <div className="form-field">
+                <label>Academic Year</label>
+                <input value={academicYear} disabled />
+              </div>
+
+              <div className="form-field">
+                <label>Classes</label>
+                <label className="switch-row">
+                  <input type="radio" name="autogen-scope" checked={autoGenScope === "all"} onChange={() => setAutoGenScope("all")} />
+                  <span>All Classes ({classes.length})</span>
+                </label>
+                <label className="switch-row">
+                  <input type="radio" name="autogen-scope" checked={autoGenScope === "selected"} onChange={() => setAutoGenScope("selected")} />
+                  <span>Selected Classes Only</span>
+                </label>
+              </div>
+
+              {autoGenScope === "selected" && (
+                <div className="form-field" style={{ maxHeight: 160, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
+                  {classes.map((c) => (
+                    <label key={c.id} className="switch-row" style={{ marginBottom: 4 }}>
+                      <input type="checkbox" checked={autoGenClassIds.includes(c.id)} onChange={() => toggleAutoGenClass(c.id)} />
+                      <span>{c.class_name} - {c.section}</span>
+                    </label>
+                  ))}
+                  {!classes.length && <p className="hint-text">No classes found.</p>}
+                </div>
+              )}
+
+              <div className="form-field">
+                <label>Working Days</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {ALL_WEEK_DAYS.map((d) => (
+                    <label key={d} className="switch-row">
+                      <input type="checkbox" checked={autoGenDays.includes(d)} onChange={() => toggleAutoGenDay(d)} />
+                      <span>{d.slice(0, 3)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-field">
+                  <label>Periods Per Day</label>
+                  <input type="number" min="1" max="12" value={autoGenPeriods} onChange={(e) => setAutoGenPeriods(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label>Day Start Time</label>
+                  <input type="time" value={autoGenStart} onChange={(e) => setAutoGenStart(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label>Period Duration</label>
+                  <select value={autoGenDuration} onChange={(e) => setAutoGenDuration(e.target.value)}>
+                    {[30, 35, 40, 45, 50, 55, 60].map((m) => <option key={m} value={m}>{m} min</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="secondary-button" onClick={runAutoGeneratePreview} disabled={autoGenLoading}>
+                  {autoGenLoading && !autoGenApplied ? "Working..." : "Preview"}
+                </button>
+                {autoGenResult && !autoGenApplied && (
+                  <button type="button" className="primary-button" onClick={applyAutoGenerate} disabled={autoGenLoading}>
+                    {autoGenLoading ? "Applying..." : "Apply"}
+                  </button>
+                )}
+              </div>
+
+              {autoGenResult && (
+                <div className="hint-text" style={{ marginTop: 14 }}>
+                  <p>
+                    <strong>{autoGenResult.applied ? "Generated" : "Preview"}:</strong>{" "}
+                    {autoGenResult.placed_count} period(s) placed across {autoGenResult.classes_processed} class(es),
+                    using {autoGenResult.working_days.join(", ")} · {autoGenResult.periods_per_day} periods/day.
+                  </p>
+
+                  {autoGenResult.unplaced.length > 0 && (
+                    <>
+                      <p style={{ color: "var(--warning-700)", fontWeight: 600, marginTop: 10 }}>
+                        <AlertTriangle size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                        {autoGenResult.unplaced.length} subject(s) could not be fully placed:
+                      </p>
+                      <ul style={{ margin: "4px 0 0 18px" }}>
+                        {autoGenResult.unplaced.map((u, i) => (
+                          <li key={i}>
+                            {u.class_name} - {u.section}: {u.subject} ({u.placed}/{u.requested} placed)
+                            {u.teacher_name ? ` — ${u.teacher_name}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {autoGenResult.warnings.length > 0 && (
+                    <ul style={{ margin: "10px 0 0 18px", color: "var(--text-muted)" }}>
+                      {autoGenResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  )}
+
+                  {autoGenResult.applied && (
+                    <p style={{ marginTop: 10 }}>
+                      <CheckCircle2 size={14} style={{ verticalAlign: "middle", marginRight: 4, color: "var(--success-600)" }} />
+                      Saved. Open a class above to review its grid.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
       )}
     </div>
   );

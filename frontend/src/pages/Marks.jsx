@@ -137,6 +137,12 @@ function calculateGrade(marksObtained, maxMarks) {
 }
 
 function getResultStatus(mark) {
+  // mark.grade is server-computed off the weighted percentage when the
+  // exam's components carry one -- deriving Pass/Fail from raw
+  // marks_obtained/max_marks here instead would disagree with a grade of
+  // "F" whenever weighting pulls the real percentage below the raw one.
+  if (mark.grade) return mark.grade === "F" ? "Fail" : "Pass";
+
   const obtained = Number(mark.marks_obtained ?? mark.marks ?? 0);
   const maximum = Number(mark.max_marks ?? 100);
 
@@ -170,6 +176,7 @@ export default function Marks() {
   const [loading, setLoading] = useState(false);
   const [subjectLoading, setSubjectLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [examRanks, setExamRanks] = useState({});
 
   useEffect(() => {
     if (!message) return undefined;
@@ -180,6 +187,29 @@ export default function Marks() {
 
     return () => window.clearTimeout(timeoutId);
   }, [message]);
+
+  useEffect(() => {
+    if (!examFilter) return undefined;
+
+    let cancelled = false;
+
+    API.get("/marks/rank", { params: { exam_id: examFilter } })
+      .then((response) => {
+        if (cancelled) return;
+        const byStudent = {};
+        (response.data || []).forEach((row) => {
+          byStudent[row.student_id] = row;
+        });
+        setExamRanks(byStudent);
+      })
+      .catch(() => {
+        if (!cancelled) setExamRanks({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [examFilter]);
 
   async function loadMarks() {
     const response = await API.get("/marks/");
@@ -1263,7 +1293,7 @@ export default function Marks() {
       <ManagedRecordsTable
         count={filteredMarks.length}
         emptyText="No marks records found."
-        headers={["Student", "Class", "Exam", "Academic Year", "Subject", "Marks", "Components", "Percentage", "Grade", "Result", "Actions"]}
+        headers={["Student", "Class", "Exam", "Academic Year", "Subject", "Marks", "Components", "Percentage", "Grade", "Result", "Rank", "Actions"]}
         loading={loading}
         loadingText="Loading marks..."
         searchPlaceholder="Search student, exam, subject..."
@@ -1278,11 +1308,21 @@ export default function Marks() {
                       mark.marks_obtained ?? mark.marks ?? 0
                     );
                     const maximum = Number(mark.max_marks ?? 100);
-                    const percentage = maximum
-                      ? Math.round((obtained / maximum) * 100)
-                      : 0;
+                    // mark.percentage is the server-computed value -- weighted
+                    // by the exam's component weightage when set, otherwise
+                    // the same raw obtained/maximum this falls back to.
+                    const percentage =
+                      mark.percentage != null
+                        ? Math.round(mark.percentage)
+                        : maximum
+                        ? Math.round((obtained / maximum) * 100)
+                        : 0;
 
                     const result = getResultStatus(mark);
+                    // Rank is only meaningful scoped to one exam -- with
+                    // "All Exams" selected the table mixes different exams
+                    // together, so there is nothing sensible to show here.
+                    const rankInfo = examFilter ? examRanks[mark.student_id] : null;
 
                     return (
                       <tr key={mark.id}>
@@ -1316,6 +1356,9 @@ export default function Marks() {
                           >
                             {result}
                           </span>
+                        </td>
+                        <td>
+                          {rankInfo ? `${rankInfo.rank} / ${rankInfo.out_of}` : "-"}
                         </td>
                         <td>
                           <div className="action-buttons">

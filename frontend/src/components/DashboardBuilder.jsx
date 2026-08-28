@@ -21,10 +21,10 @@ import { CategoryBarChart, compactNumber } from "./DashboardCharts";
 /* Cohesive categorical palette (matches the KPI-card accents). Fixed order,
    never cycled; a 9th+ category folds into "Other". */
 const PALETTE = [
-  "#5b4fe9", "#0d9488", "#f59e0b", "#e11d48",
-  "#2563eb", "#16a34a", "#7c3aed", "#0891b2",
+  "var(--primary)", "var(--success-600)", "var(--warning-600)", "var(--danger-600)",
+  "var(--primary)", "var(--success-600)", "var(--primary)", "var(--primary)",
 ];
-const OTHER = "#94a3b8";
+const OTHER = "var(--text-subtle)";
 
 const CHART_TYPES = [
   { id: "bar", label: "Bar", icon: BarChart3 },
@@ -418,10 +418,10 @@ function GenericPie({ labels, values, fmt, donut }) {
         ))}
         {donut && (
           <>
-            <text x={cx} y={cy - 2} textAnchor="middle" fontSize={20} fontWeight={800} fill="#172033">
+            <text x={cx} y={cy - 2} textAnchor="middle" fontSize={20} fontWeight={800} fill="var(--text-strong)">
               {hover != null ? fmt(arcs[hover].value) : fmt(total)}
             </text>
-            <text x={cx} y={cy + 16} textAnchor="middle" fontSize={10} fill="#898781">
+            <text x={cx} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
               {hover != null ? arcs[hover].label : "total"}
             </text>
           </>
@@ -466,27 +466,27 @@ function GenericLine({ labels, values, fmt, area }) {
         onPointerLeave={() => setHover(null)}>
         <defs>
           <linearGradient id="wline" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5b4fe9" stopOpacity="0.26" />
-            <stop offset="100%" stopColor="#5b4fe9" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.26" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={padL} y1={y(t)} x2={width - padR} y2={y(t)} stroke="#e4e2da" strokeWidth={1} />
-            <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="#898781">{compactNumber(t)}</text>
+            <line x1={padL} y1={y(t)} x2={width - padR} y2={y(t)} stroke="var(--border)" strokeWidth={1} />
+            <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">{compactNumber(t)}</text>
           </g>
         ))}
         {area && <path d={areaPath} fill="url(#wline)" />}
-        <path d={line} fill="none" stroke="#5b4fe9" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="var(--primary)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         {values.map((v, i) => (
-          <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 3} fill="#5b4fe9" stroke="#fff" strokeWidth={2} />
+          <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 3} fill="var(--primary)" stroke="#fff" strokeWidth={2} />
         ))}
         {labels.map((l, i) => (i % every === 0 ? (
-          <text key={i} x={x(i)} y={height - 10} textAnchor="middle" fontSize={9.5} fill="#898781">
+          <text key={i} x={x(i)} y={height - 10} textAnchor="middle" fontSize={9.5} fill="var(--text-muted)">
             {String(l).length > 8 ? String(l).slice(0, 7) + "…" : l}
           </text>
         ) : null))}
-        {hover != null && <line x1={x(hover)} y1={padT} x2={x(hover)} y2={padT + plotH} stroke="#5b4fe9" strokeDasharray="3 3" opacity={0.5} />}
+        {hover != null && <line x1={x(hover)} y1={padT} x2={x(hover)} y2={padT + plotH} stroke="var(--primary)" strokeDasharray="3 3" opacity={0.5} />}
       </svg>
       {hover != null && (
         <div className="chart-tooltip" style={{ position: "absolute", left: `${(x(hover) / width) * 100}%`, top: `${(y(values[hover]) / height) * 100}%`, transform: "translate(-50%,-120%)", pointerEvents: "none" }}>
