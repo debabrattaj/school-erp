@@ -98,6 +98,11 @@ class SchoolSettings(Base):
         nullable=True,
         default="A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
     )
+    # Which of the built-in report card layouts this school's PDFs use by
+    # default -- "classic" | "modern" | "compact" (see app/pdf.py). A
+    # download can still override this per-request; this is just the
+    # starting selection shown on the Report Card page.
+    report_card_template = Column(String, nullable=False, default="classic")
 
 
 class Student(Base):

@@ -4776,6 +4776,100 @@ body,
   text-align: center;
 }
 
+/* Template variants -- mirror the three PDF layouts in app/pdf.py closely
+   enough that picking one here and downloading gives the same impression,
+   without needing to be pixel-identical (this is a live web preview, the
+   PDF is print output; they were never going to match to the pixel). */
+
+.report-card-paper.template-modern {
+  padding: 0;
+  overflow: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.report-card-paper.template-modern .report-card-header {
+  background: linear-gradient(135deg, var(--saas-primary, #3461c1), #2c50a0);
+  border-bottom: 0;
+  padding: 20px 22px;
+}
+
+.report-card-paper.template-modern .report-card-header h1,
+.report-card-paper.template-modern .report-card-header p {
+  color: #fff;
+}
+
+.report-card-paper.template-modern .school-logo-box {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.report-card-paper.template-modern .report-card-title,
+.report-card-paper.template-modern .report-card-info-grid,
+.report-card-paper.template-modern .report-card-table-wrapper,
+.report-card-paper.template-modern .report-card-result-grid,
+.report-card-paper.template-modern .report-card-empty,
+.report-card-paper.template-modern .report-card-signatures {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+.report-card-paper.template-modern .report-card-signatures {
+  padding-bottom: 22px;
+}
+
+.report-card-paper.template-modern .report-card-table th {
+  background: var(--saas-primary, #3461c1);
+  color: #fff;
+}
+
+.report-card-paper.template-modern .report-card-table tfoot td {
+  background: var(--primary-soft, #eef2fb);
+}
+
+.report-card-paper.template-compact {
+  padding: 14px;
+  font-size: 12px;
+}
+
+.report-card-paper.template-compact .report-card-header {
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.report-card-paper.template-compact .school-logo-box {
+  height: 40px;
+  width: 40px;
+}
+
+.report-card-paper.template-compact .report-card-header h1 {
+  font-size: 16px;
+}
+
+.report-card-paper.template-compact .report-card-title {
+  padding: 8px 0 6px;
+}
+
+.report-card-paper.template-compact .report-card-title h2 {
+  font-size: 15px;
+}
+
+.report-card-paper.template-compact .report-card-info-grid > div,
+.report-card-paper.template-compact .report-card-result-grid > div {
+  min-height: 42px;
+  padding: 6px 10px;
+}
+
+.report-card-paper.template-compact .report-card-table th,
+.report-card-paper.template-compact .report-card-table td {
+  font-size: 11px;
+  padding: 5px 7px;
+}
+
+.report-card-paper.template-compact .report-card-signatures {
+  margin-top: 24px;
+}
+
 @media print {
   body {
     background: var(--surface);
