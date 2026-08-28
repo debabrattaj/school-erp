@@ -954,10 +954,6 @@ input {
   background: var(--warning-50);
 }
 
-.module-filter-panel {
-  display: none;
-}
-
 .feature-account-badge {
   align-items: center;
   background: var(--surface-subtle);
@@ -4628,6 +4624,10 @@ body,
 
 .report-card-page {
   gap: 14px;
+}
+
+.report-card-template-picker {
+  min-width: 150px;
 }
 
 .report-card-paper {

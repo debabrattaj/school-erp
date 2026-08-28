@@ -295,6 +295,13 @@ export default function ReportCard() {
         </div>
 
         <div className="module-header-actions">
+          <div className="form-field report-card-template-picker">
+            <CustomSelect
+              value={template}
+              onChange={setTemplateOverride}
+              options={REPORT_CARD_TEMPLATE_OPTIONS}
+            />
+          </div>
           <button type="button" className="secondary-button" onClick={handleDownloadPdf}>
             <Download size={18} />
             Download PDF
@@ -341,15 +348,6 @@ export default function ReportCard() {
               value={academicYear}
               onChange={(event) => setAcademicYear(event.target.value)}
               placeholder="2026-27"
-            />
-          </div>
-
-          <div className="form-field">
-            <label>Template</label>
-            <CustomSelect
-              value={template}
-              onChange={setTemplateOverride}
-              options={REPORT_CARD_TEMPLATE_OPTIONS}
             />
           </div>
         </div>
