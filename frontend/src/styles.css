@@ -8,6 +8,21 @@ input {
   font-family: inherit;
 }
 
+/* Browsers paint their own (usually blue/yellow) background on an
+   autofilled field via :-webkit-autofill, ignoring the site's own
+   background -- the huge inset box-shadow is the standard trick to paint
+   over it, and the long transition-delay stops Chrome re-applying its
+   color a few seconds later. Matches --surface-subtle, the background
+   most pill-style inputs (login, topbar search) already use. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-strong);
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface-subtle) inset;
+  box-shadow: 0 0 0px 1000px var(--surface-subtle) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 
 /* Sidebar */
 
@@ -5158,7 +5173,7 @@ textarea {
   height: 40px;
   flex-shrink: 0;
   padding: 0 24px;
-  margin-bottom: 0;
+  margin-bottom: 16px;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -9039,20 +9054,6 @@ h3 { font-size: 14px; font-weight: 650; }
   box-shadow: none;
   padding-top: 8px;
   padding-bottom: 8px;
-}
-
-.topbar-search input {
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 13px;
-}
-
-.topbar-search input:focus {
-  background: var(--surface);
-  border-color: var(--primary-border);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-  outline: none;
 }
 
 .topbar-identity {
