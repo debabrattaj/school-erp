@@ -5228,7 +5228,7 @@ textarea {
   background: var(--saas-surface-soft);
   border: 1px solid var(--saas-border);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 4.5px 16px;
   color: var(--saas-muted);
 }
 
