@@ -4193,17 +4193,6 @@ body,
   padding-left: 18px;
 }
 
-/* With the sidebar hidden, the toggle button floats fixed in the top-left
-   corner instead of sitting inline in the topbar's own flow (see
-   .sidebar-toggle-button above) -- so the spacer that normally centers the
-   search bar against .topbar-actions has nothing to balance against and
-   stretches across the whole freed-up width, leaving the search bar
-   stranded far from the button. Capping it keeps the search bar anchored
-   near the button instead. */
-.app-body.sidebar-hidden .topbar-spacer {
-  flex: 0 0 56px;
-}
-
 .students-list-page .student-total-records,
 .students-list-page .student-page-range,
 .students-list-page .student-list-pagination span {
@@ -5169,7 +5158,7 @@ textarea {
   height: 40px;
   flex-shrink: 0;
   padding: 0 24px;
-  margin-bottom: -16px;
+  margin-bottom: 0;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
