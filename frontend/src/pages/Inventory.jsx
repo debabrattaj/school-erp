@@ -31,7 +31,7 @@ const emptyItemForm = {
   item_code: "",
   barcode: "",
   category: "",
-  unit: "pcs",
+  unit: "Pcs",
   quantity_available: 0,
   reorder_level: 0,
   unit_price: 0,
@@ -729,7 +729,15 @@ export default function Inventory() {
                 <TextField label="Item Code" name="item_code" value={itemForm.item_code} onChange={handleItemChange} />
                 <TextField label="Barcode" name="barcode" value={itemForm.barcode} onChange={handleItemChange} />
                 <div className="form-field"><label>Category</label><input list="inventory-categories" name="category" value={itemForm.category} onChange={handleItemChange} /></div>
-                <div className="form-field"><label>Unit</label><input list="inventory-units" name="unit" value={itemForm.unit} onChange={handleItemChange} /></div>
+                <div className="form-field">
+                  <label>Unit</label>
+                  <select name="unit" value={itemForm.unit} onChange={handleItemChange}>
+                    <option value="">Select Unit</option>
+                    {(itemForm.unit && !units.includes(itemForm.unit) ? [itemForm.unit, ...units] : units).map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
                 <TextField label="Available Quantity" type="number" name="quantity_available" value={itemForm.quantity_available} onChange={handleItemChange} />
                 <TextField label="Reorder Level" type="number" name="reorder_level" value={itemForm.reorder_level} onChange={handleItemChange} />
                 <TextField label="Selling Price" type="number" step="0.01" name="unit_price" value={itemForm.unit_price} onChange={handleItemChange} />
@@ -738,7 +746,6 @@ export default function Inventory() {
                 <div className="form-field full-width"><label>Remarks</label><textarea name="remarks" rows="3" value={itemForm.remarks} onChange={handleItemChange}></textarea></div>
               </div>
               <datalist id="inventory-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist>
-              <datalist id="inventory-units">{units.map((item) => <option key={item} value={item} />)}</datalist>
               <FormActions editing={Boolean(editingItemId)} label="Item" resetForms={resetForms} />
             </form>
           </section>
