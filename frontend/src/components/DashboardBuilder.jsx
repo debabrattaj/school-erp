@@ -15,7 +15,7 @@ import {
   Minimize2,
 } from "lucide-react";
 import API from "../api";
-import { getUser } from "../auth";
+import { getUser, isFeatureEnabled } from "../auth";
 import { CategoryBarChart, compactNumber } from "./DashboardCharts";
 
 /* Cohesive categorical palette (matches the KPI-card accents). Fixed order,
@@ -72,7 +72,9 @@ export default function DashboardBuilder({ formatMoney }) {
       const saved = localStorage.getItem(storageKey());
       if (saved) return JSON.parse(saved);
     } catch { /* ignore */ }
-    return STARTER;
+    return isFeatureEnabled("house_system")
+      ? STARTER
+      : STARTER.filter((widget) => widget.groupBy !== "house");
   });
   const [editingId, setEditingId] = useState(null);
   const [loaded, setLoaded] = useState(false);

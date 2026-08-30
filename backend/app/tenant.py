@@ -80,7 +80,6 @@ DEFAULT_FEATURES = {
     "users": True,
     "settings": True,
     "master_data": True,
-    "student_layout": True,
     "report_card": True,
     "student_enrollments": True,
     "admissions": True,

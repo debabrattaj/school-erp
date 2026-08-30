@@ -95,7 +95,7 @@ export default function StudentEnrollments() {
 
       setStudents(studentResponse.data || []);
       setClasses(classResponse.data || []);
-      setAcademicYears((yearResponse.data || []).filter((item) => item.is_active));
+      setAcademicYears((yearResponse.data?.values || []).filter((item) => item.is_active));
       setEnrollments(enrollmentResponse.data || []);
     } catch (error) {
       console.error(error);

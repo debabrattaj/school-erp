@@ -82,7 +82,6 @@ const featureGroups = [
       ["enrichment", "Activities & Enrichment"],
       ["compliance", "Compliance & Accreditation"],
       ["library", "Library"],
-      ["student_layout", "Student Layout"],
       ["multi_curriculum", "Multi Curriculum"],
     ],
   },

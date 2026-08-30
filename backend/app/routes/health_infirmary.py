@@ -5,8 +5,15 @@ from app.database import get_db
 from app.models import HealthInfirmaryVisit, Student, User
 from app.schemas import HealthInfirmaryVisitCreate, HealthInfirmaryVisitResponse
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/health-infirmary", tags=["Health Infirmary"])
+# Health Infirmary is an optional, separately-sold module -- gate every route
+# so the tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/health-infirmary",
+    tags=["Health Infirmary"],
+    dependencies=[Depends(require_feature("health_infirmary"))],
+)
 
 
 def get_or_404(db: Session, model, record_id: int, label: str):

@@ -15,8 +15,15 @@ from app.schemas import (
     HostelRoomResponse,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/hostel", tags=["Hostel"])
+# Hostel is an optional, separately-sold module -- gate every route so the
+# tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/hostel",
+    tags=["Hostel"],
+    dependencies=[Depends(require_feature("hostel"))],
+)
 
 ROOM_BULK_IMPORT_COLUMNS = ["block_name", "room_no", "floor", "capacity", "remarks"]
 

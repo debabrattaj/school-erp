@@ -58,7 +58,6 @@ FEATURE_LABELS = {
     "users": "User Management",
     "settings": "Institution Settings",
     "master_data": "Master Data",
-    "student_layout": "Student Layout Builder",
     "report_card": "Report Card",
     "student_enrollments": "Student Enrollments",
     "admissions": "Admissions CRM",
