@@ -8442,8 +8442,8 @@ textarea {
 
 .student-edit-page > .page-heading {
   border-radius: 10px;
-  min-height: 96px;
-  padding: 16px 18px;
+  min-height: 0;
+  padding: 8px 18px;
 }
 
 .student-edit-page > .page-heading .eyebrow {
@@ -8541,8 +8541,8 @@ textarea {
 
 .management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading {
   border-radius: 10px;
-  min-height: 96px;
-  padding: 16px 18px;
+  min-height: 0;
+  padding: 8px 18px;
 }
 
 .management-page:not(.students-list-page):not(.student360-page):has(.form-panel) > .page-heading .eyebrow {
@@ -9005,8 +9005,8 @@ h3 { font-size: 14px; font-weight: 650; }
   background: transparent;
   border: 0;
   box-shadow: none;
-  padding: 4px 0 14px;
-  margin: 0 0 16px;
+  padding: 0 0 8px;
+  margin: 0 0 8px;
 }
 
 /* Once the title text and the action row can no longer share one line, the
