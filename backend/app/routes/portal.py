@@ -273,6 +273,15 @@ def portal_student_marks(
 
     marks = query.all()
 
+    exam_dates = {
+        exam.id: exam.exam_date
+        for exam in (
+            db.query(models.Exam.id, models.Exam.exam_date)
+            .filter(models.Exam.id.in_({mark.exam_id for mark in marks}))
+            .all()
+        )
+    }
+
     exams = {}
     for mark in marks:
         exam_key = mark.exam_name_snapshot or f"Exam #{mark.exam_id}"
@@ -281,6 +290,10 @@ def portal_student_marks(
             {
                 "exam_name": exam_key,
                 "academic_year": mark.academic_year,
+                # First mark for this exam decides which exam's date is used --
+                # only matters for the rare same-name exam across years, which
+                # exam_key already conflates.
+                "exam_date": exam_dates.get(mark.exam_id),
                 "subjects": [],
                 "total_obtained": 0,
                 "total_max": 0,
@@ -305,7 +318,15 @@ def portal_student_marks(
             else None
         )
 
-    return {"exams": list(exams.values())}
+    # Chronological, so a "performance over time" chart can plot this
+    # straight through without re-sorting. Exams with no resolvable date
+    # (orphaned exam_id) sort last rather than crashing the comparison.
+    ordered_exams = sorted(
+        exams.values(),
+        key=lambda group: (group["exam_date"] is None, group["exam_date"]),
+    )
+
+    return {"exams": ordered_exams}
 
 
 @router.get("/students/{student_id}/fees")
