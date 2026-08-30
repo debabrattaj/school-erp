@@ -35,7 +35,6 @@ const Marks = lazy(() => import("./pages/Marks"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Users = lazy(() => import("./pages/Users"));
 const Settings = lazy(() => import("./pages/Settings"));
-// const StudentLayoutBuilder = lazy(() => import("./pages/StudentLayoutBuilder"));
 const ModuleLayoutBuilder = lazy(() => import("./pages/ModuleLayoutBuilder"));
 const StudentDetails = lazy(() => import("./pages/StudentDetails"));
 const ClassDetails = lazy(() => import("./pages/ClassDetails"));
@@ -76,6 +75,7 @@ const OnlineTests = lazy(() => import("./pages/OnlineTests"));
 const Biometric = lazy(() => import("./pages/Biometric"));
 const Leave = lazy(() => import("./pages/Leave"));
 const Syllabus = lazy(() => import("./pages/Syllabus"));
+const Gate = lazy(() => import("./pages/Gate"));
 
 function RouteFallback() {
   return (
@@ -388,16 +388,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        {/* <Route
-          path="/students/layout"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <ProtectedLayout>
-                <StudentLayoutBuilder />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        /> */}
         <Route
           path="/:moduleName/layout"
           element={
@@ -615,6 +605,16 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <Leave />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/gate"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Gate />
               </ProtectedLayout>
             </ProtectedRoute>
           }

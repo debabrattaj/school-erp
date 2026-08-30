@@ -958,10 +958,12 @@ export default function Portal() {
                   <th>Roll No</th>
                   <td>{summary.current_enrollment?.roll_no || "-"}</td>
                 </tr>
-                <tr>
-                  <th>House</th>
-                  <td>{summary.student?.house || "-"}</td>
-                </tr>
+                {isFeatureEnabled("house_system") && (
+                  <tr>
+                    <th>House</th>
+                    <td>{summary.student?.house || "-"}</td>
+                  </tr>
+                )}
                 <tr>
                   <th>Father</th>
                   <td>{summary.guardian?.father_name || "-"}</td>

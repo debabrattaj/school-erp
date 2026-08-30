@@ -33,6 +33,7 @@ import {
   ChevronDown,
   CalendarOff,
   BookMarked,
+  DoorOpen,
 } from "lucide-react";
 import { getUser } from "../auth";
 import { useI18n } from "../i18n";
@@ -277,6 +278,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/leave",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "leave",
+      group: "People & Access",
+    },
+    {
+      label: "Gate Register",
+      icon: DoorOpen,
+      path: "/gate",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "gate_register",
       group: "People & Access",
     },
     {

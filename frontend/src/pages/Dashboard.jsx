@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import API from "../api";
+import { isFeatureEnabled } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
 import { formatMoney as formatMoneyUtil } from "../utils/money";
 import {
@@ -26,6 +27,7 @@ const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
 
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
+  const canUseHouse = isFeatureEnabled("house_system");
 
   const [view, setView] = useState("overview");
   const [summary, setSummary] = useState(null);
@@ -371,7 +373,7 @@ export default function Dashboard() {
                     <th>Admission No</th>
                     <th>Student</th>
                     <th>Class</th>
-                    <th>House</th>
+                    {canUseHouse && <th>House</th>}
                     <th>Admission Date</th>
                   </tr>
                 </thead>
@@ -379,7 +381,7 @@ export default function Dashboard() {
                 <tbody>
                   {(summary?.recent_admissions || []).length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="empty-table">
+                      <td colSpan={canUseHouse ? 5 : 4} className="empty-table">
                         No recent admissions.
                       </td>
                     </tr>
@@ -391,7 +393,7 @@ export default function Dashboard() {
                         <td>
                           {student.class_name || "-"}-{student.section || "-"}
                         </td>
-                        <td>{student.house || "-"}</td>
+                        {canUseHouse && <td>{student.house || "-"}</td>}
                         <td>{student.admission_date || "-"}</td>
                       </tr>
                     ))
