@@ -298,7 +298,10 @@ export default function EnhancedRecordsTable({
       </div>
 
       {loading ? (
-        <div className="loading-box">{loadingText}</div>
+        <div className="loading-box">
+          <span className="spinner" aria-hidden="true" />
+          {loadingText}
+        </div>
       ) : (
         <div className={showFilters ? "records-table-layout filters-open" : "records-table-layout"}>
           {showFilters && (
