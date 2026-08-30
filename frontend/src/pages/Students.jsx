@@ -1823,7 +1823,10 @@ export default function Students() {
             </section>
 
             {loading ? (
-              <div className="loading-box">Loading students...</div>
+              <div className="loading-box">
+                <span className="spinner" aria-hidden="true" />
+                Loading students...
+              </div>
             ) : (
               <div className="table-wrapper">
                 <table className="classic-table student-list-table">
