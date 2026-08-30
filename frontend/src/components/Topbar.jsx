@@ -6,10 +6,18 @@ import API from "../api";
 import { useI18n } from "../i18n";
 import { LANGUAGES } from "../i18n/translations";
 
+// GET /search is gated server-side to staff roles (Admin/Principal/Teacher/
+// Accounts) -- Parent/Student have no legitimate use for a cross-school
+// search over students/teachers/classes/exams anyway, so the search box
+// itself is hidden for them rather than rendering an input that always
+// 403s.
+const SEARCH_ROLES = ["Admin", "Principal", "Teacher", "Accounts"];
+
 export default function Topbar() {
   const navigate = useNavigate();
   const { t, lang, setLang } = useI18n();
   const [user, setUser] = useState(getUser());
+  const canSearch = SEARCH_ROLES.includes(user?.role);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
@@ -88,7 +96,7 @@ export default function Topbar() {
   useEffect(() => {
     const query = searchQuery.trim();
 
-    if (query.length < 2) {
+    if (!canSearch || query.length < 2) {
       setSearchResults([]);
       setSearching(false);
       return undefined;
@@ -107,7 +115,7 @@ export default function Topbar() {
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, canSearch]);
 
   function openSearchResult(result) {
     setSearchQuery("");
@@ -170,6 +178,7 @@ export default function Topbar() {
       <div className="topbar-spacer" />
 
       <div className="topbar-search-wrap">
+        {canSearch && (
         <div className="topbar-search">
           <Search size={16} />
           <input
@@ -184,15 +193,16 @@ export default function Topbar() {
             onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
           />
         </div>
+        )}
 
-        {searchOpen && searchQuery.trim().length >= 2 && (
+        {canSearch && searchOpen && searchQuery.trim().length >= 2 && (
           <div
             className="topbar-search-backdrop"
             onMouseDown={() => setSearchOpen(false)}
           />
         )}
 
-        {searchOpen && searchQuery.trim().length >= 2 && (
+        {canSearch && searchOpen && searchQuery.trim().length >= 2 && (
           <div className="topbar-search-panel">
             {searching ? (
               <div className="topbar-search-empty">{t("Searching…")}</div>
