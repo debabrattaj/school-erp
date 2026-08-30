@@ -24,8 +24,15 @@ from app.schemas import (
     TransportVehicleResponse,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/transport", tags=["Transport"])
+# Transport is an optional, separately-sold module -- gate every route so the
+# tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/transport",
+    tags=["Transport"],
+    dependencies=[Depends(require_feature("transport"))],
+)
 
 VEHICLE_BULK_IMPORT_COLUMNS = [
     "vehicle_no",

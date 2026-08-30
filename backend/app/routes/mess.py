@@ -11,8 +11,15 @@ from app.schemas import (
     MessMenuResponse,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/mess", tags=["Mess Management"])
+# Mess Management is an optional, separately-sold module -- gate every route
+# so the tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/mess",
+    tags=["Mess Management"],
+    dependencies=[Depends(require_feature("mess_management"))],
+)
 
 
 def get_or_404(db: Session, model, record_id: int, label: str):

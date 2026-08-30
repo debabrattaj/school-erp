@@ -12,6 +12,12 @@ router = APIRouter(
     tags=["Subjects"]
 )
 
+# Matches the Subjects page's own allowedRoles (frontend/src/App.jsx,
+# "/subjects") -- also covers class-subject and class-exam mapping endpoints
+# in this file, consumed by the same staff pages (Classes, Marks, Homework,
+# Online Tests, Timetable, Syllabus, Report Card, Class Exam Mappings).
+SUBJECT_ROLES = ["Admin", "Principal", "Teacher"]
+
 BULK_IMPORT_COLUMNS = ["subject_code", "subject_name", "subject_type", "is_active"]
 
 
@@ -49,7 +55,10 @@ def validate_teacher(db: Session, teacher_id: int):
 # ======================================================
 
 @router.get("/subjects/", response_model=list[schemas.SubjectResponse])
-def get_subjects(db: Session = Depends(get_db)):
+def get_subjects(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
+):
     return (
         db.query(models.SubjectMaster)
         .order_by(models.SubjectMaster.subject_name.asc())
@@ -135,7 +144,8 @@ def bulk_import_subjects(
 @router.get("/subjects/{subject_id}", response_model=schemas.SubjectResponse)
 def get_subject(
     subject_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     return validate_subject(db, subject_id)
 
@@ -143,7 +153,8 @@ def get_subject(
 @router.post("/subjects/", response_model=schemas.SubjectResponse)
 def create_subject(
     payload: schemas.SubjectCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     subject = models.SubjectMaster(**payload.model_dump())
 
@@ -158,7 +169,8 @@ def create_subject(
 def update_subject(
     subject_id: int,
     payload: schemas.SubjectCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     subject = validate_subject(db, subject_id)
 
@@ -174,7 +186,8 @@ def update_subject(
 @router.delete("/subjects/{subject_id}")
 def delete_subject(
     subject_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     subject = validate_subject(db, subject_id)
 
@@ -199,7 +212,8 @@ def get_class_subjects(
     subject_name: str | None = None,
     teacher_id: int | None = None,
     active_only: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     query = db.query(models.ClassSubject)
 
@@ -245,7 +259,8 @@ def normalize_class_subject_payload(db: Session, payload: schemas.ClassSubjectCr
 )
 def get_class_subject(
     class_subject_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     return get_or_404(
         db,
@@ -261,7 +276,8 @@ def get_class_subject(
 )
 def create_class_subject(
     payload: schemas.ClassSubjectCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     validate_class(db, payload.class_id)
 
@@ -287,7 +303,8 @@ def create_class_subject(
 def update_class_subject(
     class_subject_id: int,
     payload: schemas.ClassSubjectCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     mapping = get_or_404(
         db,
@@ -318,7 +335,8 @@ def update_class_subject(
 @router.delete("/class-subjects/{class_subject_id}")
 def delete_class_subject(
     class_subject_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     mapping = get_or_404(
         db,
@@ -354,7 +372,8 @@ def get_class_exam_mappings(
     exam_id: int | None = None,
     academic_year: str | None = None,
     active_only: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     query = db.query(models.ClassExamMapping)
 
@@ -379,7 +398,8 @@ def get_class_exam_mappings(
 )
 def create_class_exam_mapping(
     payload: schemas.ClassExamMappingCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     validate_class(db, payload.class_id)
     get_or_404(db, models.Exam, payload.exam_id, "Exam")
@@ -403,7 +423,8 @@ def create_class_exam_mapping(
 def update_class_exam_mapping(
     mapping_id: int,
     payload: schemas.ClassExamMappingCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     mapping = get_or_404(
         db,
@@ -430,7 +451,8 @@ def update_class_exam_mapping(
 @router.delete("/class-exam-mappings/{mapping_id}")
 def delete_class_exam_mapping(
     mapping_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(SUBJECT_ROLES)),
 ):
     mapping = get_or_404(
         db,
