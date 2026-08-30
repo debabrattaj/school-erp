@@ -24,6 +24,25 @@ def get_student_or_404(student_id: int, db: Session):
 
 
 @router.get(
+    "/custom-fields/all",
+    response_model=list[schemas.StudentCustomFieldValueResponse]
+)
+def list_all_student_custom_fields(db: Session = Depends(get_db)):
+    """Every legacy per-student custom field value, across all students, in
+    one query -- lets a report/list view avoid one request per student."""
+    values = (
+        db.query(models.StudentCustomFieldValue)
+        .order_by(
+            models.StudentCustomFieldValue.student_id.asc(),
+            models.StudentCustomFieldValue.id.asc()
+        )
+        .all()
+    )
+
+    return values
+
+
+@router.get(
     "/{student_id}/custom-fields",
     response_model=list[schemas.StudentCustomFieldValueResponse]
 )

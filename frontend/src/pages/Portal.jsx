@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { QrCode, X, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, QrCode, Trash2, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
 import API from "../api";
 import { getUser, isFeatureEnabled } from "../auth";
+import { formatMoney } from "../utils/money";
+import { TrendArea, CollectionMeter } from "../components/DashboardCharts";
 
 // Online Tests is sold separately, so its tab only exists for schools the
 // platform owner has enabled it for. The server enforces this too -- hiding
 // the tab alone would leave the endpoints reachable.
 const TABS = [
   ["summary", "Summary"],
+  ["performance", "Performance"],
   ["attendance", "Attendance"],
   ["marks", "Marks"],
   ["fees", "Fees"],
@@ -30,6 +33,73 @@ function parseUtc(value) {
 
 function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
+}
+
+// The set of charts a parent/student can add to their own "Dashboard" tab.
+// Deliberately a short, fixed catalog (not a free source/dimension/measure
+// builder like the staff DashboardBuilder) -- every option here is already
+// scoped to the signed-in user's own linked child by construction, so there
+// is nothing to pick that could show another family's data.
+const PORTAL_WIDGET_KINDS = [
+  {
+    kind: "attendance_trend",
+    title: "Attendance Over Time",
+    subtitle: "Monthly attendance %",
+  },
+  {
+    kind: "marks_trend",
+    title: "Marks Over Time",
+    subtitle: "Percentage by exam",
+  },
+  {
+    kind: "fee_summary",
+    title: "Fee Status",
+    subtitle: "Paid vs due this year",
+  },
+];
+
+const DEFAULT_PORTAL_WIDGETS = PORTAL_WIDGET_KINDS.map((entry) => ({
+  id: entry.kind,
+  kind: entry.kind,
+}));
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function monthKey(dateString) {
+  return (dateString || "").slice(0, 7); // "2026-03-14" -> "2026-03"
+}
+
+function buildAttendanceTrend(attendance) {
+  if (!attendance?.records?.length) return [];
+
+  const buckets = new Map();
+  attendance.records.forEach((record) => {
+    const key = monthKey(record.date);
+    if (!key) return;
+
+    const bucket = buckets.get(key) || { present: 0, total: 0 };
+    bucket.total += 1;
+    if (record.status === "Present" || record.status === "Late") bucket.present += 1;
+    else if (record.status === "Half Day") bucket.present += 0.5;
+    buckets.set(key, bucket);
+  });
+
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, bucket]) => ({
+      date: key,
+      percentage: bucket.total ? Math.round((bucket.present / bucket.total) * 1000) / 10 : null,
+    }));
+}
+
+function buildMarksTrend(marks) {
+  if (!marks?.exams?.length) return [];
+
+  return marks.exams
+    .filter((exam) => exam.exam_date)
+    .map((exam) => ({ date: exam.exam_date, percentage: exam.percentage }));
 }
 
 // On-device face-presence check during a proctored, webcam-required attempt.
@@ -60,6 +130,10 @@ export default function Portal() {
   const [upiPayment, setUpiPayment] = useState(null);
   const [upiReference, setUpiReference] = useState("");
   const [confirmingUpi, setConfirmingUpi] = useState(false);
+
+  const [dashboardWidgets, setDashboardWidgets] = useState(DEFAULT_PORTAL_WIDGETS);
+  const [dashboardLayoutLoaded, setDashboardLayoutLoaded] = useState(false);
+  const [showAddWidget, setShowAddWidget] = useState(false);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -134,6 +208,45 @@ export default function Portal() {
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to load your students."));
     }
+  }
+
+  // Same per-user saved-layout endpoint the staff Dashboard builder uses
+  // (DashboardLayout.user_id) -- it stores an opaque widget array, so a
+  // parent's small {id, kind} shape here coexists fine with the richer
+  // {source, groupBy, measure, ...} shape staff widgets use elsewhere.
+  async function loadDashboardLayout() {
+    try {
+      const response = await API.get("/dashboard/layout");
+      const widgets = response.data?.widgets;
+      if (Array.isArray(widgets) && widgets.length) {
+        setDashboardWidgets(widgets);
+      }
+    } catch {
+      // Keep the default widget set on failure.
+    } finally {
+      setDashboardLayoutLoaded(true);
+    }
+  }
+
+  async function saveDashboardLayout(widgets) {
+    try {
+      await API.put("/dashboard/layout", { widgets });
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save your dashboard changes."));
+    }
+  }
+
+  function addDashboardWidget(kind) {
+    const next = [...dashboardWidgets, { id: uid(), kind }];
+    setDashboardWidgets(next);
+    saveDashboardLayout(next);
+    setShowAddWidget(false);
+  }
+
+  function removeDashboardWidget(id) {
+    const next = dashboardWidgets.filter((widget) => widget.id !== id);
+    setDashboardWidgets(next);
+    saveDashboardLayout(next);
   }
 
   async function loadStudentData(studentId) {
@@ -655,11 +768,29 @@ export default function Portal() {
 
   useEffect(() => {
     loadChildren();
+    loadDashboardLayout();
   }, []);
 
   useEffect(() => {
     loadStudentData(selectedId);
   }, [selectedId, yearFilter]);
+
+  const attendanceTrend = useMemo(() => buildAttendanceTrend(attendance), [attendance]);
+  const marksTrend = useMemo(() => buildMarksTrend(marks), [marks]);
+
+  const feeSummary = useMemo(() => {
+    if (!fees?.totals) return null;
+    const { total_amount: total, total_paid: paid, total_due: due } = fees.totals;
+    return {
+      percentage: total ? Math.round((paid / total) * 1000) / 10 : 0,
+      collected: paid,
+      due,
+    };
+  }, [fees]);
+
+  const availableWidgetKinds = PORTAL_WIDGET_KINDS.filter(
+    (entry) => !dashboardWidgets.some((widget) => widget.kind === entry.kind)
+  );
 
   useEffect(() => {
     if (!isParent) return;
@@ -842,6 +973,100 @@ export default function Portal() {
               </tbody>
             </table>
             </div>
+          )}
+
+          {!loading && activeTab === "performance" && dashboardLayoutLoaded && (
+            <>
+              <div className="builder-grid">
+                {dashboardWidgets.map((widget) => {
+                  const meta = PORTAL_WIDGET_KINDS.find((entry) => entry.kind === widget.kind);
+                  if (!meta) return null;
+
+                  return (
+                    <div key={widget.id} className="widget-card">
+                      <div className="widget-head">
+                        <div className="widget-title">
+                          <h3>{meta.title}</h3>
+                          <p>{meta.subtitle}</p>
+                        </div>
+                        <div className="widget-actions">
+                          <button
+                            type="button"
+                            className="widget-remove"
+                            aria-label={`Remove ${meta.title}`}
+                            onClick={() => removeDashboardWidget(widget.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="widget-body">
+                        {widget.kind === "attendance_trend" && (
+                          <TrendArea
+                            data={attendanceTrend}
+                            unit="%"
+                            emptyText="No attendance recorded yet."
+                          />
+                        )}
+                        {widget.kind === "marks_trend" && (
+                          <TrendArea
+                            data={marksTrend}
+                            unit="%"
+                            color="var(--success-600)"
+                            emptyText="No exam marks recorded yet."
+                          />
+                        )}
+                        {widget.kind === "fee_summary" &&
+                          (feeSummary ? (
+                            <CollectionMeter
+                              percentage={feeSummary.percentage}
+                              collected={feeSummary.collected}
+                              due={feeSummary.due}
+                              formatMoney={(value) => formatMoney(value)}
+                            />
+                          ) : (
+                            <p className="chart-empty">No fee records yet.</p>
+                          ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!dashboardWidgets.length && (
+                <p className="builder-empty">
+                  No charts added yet. Use "Add Chart" below to build your own view.
+                </p>
+              )}
+
+              <div style={{ marginTop: "1rem", position: "relative" }}>
+                {availableWidgetKinds.length > 0 && (
+                  <button
+                    type="button"
+                    className="light-button"
+                    onClick={() => setShowAddWidget((prev) => !prev)}
+                  >
+                    <Plus size={16} />
+                    Add Chart
+                  </button>
+                )}
+
+                {showAddWidget && (
+                  <div className="report-saved-views" style={{ marginTop: "10px" }}>
+                    {availableWidgetKinds.map((entry) => (
+                      <button
+                        key={entry.kind}
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => addDashboardWidget(entry.kind)}
+                      >
+                        {entry.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {!loading && activeTab === "attendance" && attendance && (

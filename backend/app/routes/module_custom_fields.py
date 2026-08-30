@@ -101,6 +101,31 @@ def check_record_exists(module_name: str, record_id: int, db: Session):
 
 
 @router.get(
+    "/{module_name}",
+    response_model=list[schemas.ModuleCustomFieldValueResponse]
+)
+def list_module_custom_fields(
+    module_name: str,
+    db: Session = Depends(get_db)
+):
+    """Every custom field value for a module, across all its records, in one
+    query -- lets a report/list view avoid one request per record."""
+    normalized_module = normalize_module_name(module_name)
+
+    values = (
+        db.query(models.ModuleCustomFieldValue)
+        .filter(models.ModuleCustomFieldValue.module_name == normalized_module)
+        .order_by(
+            models.ModuleCustomFieldValue.record_id.asc(),
+            models.ModuleCustomFieldValue.id.asc()
+        )
+        .all()
+    )
+
+    return values
+
+
+@router.get(
     "/{module_name}/{record_id}",
     response_model=list[schemas.ModuleCustomFieldValueResponse]
 )

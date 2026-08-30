@@ -13,6 +13,7 @@ import {
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
 import BulkImportModal from "../components/BulkImportModal";
+import { getMasterValues } from "../services/masterDataService";
 
 const emptySubjectForm = {
   subject_code: "",
@@ -27,6 +28,21 @@ const subjectTypeOptions = [
   "Language",
   "Activity",
   "Skill Based",
+];
+
+// Used only until the school adds their own values under Master Data ->
+// Subject, same fallback-then-replace pattern as Fees.jsx's FeeType dropdown.
+const fallbackSubjectNames = [
+  "Mathematics",
+  "English",
+  "Science",
+  "Social Science",
+  "Hindi",
+  "Computer Science",
+  "Environmental Science",
+  "Physical Education",
+  "Art & Craft",
+  "Music",
 ];
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -54,6 +70,7 @@ function getApiErrorMessage(error, fallbackMessage) {
 
 export default function Subjects() {
   const [subjects, setSubjects] = useState([]);
+  const [masterSubjectNames, setMasterSubjectNames] = useState(fallbackSubjectNames);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [formData, setFormData] = useState(emptySubjectForm);
   const [editingId, setEditingId] = useState(null);
@@ -91,8 +108,20 @@ export default function Subjects() {
     }
   }
 
+  async function loadMasterSubjectNames() {
+    try {
+      const values = await getMasterValues("Subject");
+      if (values && values.length > 0) {
+        setMasterSubjectNames(values);
+      }
+    } catch {
+      // Keep the fallback list on failure.
+    }
+  }
+
   useEffect(() => {
     loadSubjects();
+    loadMasterSubjectNames();
   }, []);
 
   function handleChange(e) {
@@ -210,6 +239,19 @@ export default function Subjects() {
     return Array.from(new Set([...subjectTypeOptions, ...usedTypes]));
   }, [subjects]);
 
+  // Master Data + whatever's already in use, so editing an existing subject
+  // never loses a name that isn't (or isn't yet) in Master Data.
+  const subjectNameChoices = useMemo(() => {
+    const usedNames = subjects.map((subject) => subject.subject_name).filter(Boolean);
+    const combined = new Set([...masterSubjectNames, ...usedNames]);
+
+    if (formData.subject_name) {
+      combined.add(formData.subject_name);
+    }
+
+    return Array.from(combined).sort((a, b) => a.localeCompare(b));
+  }, [masterSubjectNames, subjects, formData.subject_name]);
+
   const filteredSubjects = subjects.filter((subject) => {
     const fullText = `
       ${subject.subject_code}
@@ -262,14 +304,19 @@ export default function Subjects() {
 
           <div className="form-field">
             <label>Subject Name *</label>
-            <input
-              type="text"
+            <select
               name="subject_name"
               value={formData.subject_name}
               onChange={handleChange}
-              placeholder="Example: Mathematics"
               required
-            />
+            >
+              <option value="">Select Subject Name</option>
+              {subjectNameChoices.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-field">

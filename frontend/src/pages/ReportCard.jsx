@@ -403,7 +403,10 @@ export default function ReportCard() {
         </div>
 
         {loading ? (
-          <div className="report-card-empty">Loading report card...</div>
+          <div className="report-card-empty">
+            <span className="spinner" aria-hidden="true" />
+            Loading report card...
+          </div>
         ) : marks.length === 0 ? (
           <div className="report-card-empty">
             No marks found for the selected student, exam, and academic year.

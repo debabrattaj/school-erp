@@ -3139,3 +3139,21 @@ class FeeReminderLog(Base):
     __table_args__ = (
         UniqueConstraint("fee_id", "rule_id", name="uq_fee_reminder_once"),
     )
+
+
+class SavedReportView(Base):
+    """A user's saved Reports Center filters for one module, so a report they
+    run often doesn't need rebuilding by hand every time."""
+
+    __tablename__ = "saved_report_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    module_name = Column(String, nullable=False, index=True)
+
+    # JSON text, parsed/serialized in the route -- same convention as
+    # DashboardLayout.widgets in app/dashboard_models.py.
+    filters = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
+  Bookmark,
   Download,
-  Filter,
+  Trash2,
   X,
 } from "lucide-react";
 
 import API from "../api";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
+import CustomSelect from "../components/CustomSelect";
+import { CategoryBarChart } from "../components/DashboardCharts";
 import { useSchoolSettings } from "../SettingsContext";
 import { useT } from "../i18n";
 import { formatMoney } from "../utils/money";
 import { getModuleLayout } from "../services/moduleLayoutService";
-import { getModuleCustomFields } from "../services/moduleCustomFieldService";
+import { getAllModuleCustomFields } from "../services/moduleCustomFieldService";
+import {
+  listReportViews,
+  createReportView,
+  deleteReportView,
+} from "../services/reportViewService";
 
 const MODULES = {
   Students: {
@@ -20,6 +28,7 @@ const MODULES = {
     apiPath: "/students/",
     layoutModuleName: "Students",
     idKey: "id",
+    chartSource: "students",
     columns: [
       { key: "admission_no", label: "Admission No" },
       { key: "full_name", label: "Student Name" },
@@ -37,6 +46,7 @@ const MODULES = {
     apiPath: "/teachers/",
     layoutModuleName: "Teachers",
     idKey: "id",
+    chartSource: "teachers",
     columns: [
       { key: "teacher_code", label: "Teacher Code" },
       { key: "full_name", label: "Teacher Name" },
@@ -68,6 +78,7 @@ const MODULES = {
     apiPath: "/fees/",
     layoutModuleName: "Fees",
     idKey: "id",
+    chartSource: "fees",
     columns: [
       { key: "student_name", label: "Student" },
       { key: "academic_year", label: "Academic Year" },
@@ -89,6 +100,7 @@ const MODULES = {
     fallbackApiPath: "/attendances/",
     layoutModuleName: "Attendance",
     idKey: "id",
+    chartSource: "attendance",
     columns: [
       { key: "student_name", label: "Student" },
       { key: "academic_year", label: "Academic Year" },
@@ -133,6 +145,7 @@ const MODULES = {
     apiPath: "/marks/",
     layoutModuleName: "Marks",
     idKey: "id",
+    chartSource: "marks",
     columns: [
       { key: "student_name", label: "Student" },
       { key: "academic_year", label: "Academic Year" },
@@ -402,15 +415,22 @@ export default function Reports() {
   const [records, setRecords] = useState([]);
   const [columns, setColumns] = useState(MODULES.Students.columns);
 
-  const [visibleColumns, setVisibleColumns] = useState(
-    MODULES.Students.columns.map((column) => column.key)
-  );
-
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [academicYearFilter, setAcademicYearFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const [showChart, setShowChart] = useState(false);
+  const [chartCatalog, setChartCatalog] = useState(null);
+  const [chartDimension, setChartDimension] = useState("");
+  const [chartMeasure, setChartMeasure] = useState("count");
+  const [chartData, setChartData] = useState(null);
+  const [chartLoading, setChartLoading] = useState(false);
+
+  const [savedViews, setSavedViews] = useState([]);
+  const [showSaveViewForm, setShowSaveViewForm] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
 
   useEffect(() => {
     if (!message) return undefined;
@@ -482,64 +502,69 @@ export default function Reports() {
     }
   }
 
-  async function loadLegacyStudentCustomFields(recordId) {
+  async function loadAllLegacyStudentCustomFields() {
     try {
-      const response = await API.get(`/students/${recordId}/custom-fields`);
+      const response = await API.get("/students/custom-fields/all");
       return response.data || [];
     } catch {
       return [];
     }
   }
 
-  async function loadCustomValuesForRecord(moduleName, recordId) {
+  async function loadAllCustomFieldValues(moduleName) {
     try {
-      const genericValues = await getModuleCustomFields(moduleName, recordId);
-
-      if (genericValues && genericValues.length > 0) {
-        return genericValues;
-      }
-
-      if (moduleName === "Students") {
-        return await loadLegacyStudentCustomFields(recordId);
-      }
-
-      return [];
+      return await getAllModuleCustomFields(moduleName);
     } catch {
-      if (moduleName === "Students") {
-        return await loadLegacyStudentCustomFields(recordId);
-      }
-
       return [];
     }
   }
 
-  async function mergeCustomFields(moduleName, baseRecords) {
+  // Two bulk fetches (one per module, one for the legacy Students table)
+  // instead of one-or-two HTTP requests per record -- avoids the N+1 that
+  // made this page order hundreds of requests for a school with hundreds
+  // of students.
+  function mergeCustomFieldsBulk(moduleName, baseRecords, genericValues, legacyValues) {
+    const genericByRecord = new Map();
+    genericValues.forEach((item) => {
+      const list = genericByRecord.get(item.record_id) || [];
+      list.push(item);
+      genericByRecord.set(item.record_id, list);
+    });
+
+    const legacyByRecord = new Map();
+    if (moduleName === "Students") {
+      legacyValues.forEach((item) => {
+        const list = legacyByRecord.get(item.student_id) || [];
+        list.push(item);
+        legacyByRecord.set(item.student_id, list);
+      });
+    }
+
     const customColumnMap = new Map();
 
-    const recordsWithCustomFields = await Promise.all(
-      baseRecords.map(async (record) => {
-        const values = await loadCustomValuesForRecord(moduleName, record.id);
+    const recordsWithCustomFields = baseRecords.map((record) => {
+      const generic = genericByRecord.get(record.id) || [];
+      const values = generic.length > 0 ? generic : legacyByRecord.get(record.id) || [];
 
-        const customData = {};
+      const customData = {};
 
-        values.forEach((item) => {
-          const key = item.field_key;
-          const label = item.field_label || item.field_key;
+      values.forEach((item) => {
+        const key = item.field_key;
+        const label = item.field_label || item.field_key;
 
-          customColumnMap.set(key, {
-            key,
-            label,
-          });
-
-          customData[key] = convertCustomFieldValue(item);
+        customColumnMap.set(key, {
+          key,
+          label,
         });
 
-        return {
-          ...record,
-          ...customData,
-        };
-      })
-    );
+        customData[key] = convertCustomFieldValue(item);
+      });
+
+      return {
+        ...record,
+        ...customData,
+      };
+    });
 
     return {
       records: recordsWithCustomFields,
@@ -554,19 +579,26 @@ export default function Reports() {
 
       const config = MODULES[moduleName];
 
-      const [rawRecords, layoutFields, lookupData] = await Promise.all([
-        loadRecordsFromPath(config, moduleName),
-        loadLayoutFields(config.layoutModuleName),
-        loadLookupData(moduleName),
-      ]);
+      const [rawRecords, layoutFields, lookupData, genericValues, legacyValues] =
+        await Promise.all([
+          loadRecordsFromPath(config, moduleName),
+          loadLayoutFields(config.layoutModuleName),
+          loadLookupData(moduleName),
+          loadAllCustomFieldValues(config.layoutModuleName),
+          config.layoutModuleName === "Students"
+            ? loadAllLegacyStudentCustomFields()
+            : Promise.resolve([]),
+        ]);
 
       let baseRecords = rawRecords.map((record) =>
         enrichRecord(moduleName, record, lookupData)
       );
 
-      const customResult = await mergeCustomFields(
+      const customResult = mergeCustomFieldsBulk(
         config.layoutModuleName,
-        baseRecords
+        baseRecords,
+        genericValues,
+        legacyValues
       );
 
       baseRecords = customResult.records;
@@ -579,7 +611,6 @@ export default function Reports() {
 
       setRecords(baseRecords);
       setColumns(finalColumns);
-      setVisibleColumns(finalColumns.map((column) => column.key));
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load report data."));
@@ -592,6 +623,116 @@ export default function Reports() {
   useEffect(() => {
     loadReportData(selectedModule);
   }, [selectedModule, academicYearFilter]);
+
+  useEffect(() => {
+    async function loadSavedViews() {
+      try {
+        const views = await listReportViews(selectedModule);
+        setSavedViews(views);
+      } catch {
+        setSavedViews([]);
+      }
+    }
+
+    loadSavedViews();
+  }, [selectedModule]);
+
+  function applySavedView(view) {
+    if (view.module_name !== selectedModule) {
+      setSelectedModule(view.module_name);
+    }
+
+    setSearchText(view.filters?.searchText || "");
+    setStatusFilter(view.filters?.statusFilter || "");
+    setAcademicYearFilter(view.filters?.academicYearFilter || "");
+  }
+
+  async function saveCurrentView() {
+    const name = newViewName.trim();
+    if (!name) return;
+
+    try {
+      const view = await createReportView({
+        name,
+        module_name: selectedModule,
+        filters: { searchText, statusFilter, academicYearFilter },
+      });
+
+      setSavedViews((prev) => [view, ...prev]);
+      setNewViewName("");
+      setShowSaveViewForm(false);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save this view."));
+    }
+  }
+
+  async function removeSavedView(viewId) {
+    try {
+      await deleteReportView(viewId);
+      setSavedViews((prev) => prev.filter((view) => view.id !== viewId));
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to delete this view."));
+    }
+  }
+
+  const chartSource = MODULES[selectedModule].chartSource;
+
+  // Nothing to reset when a module has no chartSource: the chart panel is
+  // only rendered when chartSource is truthy, so stale catalog/data from a
+  // previous module is never shown -- it's simply overwritten the next time
+  // the user lands on a module that does have one.
+  useEffect(() => {
+    if (!chartSource) return;
+
+    async function loadChartCatalog() {
+      try {
+        const response = await API.get("/dashboard/report/catalog");
+        const entry = response.data?.[chartSource] || null;
+
+        setChartCatalog(entry);
+        setChartDimension(entry ? Object.keys(entry.dimensions)[0] || "" : "");
+        setChartMeasure("count");
+      } catch {
+        setChartCatalog(null);
+        setChartDimension("");
+      }
+    }
+
+    loadChartCatalog();
+  }, [chartSource]);
+
+  useEffect(() => {
+    if (!showChart || !chartSource || !chartDimension) return;
+
+    async function loadChartData() {
+      try {
+        setChartLoading(true);
+
+        const params = {
+          source: chartSource,
+          group_by: chartDimension,
+          measure: chartMeasure,
+        };
+
+        if (academicYearFilter && moduleSupportsAcademicYear(selectedModule)) {
+          params.academic_year = academicYearFilter;
+        }
+
+        if (statusFilter) {
+          params.status = statusFilter;
+        }
+
+        const response = await API.get("/dashboard/report", { params });
+        setChartData(response.data);
+      } catch {
+        setChartData(null);
+      } finally {
+        setChartLoading(false);
+      }
+    }
+
+    loadChartData();
+  }, [showChart, chartSource, chartDimension, chartMeasure, academicYearFilter, statusFilter, selectedModule]);
 
   const statusOptions = useMemo(() => {
     const values = records.map((record) => record.status).filter(Boolean);
@@ -626,10 +767,6 @@ export default function Reports() {
       return matchSearch && matchStatus && matchAcademicYear;
     });
   }, [records, columns, searchText, statusFilter, academicYearFilter, selectedModule]);
-
-  const activeColumns = columns.filter((column) =>
-    visibleColumns.includes(column.key)
-  );
 
   const summary = useMemo(() => {
     if (selectedModule === "Fees") {
@@ -692,22 +829,21 @@ export default function Reports() {
     return {
       firstLabel: "Total Records",
       firstValue: filteredRecords.length,
-      secondLabel: "Visible Columns",
-      secondValue: activeColumns.length,
+      secondLabel: "Total Columns",
+      secondValue: columns.length,
       thirdLabel: "Module",
       thirdValue: MODULES[selectedModule].label,
     };
-  }, [selectedModule, filteredRecords, activeColumns]);
+  }, [selectedModule, filteredRecords, columns]);
 
-  function toggleColumn(columnKey) {
-    setVisibleColumns((prev) => {
-      if (prev.includes(columnKey)) {
-        return prev.filter((item) => item !== columnKey);
-      }
+  const chartItems = useMemo(() => {
+    if (!chartData) return [];
 
-      return [...prev, columnKey];
-    });
-  }
+    return chartData.labels.map((label, index) => ({
+      label,
+      value: chartData.values[index],
+    }));
+  }, [chartData]);
 
   function exportCsv() {
     if (filteredRecords.length === 0) {
@@ -715,10 +851,10 @@ export default function Reports() {
       return;
     }
 
-    const header = activeColumns.map((column) => column.label);
+    const header = columns.map((column) => column.label);
 
     const rows = filteredRecords.map((record) =>
-      activeColumns.map((column) => {
+      columns.map((column) => {
         const value = formatValue(
           column.key,
           getRawRecordValue(record, column.key)
@@ -759,6 +895,16 @@ export default function Reports() {
         </div>
 
         <div className="module-header-actions">
+          {chartSource && (
+            <button
+              type="button"
+              className={showChart ? "secondary-button is-active" : "secondary-button"}
+              onClick={() => setShowChart((prev) => !prev)}
+            >
+              <BarChart3 size={17} />
+              {showChart ? "Hide Chart" : "Show Chart"}
+            </button>
+          )}
 
           <button
             type="button"
@@ -876,32 +1022,117 @@ export default function Reports() {
           </button>
         </div>
 
-        <div className="report-column-box">
-          <div className="report-column-title">
-            <Filter size={16} />
-            Columns
-          </div>
+        <div className="report-saved-views">
+          {savedViews.map((view) => (
+            <span key={view.id} className="report-saved-view-chip">
+              <button type="button" onClick={() => applySavedView(view)}>
+                <Bookmark size={13} />
+                {view.name}
+              </button>
+              <button
+                type="button"
+                className="report-saved-view-remove"
+                aria-label={`Delete saved view ${view.name}`}
+                onClick={() => removeSavedView(view.id)}
+              >
+                <Trash2 size={13} />
+              </button>
+            </span>
+          ))}
 
-          <div className="report-column-list">
-            {columns.map((column) => (
-              <label key={column.key} className="report-column-check">
-                <input
-                  type="checkbox"
-                  checked={visibleColumns.includes(column.key)}
-                  onChange={() => toggleColumn(column.key)}
-                />
-                <span>{column.label}</span>
-              </label>
-            ))}
-          </div>
+          {showSaveViewForm ? (
+            <span className="report-saved-view-form">
+              <input
+                type="text"
+                autoFocus
+                placeholder="View name"
+                value={newViewName}
+                onChange={(e) => setNewViewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveCurrentView();
+                  if (e.key === "Escape") setShowSaveViewForm(false);
+                }}
+              />
+              <button type="button" className="light-button" onClick={saveCurrentView}>
+                Save
+              </button>
+              <button
+                type="button"
+                className="light-button"
+                onClick={() => {
+                  setShowSaveViewForm(false);
+                  setNewViewName("");
+                }}
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="light-button"
+              onClick={() => setShowSaveViewForm(true)}
+            >
+              <Bookmark size={14} />
+              Save Current Filters As View
+            </button>
+          )}
         </div>
-
       </section>
+
+      {showChart && chartSource && (
+        <section className="table-panel report-chart-panel">
+          <div className="filter-row sis-filter-row">
+            <div className="form-field">
+              <label>Group By</label>
+              <CustomSelect
+                value={chartDimension}
+                onChange={setChartDimension}
+                options={Object.entries(chartCatalog?.dimensions || {}).map(
+                  ([value, label]) => ({ value, label })
+                )}
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Measure</label>
+              <CustomSelect
+                value={chartMeasure}
+                onChange={setChartMeasure}
+                options={Object.entries(chartCatalog?.measures || {}).map(
+                  ([value, label]) => ({ value, label })
+                )}
+              />
+            </div>
+          </div>
+
+          {chartLoading ? (
+            <div className="loading-box">
+              <span className="spinner" aria-hidden="true" />
+              Loading chart...
+            </div>
+          ) : (
+            <>
+              {chartData && (
+                <p className="report-chart-caption">
+                  {chartData.source_label} by {chartData.dimension_label} &middot;{" "}
+                  {chartData.measure_label}
+                </p>
+              )}
+              <CategoryBarChart
+                data={chartItems}
+                valueFormatter={chartData?.is_currency ? formatCurrency : undefined}
+                emptyText="No data yet for this grouping."
+              />
+            </>
+          )}
+        </section>
+      )}
 
       <ManagedRecordsTable
         count={filteredRecords.length}
         emptyText="No records found."
-        headers={activeColumns.map((column) => column.label)}
+        headers={columns.map((column) => column.label)}
         loading={loading}
         loadingText="Loading report..."
         searchPlaceholder="Search report..."
@@ -910,7 +1141,7 @@ export default function Reports() {
       >
         {filteredRecords.map((record, index) => (
                     <tr key={record.id || index}>
-                      {activeColumns.map((column) => (
+                      {columns.map((column) => (
                         <td key={column.key}>
                           {formatValue(
                             column.key,
