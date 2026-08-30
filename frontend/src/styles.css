@@ -5158,7 +5158,7 @@ textarea {
   height: 40px;
   flex-shrink: 0;
   padding: 0 24px;
-  margin-bottom: -16px;
+  margin-bottom: 0;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
