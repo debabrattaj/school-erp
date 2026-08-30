@@ -417,6 +417,26 @@ input {
   padding: 30px;
   text-align: center;
   color: var(--text-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
 
 /* Responsive */
@@ -963,6 +983,82 @@ input {
 .reports-page .module-filter-panel,
 .report-card-page .module-filter-panel {
   display: block;
+}
+
+.secondary-button.is-active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.report-saved-views {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.report-saved-view-chip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+}
+
+.report-saved-view-chip button {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.report-saved-view-chip button:hover {
+  background: var(--primary-soft);
+}
+
+.report-saved-view-remove {
+  color: var(--text-muted) !important;
+  padding: 6px !important;
+}
+
+.report-saved-view-remove:hover {
+  color: var(--danger-600) !important;
+}
+
+.report-saved-view-form {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.report-saved-view-form input {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  height: 36px;
+  padding: 0 10px;
+}
+
+.report-chart-panel {
+  margin-top: 16px;
+}
+
+.report-chart-caption {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 6px;
 }
 
 .feature-account-badge {
@@ -4766,6 +4862,10 @@ body,
   color: var(--text-muted);
   padding: 18px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .report-card-result-grid {
