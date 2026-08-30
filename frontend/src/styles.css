@@ -1969,11 +1969,20 @@ button {
 
 .login-input input {
   border: none;
-  outline: none;
   background: transparent;
   width: 100%;
   color: var(--text-strong);
   font-size: 15px;
+}
+
+/* Same fix as .topbar-search: the wrapper's :focus-within ring below is
+   the visible focus indicator, so suppress the input's own focus-visible
+   outline -- it has the same specificity as the global input:focus-visible
+   rule, so without this the two rules tie and source order decides, which
+   was letting a second, squared-off outline show inside the rounded
+   wrapper's own outline. */
+.login-input input:focus-visible {
+  outline: none;
 }
 
 .login-button {
@@ -2029,10 +2038,14 @@ button {
   box-sizing: border-box;
 }
 
-.login-textarea:focus,
-.login-input:focus-within {
+.login-textarea:focus {
   outline: 2px solid var(--saas-primary);
   outline-offset: 1px;
+}
+
+.login-input:focus-within {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .login-field-row {
