@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pdf import report_card_pdf
 from app.models import (
+    Attendance,
     ClassExamMapping,
     ClassSubject,
     Exam,
@@ -498,14 +499,34 @@ def create_mark(
     return attach_component_scores(db, new_mark)
 
 
-@router.get("/report-card")
-def report_card(
-    student_id: int,
-    exam_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
-):
-    """Download a PDF report card for a student's exam."""
+REPORT_CARD_TEMPLATES = ("classic", "modern", "compact")
+
+
+def student_attendance_percent(db: Session, student_id: int, academic_year: str | None) -> float | None:
+    """Present / marked, for this student's whole academic year -- same
+    present/total formula the dashboard's school-wide attendance % uses
+    (routes/dashboard.py), just scoped to one student instead of every
+    student on one day. None (not 0) when nothing has been marked yet, so
+    the report card can print "-" instead of a misleading 0%."""
+    query = db.query(Attendance).filter(Attendance.student_id == student_id)
+    if academic_year:
+        query = query.filter(Attendance.academic_year == academic_year)
+
+    total = query.count()
+    if not total:
+        return None
+
+    present = query.filter(Attendance.status == "Present").count()
+    return round((present / total) * 100, 2)
+
+
+def build_report_card_data(db: Session, student_id: int, exam_id: int) -> dict:
+    """Everything a report card shows or prints, computed once. Both the
+    on-screen preview and the downloaded PDF read from this same dict so
+    they can never disagree with each other -- rank, attendance %, the
+    pass/fail verdict and the letter grade all come from here rather than
+    being re-derived (and previously, re-derived *differently*) on each
+    side."""
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -543,6 +564,7 @@ def report_card(
             "obtained": obtained,
             "max": maximum,
             "grade": mark.grade or "-",
+            "remarks": mark.remarks or "",
         })
 
     percentage = (total_obtained / total_max * 100) if total_max else 0.0
@@ -550,6 +572,8 @@ def report_card(
     overall_grade = (
         calculate_grade(total_obtained, total_max, db) if total_max else "-"
     )
+    pass_percentage = settings.pass_percentage or 40
+    result = "Pass" if percentage >= pass_percentage else "Fail"
 
     student_name = (
         f"{student.first_name or ''} {student.last_name or ''}".strip()
@@ -561,27 +585,67 @@ def report_card(
     if section:
         class_label = f"{class_label} - {section}"
 
+    academic_year = marks[0].academic_year or "-"
+
     mark_class_id = marks[0].class_id
     rank_info = (
         compute_exam_ranks(db, exam_id, mark_class_id).get(student_id)
         if mark_class_id is not None else None
     )
 
-    pdf_bytes = report_card_pdf({
+    return {
         "school_name": settings.school_name,
+        "logo_url": settings.logo_url,
         "student_name": student_name,
         "admission_no": student.admission_no,
         "class_label": class_label,
         "exam_name": (exam.exam_name if exam else marks[0].exam_name_snapshot) or "-",
-        "academic_year": marks[0].academic_year or "-",
+        "academic_year": academic_year,
         "rows": rows,
         "total_obtained": total_obtained,
         "total_max": total_max,
         "percentage": percentage,
         "overall_grade": overall_grade,
+        "result": result,
         "rank": rank_info["rank"] if rank_info else None,
         "out_of": rank_info["out_of"] if rank_info else None,
-    })
+        "attendance_percent": student_attendance_percent(
+            db, student_id, academic_year if academic_year != "-" else None
+        ),
+    }
+
+
+@router.get("/report-card-data")
+def report_card_data(
+    student_id: int,
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
+):
+    """The same computed data the PDF is built from, as JSON -- what the
+    on-screen preview renders, so it can never drift from the PDF."""
+    return build_report_card_data(db, student_id, exam_id)
+
+
+@router.get("/report-card")
+def report_card(
+    student_id: int,
+    exam_id: int,
+    template: str = "classic",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
+):
+    """Download a PDF report card for a student's exam."""
+    if template not in REPORT_CARD_TEMPLATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown template '{template}'. Choose one of: {', '.join(REPORT_CARD_TEMPLATES)}",
+        )
+
+    data = build_report_card_data(db, student_id, exam_id)
+    student = db.query(Student).filter(Student.id == student_id).first()
+
+    pdf_bytes = report_card_pdf(data, template=template)
 
     filename = f"report_card_{student.admission_no or student.id}.pdf"
     return StreamingResponse(

@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Printer } from "lucide-react";
 
 import API from "../api";
+import CustomSelect from "../components/CustomSelect";
 import { useSchoolSettings } from "../SettingsContext";
+
+const REPORT_CARD_TEMPLATE_OPTIONS = [
+  { value: "classic", label: "Classic" },
+  { value: "modern", label: "Modern" },
+  { value: "compact", label: "Compact" },
+];
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -54,10 +61,6 @@ function calculatePercentage(obtained, total) {
   return (obtained / total) * 100;
 }
 
-function calculateResult(percentage) {
-  return percentage >= 40 ? "Pass" : "Needs Improvement";
-}
-
 function getComponentScore(mark, componentName) {
   return (mark.component_scores || []).find(
     (score) => score.component_name === componentName
@@ -85,6 +88,13 @@ export default function ReportCard() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
   const [academicYear, setAcademicYear] = useState("");
+  // "" means the school's own default (settings.report_card_template)
+  // still applies; picking one from the dropdown overrides it for this
+  // download only. Derived at render time instead of synced into state via
+  // an effect -- one fewer render, and settings can still arrive after
+  // this component mounts without needing to be "caught" separately.
+  const [templateOverride, setTemplateOverride] = useState("");
+  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -134,23 +144,39 @@ export default function ReportCard() {
     }
   }
 
-  async function loadMarks() {
+  async function loadMarksAndReportData() {
     if (!selectedStudentId || !selectedExamId) {
       setMarks([]);
+      setReportData(null);
       return;
     }
 
     try {
       setLoading(true);
       setMessage("");
-      const response = await API.get("/marks/", {
-        params: {
-          student_id: selectedStudentId,
-          exam_id: selectedExamId,
-          academic_year: academicYear || undefined,
-        },
-      });
-      setMarks(response.data || []);
+
+      // The component-score breakdown table reads the raw marks list; the
+      // totals/grade/result/rank/attendance panel below it reads
+      // report-card-data instead -- the same computation the downloaded
+      // PDF uses, so the two can never disagree with each other the way
+      // this page's own client-side math used to disagree with the PDF.
+      const [marksResponse, reportDataResponse] = await Promise.all([
+        API.get("/marks/", {
+          params: {
+            student_id: selectedStudentId,
+            exam_id: selectedExamId,
+            academic_year: academicYear || undefined,
+          },
+        }),
+        API.get("/marks/report-card-data", {
+          params: { student_id: selectedStudentId, exam_id: selectedExamId },
+        }).catch((error) => {
+          if (error.response?.status === 404) return { data: null };
+          throw error;
+        }),
+      ]);
+      setMarks(marksResponse.data || []);
+      setReportData(reportDataResponse.data);
     } catch (error) {
       console.error(error);
       setMessage(getApiErrorMessage(error, "Unable to load marks for report card."));
@@ -164,8 +190,10 @@ export default function ReportCard() {
   }, []);
 
   useEffect(() => {
-    loadMarks();
+    loadMarksAndReportData();
   }, [selectedStudentId, selectedExamId, academicYear]);
+
+  const template = templateOverride || settings?.report_card_template || "classic";
 
   const selectedStudent = students.find((student) => String(student.id) === String(selectedStudentId));
   const selectedExam = exams.find((exam) => String(exam.id) === String(selectedExamId));
@@ -227,35 +255,6 @@ export default function ReportCard() {
     }
   }, [mappedExamOptions, selectedExamId]);
 
-  const totals = useMemo(() => {
-    const obtained = marks.reduce((sum, mark) => sum + Number(mark.marks_obtained || 0), 0);
-    const maximum = marks.reduce(
-      (sum, mark) => sum + Number(mark.max_marks || mark.total_marks || 0),
-      0
-    );
-    const percentage = calculatePercentage(obtained, maximum);
-
-    return {
-      obtained,
-      maximum,
-      percentage,
-      result: marks.length ? calculateResult(percentage) : "-",
-    };
-  }, [marks]);
-
-  const gradeSummary = useMemo(() => {
-    if (!marks.length) return "-";
-    const failing = marks.some((mark) => {
-      const maxMarks = Number(mark.max_marks || mark.total_marks || 0);
-      return calculatePercentage(Number(mark.marks_obtained || 0), maxMarks) < 40;
-    });
-    if (failing) return "Review Required";
-    if (totals.percentage >= 90) return "Outstanding";
-    if (totals.percentage >= 75) return "Very Good";
-    if (totals.percentage >= 60) return "Good";
-    return "Satisfactory";
-  }, [marks, totals.percentage]);
-
   function handlePrint() {
     window.print();
   }
@@ -267,7 +266,7 @@ export default function ReportCard() {
     }
     try {
       const response = await API.get("/marks/report-card", {
-        params: { student_id: selectedStudentId, exam_id: selectedExamId },
+        params: { student_id: selectedStudentId, exam_id: selectedExamId, template },
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(
@@ -296,7 +295,13 @@ export default function ReportCard() {
         </div>
 
         <div className="module-header-actions">
-          
+          <div className="form-field report-card-template-picker">
+            <CustomSelect
+              value={template}
+              onChange={setTemplateOverride}
+              options={REPORT_CARD_TEMPLATE_OPTIONS}
+            />
+          </div>
           <button type="button" className="secondary-button" onClick={handleDownloadPdf}>
             <Download size={18} />
             Download PDF
@@ -348,7 +353,7 @@ export default function ReportCard() {
         </div>
       </section>
 
-      <section className="report-card-paper print-area">
+      <section className={`report-card-paper print-area template-${template}`}>
         <header className="report-card-header">
           <div className="school-logo-box">
             {settings?.logo_url ? <img src={settings.logo_url} alt="School logo" /> : <FileText size={34} />}
@@ -465,10 +470,10 @@ export default function ReportCard() {
                         </td>
                       );
                     })}
-                    <td>{formatScore(totals.obtained)}</td>
-                    <td>{formatScore(totals.maximum)}</td>
-                    <td>{totals.percentage.toFixed(2)}%</td>
-                    <td colSpan="2">{totals.result}</td>
+                    <td>{formatScore(reportData?.total_obtained ?? 0)}</td>
+                    <td>{formatScore(reportData?.total_max ?? 0)}</td>
+                    <td>{(reportData?.percentage ?? 0).toFixed(2)}%</td>
+                    <td colSpan="2">{reportData?.result || "-"}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -478,20 +483,30 @@ export default function ReportCard() {
               <div>
                 <span>Total Marks</span>
                 <strong>
-                  {formatScore(totals.obtained)} / {formatScore(totals.maximum)}
+                  {formatScore(reportData?.total_obtained ?? 0)} / {formatScore(reportData?.total_max ?? 0)}
                 </strong>
               </div>
               <div>
                 <span>Percentage</span>
-                <strong>{totals.percentage.toFixed(2)}%</strong>
+                <strong>{(reportData?.percentage ?? 0).toFixed(2)}%</strong>
+              </div>
+              <div>
+                <span>Overall Grade</span>
+                <strong>{reportData?.overall_grade || "-"}</strong>
               </div>
               <div>
                 <span>Result</span>
-                <strong>{totals.result}</strong>
+                <strong>{reportData?.result || "-"}</strong>
               </div>
               <div>
-                <span>Performance</span>
-                <strong>{gradeSummary}</strong>
+                <span>Class Rank</span>
+                <strong>{reportData?.rank ? `${reportData.rank} of ${reportData.out_of}` : "-"}</strong>
+              </div>
+              <div>
+                <span>Attendance</span>
+                <strong>
+                  {reportData?.attendance_percent != null ? `${reportData.attendance_percent.toFixed(2)}%` : "-"}
+                </strong>
               </div>
             </div>
           </>

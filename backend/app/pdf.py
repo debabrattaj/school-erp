@@ -206,19 +206,72 @@ def payslip_pdf(data: dict) -> bytes:
     return buf.getvalue()
 
 
-def report_card_pdf(data: dict) -> bytes:
-    """Render an academic report card to PDF bytes.
+GRADE_BADGE_COLORS = {
+    "A+": "#15803d", "A": "#16a34a",
+    "B": "#2563eb", "B+": "#2563eb",
+    "C": "#d97706", "C+": "#d97706",
+    "D": "#ea580c",
+    "F": "#dc2626",
+}
 
-    Expected keys: school_name, student_name, admission_no, class_label,
-    exam_name, academic_year, rows (list of {subject, obtained, max, grade}),
-    total_obtained, total_max, percentage, overall_grade.
+
+def _grade_badge_color(grade: str):
+    return colors.HexColor(GRADE_BADGE_COLORS.get((grade or "").strip().upper(), "#475569"))
+
+
+def _report_card_facts(data: dict) -> list[tuple[str, str]]:
+    """(label, value) pairs shown below the subject table on every
+    template -- rank/attendance/result alongside the grade, so a school
+    switching templates never loses information, only presentation."""
+    facts = [
+        ("Total", f"{data.get('total_obtained', 0):g} / {data.get('total_max', 0):g}"),
+        ("Percentage", f"{data.get('percentage', 0):.2f}%"),
+        ("Overall Grade", str(data.get("overall_grade") or "-")),
+        ("Result", str(data.get("result") or "-")),
+    ]
+    if data.get("rank") and data.get("out_of"):
+        facts.append(("Class Rank", f"{data['rank']} of {data['out_of']}"))
+    if data.get("attendance_percent") is not None:
+        facts.append(("Attendance", f"{data['attendance_percent']:.2f}%"))
+    return facts
+
+
+def report_card_pdf(data: dict, template: str = "classic") -> bytes:
+    """Render an academic report card to PDF bytes, in one of three built-in
+    layouts a school can choose between (SchoolSettings.report_card_template,
+    or overridden per download).
+
+    Expected keys: school_name, logo_url, student_name, admission_no,
+    class_label, exam_name, academic_year, rows (list of {subject, obtained,
+    max, grade, remarks}), total_obtained, total_max, percentage,
+    overall_grade, result, rank, out_of, attendance_percent.
     """
+    renderers = {
+        "classic": _report_card_classic,
+        "modern": _report_card_modern,
+        "compact": _report_card_compact,
+    }
+    renderer = renderers.get(template, _report_card_classic)
+    return renderer(data)
+
+
+def _report_card_classic(data: dict) -> bytes:
+    """A tidied-up version of this app's original report card: centered
+    school name, a thin rule, dark-header subject table. Familiar and
+    conservative -- the safe default."""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
     left = 20 * mm
     right = width - 20 * mm
     y = height - 25 * mm
+
+    # Logo (if any) sits top-left; the heading still centers on the full
+    # page width rather than the remaining space, so it stays visually
+    # centered whether or not a school has uploaded a logo.
+    logo_url = data.get("logo_url")
+    if logo_url:
+        _draw_image_safe(c, logo_url, left, y - 8 * mm, 18 * mm, 18 * mm)
 
     c.setFont("Helvetica-Bold", 18)
     c.drawCentredString(width / 2, y, data.get("school_name") or "School")
@@ -239,24 +292,24 @@ def report_card_pdf(data: dict) -> bytes:
     c.drawString(left, y, f"Exam: {data.get('exam_name') or '-'}")
     y -= 8 * mm
 
-    # Subjects table
-    table_data = [["Subject", "Marks", "Max", "Grade"]]
+    table_data = [["Subject", "Marks", "Max", "Grade", "Remarks"]]
     for row in data.get("rows", []):
         table_data.append([
             str(row.get("subject") or "-"),
             f"{float(row.get('obtained') or 0):g}",
             f"{float(row.get('max') or 0):g}",
             str(row.get("grade") or "-"),
+            str(row.get("remarks") or ""),
         ])
 
-    col_widths = [right - left - 3 * 30 * mm, 30 * mm, 30 * mm, 30 * mm]
+    col_widths = [right - left - 3 * 25 * mm - 45 * mm, 25 * mm, 25 * mm, 25 * mm, 45 * mm]
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#25324b")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("ALIGN", (1, 0), (3, -1), "CENTER"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -266,17 +319,179 @@ def report_card_pdf(data: dict) -> bytes:
     table.drawOn(c, left, y - th)
     y = y - th - 10 * mm
 
-    # Totals
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(left, y, f"Total: {data.get('total_obtained', 0):g} / {data.get('total_max', 0):g}")
-    c.drawRightString(right, y, f"Percentage: {data.get('percentage', 0):.2f}%")
-    y -= 7 * mm
-    c.drawString(left, y, f"Overall Grade: {data.get('overall_grade') or '-'}")
-    if data.get("rank") and data.get("out_of"):
-        c.drawRightString(right, y, f"Class Rank: {data['rank']} of {data['out_of']}")
+    facts = _report_card_facts(data)
+    for i, (label, value) in enumerate(facts):
+        if i % 2 == 0:
+            c.drawString(left, y, f"{label}: {value}")
+        else:
+            c.drawRightString(right, y, f"{label}: {value}")
+            y -= 7 * mm
+    if len(facts) % 2:
+        y -= 7 * mm
 
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(left, 20 * mm, "This is a computer-generated report card.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def _report_card_modern(data: dict) -> bytes:
+    """A solid brand-colored header band with the school identity in white,
+    plus color-coded grade badges per subject -- closer to a modern SaaS
+    product's document styling than the original plain layout."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 20 * mm
+    right = width - 20 * mm
+    brand = colors.HexColor("#3461c1")
+
+    band_height = 42 * mm
+    c.setFillColor(brand)
+    c.rect(0, height - band_height, width, band_height, stroke=0, fill=1)
+
+    logo_url = data.get("logo_url")
+    text_left = left
+    if logo_url and _draw_image_safe(c, logo_url, left, height - band_height + 10 * mm, 20 * mm, 20 * mm):
+        text_left = left + 26 * mm
+
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(text_left, height - 16 * mm, data.get("school_name") or "School")
+    c.setFont("Helvetica", 10)
+    c.drawString(text_left, height - 22 * mm, "Report Card")
+    c.setFont("Helvetica", 9)
+    c.drawString(text_left, height - 30 * mm, f"{data.get('student_name') or '-'}  ·  {data.get('class_label') or '-'}")
+    c.drawRightString(right, height - 16 * mm, f"Admission No: {data.get('admission_no') or '-'}")
+    c.drawRightString(right, height - 22 * mm, f"Academic Year: {data.get('academic_year') or '-'}")
+    c.drawRightString(right, height - 30 * mm, f"Exam: {data.get('exam_name') or '-'}")
+
+    y = height - band_height - 10 * mm
+
+    table_data = [["Subject", "Marks", "Max", "Grade", "Remarks"]]
+    grade_col = 3
+    for row in data.get("rows", []):
+        table_data.append([
+            str(row.get("subject") or "-"),
+            f"{float(row.get('obtained') or 0):g}",
+            f"{float(row.get('max') or 0):g}",
+            str(row.get("grade") or "-"),
+            str(row.get("remarks") or ""),
+        ])
+
+    col_widths = [right - left - 3 * 25 * mm - 45 * mm, 25 * mm, 25 * mm, 25 * mm, 45 * mm]
+    table = Table(table_data, colWidths=col_widths)
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), brand),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (grade_col, 1), (grade_col, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (1, 0), (3, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dbe3ef")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f6fc")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]
+    for i, row in enumerate(data.get("rows", []), start=1):
+        style.append(("TEXTCOLOR", (grade_col, i), (grade_col, i), _grade_badge_color(row.get("grade"))))
+    table.setStyle(TableStyle(style))
+    tw, th = table.wrap(right - left, y)
+    table.drawOn(c, left, y - th)
+    y = y - th - 10 * mm
+
+    facts = _report_card_facts(data)
+    chip_w = (right - left - (len(facts) - 1) * 4 * mm) / len(facts)
+    x = left
+    for label, value in facts:
+        c.setFillColor(colors.HexColor("#f4f6fc"))
+        c.roundRect(x, y - 14 * mm, chip_w, 14 * mm, 3 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor("#64748b"))
+        c.setFont("Helvetica", 7)
+        c.drawCentredString(x + chip_w / 2, y - 6 * mm, label.upper())
+        c.setFillColor(colors.HexColor("#0f172a"))
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(x + chip_w / 2, y - 11.5 * mm, value)
+        x += chip_w + 4 * mm
+
+    c.setFillColor(colors.HexColor("#64748b"))
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(left, 15 * mm, "This is a computer-generated report card.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def _report_card_compact(data: dict) -> bytes:
+    """Smaller fonts and tighter spacing throughout -- for schools that
+    want a subject list with many rows (weighted components, electives) to
+    still fit on a single page instead of spilling to a second."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left = 16 * mm
+    right = width - 16 * mm
+    y = height - 16 * mm
+
+    logo_url = data.get("logo_url")
+    text_left = left
+    if logo_url and _draw_image_safe(c, logo_url, left, y - 12 * mm, 12 * mm, 12 * mm):
+        text_left = left + 15 * mm
+
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(text_left, y, data.get("school_name") or "School")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(right, y, "Report Card")
+    y -= 5 * mm
+    c.line(left, y, right, y)
+    y -= 5 * mm
+
+    c.setFont("Helvetica", 8)
+    c.drawString(
+        left, y,
+        f"{data.get('student_name') or '-'}  |  Adm No: {data.get('admission_no') or '-'}  |  "
+        f"Class: {data.get('class_label') or '-'}  |  {data.get('academic_year') or '-'}  |  "
+        f"{data.get('exam_name') or '-'}",
+    )
+    y -= 6 * mm
+
+    table_data = [["Subject", "Marks", "Max", "Grade", "Remarks"]]
+    for row in data.get("rows", []):
+        table_data.append([
+            str(row.get("subject") or "-"),
+            f"{float(row.get('obtained') or 0):g}",
+            f"{float(row.get('max') or 0):g}",
+            str(row.get("grade") or "-"),
+            str(row.get("remarks") or ""),
+        ])
+
+    col_widths = [right - left - 3 * 18 * mm - 35 * mm, 18 * mm, 18 * mm, 18 * mm, 35 * mm]
+    table = Table(table_data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (1, 0), (3, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+    ]))
+    tw, th = table.wrap(right - left, y)
+    table.drawOn(c, left, y - th)
+    y = y - th - 6 * mm
+
+    c.setFont("Helvetica-Bold", 9)
+    facts = _report_card_facts(data)
+    c.drawString(left, y, "   |   ".join(f"{label}: {value}" for label, value in facts))
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawString(left, 12 * mm, "This is a computer-generated report card.")
 
     c.showPage()
     c.save()

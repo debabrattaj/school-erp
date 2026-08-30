@@ -103,6 +103,7 @@ class SchoolSettingsBase(BaseModel):
     grade_rules: Optional[str] = (
         "A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
     )
+    report_card_template: Optional[str] = "classic"
 
 
 class SchoolSettingsUpdate(SchoolSettingsBase):
