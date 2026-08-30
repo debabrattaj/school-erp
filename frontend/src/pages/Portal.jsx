@@ -12,7 +12,7 @@ import { TrendArea, CollectionMeter } from "../components/DashboardCharts";
 // the tab alone would leave the endpoints reachable.
 const TABS = [
   ["summary", "Summary"],
-  ["dashboard", "Dashboard"],
+  ["performance", "Performance"],
   ["attendance", "Attendance"],
   ["marks", "Marks"],
   ["fees", "Fees"],
@@ -975,7 +975,7 @@ export default function Portal() {
             </div>
           )}
 
-          {!loading && activeTab === "dashboard" && dashboardLayoutLoaded && (
+          {!loading && activeTab === "performance" && dashboardLayoutLoaded && (
             <>
               <div className="builder-grid">
                 {dashboardWidgets.map((widget) => {
