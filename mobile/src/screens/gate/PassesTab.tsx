@@ -17,6 +17,8 @@ import {
 } from "../../components/Common";
 import { TimePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 import { todayISO } from "../../utils/dates";
 
@@ -56,6 +58,13 @@ const emptyForm = { passType: "Student" as "Student" | "Staff", person: null as 
 
 
 export default function PassesTab() {
+  const { user } = useAuth();
+  // Releasing someone through the gate and recording their return are desk-only
+  // on the backend. Raising, approving, rejecting and cancelling a pass are not
+  // — a class teacher authorizing their own student to leave is ordinary — so
+  // only the two desk actions are gated here.
+  const canWorkDesk = canAdminister(user, "gate_register");
+
   const [stillOut, setStillOut] = useState(true);
   const [passes, setPasses] = useState<GatePass[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +144,13 @@ export default function PassesTab() {
 
   async function submitRelease() {
     if (!releasing) return;
+    // The backend refuses a student release with no named collector. Catching
+    // it here keeps the sheet open with the field to fill in, instead of
+    // closing onto an error alert.
+    if (releasing.pass_type === "Student" && !release.name.trim()) {
+      Alert.alert("Collector required", "Enter who is collecting this student before releasing them.");
+      return;
+    }
     setReleaseSaving(true);
     try {
       await api.post(`/gate/passes/${releasing.id}/release`, {
@@ -253,10 +269,10 @@ export default function PassesTab() {
                 <SecondaryButton title="Reject" onPress={() => setDecision({ pass: item, kind: "reject" })} style={{ flex: 1 }} />
               </Row>
             ) : null}
-            {item.status === "Approved" ? (
+            {canWorkDesk && item.status === "Approved" ? (
               <SecondaryButton title="Release" onPress={() => setReleasing(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
-            {item.status === "Out" ? (
+            {canWorkDesk && item.status === "Out" ? (
               <SecondaryButton title="Record return" onPress={() => recordReturn(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
             {item.status === "Requested" || item.status === "Approved" ? (

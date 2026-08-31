@@ -77,13 +77,16 @@ export function canViewModule(
 }
 
 /**
- * Can this user take an approver-only action (approving leave, signing off a
- * lesson plan)? The backend restricts these to Admin and Principal by name for
- * built-in roles, and to the feature's `manage` grant for custom roles — so
+ * Can this user take a senior action on a feature — approving leave, signing
+ * off a lesson plan, working the gate desk?
+ *
+ * Every one of those routes restricts built-in roles to Admin and Principal by
+ * name, and authorizes custom roles by the feature's `manage` grant, so
  * checking either one alone gets a class of user wrong. Hardcoding the two role
- * names, as this app did, locked every custom role out of work it is granted.
+ * names, as this app did, locked every custom role out of work it is granted;
+ * checking the grant alone would offer Teachers buttons the backend refuses.
  */
-export function canApprove(
+export function canAdminister(
   user: { role?: Role; permissions?: PermissionMap } | null | undefined,
   feature: string
 ) {

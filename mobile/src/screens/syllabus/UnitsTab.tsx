@@ -16,7 +16,7 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
-import { canApprove as canApproveFor } from "../../auth/types";
+import { canAdminister } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 
 interface Topic {
@@ -56,7 +56,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
   // Not a hardcoded role pair: the backend restricts this to Admin and
   // Principal by name for built-in roles, but authorizes custom roles by
   // their "syllabus" manage grant — which the old check locked out.
-  const canDelete = canApproveFor(user, "syllabus");
+  const canDelete = canAdminister(user, "syllabus");
 
   const [units, setUnits] = useState<Unit[] | null>(null);
   const [error, setError] = useState<string | null>(null);

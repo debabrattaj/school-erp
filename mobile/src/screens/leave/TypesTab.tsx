@@ -15,7 +15,7 @@ import {
   SecondaryButton,
 } from "../../components/Common";
 import { useAuth } from "../../auth/AuthContext";
-import { canApprove as canApproveFor } from "../../auth/types";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -36,7 +36,7 @@ export default function TypesTab() {
   // Not a hardcoded role pair: the backend restricts this to Admin and
   // Principal by name for built-in roles, but authorizes custom roles by
   // their "staff_leave" manage grant — which the old check locked out.
-  const canManage = canApproveFor(user, "staff_leave");
+  const canManage = canAdminister(user, "staff_leave");
 
   const [types, setTypes] = useState<LeaveType[] | null>(null);
   const [error, setError] = useState<string | null>(null);

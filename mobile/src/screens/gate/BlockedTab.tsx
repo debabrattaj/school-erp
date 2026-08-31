@@ -15,6 +15,8 @@ import {
   Row,
   SecondaryButton,
 } from "../../components/Common";
+import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface Blocked {
@@ -31,6 +33,11 @@ interface Blocked {
 const emptyForm = { name: "", phone: "", idProof: "", reason: "" };
 
 export default function BlockedTab() {
+  const { user } = useAuth();
+  // Blocking someone and lifting a block are desk-only on the backend; readers
+  // (Teachers) can see the list but not change it.
+  const canWorkDesk = canAdminister(user, "gate_register");
+
   const [includeLifted, setIncludeLifted] = useState(false);
   const [blocked, setBlocked] = useState<Blocked[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +130,7 @@ export default function BlockedTab() {
               </Text>
             </View>
 
-            {adding ? (
+            {!canWorkDesk ? null : adding ? (
               <Card style={{ marginBottom: spacing(3) }}>
                 <Field label="Name" required>
                   <AppTextInput value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Full name" />
@@ -160,7 +167,9 @@ export default function BlockedTab() {
             {item.lifted_note ? <Text style={styles.decisionNote}>Lift note: {item.lifted_note}</Text> : null}
 
             {item.is_active ? (
-              <SecondaryButton title="Lift block" onPress={() => setLifting(item)} style={{ marginTop: spacing(3) }} />
+              canWorkDesk ? (
+                <SecondaryButton title="Lift block" onPress={() => setLifting(item)} style={{ marginTop: spacing(3) }} />
+              ) : null
             ) : null}
           </Card>
         )}
