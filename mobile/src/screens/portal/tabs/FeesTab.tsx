@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Linking, StyleSheet, Text, View } from "react-native";
+import { FlatList, Linking, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../../api/client";
 import { AppTextInput, Badge, Card, EmptyView, ErrorView, LoadingView, PrimaryButton, SecondaryButton } from "../../../components/Common";
@@ -41,7 +42,7 @@ export default function FeesTab({ studentId }: { studentId: number }) {
     try {
       details = await api.get<UpiPaymentDetails>(`/portal/students/${studentId}/fees/${fee.id}/payment/upi`);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not start payment.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not start payment.");
       return;
     }
 
@@ -52,7 +53,7 @@ export default function FeesTab({ studentId }: { studentId: number }) {
     try {
       await Linking.openURL(details.uri);
     } catch {
-      Alert.alert(
+      showAlert(
         "No UPI app found",
         "Install a UPI app (Google Pay, PhonePe, Paytm) to pay, or pay at the school office."
       );
@@ -67,7 +68,7 @@ export default function FeesTab({ studentId }: { studentId: number }) {
 
   async function confirmPayment(feeId: number) {
     if (!utr.trim()) {
-      Alert.alert("Reference required", "Enter the UPI transaction reference (UTR) after paying.");
+      showAlert("Reference required", "Enter the UPI transaction reference (UTR) after paying.");
       return;
     }
     setConfirming(true);
@@ -76,9 +77,9 @@ export default function FeesTab({ studentId }: { studentId: number }) {
       setPayingFeeId(null);
       setUtr("");
       await load();
-      Alert.alert("Submitted", "Payment reference recorded. The school will verify it shortly.");
+      showAlert("Submitted", "Payment reference recorded. The school will verify it shortly.");
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not confirm payment.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not confirm payment.");
     } finally {
       setConfirming(false);
     }

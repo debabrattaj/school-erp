@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { ApiError, api, fetchRecord } from "../../api/client";
 import { ModuleConfig, FormFieldConfig } from "../../modules/types";
 import { AppTextInput, Field, LoadingView, PrimaryButton } from "../../components/Common";
@@ -277,7 +278,7 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
   async function handleSave() {
     const missing = config.formFields.filter((f) => f.required && !values[f.key]?.trim());
     if (missing.length) {
-      Alert.alert("Missing fields", `Please fill: ${missing.map((f) => f.label).join(", ")}`);
+      showAlert("Missing fields", `Please fill: ${missing.map((f) => f.label).join(", ")}`);
       return;
     }
 
@@ -288,7 +289,7 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
       (f) => (f.type === "number" || f.type === "reference") && (values[f.key] ?? "") !== "" && !Number.isFinite(Number(values[f.key]))
     );
     if (notNumeric.length) {
-      Alert.alert("Invalid number", `These need to be numbers: ${notNumeric.map((f) => f.label).join(", ")}`);
+      showAlert("Invalid number", `These need to be numbers: ${notNumeric.map((f) => f.label).join(", ")}`);
       return;
     }
 

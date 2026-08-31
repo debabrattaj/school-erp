@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -77,23 +78,23 @@ export default function PayrollScreen() {
   async function generate() {
     const yearNum = Number(year);
     if (!yearNum) {
-      Alert.alert("Invalid year", "Enter a four-digit year.");
+      showAlert("Invalid year", "Enter a four-digit year.");
       return;
     }
     setGenerating(true);
     try {
       await api.post("/payroll/generate", { month, year: yearNum });
       await load();
-      Alert.alert("Generated", `Payslips created for ${MONTHS[month - 1]} ${year}.`);
+      showAlert("Generated", `Payslips created for ${MONTHS[month - 1]} ${year}.`);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not generate payroll.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not generate payroll.");
     } finally {
       setGenerating(false);
     }
   }
 
   function markPaid(slip: Payslip) {
-    Alert.alert("Mark as paid?", `${slip.teacher_name_snapshot || "Teacher"} — net ₹${slip.net_pay}`, [
+    showAlert("Mark as paid?", `${slip.teacher_name_snapshot || "Teacher"} — net ₹${slip.net_pay}`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Mark paid",
@@ -104,7 +105,7 @@ export default function PayrollScreen() {
             });
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not update payslip.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not update payslip.");
           }
         },
       },

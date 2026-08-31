@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -66,7 +67,7 @@ export default function TypesTab() {
 
   async function createType() {
     if (!form.code.trim() || !form.name.trim()) {
-      Alert.alert("Missing details", "Code and name are required.");
+      showAlert("Missing details", "Code and name are required.");
       return;
     }
     setSaving(true);
@@ -80,7 +81,7 @@ export default function TypesTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not create",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

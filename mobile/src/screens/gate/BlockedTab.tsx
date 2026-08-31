@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -69,11 +70,11 @@ export default function BlockedTab() {
 
   async function submitBlock() {
     if (!form.name.trim() || !form.reason.trim()) {
-      Alert.alert("Missing details", "Name and reason are required.");
+      showAlert("Missing details", "Name and reason are required.");
       return;
     }
     if (!form.phone.trim() && !form.idProof.trim()) {
-      Alert.alert("Missing details", "A phone number or ID number is required to match this person at the gate.");
+      showAlert("Missing details", "A phone number or ID number is required to match this person at the gate.");
       return;
     }
     setSaving(true);
@@ -87,7 +88,7 @@ export default function BlockedTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not add block",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -104,7 +105,7 @@ export default function BlockedTab() {
       setLifting(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not lift this block.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not lift this block.");
     } finally {
       setLiftLoading(false);
     }

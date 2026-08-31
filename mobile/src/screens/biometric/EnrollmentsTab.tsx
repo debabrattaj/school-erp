@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, Row, SecondaryButton } from "../../components/Common";
@@ -78,7 +79,7 @@ export default function EnrollmentsTab() {
 
   async function submit() {
     if (!form.deviceUserId.trim() || !form.person) {
-      Alert.alert("Missing details", "Provide the device user id and pick a person.");
+      showAlert("Missing details", "Provide the device user id and pick a person.");
       return;
     }
     setSaving(true);
@@ -91,14 +92,14 @@ export default function EnrollmentsTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert("Could not enroll", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not enroll", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
   }
 
   function remove(row: Enrollment) {
-    Alert.alert("Remove this enrollment?", row.device_user_id, [
+    showAlert("Remove this enrollment?", row.device_user_id, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -108,7 +109,7 @@ export default function EnrollmentsTab() {
             await api.delete(`/biometric/enrollments/${row.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this enrollment.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this enrollment.");
           }
         },
       },

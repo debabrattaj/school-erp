@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, View, StyleSheet } from "react-native";
+import { ScrollView, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, Field, PrimaryButton, Row, SectionLabel } from "../../components/Common";
 import { OptionPicker } from "../../components/Pickers";
@@ -82,11 +83,11 @@ export default function SendTab() {
 
   function confirmSend() {
     if (!form.className.trim()) {
-      Alert.alert("Missing details", "A class is required.");
+      showAlert("Missing details", "A class is required.");
       return;
     }
     if (!form.category.trim() || !form.messageBody.trim()) {
-      Alert.alert("Missing details", "Category and message are required.");
+      showAlert("Missing details", "Category and message are required.");
       return;
     }
     // This fans a real WhatsApp/SMS/email out to every guardian in the class and
@@ -94,7 +95,7 @@ export default function SendTab() {
     const audience = form.section.trim()
       ? `class ${form.className.trim()} section ${form.section.trim()}`
       : `every section of class ${form.className.trim()}`;
-    Alert.alert(
+    showAlert(
       "Send this message?",
       `It will go out by ${form.channel} to the guardians of ${audience}. This cannot be undone.`,
       [
@@ -118,7 +119,7 @@ export default function SendTab() {
       });
       setResult(res);
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not send",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

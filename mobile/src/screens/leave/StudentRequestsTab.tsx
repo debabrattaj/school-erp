@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, PromptModal, Row, SecondaryButton } from "../../components/Common";
@@ -80,7 +81,7 @@ export default function StudentRequestsTab() {
       setDecision(null);
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not update",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

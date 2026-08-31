@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
@@ -144,7 +145,7 @@ export default function AttendanceScreen() {
   async function saveAll() {
     const entries = Object.entries(pending);
     if (!entries.length) {
-      Alert.alert("Nothing to save", "Pick a status for at least one student.");
+      showAlert("Nothing to save", "Pick a status for at least one student.");
       return;
     }
     setSaving(true);
@@ -156,9 +157,9 @@ export default function AttendanceScreen() {
       });
       setPending({});
       await loadRoster();
-      Alert.alert("Saved", `Attendance recorded for ${entries.length} student${entries.length === 1 ? "" : "s"}.`);
+      showAlert("Saved", `Attendance recorded for ${entries.length} student${entries.length === 1 ? "" : "s"}.`);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not save attendance.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not save attendance.");
     } finally {
       setSaving(false);
     }

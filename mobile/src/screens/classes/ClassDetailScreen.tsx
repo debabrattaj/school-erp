@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
+import { FlatList, Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
@@ -220,7 +221,7 @@ function SubjectsTab({ classId }: { classId: number }) {
 
   async function submit() {
     if (!form.subject) {
-      Alert.alert("Missing details", "Choose a subject.");
+      showAlert("Missing details", "Choose a subject.");
       return;
     }
     setSaving(true);
@@ -237,14 +238,14 @@ function SubjectsTab({ classId }: { classId: number }) {
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add subject", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add subject", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
   }
 
   function remove(m: ClassSubject) {
-    Alert.alert("Remove this subject?", m.subject_name || "", [
+    showAlert("Remove this subject?", m.subject_name || "", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -254,7 +255,7 @@ function SubjectsTab({ classId }: { classId: number }) {
             await api.delete(`/class-subjects/${m.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this subject.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this subject.");
           }
         },
       },
@@ -369,7 +370,7 @@ function ExamsTab({ classId }: { classId: number }) {
 
   async function submit() {
     if (!form.exam) {
-      Alert.alert("Missing details", "Choose an exam.");
+      showAlert("Missing details", "Choose an exam.");
       return;
     }
     setSaving(true);
@@ -385,14 +386,14 @@ function ExamsTab({ classId }: { classId: number }) {
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add exam", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add exam", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
   }
 
   function remove(m: ClassExamMapping) {
-    Alert.alert("Remove this exam mapping?", examNames[m.exam_id] || "", [
+    showAlert("Remove this exam mapping?", examNames[m.exam_id] || "", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -402,7 +403,7 @@ function ExamsTab({ classId }: { classId: number }) {
             await api.delete(`/class-exam-mappings/${m.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this mapping.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this mapping.");
           }
         },
       },

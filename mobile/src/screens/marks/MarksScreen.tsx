@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -178,17 +179,17 @@ export default function MarksScreen() {
   async function saveAll() {
     const total = Number(maxMarks);
     if (!selectedExam || !subject) {
-      Alert.alert("Missing info", "Select an exam and a subject.");
+      showAlert("Missing info", "Select an exam and a subject.");
       return;
     }
     if (!Number.isFinite(total) || total <= 0) {
-      Alert.alert("Invalid total", "Max marks must be a number greater than zero.");
+      showAlert("Invalid total", "Max marks must be a number greater than zero.");
       return;
     }
 
     const entries = Object.entries(pending).filter(([, v]) => v.trim() !== "");
     if (!entries.length) {
-      Alert.alert("Nothing to save", "Enter marks for at least one student.");
+      showAlert("Nothing to save", "Enter marks for at least one student.");
       return;
     }
 
@@ -199,7 +200,7 @@ export default function MarksScreen() {
       return !Number.isFinite(n) || n < 0 || n > total;
     });
     if (invalid.length) {
-      Alert.alert(
+      showAlert(
         "Marks out of range",
         `${invalid.length} entr${invalid.length === 1 ? "y is" : "ies are"} not a number between 0 and ${total}.`
       );
@@ -238,12 +239,12 @@ export default function MarksScreen() {
     await loadSheet();
 
     if (failures.length) {
-      Alert.alert(
+      showAlert(
         `Saved ${entries.length - failures.length} of ${entries.length}`,
         failures.slice(0, 6).join("\n") + (failures.length > 6 ? `\n…and ${failures.length - 6} more.` : "")
       );
     } else {
-      Alert.alert("Saved", `Marks recorded for ${entries.length} student${entries.length === 1 ? "" : "s"}.`);
+      showAlert("Saved", `Marks recorded for ${entries.length} student${entries.length === 1 ? "" : "s"}.`);
     }
   }
 

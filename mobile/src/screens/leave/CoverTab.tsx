@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, Row, SecondaryButton } from "../../components/Common";
@@ -85,7 +86,7 @@ export default function CoverTab() {
       setCandidateSlot(null);
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not assign",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -99,7 +100,7 @@ export default function CoverTab() {
       await api.post(`/leave/cover/${slot.id}/unassign`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not unassign this slot.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not unassign this slot.");
     }
   }
 

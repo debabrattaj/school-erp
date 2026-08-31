@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -59,7 +60,7 @@ export default function DevicesTab() {
 
   async function submit() {
     if (!form.name.trim() || !form.serialNumber.trim()) {
-      Alert.alert("Missing details", "Name and serial number are required.");
+      showAlert("Missing details", "Name and serial number are required.");
       return;
     }
     setSaving(true);
@@ -76,7 +77,7 @@ export default function DevicesTab() {
       setFreshToken({ device: created.name, token: created.auth_token });
       await load();
     } catch (e) {
-      Alert.alert("Could not add device", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add device", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
@@ -85,7 +86,7 @@ export default function DevicesTab() {
   function rotateToken(device: Device) {
     // Rotating invalidates the credential the terminal is using right now, so a
     // mis-tap takes a gate offline until someone walks over with the new token.
-    Alert.alert(
+    showAlert(
       "Rotate this device's token?",
       `${device.name} will stop being accepted until the new token is entered on the device itself.`,
       [
@@ -100,7 +101,7 @@ export default function DevicesTab() {
               );
               setFreshToken({ device: device.name, token: updated.auth_token });
             } catch (e) {
-              Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not rotate this device's token.");
+              showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not rotate this device's token.");
             }
           },
         },
@@ -113,12 +114,12 @@ export default function DevicesTab() {
       await api.put(`/biometric/devices/${device.id}`, { is_active: !device.is_active });
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not update this device.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not update this device.");
     }
   }
 
   function remove(device: Device) {
-    Alert.alert("Delete this device?", device.name, [
+    showAlert("Delete this device?", device.name, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -128,7 +129,7 @@ export default function DevicesTab() {
             await api.delete(`/biometric/devices/${device.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not delete this device.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not delete this device.");
           }
         },
       },

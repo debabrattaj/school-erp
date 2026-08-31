@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { api, ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { hasAccess } from "../../auth/types";
@@ -89,7 +90,7 @@ export default function SearchScreen({ navigation }: { navigation: any }) {
   function open(result: SearchResult) {
     const route = routeFor(result);
     if (!route) {
-      Alert.alert("No access", `Your role cannot open ${result.group.toLowerCase()} records.`);
+      showAlert("No access", `Your role cannot open ${result.group.toLowerCase()} records.`);
       return;
     }
     navigation.navigate(route.drawer, { screen: route.detail, params: { id: result.id } });

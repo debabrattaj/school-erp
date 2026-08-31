@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
@@ -91,7 +92,7 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
 
     if (badNumbers.length) {
       setSaving(false);
-      Alert.alert("Invalid number", `These need to be numbers: ${badNumbers.join(", ")}`);
+      showAlert("Invalid number", `These need to be numbers: ${badNumbers.join(", ")}`);
       return;
     }
 
@@ -100,9 +101,9 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       // The academic year is memoised for the class-subject and class-exam
       // forms; editing it here has to invalidate that copy.
       invalidateAcademicYear();
-      Alert.alert("Saved", "School settings updated.");
+      showAlert("Saved", "School settings updated.");
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not save settings.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not save settings.");
     } finally {
       setSaving(false);
     }

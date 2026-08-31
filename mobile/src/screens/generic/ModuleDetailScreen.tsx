@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { ApiError, api, fetchRecord } from "../../api/client";
 import { ModuleConfig } from "../../modules/types";
@@ -41,7 +42,7 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
   }, [load]);
 
   function handleDelete() {
-    Alert.alert(`Delete ${singular(config.title).toLowerCase()}?`, "This cannot be undone.", [
+    showAlert(`Delete ${singular(config.title).toLowerCase()}?`, "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -51,7 +52,7 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
             await api.delete(`${config.endpoint}/${id}`);
             navigation.goBack();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not delete.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not delete.");
           }
         },
       },

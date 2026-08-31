@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -103,7 +104,7 @@ export default function PassesTab() {
 
   async function submitPass() {
     if (!form.person) {
-      Alert.alert("Missing details", `Choose a ${form.passType === "Staff" ? "staff member" : "student"}.`);
+      showAlert("Missing details", `Choose a ${form.passType === "Staff" ? "staff member" : "student"}.`);
       return;
     }
     setSaving(true);
@@ -119,7 +120,7 @@ export default function PassesTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not create pass",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -136,7 +137,7 @@ export default function PassesTab() {
       setDecision(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setDeciding(false);
     }
@@ -148,7 +149,7 @@ export default function PassesTab() {
     // it here keeps the sheet open with the field to fill in, instead of
     // closing onto an error alert.
     if (releasing.pass_type === "Student" && !release.name.trim()) {
-      Alert.alert("Collector required", "Enter who is collecting this student before releasing them.");
+      showAlert("Collector required", "Enter who is collecting this student before releasing them.");
       return;
     }
     setReleaseSaving(true);
@@ -163,7 +164,7 @@ export default function PassesTab() {
       setRelease({ name: "", relation: "", phone: "", idProof: "" });
       await load();
     } catch (e) {
-      Alert.alert("Could not release", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not release", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setReleaseSaving(false);
     }
@@ -174,7 +175,7 @@ export default function PassesTab() {
       await api.post(`/gate/passes/${p.id}/return`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not record their return.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not record their return.");
     }
   }
 

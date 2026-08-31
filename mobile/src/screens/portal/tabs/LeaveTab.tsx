@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../../api/client";
 import { AppTextInput, Badge, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, Row, SecondaryButton } from "../../../components/Common";
@@ -54,7 +55,7 @@ export default function LeaveTab({ studentId }: { studentId: number }) {
 
   async function submit() {
     if (!form.from || !form.to) {
-      Alert.alert("Missing details", "Pick a from and to date.");
+      showAlert("Missing details", "Pick a from and to date.");
       return;
     }
     setSaving(true);
@@ -67,7 +68,7 @@ export default function LeaveTab({ studentId }: { studentId: number }) {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not submit",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

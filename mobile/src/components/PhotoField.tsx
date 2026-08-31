@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../utils/alert";
 import * as ImagePicker from "expo-image-picker";
 import { ApiError } from "../api/client";
 import { uploadFile } from "../api/files";
@@ -26,7 +27,7 @@ export default function PhotoField({
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
+      showAlert(
         "Permission needed",
         fromCamera
           ? "Allow camera access to take a photo."
@@ -53,7 +54,7 @@ export default function PhotoField({
       onChange(uploaded.url);
     } catch (e) {
       setPreview(null);
-      Alert.alert(
+      showAlert(
         "Upload failed",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not upload that image."
       );

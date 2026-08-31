@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -86,7 +87,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
 
   async function submitPlan() {
     if (!form.title.trim()) {
-      Alert.alert("Missing details", "A lesson title is required.");
+      showAlert("Missing details", "A lesson title is required.");
       return;
     }
     setSaving(true);
@@ -102,7 +103,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not create plan", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not create plan", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
@@ -113,7 +114,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       await api.post(`/syllabus/lesson-plans/${plan.id}/deliver`, {});
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not mark this lesson delivered.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not mark this lesson delivered.");
     }
   }
 
@@ -122,7 +123,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       await api.post(`/syllabus/lesson-plans/${plan.id}/defer`, {});
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not defer this lesson.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not defer this lesson.");
     }
   }
 
@@ -134,7 +135,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       setReviewing(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not review this lesson plan.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not review this lesson plan.");
     } finally {
       setReviewLoading(false);
     }

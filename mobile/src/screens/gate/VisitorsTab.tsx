@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -107,7 +108,7 @@ export default function VisitorsTab() {
 
   async function submitVisitor() {
     if (!form.visitorName.trim()) {
-      Alert.alert("Missing details", "Visitor name is required.");
+      showAlert("Missing details", "Visitor name is required.");
       return;
     }
     setSaving(true);
@@ -125,7 +126,7 @@ export default function VisitorsTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not register visitor",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -139,7 +140,7 @@ export default function VisitorsTab() {
       await api.post(`/gate/visitors/${v.id}/check-in`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check in this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check in this visitor.");
     }
   }
 
@@ -148,7 +149,7 @@ export default function VisitorsTab() {
       await api.post(`/gate/visitors/${v.id}/check-out`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check out this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check out this visitor.");
     }
   }
 
@@ -160,7 +161,7 @@ export default function VisitorsTab() {
       setDenying(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not deny this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not deny this visitor.");
     } finally {
       setDenyLoading(false);
     }

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -115,7 +116,7 @@ export default function RequestsTab() {
 
   async function submitRequest() {
     if (!form.teacher || !form.leaveTypeId || !form.from || !form.to) {
-      Alert.alert("Missing details", "Pick a teacher, leave type and date range.");
+      showAlert("Missing details", "Pick a teacher, leave type and date range.");
       return;
     }
     setSaving(true);
@@ -131,7 +132,7 @@ export default function RequestsTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not submit",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -154,7 +155,7 @@ export default function RequestsTab() {
       setDecision(null);
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not update",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

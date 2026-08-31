@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, Text, View, StyleSheet } from "react-native";
+import { ScrollView, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, ErrorView, Field, LoadingView, PrimaryButton, Row, SectionLabel } from "../../components/Common";
@@ -47,9 +48,9 @@ export default function RulesTab() {
     try {
       const updated = await api.put<Config>("/biometric/config", config);
       setConfig(updated);
-      Alert.alert("Saved", "Biometric rules updated.");
+      showAlert("Saved", "Biometric rules updated.");
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not save rules.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not save rules.");
     } finally {
       setSaving(false);
     }
@@ -65,7 +66,7 @@ export default function RulesTab() {
       });
       setDeriveResult(result);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not derive attendance.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not derive attendance.");
     } finally {
       setDeriving(false);
     }

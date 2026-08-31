@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -91,7 +92,7 @@ export default function PortalAccessScreen() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not link",
         e instanceof ApiError && typeof e.detail === "string"
           ? e.detail
@@ -103,7 +104,7 @@ export default function PortalAccessScreen() {
   }
 
   function removeLink(link: PortalLink) {
-    Alert.alert(
+    showAlert(
       "Remove access?",
       `${link.user_name || "This account"} will no longer see ${link.student_name || "this student"}.`,
       [
@@ -116,7 +117,7 @@ export default function PortalAccessScreen() {
               await api.delete(`/portal/links/${link.id}`);
               await load();
             } catch (e) {
-              Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove the link.");
+              showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove the link.");
             }
           },
         },

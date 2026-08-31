@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -85,7 +86,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
 
   async function submitUnit() {
     if (!unitForm.title.trim()) {
-      Alert.alert("Missing details", "A unit title is required.");
+      showAlert("Missing details", "A unit title is required.");
       return;
     }
     setSaving(true);
@@ -102,7 +103,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add unit", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add unit", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
@@ -110,7 +111,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
 
   async function submitTopic() {
     if (!addingTopicFor || !topicForm.title.trim()) {
-      Alert.alert("Missing details", "A topic title is required.");
+      showAlert("Missing details", "A topic title is required.");
       return;
     }
     setTopicSaving(true);
@@ -123,7 +124,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       setTopicForm(emptyTopicForm);
       await load();
     } catch (e) {
-      Alert.alert("Could not add topic", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add topic", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setTopicSaving(false);
     }
@@ -134,12 +135,12 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       await api.post(`/syllabus/topics/${topic.id}/mark`, { status });
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not update this topic.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not update this topic.");
     }
   }
 
   function deleteUnit(unit: Unit) {
-    Alert.alert("Delete this unit?", unit.title, [
+    showAlert("Delete this unit?", unit.title, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -149,7 +150,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
             await api.delete(`/syllabus/units/${unit.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not delete this unit.");
+            showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not delete this unit.");
           }
         },
       },
