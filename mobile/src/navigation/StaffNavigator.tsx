@@ -12,6 +12,7 @@ import CertificatesScreen from "../screens/certificates/CertificatesScreen";
 import AssistantScreen from "../screens/assistant/AssistantScreen";
 import SearchScreen from "../screens/search/SearchScreen";
 import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
+import LeaveScreen from "../screens/leave/LeaveScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
@@ -62,6 +63,7 @@ const CertificatesStackScreen = singleScreenStack("CertificatesHome", "Certifica
 const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", AssistantScreen);
 const SearchStackScreen = singleScreenStack("SearchHome", "Search", SearchScreen);
 const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Access", PortalAccessScreen);
+const LeaveStackScreen = singleScreenStack("LeaveHome", "Leave", LeaveScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -83,6 +85,7 @@ const BESPOKE: {
   { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
   { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
+  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "leave", Component: LeaveStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
   { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },

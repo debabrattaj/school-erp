@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -197,6 +198,83 @@ export function Badge({
 export function Row({ children, style }: { children: React.ReactNode; style?: object }) {
   return <View style={[styles.row, style]}>{children}</View>;
 }
+
+/**
+ * Bottom-sheet confirmation with an optional note — the mobile stand-in for
+ * `window.prompt()` (React Native has no cross-platform equivalent; iOS-only
+ * `Alert.prompt` won't do). Used for approve/reject/cancel style actions that
+ * take a free-text reason.
+ */
+export function PromptModal({
+  visible,
+  title,
+  message,
+  placeholder = "Add a note (optional)",
+  confirmLabel = "Confirm",
+  destructive,
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  title: string;
+  message?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: (note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={promptStyles.backdrop} onPress={onCancel}>
+        <Pressable style={promptStyles.sheet} onPress={() => {}}>
+          <Text style={promptStyles.title}>{title}</Text>
+          {message ? <Text style={promptStyles.message}>{message}</Text> : null}
+          <AppTextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder={placeholder}
+            multiline
+            style={promptStyles.input}
+          />
+          <View style={promptStyles.actions}>
+            <SecondaryButton title="Cancel" onPress={onCancel} style={{ flex: 1 }} />
+            <PrimaryButton
+              title={confirmLabel}
+              onPress={() => {
+                onConfirm(note.trim());
+                setNote("");
+              }}
+              loading={loading}
+              style={[{ flex: 1 }, destructive ? promptStyles.destructiveButton : null]}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const promptStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(20,21,43,0.45)", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing(5),
+    paddingBottom: spacing(8),
+    ...elevation.lg,
+  },
+  title: { ...type.heading, color: colors.text, marginBottom: spacing(1) },
+  message: { ...type.body, color: colors.textMuted, marginBottom: spacing(3) },
+  input: { minHeight: 80, textAlignVertical: "top", marginBottom: spacing(4) },
+  actions: { flexDirection: "row", gap: spacing(3) },
+  destructiveButton: { backgroundColor: colors.danger, shadowColor: colors.danger },
+});
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
