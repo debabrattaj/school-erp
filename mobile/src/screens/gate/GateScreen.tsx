@@ -1,36 +1,19 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, spacing, type } from "../../theme/theme";
-import ProfileTab from "./tabs/ProfileTab";
-import AttendanceTab from "./tabs/AttendanceTab";
-import MarksTab from "./tabs/MarksTab";
-import FeesTab from "./tabs/FeesTab";
-import TimetableTab from "./tabs/TimetableTab";
-import HomeworkTab from "./tabs/HomeworkTab";
-import MessagesTab from "./tabs/MessagesTab";
-import OnlineTestsTab from "./tabs/OnlineTestsTab";
-import LeaveTab from "./tabs/LeaveTab";
+import OverviewTab from "./OverviewTab";
+import VisitorsTab from "./VisitorsTab";
+import PassesTab from "./PassesTab";
+import BlockedTab from "./BlockedTab";
 
-const TABS = [
-  "Profile",
-  "Attendance",
-  "Marks",
-  "Fees",
-  "Timetable",
-  "Homework",
-  "Tests",
-  "Messages",
-  "Leave",
-] as const;
+const TABS = ["Overview", "Visitors", "Passes", "Blocked"] as const;
 type Tab = (typeof TABS)[number];
 
-export default function ChildDetailScreen({ route }: { route: any }) {
-  const { id } = route.params;
-  const [tab, setTab] = useState<Tab>("Profile");
+export default function GateScreen() {
+  const [tab, setTab] = useState<Tab>("Overview");
 
   return (
     <View style={styles.container}>
-      {/* Eight tabs no longer fit the width, so the bar scrolls. */}
       <View style={styles.tabBarWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {TABS.map((t) => (
@@ -42,15 +25,10 @@ export default function ChildDetailScreen({ route }: { route: any }) {
       </View>
 
       <View style={{ flex: 1 }}>
-        {tab === "Profile" && <ProfileTab studentId={id} />}
-        {tab === "Attendance" && <AttendanceTab studentId={id} />}
-        {tab === "Marks" && <MarksTab studentId={id} />}
-        {tab === "Fees" && <FeesTab studentId={id} />}
-        {tab === "Timetable" && <TimetableTab studentId={id} />}
-        {tab === "Homework" && <HomeworkTab studentId={id} />}
-        {tab === "Tests" && <OnlineTestsTab studentId={id} />}
-        {tab === "Messages" && <MessagesTab studentId={id} />}
-        {tab === "Leave" && <LeaveTab studentId={id} />}
+        {tab === "Overview" && <OverviewTab />}
+        {tab === "Visitors" && <VisitorsTab />}
+        {tab === "Passes" && <PassesTab />}
+        {tab === "Blocked" && <BlockedTab />}
       </View>
     </View>
   );

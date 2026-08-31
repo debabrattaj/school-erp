@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
-import { AppTextInput, ErrorView, Field, LoadingView, PrimaryButton } from "../../components/Common";
+import { AppTextInput, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
 import { colors, spacing } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
@@ -34,7 +34,7 @@ const FIELDS: { key: string; label: string; multiline?: boolean; numeric?: boole
   { key: "grade_rules", label: "Grade Rules", multiline: true },
 ];
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [values, setValues] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +99,12 @@ export default function SettingsScreen() {
       ))}
       {canManage && <PrimaryButton title="Save settings" onPress={save} loading={saving} />}
       {!canManage && <Text style={styles.readonly}>You have read-only access to settings.</Text>}
+
+      <SecondaryButton
+        title="Manage Biometric Devices"
+        onPress={() => navigation.navigate("BiometricHome")}
+        style={{ marginTop: spacing(4) }}
+      />
     </ScrollView>
   );
 }

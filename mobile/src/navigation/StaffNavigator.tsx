@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
 import AttendanceScreen from "../screens/attendance/AttendanceScreen";
 import MarksScreen from "../screens/marks/MarksScreen";
-import SettingsScreen from "../screens/settings/SettingsScreen";
+import SettingsNavigator from "./SettingsNavigator";
 import PayrollScreen from "../screens/payroll/PayrollScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
 import ReportCardScreen from "../screens/reportcard/ReportCardScreen";
@@ -12,6 +12,10 @@ import CertificatesScreen from "../screens/certificates/CertificatesScreen";
 import AssistantScreen from "../screens/assistant/AssistantScreen";
 import SearchScreen from "../screens/search/SearchScreen";
 import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
+import LeaveScreen from "../screens/leave/LeaveScreen";
+import GateScreen from "../screens/gate/GateScreen";
+import CommunicationsScreen from "../screens/communications/CommunicationsScreen";
+import SyllabusScreen from "../screens/syllabus/SyllabusScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
@@ -56,12 +60,15 @@ const AttendanceStackScreen = singleScreenStack("AttendanceHome", "Attendance", 
 const MarksStackScreen = singleScreenStack("MarksHome", "Marks", MarksScreen);
 const PayrollStackScreen = singleScreenStack("PayrollHome", "Payroll", PayrollScreen);
 const ReportsStackScreen = singleScreenStack("ReportsHome", "Reports", ReportsScreen);
-const SettingsStackScreen = singleScreenStack("SettingsHome", "Institution Settings", SettingsScreen);
 const ReportCardStackScreen = singleScreenStack("ReportCardHome", "Report Card", ReportCardScreen);
 const CertificatesStackScreen = singleScreenStack("CertificatesHome", "Certificates", CertificatesScreen);
 const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", AssistantScreen);
 const SearchStackScreen = singleScreenStack("SearchHome", "Search", SearchScreen);
 const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Access", PortalAccessScreen);
+const LeaveStackScreen = singleScreenStack("LeaveHome", "Leave", LeaveScreen);
+const GateStackScreen = singleScreenStack("GateHome", "Gate Register", GateScreen);
+const CommunicationsStackScreen = singleScreenStack("CommunicationsHome", "Communication", CommunicationsScreen);
+const SyllabusStackScreen = singleScreenStack("SyllabusHome", "Syllabus & Lesson Plans", SyllabusScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -83,9 +90,13 @@ const BESPOKE: {
   { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
   { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
+  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "leave", Component: LeaveStackScreen },
+  { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
+  { name: "Communications", title: "Communication", icon: "Cm", group: "Communication & Portal", feature: "parent_communication", Component: CommunicationsStackScreen },
+  { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
-  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },
+  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsNavigator },
 ];
 
 /**
