@@ -247,7 +247,7 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
         // `fetchRecord` rather than a bare GET by id: most routers on this
         // backend expose only a list route, so /thing/{id} answered 404 and
         // every edit form on those modules failed to open.
-        const data = await fetchRecord<any>(config.endpoint, id!);
+        const data = await fetchRecord<any>(config.endpoint, id!, config.hasDetailRoute ?? true);
         const initial: Record<string, string> = {};
         config.formFields.forEach((f) => {
           const raw = data[f.key];

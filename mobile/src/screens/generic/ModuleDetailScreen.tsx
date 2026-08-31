@@ -22,7 +22,7 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
     try {
       // `fetchRecord`, not a bare GET by id: most of this backend's routers
       // expose only a list route, so asking for /thing/{id} answered 404.
-      setItem(await fetchRecord<any>(config.endpoint, id));
+      setItem(await fetchRecord<any>(config.endpoint, id, config.hasDetailRoute ?? true));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load record.");
     }

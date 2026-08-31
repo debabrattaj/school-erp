@@ -211,18 +211,32 @@ export const api = {
  * Where a detail route does exist it is still preferred: it is one row over the
  * wire instead of the whole table.
  */
-export async function fetchRecord<T extends { id: number }>(endpoint: string, id: number | string): Promise<T> {
+export async function fetchRecord<T extends { id: number }>(
+  endpoint: string,
+  id: number | string,
+  /**
+   * Set false where `{endpoint}/{id}` is a different route rather than a
+   * missing one. `/master-data/{category}` is the case that forced this: a
+   * request for /master-data/5 is read as the category "5" and answered with a
+   * 400 "Invalid category", which no 404/405 fallback would catch.
+   */
+  hasDetailRoute = true
+): Promise<T> {
+  if (!hasDetailRoute) return findInList<T>(endpoint, id);
   try {
     return await api.get<T>(`${endpoint}/${id}`);
   } catch (e) {
     // 404/405 means "no such route", not "no such record" — fall back. Any
     // other failure (403, 500, offline) is real and must not be masked.
     if (!(e instanceof ApiError) || (e.status !== 404 && e.status !== 405)) throw e;
-
-    const rows = await api.get<T[]>(`${endpoint}/`);
-    const wanted = String(id);
-    const match = Array.isArray(rows) ? rows.find((row) => String(row?.id) === wanted) : undefined;
-    if (!match) throw new ApiError(404, "That record no longer exists.");
-    return match;
+    return findInList<T>(endpoint, id);
   }
+}
+
+async function findInList<T extends { id: number }>(endpoint: string, id: number | string): Promise<T> {
+  const rows = await api.get<T[]>(`${endpoint}/`);
+  const wanted = String(id);
+  const match = Array.isArray(rows) ? rows.find((row) => String(row?.id) === wanted) : undefined;
+  if (!match) throw new ApiError(404, "That record no longer exists.");
+  return match;
 }

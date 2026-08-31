@@ -103,6 +103,12 @@ export interface ModuleConfig {
    */
   featureFlag?: string;
   endpoint: string;
+  /**
+   * False when `{endpoint}/{id}` is a *different* route rather than a missing
+   * one, so the record must be found in the list instead. Master Data is the
+   * case: `/master-data/{category}` reads the id as a category name.
+   */
+  hasDetailRoute?: boolean;
   titleField: string;
   subtitleField?: string;
   searchFields: string[];

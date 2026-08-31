@@ -694,6 +694,9 @@ export const masterDataModule: ModuleConfig = {
   group: "Reports & Administration",
   feature: "master_data",
   endpoint: "/master-data",
+  // /master-data/{id} is the by-category route, which answers 400 for a
+  // numeric id rather than 404 — so the row is found in the list instead.
+  hasDetailRoute: false,
   titleField: "category",
   subtitleField: "value",
   searchFields: ["category", "value"],
