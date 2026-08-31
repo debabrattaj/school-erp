@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, ErrorView, LoadingView, PrimaryButton } from "../../components/Common";
 import { colors, spacing } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 const STATUSES = ["Present", "Absent", "Late", "Half Day", "Excused"];
 
@@ -23,9 +24,6 @@ interface AttendanceRecord {
   status: string;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function AttendanceScreen() {
   const [students, setStudents] = useState<Student[] | null>(null);
@@ -33,7 +31,7 @@ export default function AttendanceScreen() {
   const [error, setError] = useState<string | null>(null);
   const [classFilter, setClassFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(todayISO());
   const [pending, setPending] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
 

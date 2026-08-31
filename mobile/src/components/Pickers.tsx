@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { colors, elevation, radius, spacing, type } from "../theme/theme";
 import { AppTextInput } from "./Common";
+import { toISODate, todayISO } from "../utils/dates";
 
 export interface Option {
   label: string;
@@ -206,13 +206,6 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-/** Backend dates arrive as "YYYY-MM-DD" or a full ISO timestamp; keep the day. */
-function toISODate(raw: string): string {
-  if (!raw) return "";
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
-}
-
 function formatDisplay(iso: string): string {
   const parsed = toISODate(iso);
   if (!parsed) return "";
@@ -260,10 +253,7 @@ export function DatePicker({
     return out;
   }, [viewYear, viewMonth]);
 
-  const todayISO = (() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
-  })();
+  const today = todayISO();
 
   function step(delta: number) {
     const m = viewMonth + delta;
@@ -314,7 +304,7 @@ export function DatePicker({
             if (day === null) return <View key={`b${i}`} style={styles.cell} />;
             const cellISO = `${viewYear}-${pad(viewMonth + 1)}-${pad(day)}`;
             const selected = cellISO === iso;
-            const isToday = cellISO === todayISO;
+            const isToday = cellISO === today;
             return (
               <Pressable
                 key={cellISO}
@@ -334,7 +324,7 @@ export function DatePicker({
 
         <Pressable
           onPress={() => {
-            onChange(todayISO);
+            onChange(today);
             setOpen(false);
           }}
           style={styles.todayButton}

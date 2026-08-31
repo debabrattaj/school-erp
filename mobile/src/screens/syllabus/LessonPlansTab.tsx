@@ -18,6 +18,7 @@ import {
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
 import { colors, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface Plan {
   id: number;
@@ -46,11 +47,10 @@ function reviewTone(status?: string): "default" | "success" | "warning" | "dange
   return "default";
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
-const emptyForm = { planDate: todayIso(), title: "", objectives: "", homework: "" };
+// Built per-open, not once at module load: a session left running overnight
+// would otherwise default tomorrow's plan to yesterday's date.
+const emptyForm = () => ({ planDate: todayISO(), title: "", objectives: "", homework: "" });
 
 export default function LessonPlansTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
@@ -94,7 +94,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
         objectives: form.objectives.trim() || undefined,
         homework: form.homework.trim() || undefined,
       });
-      setForm(emptyForm);
+      setForm(emptyForm());
       setAdding(false);
       await load();
     } catch (e) {

@@ -13,6 +13,7 @@ import {
   SectionLabel,
 } from "../../components/Common";
 import { colors, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface Payslip {
   id: number;
@@ -99,7 +100,7 @@ export default function PayrollScreen() {
         onPress: async () => {
           try {
             await api.put(`/payroll/payslips/${slip.id}/mark-paid`, {
-              payment_date: new Date().toISOString().slice(0, 10),
+              payment_date: todayISO(),
             });
             await load();
           } catch (e) {

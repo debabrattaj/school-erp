@@ -6,6 +6,7 @@ import { Badge, Card, EmptyView, ErrorView, LoadingView, Row, SecondaryButton } 
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface CoverSlot {
   id: number;
@@ -32,15 +33,12 @@ interface Candidate {
   unavailable_reason?: string;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function CoverTab() {
   const { user } = useAuth();
   const canAssign = user?.role === "Admin" || user?.role === "Principal";
 
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(todayISO());
   const [slots, setSlots] = useState<CoverSlot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 

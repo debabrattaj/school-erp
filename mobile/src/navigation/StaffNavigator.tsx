@@ -20,6 +20,7 @@ import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
 import DrawerContent from "./DrawerContent";
+import NoAccessScreen from "../screens/NoAccessScreen";
 import { useAuth } from "../auth/AuthContext";
 import { hasAccess } from "../auth/types";
 import { colors } from "../theme/theme";
@@ -137,6 +138,11 @@ export default function StaffNavigator() {
 
     return [...bespoke, ...modules].sort(byGroupOrder);
   }, [user?.permissions]);
+
+  // A drawer with no children throws ("Couldn't find any screens for the
+  // navigator"), which is what a staff account whose role grants nothing used
+  // to hit — a blank crash instead of an explanation.
+  if (screens.length === 0) return <NoAccessScreen />;
 
   return (
     <Drawer.Navigator

@@ -18,6 +18,7 @@ import {
 import { TimePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface GatePass {
   id: number;
@@ -53,9 +54,6 @@ function statusTone(status: string): "default" | "success" | "warning" | "danger
 
 const emptyForm = { passType: "Student" as "Student" | "Staff", person: null as Person | null, reason: "", expectedReturn: false, returnTime: "" };
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function PassesTab() {
   const [stillOut, setStillOut] = useState(true);
@@ -107,7 +105,7 @@ export default function PassesTab() {
         teacher_id: form.passType === "Staff" ? form.person.id : undefined,
         reason: form.reason.trim() || undefined,
         expected_return: form.expectedReturn,
-        expected_return_at: form.expectedReturn && form.returnTime ? `${todayIso()}T${form.returnTime}:00` : undefined,
+        expected_return_at: form.expectedReturn && form.returnTime ? `${todayISO()}T${form.returnTime}:00` : undefined,
       });
       resetForm();
       await load();

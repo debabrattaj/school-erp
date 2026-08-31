@@ -5,6 +5,7 @@ import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, ErrorView, Field, LoadingView, PrimaryButton, Row, SectionLabel } from "../../components/Common";
 import { DatePicker, TimePicker } from "../../components/Pickers";
 import { colors, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface Config {
   derive_attendance: boolean;
@@ -14,16 +15,13 @@ interface Config {
   overwrite_manual: boolean;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function RulesTab() {
   const [config, setConfig] = useState<Config | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [deriveDate, setDeriveDate] = useState(todayIso());
+  const [deriveDate, setDeriveDate] = useState(todayISO());
   const [academicYear, setAcademicYear] = useState("");
   const [deriving, setDeriving] = useState(false);
   const [deriveResult, setDeriveResult] = useState<Record<string, unknown> | null>(null);

@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { api, ApiError } from "../../api/client";
+import { ApiError, api, fetchRecord } from "../../api/client";
 import { ModuleConfig } from "../../modules/types";
 import { Card, ErrorView, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
+import { formatFieldValue, singular } from "../../modules/display";
 import { colors, spacing } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
@@ -13,13 +14,15 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
   const { id } = route.params;
   const [item, setItem] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const canManage = hasAccess(user?.permissions, config.feature, "manage");
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const data = await api.get<any>(`${config.endpoint}/${id}`);
-      setItem(data);
+      // `fetchRecord`, not a bare GET by id: most of this backend's routers
+      // expose only a list route, so asking for /thing/{id} answered 404.
+      setItem(await fetchRecord<any>(config.endpoint, id));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load record.");
     }
@@ -31,8 +34,14 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
     }, [load])
   );
 
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   function handleDelete() {
-    Alert.alert(`Delete ${config.title.slice(0, -1) || config.title}?`, "This cannot be undone.", [
+    Alert.alert(`Delete ${singular(config.title).toLowerCase()}?`, "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -55,12 +64,15 @@ export default function ModuleDetailScreen({ config, route, navigation }: { conf
   const fields = config.formFields.filter((f) => item[f.key] !== undefined && item[f.key] !== null && item[f.key] !== "");
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+    >
       <Card>
         {fields.map((f) => (
           <View key={f.key} style={styles.fieldRow}>
             <Text style={styles.label}>{f.label}</Text>
-            <Text style={styles.value}>{String(item[f.key])}</Text>
+            <Text style={styles.value}>{formatFieldValue(f, item[f.key])}</Text>
           </View>
         ))}
       </Card>
