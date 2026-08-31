@@ -13,6 +13,7 @@ import AssistantScreen from "../screens/assistant/AssistantScreen";
 import SearchScreen from "../screens/search/SearchScreen";
 import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
 import LeaveScreen from "../screens/leave/LeaveScreen";
+import GateScreen from "../screens/gate/GateScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
@@ -64,6 +65,7 @@ const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", Ass
 const SearchStackScreen = singleScreenStack("SearchHome", "Search", SearchScreen);
 const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Access", PortalAccessScreen);
 const LeaveStackScreen = singleScreenStack("LeaveHome", "Leave", LeaveScreen);
+const GateStackScreen = singleScreenStack("GateHome", "Gate Register", GateScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -86,6 +88,7 @@ const BESPOKE: {
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
   { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
   { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "leave", Component: LeaveStackScreen },
+  { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
   { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },
