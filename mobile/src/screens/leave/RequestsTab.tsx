@@ -18,6 +18,7 @@ import {
 import { DatePicker, OptionPicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { useAuth } from "../../auth/AuthContext";
+import { canApprove as canApproveFor } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -62,7 +63,10 @@ const emptyForm = { teacher: null as Teacher | null, leaveTypeId: "", from: "", 
 
 export default function RequestsTab() {
   const { user } = useAuth();
-  const canApprove = user?.role === "Admin" || user?.role === "Principal";
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "staff_leave" manage grant — which the old check locked out.
+  const canApprove = canApproveFor(user, "staff_leave");
 
   const [requests, setRequests] = useState<LeaveRequest[] | null>(null);
   const [types, setTypes] = useState<LeaveType[]>([]);

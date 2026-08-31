@@ -41,16 +41,27 @@ const emptyForm = {
 
 export default function SendTab() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [pickClass, setPickClass] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get<Template[]>("/communications/templates/")
-      .then((rows) => setTemplates(rows.filter((t) => t.status !== "Inactive")))
-      .catch(() => {});
+      .then((rows) => {
+        if (!cancelled) setTemplates(rows.filter((t) => t.status !== "Inactive"));
+      })
+      .catch((e) => {
+        // Templates are optional here, but swallowing the failure silently made
+        // a permissions or connectivity problem look like "no templates yet".
+        if (!cancelled) setTemplatesError(e instanceof ApiError ? String(e.message) : "Could not load templates.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const templateOptions = useMemo(
@@ -59,20 +70,17 @@ export default function SendTab() {
   );
 
   function applyTemplate(id: string) {
-    setForm((f) => ({ ...f, templateId: id }));
     const template = templates.find((t) => String(t.id) === id);
-    if (template) {
-      setForm((f) => ({
-        ...f,
-        templateId: id,
-        channel: template.channel || f.channel,
-        category: template.category || f.category,
-        messageBody: template.body || f.messageBody,
-      }));
-    }
+    setForm((f) => ({
+      ...f,
+      templateId: id,
+      channel: template?.channel || f.channel,
+      category: template?.category || f.category,
+      messageBody: template?.body || f.messageBody,
+    }));
   }
 
-  async function submit() {
+  function confirmSend() {
     if (!form.className.trim()) {
       Alert.alert("Missing details", "A class is required.");
       return;
@@ -81,6 +89,22 @@ export default function SendTab() {
       Alert.alert("Missing details", "Category and message are required.");
       return;
     }
+    // This fans a real WhatsApp/SMS/email out to every guardian in the class and
+    // cannot be undone, so it no longer happens on a single tap.
+    const audience = form.section.trim()
+      ? `class ${form.className.trim()} section ${form.section.trim()}`
+      : `every section of class ${form.className.trim()}`;
+    Alert.alert(
+      "Send this message?",
+      `It will go out by ${form.channel} to the guardians of ${audience}. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send", onPress: submit },
+      ]
+    );
+  }
+
+  async function submit() {
     setSending(true);
     setResult(null);
     try {
@@ -127,6 +151,7 @@ export default function SendTab() {
         <Text style={styles.hint}>Leave section blank to message every section of this class.</Text>
 
         <SectionLabel>Message</SectionLabel>
+        {templatesError ? <Text style={styles.templatesError}>{templatesError}</Text> : null}
         {templateOptions.length > 0 ? (
           <Field label="Start from a template">
             <OptionPicker label="Template" options={templateOptions} value={form.templateId} onChange={applyTemplate} placeholder="None" />
@@ -154,7 +179,7 @@ export default function SendTab() {
           />
         </Field>
 
-        <PrimaryButton title="Send to class" onPress={submit} loading={sending} style={{ marginTop: spacing(2) }} />
+        <PrimaryButton title="Send to class" onPress={confirmSend} loading={sending} style={{ marginTop: spacing(2) }} />
       </Card>
 
       {result ? (
@@ -197,4 +222,5 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, color: colors.onPrimary },
   resultLine: { ...type.body, color: colors.text, marginBottom: spacing(1) },
+  templatesError: { ...type.caption, color: colors.danger, marginBottom: spacing(2) },
 });

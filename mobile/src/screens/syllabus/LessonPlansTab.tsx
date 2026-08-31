@@ -17,6 +17,7 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
+import { canApprove as canApproveFor } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 import { todayISO } from "../../utils/dates";
 
@@ -54,7 +55,10 @@ const emptyForm = () => ({ planDate: todayISO(), title: "", objectives: "", home
 
 export default function LessonPlansTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
-  const canReview = user?.role === "Admin" || user?.role === "Principal";
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "syllabus" manage grant — which the old check locked out.
+  const canReview = canApproveFor(user, "syllabus");
 
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);

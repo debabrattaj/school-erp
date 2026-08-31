@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
+import { invalidateAcademicYear } from "../../modules/useAcademicYear";
 import { colors, spacing } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
@@ -37,6 +38,9 @@ const FIELDS: { key: string; label: string; multiline?: boolean; numeric?: boole
 export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [values, setValues] = useState<Record<string, string> | null>(null);
+  // What the server had when the screen loaded, so a field the user emptied can
+  // be told apart from one that was never set.
+  const [loaded, setLoaded] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const canManage = hasAccess(user?.permissions, "settings", "manage");
@@ -50,6 +54,7 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
         if (data[f.key] !== undefined && data[f.key] !== null) next[f.key] = String(data[f.key]);
       });
       setValues(next);
+      setLoaded(next);
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load settings.");
     }
@@ -65,13 +70,33 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
     if (!values) return;
     setSaving(true);
     const payload: Record<string, unknown> = {};
+    const badNumbers: string[] = [];
     FIELDS.forEach((f) => {
       const raw = values[f.key];
-      if (raw === undefined || raw === "") return;
+      if (raw === undefined || raw === "") {
+        // Dropping empty values meant a setting could never be cleared once
+        // set — the key vanished and the old value stayed.
+        if (loaded[f.key] !== undefined && loaded[f.key] !== "") payload[f.key] = null;
+        return;
+      }
+      if (f.numeric && !Number.isFinite(Number(raw))) {
+        badNumbers.push(f.label);
+        return;
+      }
       payload[f.key] = f.numeric ? Number(raw) : raw;
     });
+
+    if (badNumbers.length) {
+      setSaving(false);
+      Alert.alert("Invalid number", `These need to be numbers: ${badNumbers.join(", ")}`);
+      return;
+    }
+
     try {
       await api.put("/settings/", payload);
+      // The academic year is memoised for the class-subject and class-exam
+      // forms; editing it here has to invalidate that copy.
+      invalidateAcademicYear();
       Alert.alert("Saved", "School settings updated.");
     } catch (e) {
       Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not save settings.");
@@ -84,7 +109,8 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   if (!values) return <LoadingView />;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       {FIELDS.map((f) => (
         <Field key={f.key} label={f.label}>
           <AppTextInput
@@ -100,16 +126,18 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       {canManage && <PrimaryButton title="Save settings" onPress={save} loading={saving} />}
       {!canManage && <Text style={styles.readonly}>You have read-only access to settings.</Text>}
 
-      <SecondaryButton
-        title="Manage Biometric Devices"
-        onPress={() => navigation.navigate("BiometricHome")}
-        style={{ marginTop: spacing(4) }}
-      />
-    </ScrollView>
+        <SecondaryButton
+          title="Manage Biometric Devices"
+          onPress={() => navigation.navigate("BiometricHome")}
+          style={{ marginTop: spacing(4) }}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing(4), paddingBottom: spacing(10) },
   textarea: { minHeight: 80, textAlignVertical: "top" },
   readonly: { color: colors.textMuted, textAlign: "center", marginTop: spacing(2) },

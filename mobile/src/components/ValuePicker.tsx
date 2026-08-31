@@ -26,6 +26,9 @@ export function useLookupChoices(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    // Reset first: without this a single failure stuck, and reopening the
+    // picker kept showing the old error instead of retrying.
+    setError(null);
     (async () => {
       try {
         const rows = await api.get<any[]>(endpoint.endsWith("/") ? endpoint : `${endpoint}/`);
@@ -71,10 +74,17 @@ export function useMasterChoices(category: string, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    setError(null);
     (async () => {
       try {
-        const res = await api.get<{ values?: MasterDataItem[] }>(`/master-data/${category}`);
-        const values = (res?.values || []).map((v) => ({ value: String(v.value) }));
+        const res = await api.get<{ values?: MasterDataItem[] }>(`/master-data/${encodeURIComponent(category)}`);
+        // De-duplicated: FlatList keys off the value, and a repeated entry in
+        // the category would collapse the rows onto one key.
+        const seen = new Set<string>();
+        const values = (res?.values || [])
+          .map((v) => String(v.value))
+          .filter((v) => v !== "" && !seen.has(v) && (seen.add(v), true))
+          .map((value) => ({ value }));
         if (!cancelled) setChoices(values);
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Failed to load options.");

@@ -32,6 +32,48 @@ export function hasAccess(permissions: PermissionMap | undefined, feature: strin
   return grant === "manage";
 }
 
+/** The roles the backend authorizes by name rather than by permission map. */
+export const BUILT_IN_ROLES = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"] as const;
+
+export function isBuiltInRole(role: Role | undefined) {
+  return !!role && (BUILT_IN_ROLES as readonly string[]).includes(role);
+}
+
+/**
+ * Should this module appear in the drawer?
+ *
+ * The same rule the web sidebar uses: a built-in role is allowed by name, and
+ * any role is allowed by its permission map. Gating on the permission map
+ * alone — which is what this app did — hid eleven modules from Principals,
+ * Teachers and Accounts users that the web shows them, because the built-in
+ * role maps simply have no entry for those features.
+ */
+export function canViewModule(
+  user: { role?: Role; permissions?: PermissionMap } | null | undefined,
+  feature: string,
+  roles?: readonly string[]
+) {
+  if (!user) return false;
+  if (hasAccess(user.permissions, feature, "view")) return true;
+  return !!roles && isBuiltInRole(user.role) && roles.includes(user.role as string);
+}
+
+/**
+ * Can this user take an approver-only action (approving leave, signing off a
+ * lesson plan)? The backend restricts these to Admin and Principal by name for
+ * built-in roles, and to the feature's `manage` grant for custom roles — so
+ * checking either one alone gets a class of user wrong. Hardcoding the two role
+ * names, as this app did, locked every custom role out of work it is granted.
+ */
+export function canApprove(
+  user: { role?: Role; permissions?: PermissionMap } | null | undefined,
+  feature: string
+) {
+  if (!user) return false;
+  if (isBuiltInRole(user.role)) return user.role === "Admin" || user.role === "Principal";
+  return hasAccess(user.permissions, feature, "manage");
+}
+
 export function isPortalRole(role: Role) {
   return role === "Parent" || role === "Student";
 }

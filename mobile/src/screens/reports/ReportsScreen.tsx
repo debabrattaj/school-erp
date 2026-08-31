@@ -39,6 +39,36 @@ function BarRow({ row, max }: { row: ReportRow; max: number }) {
   );
 }
 
+/**
+ * Declared at module scope. Defining this inside the screen's render body made
+ * it a new component type on every render, so React tore down and rebuilt each
+ * chip row — losing its horizontal scroll position on every state change.
+ */
+function Chips({
+  items,
+  active,
+  onPick,
+  labelFor,
+}: {
+  items: string[];
+  active: string | null;
+  onPick: (v: string) => void;
+  labelFor?: (v: string) => string;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      {items.map((it) => {
+        const on = it === active;
+        return (
+          <Pressable key={it} onPress={() => onPick(it)} style={[styles.chip, on && styles.chipActive]}>
+            <Text style={[styles.chipText, on && styles.chipTextActive]}>{labelFor ? labelFor(it) : humanize(it)}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function ReportsScreen() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,31 +123,6 @@ export default function ReportsScreen() {
 
   const entry = source ? catalog[source] : null;
   const max = rows?.length ? Math.max(...rows.map((r) => r.value)) : 0;
-
-  function Chips({
-    items,
-    active,
-    onPick,
-    labelFor,
-  }: {
-    items: string[];
-    active: string | null;
-    onPick: (v: string) => void;
-    labelFor?: (v: string) => string;
-  }) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {items.map((it) => {
-          const on = it === active;
-          return (
-            <Pressable key={it} onPress={() => onPick(it)} style={[styles.chip, on && styles.chipActive]}>
-              <Text style={[styles.chipText, on && styles.chipTextActive]}>{labelFor ? labelFor(it) : humanize(it)}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    );
-  }
 
   return (
     <FlatList

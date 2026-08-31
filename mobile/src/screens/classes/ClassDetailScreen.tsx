@@ -2,9 +2,10 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
-import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, Row, SecondaryButton } from "../../components/Common";
+import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAcademicYear } from "../../modules/useAcademicYear";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface ClassRecord {
@@ -146,6 +147,8 @@ function StudentsTab({ classRecord }: { classRecord: ClassRecord }) {
   const load = useCallback(async () => {
     setError(null);
     try {
+      // GET /students/ takes no filter parameters, so the narrowing has to
+      // happen below, on class_id where the record carries one.
       setStudents(await api.get<Student[]>("/students/"));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load students.");
@@ -187,9 +190,12 @@ function StudentsTab({ classRecord }: { classRecord: ClassRecord }) {
   );
 }
 
-const emptySubjectForm = { subject: null as Subject | null, teacher: null as Teacher | null, academicYear: "2026-27", weeklyPeriods: "" };
+const emptySubjectForm = { subject: null as Subject | null, teacher: null as Teacher | null, academicYear: "", weeklyPeriods: "" };
 
 function SubjectsTab({ classId }: { classId: number }) {
+  // Read from the school's settings rather than a hardcoded literal, which went
+  // stale the moment the school rolled over to a new year.
+  const currentYear = useAcademicYear();
   const [mappings, setMappings] = useState<ClassSubject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -224,7 +230,7 @@ function SubjectsTab({ classId }: { classId: number }) {
         subject_id: form.subject.id,
         subject_name: form.subject.subject_name,
         teacher_id: form.teacher?.id,
-        academic_year: form.academicYear.trim() || "2026-27",
+        academic_year: form.academicYear.trim() || currentYear || undefined,
         weekly_periods: form.weeklyPeriods ? Number(form.weeklyPeriods) : undefined,
       });
       setForm(emptySubjectForm);
@@ -275,7 +281,11 @@ function SubjectsTab({ classId }: { classId: number }) {
                   <PickerButton label="Teacher" value={form.teacher?.name || null} onPress={() => setPick("teacher")} />
                 </Field>
                 <Field label="Academic year">
-                  <AppTextInput value={form.academicYear} onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))} />
+                  <AppTextInput
+                    value={form.academicYear}
+                    onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))}
+                    placeholder={currentYear || "e.g. 2026-27"}
+                  />
                 </Field>
                 <Field label="Weekly periods">
                   <AppTextInput value={form.weeklyPeriods} onChangeText={(v) => setForm((f) => ({ ...f, weeklyPeriods: v }))} keyboardType="numeric" />
@@ -325,9 +335,10 @@ function SubjectsTab({ classId }: { classId: number }) {
   );
 }
 
-const emptyExamForm = { exam: null as Exam | null, academicYear: "2026-27", examDate: "", remarks: "" };
+const emptyExamForm = { exam: null as Exam | null, academicYear: "", examDate: "", remarks: "" };
 
 function ExamsTab({ classId }: { classId: number }) {
+  const currentYear = useAcademicYear();
   const [mappings, setMappings] = useState<ClassExamMapping[] | null>(null);
   const [examNames, setExamNames] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +377,7 @@ function ExamsTab({ classId }: { classId: number }) {
       await api.post("/class-exam-mappings/", {
         class_id: classId,
         exam_id: form.exam.id,
-        academic_year: form.academicYear.trim() || "2026-27",
+        academic_year: form.academicYear.trim() || currentYear || undefined,
         exam_date: form.examDate || undefined,
         remarks: form.remarks.trim() || undefined,
       });
@@ -415,7 +426,11 @@ function ExamsTab({ classId }: { classId: number }) {
                   <PickerButton label="Exam" value={form.exam?.exam_name || null} onPress={() => setPickExam(true)} />
                 </Field>
                 <Field label="Academic year">
-                  <AppTextInput value={form.academicYear} onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))} />
+                  <AppTextInput
+                    value={form.academicYear}
+                    onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))}
+                    placeholder={currentYear || "e.g. 2026-27"}
+                  />
                 </Field>
                 <Field label="Exam date">
                   <DatePicker label="Exam date" value={form.examDate} onChange={(v) => setForm((f) => ({ ...f, examDate: v }))} />

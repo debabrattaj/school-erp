@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, Row } from "../../components/Common";

@@ -90,6 +90,12 @@ export interface ModuleConfig {
   icon: string;
   group: ModuleGroup;
   feature: string;
+  /**
+   * Built-in roles allowed by name, mirroring the web sidebar's `roles` list.
+   * Only needed where a role is granted the module by name rather than through
+   * its permission map.
+   */
+  roles?: readonly string[];
   endpoint: string;
   titleField: string;
   subtitleField?: string;

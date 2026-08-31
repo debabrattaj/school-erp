@@ -162,7 +162,7 @@ export function OptionPicker({
         ) : (
           <FlatList
             data={filtered}
-            keyExtractor={(o) => o.value}
+            keyExtractor={(o, i) => `${o.value}-${i}`}
             keyboardShouldPersistTaps="handled"
             style={styles.list}
             renderItem={({ item }) => {

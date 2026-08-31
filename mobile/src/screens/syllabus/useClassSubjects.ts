@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../api/client";
+import { api, ApiError } from "../../api/client";
 import type { Option } from "../../components/Pickers";
 
 interface ClassSubjectRow {
@@ -27,6 +27,7 @@ export function useClassSubjects() {
   const [options, setOptions] = useState<Option[]>([]);
   const [byId, setById] = useState<Map<number, ClassSubjectInfo>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +49,10 @@ export function useClassSubjects() {
         });
         setOptions(opts);
         setById(map);
+      } catch (e) {
+        // Without this the rejection went unhandled and the picker just showed
+        // "Nothing to choose from yet", which reads as "none configured".
+        if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Failed to load class subjects.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,5 +62,5 @@ export function useClassSubjects() {
     };
   }, []);
 
-  return { options, byId, loading };
+  return { options, byId, loading, error };
 }

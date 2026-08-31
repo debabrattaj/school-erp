@@ -15,6 +15,7 @@ export function useRecords<T = any>(endpoint: string, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    setError(null);
     (async () => {
       try {
         const data = await api.get<T[]>(endpoint.endsWith("/") ? endpoint : `${endpoint}/`);
@@ -82,7 +83,9 @@ export default function RecordPicker<T extends { id: number }>({
         ) : !items ? (
           <LoadingView />
         ) : filtered.length === 0 ? (
-          <EmptyView message="Nothing matches that search." />
+          <EmptyView
+            message={items.length === 0 ? "There are no records to choose from yet." : "Nothing matches that search."}
+          />
         ) : (
           <FlatList
             data={filtered}

@@ -228,9 +228,20 @@ export function PromptModal({
 }) {
   const [note, setNote] = useState("");
 
+  // Clearing only on confirm left the text behind on cancel, so the next
+  // action opened with someone else's note already typed into it.
+  React.useEffect(() => {
+    if (!visible) setNote("");
+  }, [visible]);
+
+  function cancel() {
+    setNote("");
+    onCancel();
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={promptStyles.backdrop} onPress={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
+      <Pressable style={promptStyles.backdrop} onPress={cancel}>
         <Pressable style={promptStyles.sheet} onPress={() => {}}>
           <Text style={promptStyles.title}>{title}</Text>
           {message ? <Text style={promptStyles.message}>{message}</Text> : null}
@@ -242,7 +253,7 @@ export function PromptModal({
             style={promptStyles.input}
           />
           <View style={promptStyles.actions}>
-            <SecondaryButton title="Cancel" onPress={onCancel} style={{ flex: 1 }} />
+            <SecondaryButton title="Cancel" onPress={cancel} style={{ flex: 1 }} />
             <PrimaryButton
               title={confirmLabel}
               onPress={() => {

@@ -7,7 +7,6 @@ import PhotoField from "../../components/PhotoField";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { DatePicker, OptionPicker, TimePicker } from "../../components/Pickers";
 import ValuePicker, { useLookupChoices, useMasterChoices } from "../../components/ValuePicker";
-import { singular } from "../../modules/display";
 import { colors, spacing } from "../../theme/theme";
 
 /**

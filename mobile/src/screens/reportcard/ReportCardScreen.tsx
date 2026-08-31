@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { ApiError } from "../../api/client";
 import { downloadAndShare } from "../../api/files";
 import { Card, PrimaryButton, SectionLabel } from "../../components/Common";

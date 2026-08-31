@@ -15,7 +15,7 @@ type Tab = (typeof TABS)[number];
 export default function SyllabusScreen() {
   const [tab, setTab] = useState<Tab>("Units");
   const [classSubjectId, setClassSubjectId] = useState("");
-  const { options, loading } = useClassSubjects();
+  const { options, loading, error } = useClassSubjects();
 
   return (
     <View style={styles.container}>
@@ -41,6 +41,7 @@ export default function SyllabusScreen() {
               onChange={setClassSubjectId}
               placeholder="Choose a class subject"
               loading={loading}
+              error={error}
             />
           </View>
 
