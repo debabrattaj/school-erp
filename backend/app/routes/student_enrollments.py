@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app import models, schemas
 from app.models import User
 from app.security import require_roles
@@ -146,6 +147,11 @@ def get_student_enrollments(
     class_id: Optional[int] = None,
     academic_year: Optional[str] = None,
     enrollment_status: Optional[str] = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
@@ -165,7 +171,12 @@ def get_student_enrollments(
             models.StudentEnrollment.enrollment_status == enrollment_status
         )
 
-    enrollments = query.order_by(models.StudentEnrollment.id.desc()).all()
+    enrollments = apply_listing(
+        query, models.StudentEnrollment,
+        search=search, search_fields=("academic_year", "roll_no", "enrollment_status", "promotion_status"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[models.StudentEnrollment.id.desc()],
+    ).all()
 
     return [serialize_enrollment(enrollment, db) for enrollment in enrollments]
 

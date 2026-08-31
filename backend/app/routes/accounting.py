@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import AccountTransaction, Fee, InventoryItem, InventoryTransaction, Student, User
 from app.schemas import (
     AccountingSummaryResponse,
@@ -303,10 +304,20 @@ def export_tally_xml(
 
 @router.get("/entries/", response_model=list[AccountTransactionResponse])
 def get_entries(
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(VIEW_ROLES)),
 ):
-    return db.query(AccountTransaction).order_by(AccountTransaction.entry_date.desc()).all()
+    return apply_listing(
+        db.query(AccountTransaction), AccountTransaction,
+        search=search, search_fields=("entry_type", "category", "payment_mode", "reference_no"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[AccountTransaction.entry_date.desc()],
+    ).all()
 
 
 @router.post("/entries/", response_model=AccountTransactionResponse)

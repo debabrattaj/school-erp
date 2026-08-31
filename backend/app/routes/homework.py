@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import Assignment, Teacher, User
 from app.schemas import AssignmentCreate, AssignmentResponse, AssignmentUpdate
 from app.security import require_roles
@@ -24,6 +25,11 @@ def list_assignments(
     class_name: str | None = None,
     section: str | None = None,
     academic_year: str | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(MANAGERS)),
 ):
@@ -34,7 +40,12 @@ def list_assignments(
         query = query.filter(Assignment.section == section)
     if academic_year:
         query = query.filter(Assignment.academic_year == academic_year)
-    return query.order_by(Assignment.due_date.desc().nullslast(), Assignment.id.desc()).all()
+    return apply_listing(
+        query, Assignment,
+        search=search, search_fields=("title", "academic_year", "class_name", "section"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[Assignment.due_date.desc().nullslast(), Assignment.id.desc()],
+    ).all()
 
 
 @router.post("/", response_model=AssignmentResponse)

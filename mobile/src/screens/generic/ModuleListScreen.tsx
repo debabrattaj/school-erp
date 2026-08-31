@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { singular } from "../../modules/display";
@@ -8,6 +8,9 @@ import { AppTextInput, EmptyView, ErrorView, LoadingView, Tile } from "../../com
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
+
+/** Rows fetched per request for modules whose list endpoint pages. */
+const PAGE_SIZE = 50;
 
 /** Values may be numbers, dates or text; compare accordingly so 10 > 9. */
 function compareValues(a: unknown, b: unknown) {
@@ -34,15 +37,49 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
   const [refreshing, setRefreshing] = useState(false);
   const canManage = hasAccess(user?.permissions, config.feature, "manage");
 
+  // Paged modules hand searching, sorting and paging to the server. Everything
+  // else keeps the whole list in memory and does all three here.
+  const paged = !!config.paged;
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [reachedEnd, setReachedEnd] = useState(false);
+  // Guards against a second page landing after the query that asked for it has
+  // been replaced by a new search or sort.
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    if (!paged) return;
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search, paged]);
+
+  const serverQuery = useMemo(
+    () =>
+      paged
+        ? {
+            search: debouncedSearch || undefined,
+            sort: sortKey || undefined,
+            order: sortKey ? (sortDesc ? "desc" : "asc") : undefined,
+            limit: PAGE_SIZE,
+          }
+        : undefined,
+    [paged, debouncedSearch, sortKey, sortDesc]
+  );
+
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
     try {
-      const data = await api.get<any[]>(config.endpoint + "/");
-      setItems(Array.isArray(data) ? data : []);
+      const data = await api.get<any[]>(config.endpoint + "/", paged ? { ...serverQuery, offset: 0 } : undefined);
+      if (seq !== requestSeq.current) return;
+      const rows = Array.isArray(data) ? data : [];
+      setItems(rows);
+      setReachedEnd(!paged || rows.length < PAGE_SIZE);
       setError(null);
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       setError(e instanceof ApiError ? String(e.message) : "Failed to load data.");
     }
-  }, [config.endpoint]);
+  }, [config.endpoint, paged, serverQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,8 +87,36 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
     }, [load])
   );
 
+  /** Fetches the next page and appends it. */
+  const loadMore = useCallback(async () => {
+    if (!paged || loadingMore || reachedEnd || !items?.length || error) return;
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    try {
+      const data = await api.get<any[]>(config.endpoint + "/", { ...serverQuery, offset: items.length });
+      if (seq !== requestSeq.current) return;
+      const rows = Array.isArray(data) ? data : [];
+
+      // A backend that does not honour `limit` answers every page with the
+      // whole table, and appending that blindly duplicates the list forever.
+      // Only genuinely new ids are added, and a page carrying none ends the
+      // scroll — which keeps a new build safe against an older API.
+      const seen = new Set((items || []).map((r) => String(r?.id)));
+      const fresh = rows.filter((r) => r?.id === undefined || !seen.has(String(r.id)));
+      if (fresh.length) setItems((prev) => [...(prev || []), ...fresh]);
+      if (rows.length < PAGE_SIZE || fresh.length === 0) setReachedEnd(true);
+    } catch {
+      // A failed page leaves what is already loaded on screen; pulling to
+      // refresh is the way back.
+      setReachedEnd(true);
+    } finally {
+      if (seq === requestSeq.current) setLoadingMore(false);
+    }
+  }, [paged, loadingMore, reachedEnd, items, error, config.endpoint, serverQuery]);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
+    setReachedEnd(false);
     await load();
     setRefreshing(false);
   }, [load]);
@@ -71,6 +136,9 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
   );
 
   const visible = useMemo(() => {
+    // The server has already searched and sorted a paged module's rows; redoing
+    // it here would only ever narrow what it returned.
+    if (paged) return items || [];
     const q = search.trim().toLowerCase();
     const rows = (items || []).filter((item) =>
       q ? config.searchFields.some((f) => String(item[f] ?? "").toLowerCase().includes(q)) : true
@@ -82,7 +150,7 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
       const result = compareValues(a[sortKey], b[sortKey]);
       return sortDesc ? -result : result;
     });
-  }, [items, search, config.searchFields, sortKey, sortDesc]);
+  }, [paged, items, search, config.searchFields, sortKey, sortDesc]);
 
   function toggleSort(key: string) {
     if (sortKey === key) {
@@ -136,7 +204,12 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
             {activeSortLabel ? `Sorted by ${activeSortLabel} ${sortDesc ? "↓" : "↑"}` : "Sort"}
           </Text>
         </Pressable>
-        {items ? <Text style={styles.count}>{visible.length} records</Text> : null}
+        {items ? (
+          <Text style={styles.count}>
+            {visible.length}
+            {paged && !reachedEnd ? "+" : ""} record{visible.length === 1 ? "" : "s"}
+          </Text>
+        ) : null}
       </View>
 
       {showSort && (
@@ -174,6 +247,13 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
           keyExtractor={rowKey}
           contentContainerStyle={{ padding: spacing(4) }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing(4) }} />
+            ) : null
+          }
           ListHeaderComponent={
             // A refresh that failed while rows are already on screen shows as a
             // banner rather than replacing the list with an error page.

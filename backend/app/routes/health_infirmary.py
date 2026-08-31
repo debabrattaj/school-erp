@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import HealthInfirmaryVisit, Student, User
 from app.schemas import HealthInfirmaryVisitCreate, HealthInfirmaryVisitResponse
 from app.security import require_roles
@@ -61,6 +62,11 @@ def serialize_visit(visit: HealthInfirmaryVisit, db: Session):
 def get_visits(
     status: str | None = None,
     student_id: int | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
 ):
@@ -72,7 +78,12 @@ def get_visits(
     if student_id:
         query = query.filter(HealthInfirmaryVisit.student_id == student_id)
 
-    visits = query.order_by(HealthInfirmaryVisit.id.desc()).all()
+    visits = apply_listing(
+        query, HealthInfirmaryVisit,
+        search=search, search_fields=("symptoms", "diagnosis", "treatment", "status"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[HealthInfirmaryVisit.id.desc()],
+    ).all()
     return [serialize_visit(visit, db) for visit in visits]
 
 
