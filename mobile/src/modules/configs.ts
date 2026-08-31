@@ -1,5 +1,6 @@
 import { ModuleConfig } from "./types";
 import * as generated from "./generated";
+import ClassDetailScreen from "../screens/classes/ClassDetailScreen";
 
 export const studentsModule: ModuleConfig = {
   key: "students",
@@ -110,6 +111,7 @@ export const classesModule: ModuleConfig = {
   allowCreate: true,
   allowEdit: true,
   allowDelete: true,
+  detailComponent: ClassDetailScreen,
 };
 
 export const examsModule: ModuleConfig = {

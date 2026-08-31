@@ -1,3 +1,5 @@
+import type { ComponentType } from "react";
+
 export type FieldType =
   | "text"
   | "number"
@@ -98,4 +100,6 @@ export interface ModuleConfig {
   allowCreate?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;
+  /** Overrides the generic field-list detail screen with a bespoke one, e.g. a composite dashboard. */
+  detailComponent?: ComponentType<any>;
 }

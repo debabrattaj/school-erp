@@ -29,7 +29,13 @@ export function createModuleStack(config: ModuleConfig) {
           {(props) => <ModuleListScreen {...props} config={config} />}
         </Stack.Screen>
         <Stack.Screen name={`${config.key}Detail`} options={{ title: config.title.replace(/s$/, "") }}>
-          {(props) => <ModuleDetailScreen {...props} config={config} />}
+          {(props) =>
+            config.detailComponent ? (
+              <config.detailComponent {...props} config={config} />
+            ) : (
+              <ModuleDetailScreen {...props} config={config} />
+            )
+          }
         </Stack.Screen>
         <Stack.Screen
           name={`${config.key}Form`}
