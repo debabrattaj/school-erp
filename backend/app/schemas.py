@@ -2759,6 +2759,13 @@ class StudentLeaveDecision(BaseModel):
 class StudentLeaveRequestResponse(BaseModel):
     id: int
     student_id: int
+    # Denormalised onto the row like the teacher-leave and gate lists already
+    # do: without it a client had to download every student in the school just
+    # to put a name against a request.
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
     from_date: date
     to_date: date
     reason: Optional[str] = None

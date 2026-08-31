@@ -13,6 +13,8 @@ interface Enrollment {
   device_user_id: string;
   student_id?: number;
   teacher_id?: number;
+  /** Resolved server-side, so this screen no longer fetches whole tables to label a row. */
+  person_name?: string;
   is_active: boolean;
 }
 
@@ -39,8 +41,6 @@ const emptyForm = { deviceUserId: "", personType: "student" as "student" | "teac
 
 export default function EnrollmentsTab() {
   const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null);
-  const [students, setStudents] = useState<Record<number, Person>>({});
-  const [teachers, setTeachers] = useState<Record<number, Person>>({});
   const [devices, setDevices] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -51,15 +51,14 @@ export default function EnrollmentsTab() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [rows, studentList, teacherList, deviceList] = await Promise.all([
+      // Two requests. This used to also download every student and every
+      // teacher in the school purely to label each row; the row carries the
+      // name now.
+      const [rows, deviceList] = await Promise.all([
         api.get<Enrollment[]>("/biometric/enrollments"),
-        api.get<Person[]>("/students/"),
-        api.get<Person[]>("/teachers/"),
         api.get<Device[]>("/biometric/devices"),
       ]);
       setEnrollments(rows);
-      setStudents(Object.fromEntries(studentList.map((s) => [s.id, s])));
-      setTeachers(Object.fromEntries(teacherList.map((t) => [t.id, t])));
       setDevices(Object.fromEntries(deviceList.map((d) => [d.id, d.name])));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load enrollments.");
@@ -158,7 +157,8 @@ export default function EnrollmentsTab() {
         renderItem={({ item }) => (
           <Card style={{ marginBottom: spacing(2.5) }}>
             <Text style={styles.name}>
-              {item.student_id ? personLabel(students[item.student_id]) || `Student #${item.student_id}` : personLabel(teachers[item.teacher_id!]) || `Teacher #${item.teacher_id}`}
+              {item.person_name ||
+                (item.student_id ? `Student #${item.student_id}` : `Teacher #${item.teacher_id}`)}
             </Text>
             <Text style={styles.meta}>
               Device user id {item.device_user_id}

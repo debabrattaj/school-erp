@@ -85,6 +85,7 @@ export default function CertificatesScreen() {
         onClose={() => setPicking(false)}
         title="Choose student"
         endpoint="/students"
+        searchParam="search"
         labelFor={studentLabel}
         subtitleFor={(s) =>
           [s.admission_no, s.class_name && `Class ${s.class_name}`, s.section].filter(Boolean).join(" · ")

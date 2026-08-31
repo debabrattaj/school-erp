@@ -8,9 +8,21 @@ import { colors, radius, spacing, type } from "../theme/theme";
  * Searchable picker over any list endpoint. The forms otherwise ask for raw
  * numeric IDs, which nobody knows off-hand.
  */
-export function useRecords<T = any>(endpoint: string, enabled = true) {
+export function useRecords<T = any>(
+  endpoint: string,
+  enabled = true,
+  /**
+   * Query sent with the request. Endpoints that accept filters (students take
+   * `search` and a `limit`) can narrow server-side instead of shipping the
+   * whole table for the client to sift.
+   */
+  query?: Record<string, string | number | undefined>
+) {
   const [items, setItems] = useState<T[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Serialised so a caller passing a fresh object literal each render does not
+  // re-fire the request forever.
+  const queryKey = JSON.stringify(query ?? {});
 
   useEffect(() => {
     if (!enabled) return;
@@ -18,7 +30,10 @@ export function useRecords<T = any>(endpoint: string, enabled = true) {
     setError(null);
     (async () => {
       try {
-        const data = await api.get<T[]>(endpoint.endsWith("/") ? endpoint : `${endpoint}/`);
+        const data = await api.get<T[]>(
+          endpoint.endsWith("/") ? endpoint : `${endpoint}/`,
+          JSON.parse(queryKey)
+        );
         if (!cancelled) setItems(data);
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Failed to load.");
@@ -27,7 +42,7 @@ export function useRecords<T = any>(endpoint: string, enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [endpoint, enabled]);
+  }, [endpoint, enabled, queryKey]);
 
   return { items, error };
 }
@@ -41,6 +56,15 @@ export interface RecordPickerProps<T> {
   subtitleFor?: (item: T) => string;
   searchFields: (keyof T | string)[];
   onPick: (item: T) => void;
+  /**
+   * Query parameter this endpoint accepts for a text search. Set it and the
+   * typed term is sent to the server (debounced) rather than the whole table
+   * being downloaded and filtered here — which is what picking a student out
+   * of a few thousand used to cost.
+   */
+  searchParam?: string;
+  /** Cap on rows fetched when searching server-side. */
+  searchLimit?: number;
 }
 
 export default function RecordPicker<T extends { id: number }>({
@@ -52,17 +76,38 @@ export default function RecordPicker<T extends { id: number }>({
   subtitleFor,
   searchFields,
   onPick,
+  searchParam,
+  searchLimit = 50,
 }: RecordPickerProps<T>) {
-  const { items, error } = useRecords<T>(endpoint, visible);
   const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+
+  // Only the settled term reaches the server, so typing does not fire a
+  // request per keystroke.
+  useEffect(() => {
+    if (!searchParam) return;
+    const timer = setTimeout(() => setDebounced(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query, searchParam]);
+
+  const serverQuery = useMemo(
+    () => (searchParam ? { [searchParam]: debounced || undefined, limit: searchLimit } : undefined),
+    [searchParam, debounced, searchLimit]
+  );
+
+  const { items, error } = useRecords<T>(endpoint, visible, serverQuery);
 
   const filtered = useMemo(() => {
+    // With a server-side search the returned rows are already the answer —
+    // filtering again here would drop rows matched on a field this list does
+    // not name.
+    if (searchParam) return items || [];
     const q = query.trim().toLowerCase();
     if (!q) return items || [];
     return (items || []).filter((it) =>
       searchFields.some((f) => String((it as any)[f] ?? "").toLowerCase().includes(q))
     );
-  }, [items, query, searchFields]);
+  }, [items, query, searchFields, searchParam]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
@@ -77,6 +122,14 @@ export default function RecordPicker<T extends { id: number }>({
         <View style={styles.searchWrap}>
           <AppTextInput value={query} onChangeText={setQuery} placeholder="Search…" autoFocus />
         </View>
+
+        {/* A server-side search caps the rows fetched, so say so rather than
+            letting someone conclude their record is missing. */}
+        {searchParam && !debounced && items && items.length >= searchLimit ? (
+          <Text style={styles.capHint}>
+            Showing the first {searchLimit}. Type to search all records.
+          </Text>
+        ) : null}
 
         {error ? (
           <ErrorView message={error} />
@@ -158,6 +211,12 @@ const styles = StyleSheet.create({
   title: { ...type.title, color: colors.text },
   close: { ...type.label, color: colors.primary },
   searchWrap: { padding: spacing(4), paddingBottom: 0 },
+  capHint: {
+    ...type.caption,
+    color: colors.textMuted,
+    paddingHorizontal: spacing(4),
+    paddingTop: spacing(2),
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",

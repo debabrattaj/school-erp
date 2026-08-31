@@ -115,8 +115,13 @@ export default function MarksScreen() {
     setSheetError(null);
     try {
       const [studentList, markList] = await Promise.all([
-        api.get<Student[]>("/students/"),
-        // Server-side filter: one exam's marks, not the whole table.
+        // Narrowed to the exam's own class and section rather than pulling the
+        // whole student table and filtering it here.
+        api.get<Student[]>("/students/", {
+          class_name: selectedExam.class_name || undefined,
+          section: selectedExam.section || undefined,
+          student_status: "Active",
+        }),
         api.get<Mark[]>("/marks/", { exam_id: selectedExam.id }),
       ]);
       setStudents(studentList);
@@ -149,6 +154,8 @@ export default function MarksScreen() {
 
   const classStudents = useMemo(() => {
     if (!selectedExam || !students) return [];
+    // The server has already narrowed these; this is a backstop for an exam
+    // that carries no class, where the request could not filter.
     return students.filter((s) => {
       if (selectedExam.class_name && s.class_name?.toLowerCase() !== selectedExam.class_name.toLowerCase()) return false;
       if (selectedExam.section && s.section?.toLowerCase() !== selectedExam.section.toLowerCase()) return false;

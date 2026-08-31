@@ -217,6 +217,7 @@ export default function PortalAccessScreen() {
         onClose={() => setPick(null)}
         title="Choose student"
         endpoint="/students"
+        searchParam="search"
         labelFor={studentLabel}
         subtitleFor={(s) => [s.admission_no, s.class_name && `Class ${s.class_name}`].filter(Boolean).join(" · ")}
         searchFields={["first_name", "last_name", "admission_no"]}

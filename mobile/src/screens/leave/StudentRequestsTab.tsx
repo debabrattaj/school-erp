@@ -6,18 +6,14 @@ import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, PromptModal, Row, SecondaryButton } from "../../components/Common";
 import { colors, spacing, type } from "../../theme/theme";
 
-interface Student {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  admission_no?: string;
-  class_name?: string;
-  section?: string;
-}
-
 interface StudentLeaveRequest {
   id: number;
   student_id: number;
+  /** Denormalised onto the row, so this screen no longer fetches every student. */
+  student_name?: string;
+  admission_no?: string;
+  class_name?: string;
+  section?: string;
   from_date: string;
   to_date: string;
   reason?: string;
@@ -35,14 +31,8 @@ function statusTone(status: string): "default" | "success" | "warning" | "danger
   return "default";
 }
 
-function studentLabel(s?: Student) {
-  if (!s) return null;
-  return [s.first_name, s.last_name].filter(Boolean).join(" ");
-}
-
 export default function StudentRequestsTab() {
   const [requests, setRequests] = useState<StudentLeaveRequest[] | null>(null);
-  const [students, setStudents] = useState<Record<number, Student>>({});
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("Requested");
 
@@ -52,15 +42,14 @@ export default function StudentRequestsTab() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [reqs, studentList] = await Promise.all([
-        api.get<StudentLeaveRequest[]>(
+      // One request. This used to also download every student in the school
+      // purely to turn student_id into a name; the row carries it now.
+      setRequests(
+        await api.get<StudentLeaveRequest[]>(
           "/student-leave-requests/",
           statusFilter !== "All" ? { status: statusFilter } : undefined
-        ),
-        api.get<Student[]>("/students/"),
-      ]);
-      setRequests(reqs);
-      setStudents(Object.fromEntries(studentList.map((s) => [s.id, s])));
+        )
+      );
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load student leave requests.");
     }
@@ -114,16 +103,15 @@ export default function StudentRequestsTab() {
         }
         ListEmptyComponent={<EmptyView message="No student leave requests found." />}
         renderItem={({ item }) => {
-          const student = students[item.student_id];
           return (
             <Card style={{ marginBottom: spacing(2.5) }}>
               <Row style={{ justifyContent: "space-between" }}>
-                <Text style={styles.name}>{studentLabel(student) || `Student #${item.student_id}`}</Text>
+                <Text style={styles.name}>{item.student_name || `Student #${item.student_id}`}</Text>
                 <Badge text={item.status} tone={statusTone(item.status)} />
               </Row>
               <Text style={styles.meta}>
-                {student?.admission_no ? `${student.admission_no} · ` : ""}
-                {[student?.class_name, student?.section].filter(Boolean).join(" ")}
+                {item.admission_no ? `${item.admission_no} · ` : ""}
+                {[item.class_name, item.section].filter(Boolean).join(" ")}
               </Text>
               <Text style={styles.meta}>
                 {item.from_date} → {item.to_date} · Requested by {item.requested_by}

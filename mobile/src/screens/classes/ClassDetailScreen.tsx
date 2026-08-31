@@ -153,13 +153,13 @@ function StudentsTab({ classRecord }: { classRecord: ClassRecord }) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      // GET /students/ takes no filter parameters, so the narrowing has to
-      // happen below, on class_id where the record carries one.
-      setStudents(await api.get<Student[]>("/students/"));
+      // Narrowed server-side by class_id; the client-side filter below is a
+      // backstop for records that predate class_id being populated.
+      setStudents(await api.get<Student[]>("/students/", { class_id: classRecord.id }));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load students.");
     }
-  }, []);
+  }, [classRecord.id]);
 
   useFocusEffect(
     useCallback(() => {
