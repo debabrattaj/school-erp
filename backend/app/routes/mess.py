@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import MessAttendance, MessMenu, Student, User
 from app.schemas import (
     MessAttendanceCreate,
@@ -135,6 +136,11 @@ def get_attendance(
     meal_date: str | None = None,
     meal_type: str | None = None,
     status: str | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal", "Accounts", "Teacher"])),
 ):
@@ -149,7 +155,12 @@ def get_attendance(
     if status:
         query = query.filter(MessAttendance.status == status)
 
-    records = query.order_by(MessAttendance.meal_date.desc(), MessAttendance.id.desc()).all()
+    records = apply_listing(
+        query, MessAttendance,
+        search=search, search_fields=("meal_type", "status"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[MessAttendance.meal_date.desc(), MessAttendance.id.desc()],
+    ).all()
     return [serialize_attendance(record, db) for record in records]
 
 

@@ -109,6 +109,16 @@ export interface ModuleConfig {
    * case: `/master-data/{category}` reads the id as a category name.
    */
   hasDetailRoute?: boolean;
+  /**
+   * The list endpoint understands `search`, `sort`, `order`, `limit` and
+   * `offset`, so this module fetches a page at a time and hands searching and
+   * sorting to the server.
+   *
+   * Only set where the table grows with use. Paging a list while still
+   * searching it client-side would silently search only the loaded page, so
+   * the two go together or not at all.
+   */
+  paged?: boolean;
   titleField: string;
   subtitleField?: string;
   searchFields: string[];

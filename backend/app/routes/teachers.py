@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
+from app.listing import apply_listing
 from app.security import require_roles
 from app import models, schemas
 
@@ -201,14 +202,20 @@ def bulk_import_teachers(
 
 @router.get("/", response_model=list[schemas.TeacherResponse])
 def get_teachers(
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_roles(TEACHER_READ_ROLES)),
 ):
-    return (
-        db.query(models.Teacher)
-        .order_by(models.Teacher.id.desc())
-        .all()
-    )
+    return apply_listing(
+        db.query(models.Teacher), models.Teacher,
+        search=search, search_fields=("name", "employee_no", "email", "subject"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[models.Teacher.id.desc()],
+    ).all()
 
 
 @router.get("/{teacher_id}", response_model=schemas.TeacherResponse)
