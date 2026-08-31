@@ -8,6 +8,8 @@ import { colors, spacing, type } from "../../theme/theme";
 interface BehindRow {
   class_subject_id: number;
   class_id: number;
+  class_name?: string;
+  section?: string;
   subject_name: string;
   academic_year: string;
   percent_covered: number;
@@ -50,7 +52,8 @@ export default function BehindTab() {
         <Card style={{ marginBottom: spacing(2.5) }}>
           <Row style={{ justifyContent: "space-between" }}>
             <Text style={styles.title}>
-              {item.subject_name} — Class #{item.class_id}
+              {item.subject_name} —{" "}
+              {[item.class_name, item.section].filter(Boolean).join(" ") || `Class #${item.class_id}`}
             </Text>
             <Badge text={`${item.worst_days_late}d late`} tone="danger" />
           </Row>
