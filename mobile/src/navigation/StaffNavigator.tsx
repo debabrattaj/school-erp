@@ -15,6 +15,7 @@ import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
 import LeaveScreen from "../screens/leave/LeaveScreen";
 import GateScreen from "../screens/gate/GateScreen";
 import CommunicationsScreen from "../screens/communications/CommunicationsScreen";
+import SyllabusScreen from "../screens/syllabus/SyllabusScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
@@ -68,6 +69,7 @@ const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Ac
 const LeaveStackScreen = singleScreenStack("LeaveHome", "Leave", LeaveScreen);
 const GateStackScreen = singleScreenStack("GateHome", "Gate Register", GateScreen);
 const CommunicationsStackScreen = singleScreenStack("CommunicationsHome", "Communication", CommunicationsScreen);
+const SyllabusStackScreen = singleScreenStack("SyllabusHome", "Syllabus & Lesson Plans", SyllabusScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -92,6 +94,7 @@ const BESPOKE: {
   { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "leave", Component: LeaveStackScreen },
   { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
   { name: "Communications", title: "Communication", icon: "Cm", group: "Communication & Portal", feature: "parent_communication", Component: CommunicationsStackScreen },
+  { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
   { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },
