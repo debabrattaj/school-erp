@@ -4,10 +4,10 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import SchoolClass, Student, User
 from app.notifications import notify_class_teacher_new_student
 from app.schemas import StudentCreate, StudentUpdate, StudentResponse
@@ -310,6 +310,8 @@ def get_students(
     section: str | None = None,
     student_status: str | None = None,
     search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
     limit: int | None = None,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -339,26 +341,16 @@ def get_students(
     if student_status:
         query = query.filter(Student.student_status == student_status)
 
-    if search:
-        term = f"%{search.strip()}%"
-        query = query.filter(
-            or_(
-                Student.first_name.ilike(term),
-                Student.last_name.ilike(term),
-                Student.admission_no.ilike(term),
-                Student.roll_no.ilike(term),
-            )
-        )
-
-    query = query.order_by(Student.id.desc())
-
-    if offset:
-        query = query.offset(offset)
-
-    if limit is not None:
-        query = query.limit(limit)
-
-    return query.all()
+    # Search, sort and paging come from the shared helper, the same one the
+    # other paged lists use -- this route grew its own copy first and was left
+    # without `sort`, which silently did nothing when a client sent it.
+    return apply_listing(
+        query, Student,
+        search=search,
+        search_fields=("first_name", "last_name", "admission_no", "roll_no"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[Student.id.desc()],
+    ).all()
 
 
 @router.get("/next-roll-no")

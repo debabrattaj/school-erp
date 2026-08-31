@@ -51,6 +51,23 @@ def enable_gated_modules(client):
 
 
 @pytest.fixture(scope="module")
+def sortable_students(client, module_auth):
+    """Students whose admission numbers deliberately do not match insert order,
+    so a route that ignores `sort` cannot pass by accident."""
+    made = []
+    for admission_no, first in [("SORTME-C", "Carol"), ("SORTME-A", "Alice"), ("SORTME-B", "Bob")]:
+        resp = client.post("/students/", json={
+            "admission_no": admission_no,
+            "first_name": first,
+            "last_name": "Sorttest",
+            "student_status": "Active",
+        }, headers=module_auth)
+        assert resp.status_code == 200, resp.text
+        made.append(resp.json())
+    return made
+
+
+@pytest.fixture(scope="module")
 def homework_rows(client, module_auth):
     made = []
     for i, (title, section) in enumerate(
@@ -156,3 +173,39 @@ class TestOtherPagedEndpoints:
         resp = client.get(path, params={"limit": 1}, headers=module_auth)
         assert resp.status_code == 200
         assert len(resp.json()) <= 1
+
+    def test_students_sort_actually_reorders(self, client, module_auth, sortable_students):
+        """A client that sends `sort` must get sorted rows.
+
+        /students/ grew its own filtering before the shared helper existed and
+        was left without `sort`, so the app's sort chips sent it and nothing
+        happened at all -- the kind of miss that looks like a dead button.
+        """
+        asc = client.get(
+            "/students/",
+            params={"search": "SORTME", "sort": "admission_no", "order": "asc"},
+            headers=module_auth,
+        ).json()
+        desc = client.get(
+            "/students/",
+            params={"search": "SORTME", "sort": "admission_no", "order": "desc"},
+            headers=module_auth,
+        ).json()
+
+        numbers = [r["admission_no"] for r in asc]
+        assert numbers == sorted(numbers), "ascending sort was ignored"
+        assert [r["admission_no"] for r in desc] == list(reversed(numbers))
+
+    def test_students_sort_survives_paging(self, client, module_auth, sortable_students):
+        """The order must be the server's, not the order of arrival."""
+        page = client.get(
+            "/students/",
+            params={"search": "SORTME", "sort": "admission_no", "order": "asc", "limit": 2},
+            headers=module_auth,
+        ).json()
+        everything = client.get(
+            "/students/",
+            params={"search": "SORTME", "sort": "admission_no", "order": "asc"},
+            headers=module_auth,
+        ).json()
+        assert [r["id"] for r in page] == [r["id"] for r in everything[:2]]
