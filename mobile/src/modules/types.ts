@@ -96,6 +96,12 @@ export interface ModuleConfig {
    * its permission map.
    */
   roles?: readonly string[];
+  /**
+   * The key in the school's `features` map, when it differs from `feature`
+   * (Leave is granted as "staff_leave" but sold as "leave"). Defaults to
+   * `feature`.
+   */
+  featureFlag?: string;
   endpoint: string;
   titleField: string;
   subtitleField?: string;

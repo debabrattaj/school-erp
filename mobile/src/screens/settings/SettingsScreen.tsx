@@ -44,6 +44,9 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const canManage = hasAccess(user?.permissions, "settings", "manage");
+  // Biometric attendance is sold separately; every route behind it answers 403
+  // for a school that has not bought it, so the entry point is hidden too.
+  const biometricEnabled = user?.features?.biometric_attendance !== false;
 
   const load = useCallback(async () => {
     setError(null);
@@ -126,11 +129,13 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       {canManage && <PrimaryButton title="Save settings" onPress={save} loading={saving} />}
       {!canManage && <Text style={styles.readonly}>You have read-only access to settings.</Text>}
 
-        <SecondaryButton
-          title="Manage Biometric Devices"
-          onPress={() => navigation.navigate("BiometricHome")}
-          style={{ marginTop: spacing(4) }}
-        />
+        {biometricEnabled ? (
+          <SecondaryButton
+            title="Manage Biometric Devices"
+            onPress={() => navigation.navigate("BiometricHome")}
+            style={{ marginTop: spacing(4) }}
+          />
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

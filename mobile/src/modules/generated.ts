@@ -248,6 +248,7 @@ export const admissionAssessmentsModule: ModuleConfig = {
   icon: "At",
   group: "Admissions",
   feature: "admissions",
+  featureFlag: "admission_assessments",
   roles: ["Admin", "Principal", "Teacher"],
   endpoint: "/admission-assessments",
   titleField: "assessment_type",

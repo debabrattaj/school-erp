@@ -4,6 +4,14 @@ export type PermissionMap = Record<string, PermissionLevel>;
 
 export type Role = "Admin" | "Principal" | "Accounts" | "Teacher" | "Parent" | "Student" | string;
 
+/**
+ * Per-school module switches from the login response. A school that has not
+ * bought Hostel, Transport, Library, Inventory, Mess, Infirmary, Online Tests,
+ * Leave or Biometric gets `false` here, and every route behind that flag
+ * answers 403 "This module is not enabled for your school."
+ */
+export type FeatureMap = Record<string, boolean>;
+
 export interface AuthUser {
   id: number;
   name: string;
@@ -11,6 +19,7 @@ export interface AuthUser {
   role: Role;
   mfa_enabled: boolean;
   permissions: PermissionMap;
+  features?: FeatureMap;
   account: {
     account_code: string;
     name?: string;
@@ -49,11 +58,20 @@ export function isBuiltInRole(role: Role | undefined) {
  * role maps simply have no entry for those features.
  */
 export function canViewModule(
-  user: { role?: Role; permissions?: PermissionMap } | null | undefined,
+  user: { role?: Role; permissions?: PermissionMap; features?: FeatureMap } | null | undefined,
   feature: string,
-  roles?: readonly string[]
+  roles?: readonly string[],
+  featureFlag?: string
 ) {
   if (!user) return false;
+
+  // The school's own module switches come first. This app ignored them
+  // entirely, so a school without Hostel, Transport, Library, Inventory, Mess,
+  // Infirmary, Online Tests, Leave or Biometric still saw all nineteen of those
+  // entries in the drawer, and every one of them opened onto a 403.
+  const flag = featureFlag ?? feature;
+  if (user.features && user.features[flag] === false) return false;
+
   if (hasAccess(user.permissions, feature, "view")) return true;
   return !!roles && isBuiltInRole(user.role) && roles.includes(user.role as string);
 }

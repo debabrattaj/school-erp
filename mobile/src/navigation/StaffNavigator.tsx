@@ -83,6 +83,8 @@ const BESPOKE: {
   feature: string;
   /** Built-in roles allowed by name, as in the web sidebar. */
   roles?: readonly string[];
+  /** The school feature switch gating this module, when it differs from `feature`. */
+  featureFlag?: string;
   Component: React.ComponentType<any>;
 }[] = [
   { name: "Dashboard", title: "Dashboard", icon: "Db", group: "Overview", feature: "dashboard", Component: DashboardStackScreen },
@@ -93,7 +95,7 @@ const BESPOKE: {
   { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
   { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", roles: ["Admin", "Principal"], Component: PortalAccessStackScreen },
-  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "staff_leave", roles: ["Admin", "Principal", "Teacher"], Component: LeaveStackScreen },
+  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "staff_leave", roles: ["Admin", "Principal", "Teacher"], featureFlag: "leave", Component: LeaveStackScreen },
   { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
   { name: "Communications", title: "Communication", icon: "Cm", group: "Communication & Portal", feature: "parent_communication", Component: CommunicationsStackScreen },
   { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },
@@ -114,14 +116,15 @@ function byGroupOrder(a: { group: ModuleGroup; title: string }, b: { group: Modu
 
 export default function StaffNavigator() {
   const { user } = useAuth();
-  const canSee = (feature: string, roles?: readonly string[]) => canViewModule(user, feature, roles);
+  const canSee = (feature: string, roles?: readonly string[], featureFlag?: string) =>
+    canViewModule(user, feature, roles, featureFlag);
 
   // Built once per permission set: createModuleStack returns a fresh component
   // type each call, so rebuilding on every render would remount every stack and
   // throw away the user's place in it.
   const screens = useMemo(() => {
     const modules = staffModules
-      .filter((m: ModuleConfig) => canSee(m.feature, m.roles))
+      .filter((m: ModuleConfig) => canSee(m.feature, m.roles, m.featureFlag))
       .map((m: ModuleConfig) => ({
         key: m.key,
         title: m.title,
@@ -130,7 +133,7 @@ export default function StaffNavigator() {
         Component: createModuleStack(m),
       }));
 
-    const bespoke = BESPOKE.filter((b) => canSee(b.feature, b.roles)).map((b) => ({
+    const bespoke = BESPOKE.filter((b) => canSee(b.feature, b.roles, b.featureFlag)).map((b) => ({
       key: b.name,
       title: b.title,
       icon: b.icon,
@@ -139,7 +142,7 @@ export default function StaffNavigator() {
     }));
 
     return [...bespoke, ...modules].sort(byGroupOrder);
-  }, [user?.permissions, user?.role]);
+  }, [user?.permissions, user?.role, user?.features]);
 
   // A drawer with no children throws ("Couldn't find any screens for the
   // navigator"), which is what a staff account whose role grants nothing used
