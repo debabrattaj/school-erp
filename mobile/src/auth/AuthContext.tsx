@@ -46,24 +46,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      // Priming the base URL here is what lets `getApiBaseSync()` resolve image
-      // and attachment URLs correctly on a restored session: without it the
-      // first renders fall back to the default host even when the user has
-      // pointed the app at another server.
-      const [token, cachedUser] = await Promise.all([
-        getToken(),
-        AsyncStorage.getItem(USER_CACHE_KEY),
-        getApiBase(),
-      ]);
-      const parsed = parseCachedUser(cachedUser);
-      if (token && parsed) {
-        setUser(parsed);
-      } else if (token || cachedUser) {
-        // Half a session is no session — clear it rather than sending requests
-        // with a token we have no user for.
-        await Promise.all([clearSession(), AsyncStorage.removeItem(USER_CACHE_KEY)]);
+      try {
+        // Priming the base URL here is what lets `getApiBaseSync()` resolve
+        // image and attachment URLs correctly on a restored session: without it
+        // the first renders fall back to the default host even when the user
+        // has pointed the app at another server.
+        const [token, cachedUser] = await Promise.all([
+          getToken(),
+          AsyncStorage.getItem(USER_CACHE_KEY),
+          getApiBase(),
+        ]);
+        const parsed = parseCachedUser(cachedUser);
+        if (token && parsed) {
+          setUser(parsed);
+        } else if (token || cachedUser) {
+          // Half a session is no session — clear it rather than sending
+          // requests with a token we have no user for.
+          await Promise.all([clearSession(), AsyncStorage.removeItem(USER_CACHE_KEY)]);
+        }
+      } catch {
+        // Storage itself failed. Starting signed-out is recoverable; throwing
+        // here would leave the app on its loading spinner with no way forward.
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 

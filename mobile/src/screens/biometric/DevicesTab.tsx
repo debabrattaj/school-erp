@@ -82,13 +82,30 @@ export default function DevicesTab() {
     }
   }
 
-  async function rotateToken(device: Device) {
-    try {
-      const updated = await api.post<Device & { auth_token: string }>(`/biometric/devices/${device.id}/rotate-token`);
-      setFreshToken({ device: device.name, token: updated.auth_token });
-    } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not rotate this device's token.");
-    }
+  function rotateToken(device: Device) {
+    // Rotating invalidates the credential the terminal is using right now, so a
+    // mis-tap takes a gate offline until someone walks over with the new token.
+    Alert.alert(
+      "Rotate this device's token?",
+      `${device.name} will stop being accepted until the new token is entered on the device itself.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Rotate",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const updated = await api.post<Device & { auth_token: string }>(
+                `/biometric/devices/${device.id}/rotate-token`
+              );
+              setFreshToken({ device: device.name, token: updated.auth_token });
+            } catch (e) {
+              Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not rotate this device's token.");
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function toggleActive(device: Device) {
