@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -17,7 +18,10 @@ import {
 } from "../../components/Common";
 import { TimePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface GatePass {
   id: number;
@@ -53,11 +57,15 @@ function statusTone(status: string): "default" | "success" | "warning" | "danger
 
 const emptyForm = { passType: "Student" as "Student" | "Staff", person: null as Person | null, reason: "", expectedReturn: false, returnTime: "" };
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function PassesTab() {
+  const { user } = useAuth();
+  // Releasing someone through the gate and recording their return are desk-only
+  // on the backend. Raising, approving, rejecting and cancelling a pass are not
+  // — a class teacher authorizing their own student to leave is ordinary — so
+  // only the two desk actions are gated here.
+  const canWorkDesk = canAdminister(user, "gate_register");
+
   const [stillOut, setStillOut] = useState(true);
   const [passes, setPasses] = useState<GatePass[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +104,7 @@ export default function PassesTab() {
 
   async function submitPass() {
     if (!form.person) {
-      Alert.alert("Missing details", `Choose a ${form.passType === "Staff" ? "staff member" : "student"}.`);
+      showAlert("Missing details", `Choose a ${form.passType === "Staff" ? "staff member" : "student"}.`);
       return;
     }
     setSaving(true);
@@ -107,12 +115,12 @@ export default function PassesTab() {
         teacher_id: form.passType === "Staff" ? form.person.id : undefined,
         reason: form.reason.trim() || undefined,
         expected_return: form.expectedReturn,
-        expected_return_at: form.expectedReturn && form.returnTime ? `${todayIso()}T${form.returnTime}:00` : undefined,
+        expected_return_at: form.expectedReturn && form.returnTime ? `${todayISO()}T${form.returnTime}:00` : undefined,
       });
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not create pass",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -129,7 +137,7 @@ export default function PassesTab() {
       setDecision(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setDeciding(false);
     }
@@ -137,6 +145,13 @@ export default function PassesTab() {
 
   async function submitRelease() {
     if (!releasing) return;
+    // The backend refuses a student release with no named collector. Catching
+    // it here keeps the sheet open with the field to fill in, instead of
+    // closing onto an error alert.
+    if (releasing.pass_type === "Student" && !release.name.trim()) {
+      showAlert("Collector required", "Enter who is collecting this student before releasing them.");
+      return;
+    }
     setReleaseSaving(true);
     try {
       await api.post(`/gate/passes/${releasing.id}/release`, {
@@ -149,7 +164,7 @@ export default function PassesTab() {
       setRelease({ name: "", relation: "", phone: "", idProof: "" });
       await load();
     } catch (e) {
-      Alert.alert("Could not release", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not release", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setReleaseSaving(false);
     }
@@ -160,7 +175,7 @@ export default function PassesTab() {
       await api.post(`/gate/passes/${p.id}/return`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not record their return.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not record their return.");
     }
   }
 
@@ -255,10 +270,10 @@ export default function PassesTab() {
                 <SecondaryButton title="Reject" onPress={() => setDecision({ pass: item, kind: "reject" })} style={{ flex: 1 }} />
               </Row>
             ) : null}
-            {item.status === "Approved" ? (
+            {canWorkDesk && item.status === "Approved" ? (
               <SecondaryButton title="Release" onPress={() => setReleasing(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
-            {item.status === "Out" ? (
+            {canWorkDesk && item.status === "Out" ? (
               <SecondaryButton title="Record return" onPress={() => recordReturn(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
             {item.status === "Requested" || item.status === "Approved" ? (

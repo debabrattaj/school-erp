@@ -15,14 +15,19 @@ type Tab = (typeof TABS)[number];
 export default function SyllabusScreen() {
   const [tab, setTab] = useState<Tab>("Units");
   const [classSubjectId, setClassSubjectId] = useState("");
-  const { options, loading } = useClassSubjects();
+  const { options, loading, error } = useClassSubjects();
 
   return (
     <View style={styles.container}>
       <View style={styles.tabBarWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {TABS.map((t) => (
-            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
+            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t}
+              accessibilityState={{ selected: tab === t }}
+            >
               <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
             </Pressable>
           ))}
@@ -41,6 +46,7 @@ export default function SyllabusScreen() {
               onChange={setClassSubjectId}
               placeholder="Choose a class subject"
               loading={loading}
+              error={error}
             />
           </View>
 

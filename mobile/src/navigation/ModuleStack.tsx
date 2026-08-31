@@ -1,6 +1,7 @@
 import React from "react";
 import { DrawerToggleButton } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { singular } from "../modules/display";
 import { ModuleConfig } from "../modules/types";
 import ModuleListScreen from "../screens/generic/ModuleListScreen";
 import ModuleDetailScreen from "../screens/generic/ModuleDetailScreen";
@@ -28,7 +29,7 @@ export function createModuleStack(config: ModuleConfig) {
         >
           {(props) => <ModuleListScreen {...props} config={config} />}
         </Stack.Screen>
-        <Stack.Screen name={`${config.key}Detail`} options={{ title: config.title.replace(/s$/, "") }}>
+        <Stack.Screen name={`${config.key}Detail`} options={{ title: singular(config.title) }}>
           {(props) =>
             config.detailComponent ? (
               <config.detailComponent {...props} config={config} />
@@ -39,7 +40,7 @@ export function createModuleStack(config: ModuleConfig) {
         </Stack.Screen>
         <Stack.Screen
           name={`${config.key}Form`}
-          options={({ route }: any) => ({ title: route.params?.id ? "Edit" : `New ${config.title.replace(/s$/, "")}` })}
+          options={({ route }: any) => ({ title: route.params?.id ? "Edit" : `New ${singular(config.title)}` })}
         >
           {(props) => <ModuleFormScreen {...props} config={config} />}
         </Stack.Screen>

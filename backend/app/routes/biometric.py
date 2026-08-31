@@ -169,6 +169,22 @@ def list_enrollments(
     current_user: User = Depends(require_roles(MANAGERS)),
 ):
     rows = db.query(models.BiometricEnrollment).order_by(models.BiometricEnrollment.id).all()
+
+    # Names resolved here, in two batched lookups, rather than leaving every
+    # client to download the whole student and teacher tables to label a row.
+    student_ids = {r.student_id for r in rows if r.student_id}
+    teacher_ids = {r.teacher_id for r in rows if r.teacher_id}
+
+    students = {}
+    if student_ids:
+        for s in db.query(models.Student).filter(models.Student.id.in_(student_ids)).all():
+            students[s.id] = f"{s.first_name or ''} {s.last_name or ''}".strip() or s.admission_no
+
+    teachers = {}
+    if teacher_ids:
+        for t in db.query(models.Teacher).filter(models.Teacher.id.in_(teacher_ids)).all():
+            teachers[t.id] = t.name
+
     return [
         {
             "id": r.id,
@@ -176,6 +192,9 @@ def list_enrollments(
             "device_user_id": r.device_user_id,
             "student_id": r.student_id,
             "teacher_id": r.teacher_id,
+            "person_name": (
+                students.get(r.student_id) if r.student_id else teachers.get(r.teacher_id)
+            ),
             "is_active": bool(r.is_active),
         }
         for r in rows

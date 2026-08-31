@@ -1,152 +1,231 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
-import { AppTextInput, Card, ErrorView, LoadingView, PrimaryButton } from "../../components/Common";
-import { colors, spacing } from "../../theme/theme";
+import { Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
+import { DatePicker, OptionPicker } from "../../components/Pickers";
+import { colors, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 const STATUSES = ["Present", "Absent", "Late", "Half Day", "Excused"];
 
-interface Student {
+interface ClassRecord {
   id: number;
-  first_name: string;
-  last_name?: string;
-  admission_no: string;
-  class_name?: string;
+  class_name: string;
   section?: string;
 }
 
-interface AttendanceRecord {
-  id: number;
+/** One row of `/attendance/roster` — a student plus whatever is already marked. */
+interface RosterEntry {
   student_id: number;
-  attendance_date: string;
-  status: string;
-}
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  student_name: string;
+  roll_no?: string | null;
+  attendance_id?: number | null;
+  status?: string | null;
+  remarks?: string | null;
+  source?: string | null;
 }
 
 export default function AttendanceScreen() {
-  const [students, setStudents] = useState<Student[] | null>(null);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [classFilter, setClassFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
-  const [date, setDate] = useState(todayIso());
+  const [classes, setClasses] = useState<ClassRecord[] | null>(null);
+  const [classesError, setClassesError] = useState<string | null>(null);
+  const [classId, setClassId] = useState("");
+  const [date, setDate] = useState(todayISO());
+
+  const [roster, setRoster] = useState<RosterEntry[] | null>(null);
+  const [rosterError, setRosterError] = useState<string | null>(null);
+  const [loadingRoster, setLoadingRoster] = useState(false);
   const [pending, setPending] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    setError(null);
+  const loadClasses = useCallback(async () => {
+    setClassesError(null);
     try {
-      const [studentList, attendanceList] = await Promise.all([
-        api.get<Student[]>("/students/"),
-        api.get<AttendanceRecord[]>("/attendance/"),
-      ]);
-      setStudents(studentList);
-      setRecords(attendanceList);
+      setClasses(await api.get<ClassRecord[]>("/classes/"));
     } catch (e) {
-      setError(e instanceof ApiError ? String(e.message) : "Failed to load attendance data.");
+      setClassesError(e instanceof ApiError ? String(e.message) : "Failed to load classes.");
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      loadClasses();
+    }, [loadClasses])
   );
 
-  const filteredStudents = useMemo(() => {
-    if (!students) return [];
-    return students.filter((s) => {
-      if (classFilter && s.class_name?.toLowerCase() !== classFilter.toLowerCase()) return false;
-      if (sectionFilter && s.section?.toLowerCase() !== sectionFilter.toLowerCase()) return false;
-      return true;
-    });
-  }, [students, classFilter, sectionFilter]);
+  const selected = useMemo(
+    () => (classes || []).find((c) => String(c.id) === classId) || null,
+    [classes, classId]
+  );
 
-  const recordsByStudent = useMemo(() => {
-    const map: Record<number, AttendanceRecord> = {};
-    records
-      .filter((r) => r.attendance_date === date)
-      .forEach((r) => {
-        map[r.student_id] = r;
+  /**
+   * One request for exactly this class on exactly this day. The screen used to
+   * download every student and every attendance row in the school on each
+   * focus and filter them in JS, which does not survive a real roll.
+   */
+  const loadRoster = useCallback(async () => {
+    if (!selected) {
+      setRoster(null);
+      return;
+    }
+    setLoadingRoster(true);
+    setRosterError(null);
+    try {
+      const rows = await api.get<RosterEntry[]>("/attendance/roster", {
+        class_id: selected.id,
+        attendance_date: date,
+        section: selected.section || undefined,
       });
-    return map;
-  }, [records, date]);
+      setRoster(rows);
+    } catch (e) {
+      setRoster(null);
+      setRosterError(e instanceof ApiError ? String(e.message) : "Failed to load the class roster.");
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, [selected, date]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRoster();
+    }, [loadRoster])
+  );
+
+  const classOptions = useMemo(
+    () =>
+      (classes || []).map((c) => ({
+        label: [c.class_name, c.section].filter(Boolean).join(" "),
+        value: String(c.id),
+      })),
+    [classes]
+  );
+
+  const unmarkedCount = useMemo(
+    () => (roster || []).filter((r) => !(pending[r.student_id] ?? r.status)).length,
+    [roster, pending]
+  );
+
+  // Changing what is being marked discards the marks in flight — but only on a
+  // deliberate change, never on a plain refocus, which used to silently throw
+  // away a half-taken roll.
+  function pickClass(next: string) {
+    setClassId(next);
+    setPending({});
+  }
+
+  function pickDate(next: string) {
+    setDate(next);
+    setPending({});
+  }
 
   function setStatus(studentId: number, status: string) {
     setPending((prev) => ({ ...prev, [studentId]: status }));
   }
 
+  /** Fills every row that has no status yet — the common case for a full class. */
+  function markRestPresent() {
+    if (!roster) return;
+    setPending((prev) => {
+      const next = { ...prev };
+      roster.forEach((r) => {
+        if (!(next[r.student_id] ?? r.status)) next[r.student_id] = "Present";
+      });
+      return next;
+    });
+  }
+
+  /**
+   * One `/attendance/bulk` call, not a request per student. The old loop issued
+   * N sequential writes and, when one failed halfway, left the class half
+   * marked with no indication of where it stopped. The bulk route also updates
+   * an already-marked student instead of 400ing, which is what re-opening a
+   * day's roll to fix a mistake needs.
+   */
   async function saveAll() {
     const entries = Object.entries(pending);
     if (!entries.length) {
-      Alert.alert("Nothing to save", "Pick a status for at least one student.");
+      showAlert("Nothing to save", "Pick a status for at least one student.");
       return;
     }
     setSaving(true);
     try {
-      for (const [studentIdStr, status] of entries) {
-        const studentId = Number(studentIdStr);
-        const existing = recordsByStudent[studentId];
-        if (existing) {
-          await api.put(`/attendance/${existing.id}`, { status });
-        } else {
-          await api.post("/attendance/", { student_id: studentId, attendance_date: date, status });
-        }
-      }
+      await api.post("/attendance/bulk", {
+        attendance_date: date,
+        class_id: selected?.id,
+        entries: entries.map(([studentId, status]) => ({ student_id: Number(studentId), status })),
+      });
       setPending({});
-      await load();
-      Alert.alert("Saved", "Attendance updated.");
+      await loadRoster();
+      showAlert("Saved", `Attendance recorded for ${entries.length} student${entries.length === 1 ? "" : "s"}.`);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not save attendance.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not save attendance.");
     } finally {
       setSaving(false);
     }
   }
 
-  if (error) return <ErrorView message={error} onRetry={load} />;
-  if (!students) return <LoadingView />;
+  if (!classes && !classesError) return <LoadingView />;
+  if (classesError && !classes) return <ErrorView message={classesError} onRetry={loadClasses} />;
+
+  const pendingCount = Object.keys(pending).length;
 
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        <AppTextInput
-          value={classFilter}
-          onChangeText={setClassFilter}
-          placeholder="Class (e.g. 5)"
-          style={styles.filterInput}
-        />
-        <AppTextInput
-          value={sectionFilter}
-          onChangeText={setSectionFilter}
-          placeholder="Section (e.g. A)"
-          style={styles.filterInput}
-        />
-        <AppTextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" style={styles.filterInput} />
+        <Field label="Class">
+          <OptionPicker
+            label="Class"
+            options={classOptions}
+            value={classId}
+            onChange={pickClass}
+            placeholder="Choose a class"
+          />
+        </Field>
+        <Field label="Date">
+          <DatePicker label="Date" value={date} onChange={pickDate} required />
+        </Field>
       </View>
 
-      {filteredStudents.length === 0 ? (
-        <ErrorView message="No students match this class/section." />
+      {!selected ? (
+        <EmptyView message="Choose a class to take its attendance." />
+      ) : loadingRoster ? (
+        <LoadingView />
+      ) : rosterError ? (
+        <ErrorView message={rosterError} onRetry={loadRoster} />
+      ) : !roster?.length ? (
+        <EmptyView message="No active students in this class." />
       ) : (
         <FlatList
-          data={filteredStudents}
-          keyExtractor={(s) => String(s.id)}
+          data={roster}
+          keyExtractor={(r) => String(r.student_id)}
           contentContainerStyle={{ padding: spacing(4) }}
+          ListHeaderComponent={
+            unmarkedCount > 0 ? (
+              <SecondaryButton
+                title={`Mark remaining ${unmarkedCount} present`}
+                onPress={markRestPresent}
+                style={{ marginBottom: spacing(3) }}
+              />
+            ) : null
+          }
           renderItem={({ item }) => {
-            const current = pending[item.id] ?? recordsByStudent[item.id]?.status ?? "";
+            const current = pending[item.student_id] ?? item.status ?? "";
+            const changed = pending[item.student_id] !== undefined;
             return (
               <Card style={{ marginBottom: spacing(2.5) }}>
                 <Text style={styles.name}>
-                  {item.first_name} {item.last_name || ""} <Text style={styles.muted}>({item.admission_no})</Text>
+                  {item.student_name}
+                  {item.roll_no ? <Text style={styles.muted}> (Roll {item.roll_no})</Text> : null}
                 </Text>
+                {item.source === "Biometric" && !changed ? (
+                  <Text style={styles.source}>Marked from a biometric punch</Text>
+                ) : null}
                 <View style={styles.chipRow}>
                   {STATUSES.map((s) => (
                     <Pressable
                       key={s}
-                      onPress={() => setStatus(item.id, s)}
+                      onPress={() => setStatus(item.student_id, s)}
                       style={[styles.chip, current === s && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, current === s && styles.chipTextActive]}>{s}</Text>
@@ -159,29 +238,36 @@ export default function AttendanceScreen() {
         />
       )}
 
-      <View style={styles.footer}>
-        <PrimaryButton title={`Save attendance (${Object.keys(pending).length})`} onPress={saveAll} loading={saving} />
-      </View>
+      {selected && roster?.length ? (
+        <View style={styles.footer}>
+          <PrimaryButton
+            title={pendingCount ? `Save attendance (${pendingCount})` : "Save attendance"}
+            onPress={saveAll}
+            loading={saving}
+            disabled={pendingCount === 0}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  filters: { flexDirection: "row", padding: spacing(4), gap: spacing(2) },
-  filterInput: { flex: 1 },
-  name: { fontSize: 15, fontWeight: "700", color: colors.text, marginBottom: spacing(2) },
+  filters: { paddingHorizontal: spacing(4), paddingTop: spacing(4) },
+  name: { ...type.body, fontWeight: "700", color: colors.text, marginBottom: spacing(2) },
   muted: { color: colors.textMuted, fontWeight: "400" },
+  source: { ...type.caption, color: colors.textMuted, marginTop: -spacing(1), marginBottom: spacing(2) },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing(2) },
   chip: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 12, fontWeight: "600", color: colors.text },
-  chipTextActive: { color: "#fff" },
+  chipText: { ...type.caption, color: colors.text },
+  chipTextActive: { color: colors.onPrimary },
   footer: { padding: spacing(4), borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
 });

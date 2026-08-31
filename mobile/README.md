@@ -29,7 +29,8 @@ Parent/Student portal; this app also covers staff-facing modules.
   source, dimension and measure, results as bar rows), Institution Settings.
 - **Typed form inputs, not free text** — every field renders the control its data
   deserves:
-  - `date` / `time` → native picker (46 date and 6 time fields)
+  - `date` / `time` → in-app month grid / hour-and-minute picker
+    (`src/components/Pickers.tsx`; 46 date and 6 time fields)
   - `select` → fixed options, taken from the backend's own `VALID_*` lists so a
     saved value can't be rejected with a 400 (68 fields)
   - `lookup` → picks a value from **another module's records** — `class_name` from

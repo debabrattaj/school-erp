@@ -4,6 +4,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -304,13 +305,60 @@ def bulk_import_students(
 
 @router.get("/", response_model=list[StudentResponse])
 def get_students(
+    class_id: int | None = None,
+    class_name: str | None = None,
+    section: str | None = None,
+    student_status: str | None = None,
+    search: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Teacher", "Accounts"])
     )
 ):
-    students = db.query(Student).order_by(Student.id.desc()).all()
-    return students
+    """The student list, optionally narrowed.
+
+    Every filter is optional and the response shape is unchanged, so a caller
+    that passes nothing gets exactly what it always got. They exist because a
+    client that only wants one class had no way to say so and had to download
+    the whole table to find it -- which is what the mobile app's attendance,
+    marks and class screens were doing on every open.
+    """
+    query = db.query(Student)
+
+    if class_id is not None:
+        query = query.filter(Student.class_id == class_id)
+
+    if class_name:
+        query = query.filter(Student.class_name == class_name)
+
+    if section:
+        query = query.filter(Student.section == section)
+
+    if student_status:
+        query = query.filter(Student.student_status == student_status)
+
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                Student.first_name.ilike(term),
+                Student.last_name.ilike(term),
+                Student.admission_no.ilike(term),
+                Student.roll_no.ilike(term),
+            )
+        )
+
+    query = query.order_by(Student.id.desc())
+
+    if offset:
+        query = query.offset(offset)
+
+    if limit is not None:
+        query = query.limit(limit)
+
+    return query.all()
 
 
 @router.get("/next-roll-no")

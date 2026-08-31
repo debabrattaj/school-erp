@@ -6,11 +6,31 @@ import { colors, radius, spacing, type } from "../../theme/theme";
 
 interface CatalogEntry {
   label: string;
-  dimensions: string[];
+  /**
+   * `{ column: "Human Label" }` — an object, not the string[] this screen
+   * assumed. Passing it straight to `.map()` crashed the screen outright
+   * ("e.map is not a function"), so Reports never opened at all.
+   */
+  dimensions: Record<string, string>;
   measures: Record<string, string>;
   has_date: boolean;
 }
 type Catalog = Record<string, CatalogEntry>;
+
+/**
+ * `/dashboard/report` answers with parallel `labels`/`values` arrays plus the
+ * labels for the axes — not the row objects this screen looked for. Even
+ * without the crash above it would have shown "No data for this combination"
+ * for every combination.
+ */
+interface ReportResponse {
+  labels?: string[];
+  values?: number[];
+  measure_label?: string;
+  dimension_label?: string;
+  source_label?: string;
+  is_currency?: boolean;
+}
 
 interface ReportRow {
   label: string;
@@ -22,7 +42,7 @@ function humanize(key: string) {
 }
 
 /** Horizontal bars, scaled to the largest value — the mobile stand-in for the web's chart. */
-function BarRow({ row, max }: { row: ReportRow; max: number }) {
+function BarRow({ row, max, currency }: { row: ReportRow; max: number; currency?: boolean }) {
   const pct = max > 0 ? Math.max(2, (row.value / max) * 100) : 0;
   return (
     <View style={styles.barRow}>
@@ -30,12 +50,45 @@ function BarRow({ row, max }: { row: ReportRow; max: number }) {
         <Text style={styles.barLabel} numberOfLines={1}>
           {row.label || "—"}
         </Text>
-        <Text style={styles.barValue}>{row.value.toLocaleString()}</Text>
+        <Text style={styles.barValue}>
+          {currency ? "\u20b9" : ""}
+          {row.value.toLocaleString()}
+        </Text>
       </View>
       <View style={styles.barTrack}>
         <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>
     </View>
+  );
+}
+
+/**
+ * Declared at module scope. Defining this inside the screen's render body made
+ * it a new component type on every render, so React tore down and rebuilt each
+ * chip row — losing its horizontal scroll position on every state change.
+ */
+function Chips({
+  items,
+  active,
+  onPick,
+  labelFor,
+}: {
+  items: string[];
+  active: string | null;
+  onPick: (v: string) => void;
+  labelFor?: (v: string) => string;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      {items.map((it) => {
+        const on = it === active;
+        return (
+          <Pressable key={it} onPress={() => onPick(it)} style={[styles.chip, on && styles.chipActive]}>
+            <Text style={[styles.chipText, on && styles.chipTextActive]}>{labelFor ? labelFor(it) : humanize(it)}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -46,6 +99,7 @@ export default function ReportsScreen() {
   const [groupBy, setGroupBy] = useState<string | null>(null);
   const [measure, setMeasure] = useState<string>("count");
   const [rows, setRows] = useState<ReportRow[] | null>(null);
+  const [meta, setMeta] = useState<ReportResponse | null>(null);
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
@@ -56,7 +110,7 @@ export default function ReportsScreen() {
         const first = Object.keys(data)[0];
         if (first) {
           setSource(first);
-          setGroupBy(data[first].dimensions[0] ?? null);
+          setGroupBy(Object.keys(data[first].dimensions ?? {})[0] ?? null);
         }
       } catch (e) {
         setError(e instanceof ApiError ? String(e.message) : "Failed to load report catalog.");
@@ -69,15 +123,18 @@ export default function ReportsScreen() {
     setRunning(true);
     setError(null);
     try {
-      const res = await api.get<any>("/dashboard/report", { source, group_by: groupBy, measure });
-      const raw = Array.isArray(res) ? res : res?.rows ?? res?.data ?? [];
-      setRows(
-        raw.map((r: any) => ({
-          label: String(r.label ?? r.group ?? r[groupBy] ?? ""),
-          value: Number(r.value ?? r.measure ?? r.count ?? 0),
-        }))
-      );
+      const res = await api.get<ReportResponse>("/dashboard/report", {
+        source,
+        group_by: groupBy,
+        measure,
+      });
+      const labels = Array.isArray(res?.labels) ? res.labels : [];
+      const values = Array.isArray(res?.values) ? res.values : [];
+      setMeta(res ?? null);
+      setRows(labels.map((label, i) => ({ label: String(label), value: Number(values[i] ?? 0) })));
     } catch (e) {
+      setRows(null);
+      setMeta(null);
       setError(e instanceof ApiError ? String(e.message) : "Could not run this report.");
     } finally {
       setRunning(false);
@@ -94,31 +151,6 @@ export default function ReportsScreen() {
   const entry = source ? catalog[source] : null;
   const max = rows?.length ? Math.max(...rows.map((r) => r.value)) : 0;
 
-  function Chips({
-    items,
-    active,
-    onPick,
-    labelFor,
-  }: {
-    items: string[];
-    active: string | null;
-    onPick: (v: string) => void;
-    labelFor?: (v: string) => string;
-  }) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {items.map((it) => {
-          const on = it === active;
-          return (
-            <Pressable key={it} onPress={() => onPick(it)} style={[styles.chip, on && styles.chipActive]}>
-              <Text style={[styles.chipText, on && styles.chipTextActive]}>{labelFor ? labelFor(it) : humanize(it)}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    );
-  }
-
   return (
     <FlatList
       style={styles.screen}
@@ -134,16 +166,25 @@ export default function ReportsScreen() {
             labelFor={(s) => catalog[s].label}
             onPick={(s) => {
               setSource(s);
-              setGroupBy(catalog[s].dimensions[0] ?? null);
-              setMeasure("count");
+              setGroupBy(Object.keys(catalog[s].dimensions ?? {})[0] ?? null);
+              // "count" is not offered by every source, so fall back to
+              // whichever measure this one does define.
+              const measures = Object.keys(catalog[s].measures ?? {});
+              setMeasure(measures.includes("count") ? "count" : measures[0] ?? "count");
               setRows(null);
+              setMeta(null);
             }}
           />
 
           {entry && (
             <>
               <SectionLabel>Group by</SectionLabel>
-              <Chips items={entry.dimensions} active={groupBy} onPick={setGroupBy} />
+              <Chips
+                items={Object.keys(entry.dimensions ?? {})}
+                active={groupBy}
+                labelFor={(d) => entry.dimensions?.[d] || humanize(d)}
+                onPick={setGroupBy}
+              />
 
               <SectionLabel>Measure</SectionLabel>
               <Chips
@@ -156,13 +197,19 @@ export default function ReportsScreen() {
           )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <SectionLabel>{running ? "Running…" : "Result"}</SectionLabel>
+          <SectionLabel>
+            {running
+              ? "Running…"
+              : meta?.measure_label && meta?.dimension_label
+              ? `${meta.measure_label} by ${meta.dimension_label}`
+              : "Result"}
+          </SectionLabel>
         </View>
       }
       ListEmptyComponent={running ? <LoadingView /> : <EmptyView message="No data for this combination." />}
       renderItem={({ item }) => (
         <Card style={{ marginBottom: spacing(2) }}>
-          <BarRow row={item} max={max} />
+          <BarRow row={item} max={max} currency={meta?.is_currency} />
         </Card>
       )}
     />

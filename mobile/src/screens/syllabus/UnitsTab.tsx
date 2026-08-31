@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -16,6 +17,7 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 
 interface Topic {
@@ -52,7 +54,10 @@ const emptyTopicForm = { title: "", plannedPeriods: "1" };
 
 export default function UnitsTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
-  const canDelete = user?.role === "Admin" || user?.role === "Principal";
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "syllabus" manage grant — which the old check locked out.
+  const canDelete = canAdminister(user, "syllabus");
 
   const [units, setUnits] = useState<Unit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +86,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
 
   async function submitUnit() {
     if (!unitForm.title.trim()) {
-      Alert.alert("Missing details", "A unit title is required.");
+      showAlert("Missing details", "A unit title is required.");
       return;
     }
     setSaving(true);
@@ -98,7 +103,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add unit", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add unit", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
@@ -106,7 +111,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
 
   async function submitTopic() {
     if (!addingTopicFor || !topicForm.title.trim()) {
-      Alert.alert("Missing details", "A topic title is required.");
+      showAlert("Missing details", "A topic title is required.");
       return;
     }
     setTopicSaving(true);
@@ -119,7 +124,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       setTopicForm(emptyTopicForm);
       await load();
     } catch (e) {
-      Alert.alert("Could not add topic", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add topic", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setTopicSaving(false);
     }
@@ -130,12 +135,12 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
       await api.post(`/syllabus/topics/${topic.id}/mark`, { status });
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not update this topic.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not update this topic.");
     }
   }
 
   function deleteUnit(unit: Unit) {
-    Alert.alert("Delete this unit?", unit.title, [
+    showAlert("Delete this unit?", unit.title, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -145,7 +150,7 @@ export default function UnitsTab({ classSubjectId }: { classSubjectId: number })
             await api.delete(`/syllabus/units/${unit.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not delete this unit.");
+            showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not delete this unit.");
           }
         },
       },

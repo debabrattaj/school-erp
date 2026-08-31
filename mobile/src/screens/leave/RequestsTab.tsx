@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -18,6 +19,7 @@ import {
 import { DatePicker, OptionPicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -62,7 +64,10 @@ const emptyForm = { teacher: null as Teacher | null, leaveTypeId: "", from: "", 
 
 export default function RequestsTab() {
   const { user } = useAuth();
-  const canApprove = user?.role === "Admin" || user?.role === "Principal";
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "staff_leave" manage grant — which the old check locked out.
+  const canApprove = canAdminister(user, "staff_leave");
 
   const [requests, setRequests] = useState<LeaveRequest[] | null>(null);
   const [types, setTypes] = useState<LeaveType[]>([]);
@@ -111,7 +116,7 @@ export default function RequestsTab() {
 
   async function submitRequest() {
     if (!form.teacher || !form.leaveTypeId || !form.from || !form.to) {
-      Alert.alert("Missing details", "Pick a teacher, leave type and date range.");
+      showAlert("Missing details", "Pick a teacher, leave type and date range.");
       return;
     }
     setSaving(true);
@@ -127,7 +132,7 @@ export default function RequestsTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not submit",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -150,7 +155,7 @@ export default function RequestsTab() {
       setDecision(null);
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not update",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

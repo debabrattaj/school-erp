@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
+import { singular } from "../../modules/display";
 import { ModuleConfig } from "../../modules/types";
 import { AppTextInput, EmptyView, ErrorView, LoadingView, Tile } from "../../components/Common";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
@@ -30,13 +31,14 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(false);
   const [showSort, setShowSort] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const canManage = hasAccess(user?.permissions, config.feature, "manage");
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const data = await api.get<any[]>(config.endpoint + "/");
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load data.");
     }
@@ -48,12 +50,25 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
     }, [load])
   );
 
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   // Columns the user can sort by: whatever the module lists, plus its title.
   const sortableColumns = useMemo(() => {
-    const cols = [{ key: config.titleField, label: config.title.replace(/s$/, "") }, ...config.listColumns];
+    const cols = [{ key: config.titleField, label: singular(config.title) }, ...config.listColumns];
     const seen = new Set<string>();
     return cols.filter((c) => (seen.has(c.key) ? false : (seen.add(c.key), true)));
   }, [config]);
+
+  const rowKey = useCallback(
+    // Not every list endpoint returns an `id`; falling back to the index keeps
+    // FlatList from collapsing rows onto one duplicate key.
+    (item: any, index: number) => (item?.id !== undefined && item?.id !== null ? String(item.id) : `row-${index}`),
+    []
+  );
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,14 +113,25 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
           style={styles.searchInput}
         />
         {config.allowCreate && canManage && (
-          <Pressable style={styles.addButton} onPress={() => navigation.navigate(`${config.key}Form`, {})}>
+          <Pressable
+            style={styles.addButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${singular(config.title).toLowerCase()}`}
+            onPress={() => navigation.navigate(`${config.key}Form`, {})}
+          >
             <Text style={styles.addButtonText}>+ Add</Text>
           </Pressable>
         )}
       </View>
 
       <View style={styles.sortRow}>
-        <Pressable onPress={() => setShowSort((v) => !v)} style={styles.sortToggle}>
+        <Pressable
+          onPress={() => setShowSort((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={activeSortLabel ? `Sorted by ${activeSortLabel}. Change sort` : "Sort"}
+          accessibilityState={{ expanded: showSort }}
+          style={styles.sortToggle}
+        >
           <Text style={styles.sortToggleText}>
             {activeSortLabel ? `Sorted by ${activeSortLabel} ${sortDesc ? "↓" : "↑"}` : "Sort"}
           </Text>
@@ -121,6 +147,9 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 key={col.key}
                 onPress={() => toggleSort(col.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Sort by ${col.label}`}
+                accessibilityState={{ selected: active }}
                 style={[styles.sortChip, active && styles.sortChipActive]}
               >
                 <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
@@ -135,15 +164,21 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
 
       {items === null && !error ? (
         <LoadingView />
-      ) : error ? (
+      ) : error && items === null ? (
         <ErrorView message={error} onRetry={load} />
       ) : visible.length === 0 ? (
         <EmptyView message={`No ${config.title.toLowerCase()} found.`} />
       ) : (
         <FlatList
           data={visible}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={rowKey}
           contentContainerStyle={{ padding: spacing(4) }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+          ListHeaderComponent={
+            // A refresh that failed while rows are already on screen shows as a
+            // banner rather than replacing the list with an error page.
+            error ? <Text style={styles.staleBanner}>{error}</Text> : null
+          }
           renderItem={({ item }) => {
             const title = `${item[config.titleField] ?? ""} ${item.last_name ?? ""}`.trim();
             const initials =
@@ -157,6 +192,12 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 onPress={() => navigation.navigate(`${config.key}Detail`, { id: item.id })}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  config.subtitleField && item[config.subtitleField]
+                    ? `${title || "Untitled"}, ${item[config.subtitleField]}`
+                    : title || "Untitled"
+                }
               >
                 <Tile label={initials} size={38} />
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -243,4 +284,13 @@ const styles = StyleSheet.create({
   title: { ...type.heading, color: colors.text },
   subtitle: { ...type.caption, color: colors.textMuted, marginTop: 2, fontWeight: "500" },
   chevron: { fontSize: 22, color: colors.textFaint },
+  staleBanner: {
+    ...type.caption,
+    color: colors.danger,
+    backgroundColor: colors.dangerTint,
+    borderRadius: radius.sm,
+    padding: spacing(2.5),
+    marginBottom: spacing(2),
+    textAlign: "center",
+  },
 });

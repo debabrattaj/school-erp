@@ -24,6 +24,37 @@ router = APIRouter(prefix="/student-leave-requests", tags=["Student Leave Reques
 STAFF = ["Admin", "Principal", "Teacher"]
 
 
+def _with_student(db: Session, row: models.StudentLeaveRequest) -> dict:
+    """The request plus who it is for.
+
+    One batched lookup per list, rather than leaving every client to fetch the
+    whole student table to resolve student_id into a name.
+    """
+    student = db.query(models.Student).filter(
+        models.Student.id == row.student_id
+    ).first()
+    name = None
+    if student:
+        name = f"{student.first_name or ''} {student.last_name or ''}".strip() or student.admission_no
+
+    return {
+        "id": row.id,
+        "student_id": row.student_id,
+        "student_name": name,
+        "admission_no": student.admission_no if student else None,
+        "class_name": student.class_name if student else None,
+        "section": student.section if student else None,
+        "from_date": row.from_date,
+        "to_date": row.to_date,
+        "reason": row.reason,
+        "status": row.status,
+        "requested_by": row.requested_by,
+        "decided_by": row.decided_by,
+        "decided_at": row.decided_at,
+        "decision_note": row.decision_note,
+    }
+
+
 def _get_request_or_404(db: Session, request_id: int) -> models.StudentLeaveRequest:
     request = (
         db.query(models.StudentLeaveRequest)
@@ -48,7 +79,8 @@ def list_requests(
     if status:
         query = query.filter(models.StudentLeaveRequest.status == status)
 
-    return query.order_by(models.StudentLeaveRequest.id.desc()).all()
+    rows = query.order_by(models.StudentLeaveRequest.id.desc()).all()
+    return [_with_student(db, row) for row in rows]
 
 
 @router.post("/{request_id}/approve", response_model=schemas.StudentLeaveRequestResponse)

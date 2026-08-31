@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -15,6 +16,7 @@ import {
   SecondaryButton,
 } from "../../components/Common";
 import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -32,7 +34,10 @@ const emptyForm = { code: "", name: "", annualQuota: "", isPaid: true };
 
 export default function TypesTab() {
   const { user } = useAuth();
-  const canManage = user?.role === "Admin" || user?.role === "Principal";
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "staff_leave" manage grant — which the old check locked out.
+  const canManage = canAdminister(user, "staff_leave");
 
   const [types, setTypes] = useState<LeaveType[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +67,7 @@ export default function TypesTab() {
 
   async function createType() {
     if (!form.code.trim() || !form.name.trim()) {
-      Alert.alert("Missing details", "Code and name are required.");
+      showAlert("Missing details", "Code and name are required.");
       return;
     }
     setSaving(true);
@@ -76,7 +81,7 @@ export default function TypesTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not create",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );

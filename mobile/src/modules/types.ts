@@ -90,7 +90,25 @@ export interface ModuleConfig {
   icon: string;
   group: ModuleGroup;
   feature: string;
+  /**
+   * Built-in roles allowed by name, mirroring the web sidebar's `roles` list.
+   * Only needed where a role is granted the module by name rather than through
+   * its permission map.
+   */
+  roles?: readonly string[];
+  /**
+   * The key in the school's `features` map, when it differs from `feature`
+   * (Leave is granted as "staff_leave" but sold as "leave"). Defaults to
+   * `feature`.
+   */
+  featureFlag?: string;
   endpoint: string;
+  /**
+   * False when `{endpoint}/{id}` is a *different* route rather than a missing
+   * one, so the record must be found in the list instead. Master Data is the
+   * case: `/master-data/{category}` reads the id as a category name.
+   */
+  hasDetailRoute?: boolean;
   titleField: string;
   subtitleField?: string;
   searchFields: string[];

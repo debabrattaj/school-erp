@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
-import { api, ApiError } from "../../api/client";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
+import { showAlert } from "../../utils/alert";
+import { ApiError, api, fetchRecord } from "../../api/client";
+import { buildFormPayload } from "../../modules/formPayload";
 import { ModuleConfig, FormFieldConfig } from "../../modules/types";
 import { AppTextInput, Field, LoadingView, PrimaryButton } from "../../components/Common";
 import PhotoField from "../../components/PhotoField";
@@ -229,6 +231,10 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
   const id = route.params?.id as number | undefined;
   const isEdit = id !== undefined;
   const [values, setValues] = useState<Record<string, string>>({});
+  // What the server had when the form opened. Comparing against it is how a
+  // field the user deliberately emptied is told apart from one that was never
+  // filled in — the former has to be sent as null to actually clear it.
+  const [loaded, setLoaded] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,9 +243,13 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
 
   useEffect(() => {
     if (!isEdit) return;
+    let cancelled = false;
     (async () => {
       try {
-        const data = await api.get<any>(`${config.endpoint}/${id}`);
+        // `fetchRecord` rather than a bare GET by id: most routers on this
+        // backend expose only a list route, so /thing/{id} answered 404 and
+        // every edit form on those modules failed to open.
+        const data = await fetchRecord<any>(config.endpoint, id!, config.hasDetailRoute ?? true);
         const initial: Record<string, string> = {};
         config.formFields.forEach((f) => {
           const raw = data[f.key];
@@ -248,35 +258,39 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
           // picker works in plain dates, so trim before it round-trips to save.
           initial[f.key] = f.type === "date" ? String(raw).slice(0, 10) : String(raw);
         });
+        if (cancelled) return;
         setValues(initial);
+        setLoaded(initial);
       } catch (e) {
-        setError(e instanceof ApiError ? String(e.message) : "Failed to load record.");
+        if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Failed to load record.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [config.endpoint, id, isEdit]);
 
   function setField(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
 
   async function handleSave() {
-    const missing = config.formFields.filter((f) => f.required && !values[f.key]?.trim());
+    // Payload shaping lives in buildFormPayload so the clearing and numeric
+    // rules can be tested without driving the screen.
+    const { payload, missing, notNumeric } = buildFormPayload(config.formFields, values, loaded, isEdit);
     if (missing.length) {
-      Alert.alert("Missing fields", `Please fill: ${missing.map((f) => f.label).join(", ")}`);
+      showAlert("Missing fields", `Please fill: ${missing.map((f) => f.label).join(", ")}`);
       return;
     }
+    if (notNumeric.length) {
+      showAlert("Invalid number", `These need to be numbers: ${notNumeric.map((f) => f.label).join(", ")}`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
-    const payload: Record<string, unknown> = {};
-    config.formFields.forEach((f) => {
-      const raw = values[f.key];
-      if (raw === undefined || raw === "") return;
-      // A reference holds a foreign key, so it goes out as a number like any
-      // other numeric field — not as the string the text input produced.
-      payload[f.key] = f.type === "number" || f.type === "reference" ? Number(raw) : raw;
-    });
     try {
       if (isEdit) {
         await api.put(`${config.endpoint}/${id}`, payload);
@@ -294,7 +308,10 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
   if (loading) return <LoadingView />;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      {/* Without keyboardShouldPersistTaps the first tap on Save (or on any
+          picker) while the keyboard is up only dismissed the keyboard. */}
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       {config.formFields.map((f) => (
         <Field key={f.key} label={f.label} required={f.required}>
           <FieldInput
@@ -309,12 +326,14 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <PrimaryButton title={isEdit ? "Save changes" : "Create"} onPress={handleSave} loading={saving} />
-    </ScrollView>
+        <PrimaryButton title={isEdit ? "Save changes" : "Create"} onPress={handleSave} loading={saving} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing(4), paddingBottom: spacing(10) },
   textarea: { minHeight: 80, textAlignVertical: "top" },
   error: { color: colors.danger, marginBottom: spacing(3), textAlign: "center" },

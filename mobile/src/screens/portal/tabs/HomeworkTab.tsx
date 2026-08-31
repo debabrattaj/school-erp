@@ -6,6 +6,7 @@ import { Badge, Card, EmptyView, ErrorView, LoadingView } from "../../../compone
 import { resolveFileUrl } from "../../../utils/files";
 import { Linking } from "react-native";
 import { colors, spacing, type } from "../../../theme/theme";
+import { todayISO } from "../../../utils/dates";
 
 interface Assignment {
   id: number;
@@ -19,7 +20,7 @@ interface Assignment {
 
 function dueTone(due?: string): "danger" | "warning" | "default" {
   if (!due) return "default";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   if (due < today) return "danger";
   return due === today ? "warning" : "default";
 }
