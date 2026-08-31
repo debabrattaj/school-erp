@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
 import AttendanceScreen from "../screens/attendance/AttendanceScreen";
 import MarksScreen from "../screens/marks/MarksScreen";
-import SettingsScreen from "../screens/settings/SettingsScreen";
+import SettingsNavigator from "./SettingsNavigator";
 import PayrollScreen from "../screens/payroll/PayrollScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
 import ReportCardScreen from "../screens/reportcard/ReportCardScreen";
@@ -60,7 +60,6 @@ const AttendanceStackScreen = singleScreenStack("AttendanceHome", "Attendance", 
 const MarksStackScreen = singleScreenStack("MarksHome", "Marks", MarksScreen);
 const PayrollStackScreen = singleScreenStack("PayrollHome", "Payroll", PayrollScreen);
 const ReportsStackScreen = singleScreenStack("ReportsHome", "Reports", ReportsScreen);
-const SettingsStackScreen = singleScreenStack("SettingsHome", "Institution Settings", SettingsScreen);
 const ReportCardStackScreen = singleScreenStack("ReportCardHome", "Report Card", ReportCardScreen);
 const CertificatesStackScreen = singleScreenStack("CertificatesHome", "Certificates", CertificatesScreen);
 const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", AssistantScreen);
@@ -97,7 +96,7 @@ const BESPOKE: {
   { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
-  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },
+  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsNavigator },
 ];
 
 /**
