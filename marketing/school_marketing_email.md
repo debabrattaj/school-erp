@@ -1,22 +1,24 @@
-Subject: One Platform for Admissions, Academics, Attendance & Fees
+Subject: One login. 40+ modules. An AI that answers parents at 9pm.
 
 Dear [Principal / Administrator Name],
 
-I'd like to introduce our School ERP — a single platform covering admissions, attendance, exams, report cards, fees, and parent communication, so your team isn't juggling five disconnected tools.
+Most schools run admissions in one tool, fees in another, and field parent calls the old-fashioned way. Schoolment puts all of it — admissions, attendance, exams, fees, transport, hostel, library and parent communication — behind a single login, and adds something the others don't: Sai, an AI chatbot that answers parent questions at 9pm so your front office doesn't have to.
 
-If you're looking for an online school management portal, a learning management system, or a mobile app for your school, SchoolMent can meet all your expectations. And if you're already using a similar platform from another vendor that isn't fulfilling your requirements — or their license pricing is beyond your school's budget — give our School ERP software a try.
+Already on another ERP that's outgrown its usefulness, or pricing you out as you add students? Schools switch to Schoolment for exactly that reason — worth a 20-minute look before you renew.
 
-Key highlights:
-- Full student lifecycle: admissions to alumni
-- Attendance, exams, marks & auto-generated report cards
-- Fee tracking with real-time payment status
-- Parent/staff communication built in
-- Role-based access, multi-school ready
+The six modules schools switch on first:
+- Admissions CRM — track enquiries from first call to enrolled student, no spreadsheets
+- Fees & Payments — online collection with live Paid / Partial / Unpaid status per student
+- Exams & Report Cards — attendance, marks entry and auto-generated report cards
+- WhatsApp for Parents — fee reminders and school updates sent where parents already are
+- Sai, the AI Chatbot — resolves routine parent questions instantly, day or night
+- Multi-Branch Ready — role-based access with data kept separate per campus
 
-Happy to give your team a quick 20-minute demo tailored to your school. Would you be open to a call this week or next?
+Live in three steps: import your data → configure & brand → go live & train.
+
+Happy to walk your team through Schoolment on a 20-minute call, mapped to how your school actually runs. Would you be open to a call this week or next?
 
 Best regards,
 [Your Name]
-[Your Title / Organization]
-[Phone Number]
-[Email Address]
+[Your Title] · Schoolment
++91 81164 46262 · info@schoolment.com · schoolment.com
