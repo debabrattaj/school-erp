@@ -13,6 +13,7 @@ import FloatingAssistant from "./components/FloatingAssistant";
 import PlatformLogin from "./pages/PlatformLogin";
 import { isPlatformLoggedIn } from "./platformApi";
 import { Navigate } from "react-router-dom";
+import RouteTitle from "./components/RouteTitle";
 
 // Everything past the login screen is lazy-loaded per route instead of
 // bundled into one shared chunk -- a school's daily users only ever touch a
@@ -146,6 +147,7 @@ function ProtectedLayout({ children }) {
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <RouteTitle />
       <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import API from "../api";
+import { usePageTitle } from "../utils/usePageTitle";
 
 const emptyMappingForm = {
   subject_id: "",
@@ -89,6 +90,12 @@ export default function ClassDetails() {
 
   const [classRecord, setClassRecord] = useState(null);
   const [students, setStudents] = useState([]);
+
+  usePageTitle(
+    classRecord
+      ? `${classRecord.class_name || "Class"} - Section ${classRecord.section || "-"}`
+      : "Class Details"
+  );
   const [teachers, setTeachers] = useState([]);
   const [subjectOptions, setSubjectOptions] = useState([]);
   const [classSubjects, setClassSubjects] = useState([]);
