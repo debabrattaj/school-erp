@@ -97,7 +97,12 @@ export default function ClassDetailScreen({ route, navigation }: { route: any; n
       <View style={styles.tabBarWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {TABS.map((t) => (
-            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
+            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t}
+              accessibilityState={{ selected: tab === t }}
+            >
               <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
             </Pressable>
           ))}

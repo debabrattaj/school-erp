@@ -54,7 +54,12 @@ export default function ChildDetailScreen({ route }: { route: any }) {
       <View style={styles.tabBarWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {tabs.map((t) => (
-            <Pressable key={t} style={[styles.tab, active === t && styles.tabActive]} onPress={() => setTab(t)}>
+            <Pressable key={t} style={[styles.tab, active === t && styles.tabActive]}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t}
+              accessibilityState={{ selected: active === t }}
+            >
               <Text style={[styles.tabText, active === t && styles.tabTextActive]}>{t}</Text>
             </Pressable>
           ))}

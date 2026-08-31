@@ -38,6 +38,9 @@ function PickerTrigger({
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
+      accessibilityRole="button"
+      accessibilityLabel={text ? `${placeholder}: ${text}` : placeholder}
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         styles.trigger,
         pressed && !disabled && styles.triggerPressed,
@@ -48,7 +51,7 @@ function PickerTrigger({
         {text || placeholder}
       </Text>
       {text && onClear && !disabled ? (
-        <Pressable onPress={onClear} hitSlop={10} style={styles.clearButton}>
+        <Pressable onPress={onClear} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear" style={styles.clearButton}>
           <Text style={styles.clearText}>×</Text>
         </Pressable>
       ) : (

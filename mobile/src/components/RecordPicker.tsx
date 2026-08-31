@@ -125,7 +125,12 @@ export function PickerButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.pickerButton}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={value ? `${label}: ${value}` : `${label}, none chosen`}
+      style={styles.pickerButton}
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.pickerLabel}>{label}</Text>
         <Text style={[styles.pickerValue, !value && styles.pickerPlaceholder]} numberOfLines={1}>

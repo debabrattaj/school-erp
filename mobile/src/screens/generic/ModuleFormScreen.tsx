@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 import { showAlert } from "../../utils/alert";
 import { ApiError, api, fetchRecord } from "../../api/client";
+import { buildFormPayload } from "../../modules/formPayload";
 import { ModuleConfig, FormFieldConfig } from "../../modules/types";
 import { AppTextInput, Field, LoadingView, PrimaryButton } from "../../components/Common";
 import PhotoField from "../../components/PhotoField";
@@ -276,18 +277,13 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
   }
 
   async function handleSave() {
-    const missing = config.formFields.filter((f) => f.required && !values[f.key]?.trim());
+    // Payload shaping lives in buildFormPayload so the clearing and numeric
+    // rules can be tested without driving the screen.
+    const { payload, missing, notNumeric } = buildFormPayload(config.formFields, values, loaded, isEdit);
     if (missing.length) {
       showAlert("Missing fields", `Please fill: ${missing.map((f) => f.label).join(", ")}`);
       return;
     }
-
-    // A number field holding something that is not a number would be sent as
-    // NaN, which JSON.stringify turns into null — the save then either wiped
-    // the column or 422'd with a message pointing at the wrong thing.
-    const notNumeric = config.formFields.filter(
-      (f) => (f.type === "number" || f.type === "reference") && (values[f.key] ?? "") !== "" && !Number.isFinite(Number(values[f.key]))
-    );
     if (notNumeric.length) {
       showAlert("Invalid number", `These need to be numbers: ${notNumeric.map((f) => f.label).join(", ")}`);
       return;
@@ -295,20 +291,6 @@ export default function ModuleFormScreen({ config, route, navigation }: { config
 
     setSaving(true);
     setError(null);
-    const payload: Record<string, unknown> = {};
-    config.formFields.forEach((f) => {
-      const raw = values[f.key];
-      if (raw === undefined || raw === "") {
-        // Skipping every empty value meant a field could never be cleared: the
-        // key simply vanished from the payload and the old value survived. On
-        // an edit, a field that *had* a value and is now empty is sent as null.
-        if (isEdit && loaded[f.key] !== undefined && loaded[f.key] !== "") payload[f.key] = null;
-        return;
-      }
-      // A reference holds a foreign key, so it goes out as a number like any
-      // other numeric field — not as the string the text input produced.
-      payload[f.key] = f.type === "number" || f.type === "reference" ? Number(raw) : raw;
-    });
     try {
       if (isEdit) {
         await api.put(`${config.endpoint}/${id}`, payload);

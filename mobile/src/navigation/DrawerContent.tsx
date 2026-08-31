@@ -97,6 +97,9 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
                   <Pressable
                     key={e.name}
                     onPress={() => navigation.navigate(e.name as never)}
+                    accessibilityRole="button"
+                    accessibilityLabel={e.title}
+                    accessibilityState={{ selected: active }}
                     style={({ pressed }) => [
                       styles.item,
                       active && styles.itemActive,
@@ -120,6 +123,8 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
 
       <Pressable
         onPress={logout}
+        accessibilityRole="button"
+        accessibilityLabel="Log out"
         style={({ pressed }) => [
           styles.logout,
           { paddingBottom: insets.bottom || spacing(3) },

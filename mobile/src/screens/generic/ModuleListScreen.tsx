@@ -113,14 +113,25 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
           style={styles.searchInput}
         />
         {config.allowCreate && canManage && (
-          <Pressable style={styles.addButton} onPress={() => navigation.navigate(`${config.key}Form`, {})}>
+          <Pressable
+            style={styles.addButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${singular(config.title).toLowerCase()}`}
+            onPress={() => navigation.navigate(`${config.key}Form`, {})}
+          >
             <Text style={styles.addButtonText}>+ Add</Text>
           </Pressable>
         )}
       </View>
 
       <View style={styles.sortRow}>
-        <Pressable onPress={() => setShowSort((v) => !v)} style={styles.sortToggle}>
+        <Pressable
+          onPress={() => setShowSort((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={activeSortLabel ? `Sorted by ${activeSortLabel}. Change sort` : "Sort"}
+          accessibilityState={{ expanded: showSort }}
+          style={styles.sortToggle}
+        >
           <Text style={styles.sortToggleText}>
             {activeSortLabel ? `Sorted by ${activeSortLabel} ${sortDesc ? "↓" : "↑"}` : "Sort"}
           </Text>
@@ -136,6 +147,9 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 key={col.key}
                 onPress={() => toggleSort(col.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Sort by ${col.label}`}
+                accessibilityState={{ selected: active }}
                 style={[styles.sortChip, active && styles.sortChipActive]}
               >
                 <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
@@ -178,6 +192,12 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 onPress={() => navigation.navigate(`${config.key}Detail`, { id: item.id })}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  config.subtitleField && item[config.subtitleField]
+                    ? `${title || "Untitled"}, ${item[config.subtitleField]}`
+                    : title || "Untitled"
+                }
               >
                 <Tile label={initials} size={38} />
                 <View style={{ flex: 1, minWidth: 0 }}>
