@@ -203,22 +203,29 @@ def init_tenant_registry():
             db.commit()
             db.refresh(account)
 
-        existing_features = {
-            feature.feature_key
-            for feature in db.query(SchoolFeature)
-            .filter(SchoolFeature.account_id == account.id)
-            .all()
-        }
+        # Every account, not just the default one. A school only gets feature
+        # rows when it is created, so a module added to DEFAULT_FEATURES after
+        # that would read as disabled for every existing school -- including
+        # the ones declared on by default, which is not what the flag says.
+        # Backfilling the missing keys here is idempotent and leaves any row a
+        # platform owner has already set alone.
+        for school in db.query(SchoolAccount).all():
+            existing_features = {
+                feature.feature_key
+                for feature in db.query(SchoolFeature)
+                .filter(SchoolFeature.account_id == school.id)
+                .all()
+            }
 
-        for feature_key, enabled in DEFAULT_FEATURES.items():
-            if feature_key not in existing_features:
-                db.add(
-                    SchoolFeature(
-                        account_id=account.id,
-                        feature_key=feature_key,
-                        is_enabled=enabled,
+            for feature_key, enabled in DEFAULT_FEATURES.items():
+                if feature_key not in existing_features:
+                    db.add(
+                        SchoolFeature(
+                            account_id=school.id,
+                            feature_key=feature_key,
+                            is_enabled=enabled,
+                        )
                     )
-                )
 
         db.commit()
     finally:

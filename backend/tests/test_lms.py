@@ -450,3 +450,86 @@ def test_grade_cannot_exceed_assignment_total(client, auth, learner):
     assert resp.status_code == 200
     assert resp.json()["status"] == "Graded"
     assert resp.json()["marks_awarded"] is None
+
+
+# --------------------------------------------------------------------------
+# Portal uploads
+# --------------------------------------------------------------------------
+
+
+def _png_bytes() -> bytes:
+    # Smallest thing the upload route will accept: it checks the extension and
+    # the size cap, not the pixels.
+    return b"\x89PNG\r\n\x1a\n" + b"0" * 32
+
+
+def test_family_can_upload_their_work(client, auth, learner):
+    _, student_auth = learner
+
+    resp = client.post(
+        "/uploads/portal",
+        files={"file": ("answer.png", _png_bytes(), "image/png")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["url"].startswith("/uploads/")
+
+    # The staff route stays staff-only -- the portal has its own door.
+    resp = client.post(
+        "/uploads/",
+        files={"file": ("answer.png", _png_bytes(), "image/png")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 403
+
+    resp = client.post(
+        "/uploads/portal",
+        files={"file": ("script.exe", b"nope", "application/octet-stream")},
+        headers=student_auth,
+    )
+    assert resp.status_code == 400
+
+
+def test_portal_upload_needs_the_lms(client, auth, learner):
+    _, student_auth = learner
+
+    _set_lms_enabled(False)
+    try:
+        resp = client.post(
+            "/uploads/portal",
+            files={"file": ("answer.png", _png_bytes(), "image/png")},
+            headers=student_auth,
+        )
+        assert resp.status_code == 403
+    finally:
+        _set_lms_enabled(True)
+
+
+def test_a_module_added_later_reaches_existing_schools():
+    """A school only gets feature rows when it is created, so a module added
+    to DEFAULT_FEATURES afterwards has to be backfilled -- otherwise every
+    existing school reads it as disabled whatever the default says.
+    """
+    from app.tenant import (
+        CentralSessionLocal,
+        get_account,
+        get_feature_map,
+        init_tenant_registry,
+    )
+    from app.tenant_models import SchoolFeature
+
+    account = get_account("default")
+    db = CentralSessionLocal()
+    try:
+        db.query(SchoolFeature).filter(
+            SchoolFeature.account_id == account["id"],
+            SchoolFeature.feature_key == "lms",
+        ).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    assert "lms" not in get_feature_map(account["id"])
+
+    init_tenant_registry()
+    assert get_feature_map(account["id"])["lms"] is True

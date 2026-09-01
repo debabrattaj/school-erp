@@ -8836,6 +8836,55 @@ textarea {
   color: var(--saas-text-muted, var(--text-muted));
 }
 
+/* Homework hand-in and study material: a card per item, since each one
+   carries its own form/actions and does not fit a table row. */
+.portal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.portal-card {
+  border: 1px solid var(--saas-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--saas-surface, var(--surface-subtle));
+  box-shadow: var(--saas-shadow-sm);
+}
+
+.portal-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 700;
+}
+
+.portal-card-meta {
+  font-size: 13px;
+  color: var(--saas-text-muted, var(--text-muted));
+  margin-top: 2px;
+}
+
+.portal-card p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* The already-handed-in / graded panel, nested inside its assignment card. */
+.portal-card-inset {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-soft, var(--surface-subtle));
+  border: 1px solid var(--saas-border);
+}
+
+.portal-card-actions {
+  margin-top: 12px;
+}
+
 .portal-message-staff {
   align-self: flex-start;
 }

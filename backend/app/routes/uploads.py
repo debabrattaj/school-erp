@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 
 from app.models import User
 from app.security import require_roles
-from app.tenant import get_account_code_from_request
+from app.tenant import get_account_code_from_request, require_feature
 
 router = APIRouter(prefix="/uploads", tags=["Files"])
 
@@ -26,14 +26,8 @@ ALLOWED_EXTENSIONS = {
 }
 
 
-@router.post("/")
-async def upload_file(
-    request: Request,
-    file: UploadFile = File(...),
-    current_user: User = Depends(
-        require_roles(["Admin", "Principal", "Accounts", "Teacher"])
-    ),
-):
+async def _store_upload(request: Request, file: UploadFile) -> dict:
+    """Validate and store one uploaded file, returning its public URL."""
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -62,3 +56,30 @@ async def upload_file(
 
     url = f"/uploads/{safe_account}/{name}"
     return {"url": url, "filename": file.filename, "size": len(contents)}
+
+
+@router.post("/")
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(
+        require_roles(["Admin", "Principal", "Accounts", "Teacher"])
+    ),
+):
+    return await _store_upload(request, file)
+
+
+@router.post("/portal", dependencies=[Depends(require_feature("lms"))])
+async def upload_portal_file(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_roles(["Parent", "Student", "Admin", "Principal"])),
+):
+    """The same store, opened to families for homework hand-in only.
+
+    Kept as its own route rather than widening the staff one: it carries the
+    LMS entitlement, so a school without the module has no endpoint through
+    which a parent can put files on the server at all. Type allow-list and
+    size cap are the staff ones, unchanged.
+    """
+    return await _store_upload(request, file)

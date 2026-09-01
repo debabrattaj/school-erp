@@ -8,6 +8,7 @@ import MarksTab from "./tabs/MarksTab";
 import FeesTab from "./tabs/FeesTab";
 import TimetableTab from "./tabs/TimetableTab";
 import HomeworkTab from "./tabs/HomeworkTab";
+import LearningTab from "./tabs/LearningTab";
 import MessagesTab from "./tabs/MessagesTab";
 import OnlineTestsTab from "./tabs/OnlineTestsTab";
 import LeaveTab from "./tabs/LeaveTab";
@@ -19,6 +20,7 @@ const TABS = [
   "Fees",
   "Timetable",
   "Homework",
+  "Learning",
   "Tests",
   "Messages",
   "Leave",
@@ -30,7 +32,7 @@ type Tab = (typeof TABS)[number];
  * portal route answers 403 for a school that has not bought it — which showed
  * the family a "Something went wrong" tab rather than simply not offering it.
  */
-const TAB_FEATURE: Partial<Record<Tab, string>> = { Tests: "online_tests" };
+const TAB_FEATURE: Partial<Record<Tab, string>> = { Tests: "online_tests", Learning: "lms" };
 
 export default function ChildDetailScreen({ route }: { route: any }) {
   const { id } = route.params;
@@ -73,6 +75,7 @@ export default function ChildDetailScreen({ route }: { route: any }) {
         {active === "Fees" && <FeesTab studentId={id} />}
         {active === "Timetable" && <TimetableTab studentId={id} />}
         {active === "Homework" && <HomeworkTab studentId={id} />}
+        {active === "Learning" && <LearningTab studentId={id} />}
         {active === "Tests" && <OnlineTestsTab studentId={id} />}
         {active === "Messages" && <MessagesTab studentId={id} />}
         {active === "Leave" && <LeaveTab studentId={id} />}

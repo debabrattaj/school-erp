@@ -12,9 +12,12 @@ export function resolveFileUrl(url) {
 
 // Upload a File object; returns the stored URL string.
 // Let axios set the multipart Content-Type (with boundary) from the FormData.
-export async function uploadFile(file) {
+// `endpoint` picks which door to go through: staff use the default, and the
+// parent/student portal has its own, which only exists where the school has
+// the LMS.
+export async function uploadFile(file, endpoint = "/uploads/") {
   const form = new FormData();
   form.append("file", file);
-  const res = await API.post("/uploads/", form);
+  const res = await API.post(endpoint, form);
   return res.data?.url || "";
 }
