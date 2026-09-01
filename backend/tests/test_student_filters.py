@@ -127,13 +127,18 @@ def test_filters_combine(client, auth, cohort):
 
 
 class TestPrincipalAttendance:
-    """Principal holds attendance:manage, so the write routes must accept them.
+    """A Principal reviews attendance; Admin and Teacher write it.
 
-    They previously listed only Admin and Teacher, which left a Principal able
-    to read attendance and unable to record any -- on either client.
+    Their permission map says attendance:view, and these pin the boundary so
+    the write routes are not widened again by someone reading the map and
+    assuming the routes were the mistake.
     """
 
-    def test_principal_can_load_the_class_roster(self, client, principal_auth, cohort):
+    def test_principal_can_read_the_register(self, client, principal_auth, cohort):
+        assert client.get("/attendance/", headers=principal_auth).status_code == 200
+
+    def test_principal_can_read_the_class_roster(self, client, principal_auth, cohort):
+        """Reviewing the day's marks is reading, and stays allowed."""
         class_id = cohort[0]["class_id"]
         resp = client.get(
             "/attendance/roster",
@@ -142,39 +147,57 @@ class TestPrincipalAttendance:
         )
         assert resp.status_code == 200, resp.text
 
-    def test_principal_can_mark_a_whole_class(self, client, principal_auth, cohort):
-        class_id = cohort[0]["class_id"]
+    def test_principal_cannot_mark_one_student(self, client, principal_auth, cohort):
+        resp = client.post("/attendance/", json={
+            "student_id": cohort[0]["id"],
+            "attendance_date": "2026-09-05",
+            "status": "Present",
+        }, headers=principal_auth)
+        assert resp.status_code == 403
+
+    def test_principal_cannot_mark_a_whole_class(self, client, principal_auth, cohort):
         resp = client.post("/attendance/bulk", json={
-            "attendance_date": "2026-09-02",
-            "class_id": class_id,
+            "attendance_date": "2026-09-06",
+            "class_id": cohort[0]["class_id"],
             "entries": [{"student_id": cohort[0]["id"], "status": "Present"}],
         }, headers=principal_auth)
-        assert resp.status_code == 200, resp.text
-        assert resp.json()[0]["status"] == "Present"
+        assert resp.status_code == 403
 
-    def test_principal_can_mark_and_correct_one_student(self, client, principal_auth, cohort):
+    def test_principal_cannot_correct_an_existing_mark(self, client, principal_auth, auth, cohort):
         created = client.post("/attendance/", json={
             "student_id": cohort[1]["id"],
-            "attendance_date": "2026-09-03",
+            "attendance_date": "2026-09-07",
             "status": "Absent",
-        }, headers=principal_auth)
+        }, headers=auth)
         assert created.status_code == 200, created.text
 
-        updated = client.put(
+        refused = client.put(
             f"/attendance/{created.json()['id']}",
             json={"status": "Excused"},
             headers=principal_auth,
         )
-        assert updated.status_code == 200, updated.text
-        assert updated.json()["status"] == "Excused"
+        assert refused.status_code == 403
 
     def test_deleting_attendance_stays_admin_only(self, client, principal_auth, auth, cohort):
         created = client.post("/attendance/", json={
             "student_id": cohort[2]["id"],
-            "attendance_date": "2026-09-04",
+            "attendance_date": "2026-09-08",
             "status": "Present",
         }, headers=auth)
         assert created.status_code == 200, created.text
 
         refused = client.delete(f"/attendance/{created.json()['id']}", headers=principal_auth)
         assert refused.status_code == 403
+
+    def test_the_permission_map_matches_what_the_routes_allow(self, client):
+        """Both clients build their navigation from the map the login returns,
+        so it claiming `manage` while the routes refuse it is what sent
+        Principals to a page that could not save."""
+        resp = client.post("/auth/login", json={
+            "account_code": "default",
+            "email": "principal@school.com",
+            "password": "principal123",
+        })
+        assert resp.status_code == 200, resp.text
+        perms = resp.json()["user"]["permissions"]
+        assert perms["attendance"] == "view", "the map must not promise writes the routes refuse"

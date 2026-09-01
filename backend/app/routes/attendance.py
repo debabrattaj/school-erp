@@ -42,16 +42,17 @@ def get_student_snapshot(student: Student):
     }
 
 
-# Principal is granted attendance:manage in SYSTEM_ROLE_PERMISSIONS -- the map
-# the roles UI shows and the one that authorizes custom roles -- but the write
-# routes below listed only Admin and Teacher, so a Principal could read
-# attendance and never record any, on either client. Delete stays Admin-only.
+# Who may mark attendance: Admin and Teacher, and nobody else. A Principal can
+# read the register and the day's roster but not record or change a mark --
+# attendance is the class teacher's record, and a head of school reviewing it
+# is not the same as writing it. Principal's permission map says
+# attendance:view to match. Delete stays Admin-only.
 @router.post("/", response_model=AttendanceResponse)
 def mark_attendance(
     attendance: AttendanceCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(["Admin", "Principal", "Teacher"])
+        require_roles(["Admin", "Teacher"])
     )
 ):
     student = db.query(Student).filter(
@@ -225,7 +226,7 @@ def bulk_mark_attendance(
     payload: AttendanceBulkCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(["Admin", "Principal", "Teacher"])
+        require_roles(["Admin", "Teacher"])
     )
 ):
     """Mark or correct a whole class's attendance for one day in a single
@@ -331,7 +332,7 @@ def update_attendance(
     attendance_data: AttendanceUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(["Admin", "Principal", "Teacher"])
+        require_roles(["Admin", "Teacher"])
     )
 ):
     record = db.query(Attendance).filter(

@@ -111,7 +111,11 @@ SYSTEM_ROLE_PERMISSIONS = {
     "Admin": {"*": "manage"},
     "Principal": {
         "dashboard": "view", "students": "manage", "teachers": "manage",
-        "classes": "manage", "attendance": "manage", "exams": "manage",
+        # Attendance is the class teacher's record: a Principal reviews it,
+        # Admin and Teacher write it. This said "manage" while the routes only
+        # ever admitted Admin and Teacher, which is what made the Attendance
+        # page offer itself to Principals and then refuse every save.
+        "classes": "manage", "attendance": "view", "exams": "manage",
         "marks": "manage", "timetable": "manage", "admissions": "manage",
         "parent_communication": "manage", "reports": "view", "settings": "manage",
         "academic_years": "manage", "student_services": "manage",

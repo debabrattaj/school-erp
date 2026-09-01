@@ -5,6 +5,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
 import { DatePicker, OptionPicker } from "../../components/Pickers";
+import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { colors, radius, spacing, type } from "../../theme/theme";
 import { todayISO } from "../../utils/dates";
 
@@ -28,6 +30,12 @@ interface RosterEntry {
 }
 
 export default function AttendanceScreen() {
+  const { user } = useAuth();
+  // Marking is Admin and Teacher only on the backend. A Principal can read the
+  // roster, so the day's marks are shown but the controls that write are not --
+  // rather than offering buttons every tap would 403 on.
+  const canMark = hasAccess(user?.permissions, "attendance", "manage");
+
   const [classes, setClasses] = useState<ClassRecord[] | null>(null);
   const [classesError, setClassesError] = useState<string | null>(null);
   const [classId, setClassId] = useState("");
@@ -201,7 +209,7 @@ export default function AttendanceScreen() {
           keyExtractor={(r) => String(r.student_id)}
           contentContainerStyle={{ padding: spacing(4) }}
           ListHeaderComponent={
-            unmarkedCount > 0 ? (
+            canMark && unmarkedCount > 0 ? (
               <SecondaryButton
                 title={`Mark remaining ${unmarkedCount} present`}
                 onPress={markRestPresent}
@@ -221,17 +229,24 @@ export default function AttendanceScreen() {
                 {item.source === "Biometric" && !changed ? (
                   <Text style={styles.source}>Marked from a biometric punch</Text>
                 ) : null}
-                <View style={styles.chipRow}>
-                  {STATUSES.map((s) => (
-                    <Pressable
-                      key={s}
-                      onPress={() => setStatus(item.student_id, s)}
-                      style={[styles.chip, current === s && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, current === s && styles.chipTextActive]}>{s}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                {canMark ? (
+                  <View style={styles.chipRow}>
+                    {STATUSES.map((s) => (
+                      <Pressable
+                        key={s}
+                        onPress={() => setStatus(item.student_id, s)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mark ${item.student_name} ${s}`}
+                        accessibilityState={{ selected: current === s }}
+                        style={[styles.chip, current === s && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, current === s && styles.chipTextActive]}>{s}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.readOnlyStatus}>{current || "Not marked"}</Text>
+                )}
               </Card>
             );
           }}
@@ -240,12 +255,18 @@ export default function AttendanceScreen() {
 
       {selected && roster?.length ? (
         <View style={styles.footer}>
-          <PrimaryButton
-            title={pendingCount ? `Save attendance (${pendingCount})` : "Save attendance"}
-            onPress={saveAll}
-            loading={saving}
-            disabled={pendingCount === 0}
-          />
+          {canMark ? (
+            <PrimaryButton
+              title={pendingCount ? `Save attendance (${pendingCount})` : "Save attendance"}
+              onPress={saveAll}
+              loading={saving}
+              disabled={pendingCount === 0}
+            />
+          ) : (
+            <Text style={styles.readOnlyNote}>
+              You can review attendance here. Marking it is the class teacher's to do.
+            </Text>
+          )}
         </View>
       ) : null}
     </View>
@@ -270,4 +291,6 @@ const styles = StyleSheet.create({
   chipText: { ...type.caption, color: colors.text },
   chipTextActive: { color: colors.onPrimary },
   footer: { padding: spacing(4), borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
+  readOnlyNote: { ...type.caption, color: colors.textMuted, textAlign: "center" },
+  readOnlyStatus: { ...type.body, color: colors.text, fontWeight: "600" },
 });
