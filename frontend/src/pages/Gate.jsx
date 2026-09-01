@@ -110,7 +110,7 @@ function TextField({ label, ...props }) {
 }
 
 export default function Gate() {
-  const canManage = hasAccess(DESK_ROLES);
+  const canManage = hasAccess(DESK_ROLES, "manage");
 
   const [activeTab, setActiveTab] = useState("visitors");
   const [message, setMessage] = useState("");
