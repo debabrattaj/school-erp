@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View, StyleSheet } from "react-native";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, Field, PrimaryButton, Row, SectionLabel } from "../../components/Common";
@@ -41,17 +41,25 @@ const emptyForm = {
 
 export default function SendTab() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [pickClass, setPickClass] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
 
-  useEffect(() => {
+  const loadTemplates = useCallback(() => {
+    setTemplatesError(null);
     api
       .get<Template[]>("/communications/templates/")
       .then((rows) => setTemplates(rows.filter((t) => t.status !== "Inactive")))
-      .catch(() => {});
+      .catch((e) => {
+        setTemplatesError(e instanceof ApiError ? String(e.message) : "Failed to load message templates.");
+      });
   }, []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
   const templateOptions = useMemo(
     () => templates.map((t) => ({ label: t.template_name, value: String(t.id), subtitle: t.category })),
@@ -127,7 +135,11 @@ export default function SendTab() {
         <Text style={styles.hint}>Leave section blank to message every section of this class.</Text>
 
         <SectionLabel>Message</SectionLabel>
-        {templateOptions.length > 0 ? (
+        {templatesError ? (
+          <Text style={styles.templatesError} onPress={loadTemplates}>
+            {templatesError} Tap to retry.
+          </Text>
+        ) : templateOptions.length > 0 ? (
           <Field label="Start from a template">
             <OptionPicker label="Template" options={templateOptions} value={form.templateId} onChange={applyTemplate} placeholder="None" />
           </Field>
@@ -186,6 +198,7 @@ export default function SendTab() {
 const styles = StyleSheet.create({
   content: { padding: spacing(4) },
   hint: { ...type.caption, color: colors.textMuted, marginTop: spacing(1.5) },
+  templatesError: { ...type.caption, color: colors.danger, marginTop: spacing(1.5), marginBottom: spacing(2) },
   chip: {
     ...type.caption,
     color: colors.textMuted,

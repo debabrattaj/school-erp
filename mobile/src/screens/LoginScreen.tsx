@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { useAuth, ApiError } from "../auth/AuthContext";
 import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
 import { colors, elevation, radius, spacing, type } from "../theme/theme";
-import { DEFAULT_API_BASE_URL, getApiBase, setApiBase } from "../api/client";
+import { DEFAULT_API_BASE_URL, getApiBase, setApiBase, validateApiBase } from "../api/client";
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -16,10 +16,32 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [apiBase, setApiBaseState] = useState(DEFAULT_API_BASE_URL);
+  const [serverUrlError, setServerUrlError] = useState<string | null>(null);
+  const [serverUrlWarning, setServerUrlWarning] = useState<string | null>(null);
 
   useEffect(() => {
     getApiBase().then(setApiBaseState);
   }, []);
+
+  // Live preview as the user types: flag an insecure (non-private, non-https)
+  // host before they even hit Save, matching setApiBase()'s own validation.
+  useEffect(() => {
+    if (!apiBase.trim()) {
+      setServerUrlError(null);
+      setServerUrlWarning(null);
+      return;
+    }
+    const result = validateApiBase(apiBase);
+    if (!result.ok) {
+      setServerUrlError(result.error);
+      setServerUrlWarning(null);
+    } else {
+      setServerUrlError(null);
+      setServerUrlWarning(
+        result.upcasted ? "Plain HTTP isn't allowed for this address — it will be saved as https:// instead." : null
+      );
+    }
+  }, [apiBase]);
 
   async function handleSubmit() {
     setError(null);
@@ -47,7 +69,20 @@ export default function LoginScreen() {
   }
 
   async function saveServerUrl() {
-    await setApiBase(apiBase.trim());
+    const result = await setApiBase(apiBase.trim());
+    if (!result.ok) {
+      setServerUrlError(result.error);
+      return;
+    }
+    setApiBaseState(result.url);
+    if (result.upcasted) {
+      // Leave the panel open so the corrected https:// URL and the warning
+      // explaining why it changed are both visible, instead of silently
+      // closing over a URL the user didn't type.
+      setServerUrlWarning("Saved as https:// — plain HTTP isn't allowed for this address.");
+      return;
+    }
+    setServerUrlWarning(null);
     setShowServerSettings(false);
   }
 
@@ -122,6 +157,8 @@ export default function LoginScreen() {
               autoCorrect={false}
               placeholder="https://your-school-erp-api.example.com"
             />
+            {serverUrlError ? <Text style={styles.fieldError}>{serverUrlError}</Text> : null}
+            {serverUrlWarning ? <Text style={styles.fieldWarning}>⚠ {serverUrlWarning}</Text> : null}
             <SecondaryButton title="Save" onPress={saveServerUrl} style={{ marginTop: spacing(2) }} />
           </Field>
         )}
@@ -167,5 +204,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     marginBottom: spacing(3),
     textAlign: "center",
+  },
+  fieldError: {
+    ...type.caption,
+    color: colors.danger,
+    marginTop: spacing(1.5),
+  },
+  fieldWarning: {
+    ...type.caption,
+    color: colors.warning,
+    backgroundColor: colors.warningTint,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(1.5),
+    paddingHorizontal: spacing(2.5),
+    marginTop: spacing(1.5),
   },
 });

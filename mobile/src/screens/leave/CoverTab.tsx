@@ -5,6 +5,7 @@ import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, Row, SecondaryButton } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 
 interface CoverSlot {
@@ -38,7 +39,7 @@ function todayIso() {
 
 export default function CoverTab() {
   const { user } = useAuth();
-  const canAssign = user?.role === "Admin" || user?.role === "Principal";
+  const canAssign = hasAccess(user?.permissions, "staff_leave", "manage");
 
   const [date, setDate] = useState(todayIso());
   const [slots, setSlots] = useState<CoverSlot[] | null>(null);
@@ -156,6 +157,7 @@ export default function CoverTab() {
                 data={[...candidates].sort((a, b) => Number(b.available) - Number(a.available))}
                 keyExtractor={(c) => String(c.teacher_id)}
                 style={{ maxHeight: 400 }}
+                ListEmptyComponent={<EmptyView message="No eligible substitutes for this slot." />}
                 renderItem={({ item }) => (
                   <Pressable
                     disabled={!item.available || assigning}

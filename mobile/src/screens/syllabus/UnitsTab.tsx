@@ -16,6 +16,7 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
+import { hasReviewerAccess } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 
 interface Topic {
@@ -52,7 +53,10 @@ const emptyTopicForm = { title: "", plannedPeriods: "1" };
 
 export default function UnitsTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
-  const canDelete = user?.role === "Admin" || user?.role === "Principal";
+  // delete_unit/delete_topic are reviewer-only server-side (REVIEWERS =
+  // ["Admin","Principal"]) even though Teacher's own permission map claims
+  // "syllabus": "manage" -- see hasReviewerAccess()'s doc comment.
+  const canDelete = hasReviewerAccess(user?.role, user?.permissions, "syllabus");
 
   const [units, setUnits] = useState<Unit[] | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -18,6 +18,7 @@ import {
 import { DatePicker, OptionPicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
 import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -62,7 +63,7 @@ const emptyForm = { teacher: null as Teacher | null, leaveTypeId: "", from: "", 
 
 export default function RequestsTab() {
   const { user } = useAuth();
-  const canApprove = user?.role === "Admin" || user?.role === "Principal";
+  const canApprove = hasAccess(user?.permissions, "staff_leave", "manage");
 
   const [requests, setRequests] = useState<LeaveRequest[] | null>(null);
   const [types, setTypes] = useState<LeaveType[]>([]);

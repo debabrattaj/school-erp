@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api } from "../../api/client";
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError } from "../../api/client";
 import type { Option } from "../../components/Pickers";
 
 interface ClassSubjectRow {
@@ -27,10 +27,17 @@ export function useClassSubjects() {
   const [options, setOptions] = useState<Option[]>([]);
   const [byId, setById] = useState<Map<number, ClassSubjectInfo>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setError(null);
       try {
         const [classSubjects, classes] = await Promise.all([
           api.get<ClassSubjectRow[]>("/class-subjects/"),
@@ -48,6 +55,10 @@ export function useClassSubjects() {
         });
         setOptions(opts);
         setById(map);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof ApiError ? String(e.message) : "Failed to load classes and subjects.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -55,7 +66,7 @@ export function useClassSubjects() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  return { options, byId, loading };
+  return { options, byId, loading, error, reload };
 }

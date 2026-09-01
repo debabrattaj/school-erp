@@ -15,6 +15,7 @@ import {
   SecondaryButton,
 } from "../../components/Common";
 import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface LeaveType {
@@ -32,7 +33,7 @@ const emptyForm = { code: "", name: "", annualQuota: "", isPaid: true };
 
 export default function TypesTab() {
   const { user } = useAuth();
-  const canManage = user?.role === "Admin" || user?.role === "Principal";
+  const canManage = hasAccess(user?.permissions, "staff_leave", "manage");
 
   const [types, setTypes] = useState<LeaveType[] | null>(null);
   const [error, setError] = useState<string | null>(null);

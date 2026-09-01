@@ -17,6 +17,8 @@ import {
 } from "../../components/Common";
 import { TimePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 
 interface GatePass {
@@ -58,6 +60,12 @@ function todayIso() {
 }
 
 export default function PassesTab() {
+  const { user } = useAuth();
+  // Release and Record return are desk-only on the backend (Admin/Principal —
+  // Teacher can approve/reject/cancel a pass but not hand the person over at
+  // the gate), unlike the rest of this screen's actions.
+  const canRelease = hasAccess(user?.permissions, "gate_register", "manage");
+
   const [stillOut, setStillOut] = useState(true);
   const [passes, setPasses] = useState<GatePass[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -255,10 +263,10 @@ export default function PassesTab() {
                 <SecondaryButton title="Reject" onPress={() => setDecision({ pass: item, kind: "reject" })} style={{ flex: 1 }} />
               </Row>
             ) : null}
-            {item.status === "Approved" ? (
+            {item.status === "Approved" && canRelease ? (
               <SecondaryButton title="Release" onPress={() => setReleasing(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
-            {item.status === "Out" ? (
+            {item.status === "Out" && canRelease ? (
               <SecondaryButton title="Record return" onPress={() => recordReturn(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
             {item.status === "Requested" || item.status === "Approved" ? (

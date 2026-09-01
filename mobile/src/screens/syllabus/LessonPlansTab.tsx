@@ -17,6 +17,7 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
+import { hasReviewerAccess } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface Plan {
@@ -54,7 +55,10 @@ const emptyForm = { planDate: todayIso(), title: "", objectives: "", homework: "
 
 export default function LessonPlansTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
-  const canReview = user?.role === "Admin" || user?.role === "Principal";
+  // review_plan is reviewer-only server-side (REVIEWERS = ["Admin","Principal"])
+  // even though Teacher's own permission map claims "syllabus": "manage" --
+  // see hasReviewerAccess()'s doc comment.
+  const canReview = hasReviewerAccess(user?.role, user?.permissions, "syllabus");
 
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);

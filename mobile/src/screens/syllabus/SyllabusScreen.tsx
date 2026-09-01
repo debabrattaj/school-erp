@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Centered } from "../../components/Common";
+import { Centered, ErrorView } from "../../components/Common";
 import { OptionPicker } from "../../components/Pickers";
 import { colors, spacing, type } from "../../theme/theme";
 import { useClassSubjects } from "./useClassSubjects";
@@ -15,7 +15,7 @@ type Tab = (typeof TABS)[number];
 export default function SyllabusScreen() {
   const [tab, setTab] = useState<Tab>("Units");
   const [classSubjectId, setClassSubjectId] = useState("");
-  const { options, loading } = useClassSubjects();
+  const { options, loading, error, reload } = useClassSubjects();
 
   return (
     <View style={styles.container}>
@@ -44,7 +44,9 @@ export default function SyllabusScreen() {
             />
           </View>
 
-          {!classSubjectId ? (
+          {error ? (
+            <ErrorView message={error} onRetry={reload} />
+          ) : !classSubjectId ? (
             <Centered>
               <Text style={styles.hint}>Choose a class subject to see its syllabus.</Text>
             </Centered>
