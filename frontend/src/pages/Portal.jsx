@@ -433,6 +433,21 @@ export default function Portal() {
 
   async function openOnlineTest(testId) {
     setMessage("");
+
+    // Only a parent/admin can grant proctoring consent (see revokeProctoringConsent
+    // above and the /portal proctoring/consent endpoints) -- a proctored test must
+    // not start (and its webcam must not activate) without it on record.
+    const testMeta = onlineTests.find((t) => t.id === testId);
+    if (
+      testMeta?.proctoring_enabled &&
+      testMeta.attempt_status !== "In Progress" &&
+      testMeta.attempt_status !== "Submitted" &&
+      !proctoringConsent?.granted
+    ) {
+      setMessage("A parent or admin must grant proctoring consent before this test can be started.");
+      return;
+    }
+
     try {
       const response = await API.get(`/portal/students/${selectedId}/online-tests/${testId}`);
       const data = response.data;
@@ -1444,9 +1459,18 @@ export default function Portal() {
                             Continue
                           </button>
                         ) : test.is_open && isStudent ? (
-                          <button type="button" className="primary-button" onClick={() => openOnlineTest(test.id)}>
-                            Start
-                          </button>
+                          test.proctoring_enabled && !proctoringConsent?.granted ? (
+                            <span
+                              className="status pending online-test-consent-required"
+                              title="A parent or admin must grant proctoring consent before this test can be started."
+                            >
+                              Consent required
+                            </span>
+                          ) : (
+                            <button type="button" className="primary-button" onClick={() => openOnlineTest(test.id)}>
+                              Start
+                            </button>
+                          )
                         ) : (
                           "-"
                         )}

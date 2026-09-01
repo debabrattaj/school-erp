@@ -308,7 +308,7 @@ export default function Sidebar({ onNavigate }) {
       label: "Fees",
       icon: Wallet,
       path: "/fees",
-      roles: ["Admin", "Accounts"],
+      roles: ["Admin", "Principal", "Accounts"],
       feature: "fees",
       group: "Finance & Operations",
     },

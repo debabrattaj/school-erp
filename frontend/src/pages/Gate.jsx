@@ -780,7 +780,7 @@ export default function Gate() {
                       <td>{p.collected_by_name || "-"}</td>
                       <td>
                         <div className="action-buttons">
-                          {p.status === "Requested" && (
+                          {p.status === "Requested" && canManage && (
                             <>
                               <button type="button" className="edit-button" onClick={() => approvePass(p)} title="Approve">
                                 <Check size={15} />
@@ -800,7 +800,7 @@ export default function Gate() {
                               <Undo2 size={15} />
                             </button>
                           )}
-                          {(p.status === "Requested" || p.status === "Approved") && (
+                          {(p.status === "Requested" || p.status === "Approved") && canManage && (
                             <button type="button" className="delete-button" onClick={() => cancelPass(p)} title="Cancel">
                               <X size={15} />
                             </button>

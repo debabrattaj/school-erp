@@ -11,6 +11,12 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
 
+# Least-privilege default: this workflow only checks out the repo, builds the
+# APK, and uploads it as a run artifact (authenticated separately from
+# GITHUB_TOKEN) -- it never writes back to the repository.
+permissions:
+  contents: read
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
