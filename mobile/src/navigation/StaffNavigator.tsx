@@ -90,7 +90,7 @@ const BESPOKE: {
   { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
   { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
-  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "leave", Component: LeaveStackScreen },
+  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "staff_leave", Component: LeaveStackScreen },
   { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
   { name: "Communications", title: "Communication", icon: "Cm", group: "Communication & Portal", feature: "parent_communication", Component: CommunicationsStackScreen },
   { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },

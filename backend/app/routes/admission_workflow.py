@@ -29,7 +29,10 @@ def ensure_default_stages(db: Session):
 
 
 @router.get("/", response_model=list[schemas.AdmissionWorkflowStageResponse])
-def list_stages(db: Session = Depends(get_db)):
+def list_stages(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
     ensure_default_stages(db)
     return (
         db.query(models.AdmissionWorkflowStage)
@@ -159,7 +162,11 @@ def _get_stage_or_404(db: Session, stage_id: int) -> models.AdmissionWorkflowSta
     "/{stage_id}/task-templates",
     response_model=list[schemas.AdmissionStageTaskTemplateResponse],
 )
-def list_stage_task_templates(stage_id: int, db: Session = Depends(get_db)):
+def list_stage_task_templates(
+    stage_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["Admin", "Principal"])),
+):
     stage = _get_stage_or_404(db, stage_id)
     return (
         db.query(models.AdmissionStageTaskTemplate)

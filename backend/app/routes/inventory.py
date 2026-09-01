@@ -23,8 +23,15 @@ from app.schemas import (
     InventoryTransactionResponse,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/inventory", tags=["Inventory"])
+# Inventory is an optional, separately-sold module -- gate every route so the
+# tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/inventory",
+    tags=["Inventory"],
+    dependencies=[Depends(require_feature("inventory"))],
+)
 
 ITEM_BULK_IMPORT_COLUMNS = [
     "item_name",
