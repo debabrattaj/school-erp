@@ -77,7 +77,7 @@ function LookupField({
   setOpen: (open: boolean) => void;
 }) {
   const cfg = field.lookup!;
-  const { choices, error } = useLookupChoices(cfg.endpoint, cfg.valueField, cfg.subtitleFields, open);
+  const { choices, error } = useLookupChoices(cfg.endpoint, cfg.valueField, cfg.subtitleFields, open, cfg.valueFields);
   return (
     <>
       <PickerButton label={field.label} value={value || null} onPress={() => setOpen(true)} />

@@ -18,7 +18,9 @@ export function useLookupChoices(
   endpoint: string,
   valueField: string,
   subtitleFields: string[] | undefined,
-  enabled: boolean
+  enabled: boolean,
+  /** Joined with a space to form the value, when one column is not the whole of it. */
+  valueFields?: string[]
 ) {
   const [choices, setChoices] = useState<Choice[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,13 @@ export function useLookupChoices(
       try {
         const rows = await api.get<any[]>(endpoint.endsWith("/") ? endpoint : `${endpoint}/`);
         const seen = new Map<string, Choice>();
+        const compose = (row: any) =>
+          valueFields?.length
+            ? valueFields.map((f) => row?.[f]).filter((v) => v !== undefined && v !== null && v !== "").join(" ").trim()
+            : row?.[valueField];
+
         for (const row of rows) {
-          const value = row?.[valueField];
+          const value = compose(row);
           if (value === undefined || value === null || value === "") continue;
           const key = String(value);
           // First record wins; later duplicates only differ by their subtitle.
@@ -56,7 +63,7 @@ export function useLookupChoices(
     return () => {
       cancelled = true;
     };
-  }, [endpoint, valueField, enabled]);
+  }, [endpoint, valueField, enabled, JSON.stringify(valueFields ?? null)]);
 
   return { choices, error };
 }

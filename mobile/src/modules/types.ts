@@ -45,6 +45,13 @@ export interface FormFieldConfig {
     endpoint: string;
     /** The field whose value is saved (e.g. "class_name"). */
     valueField: string;
+    /**
+     * Fields joined with a space to form the saved value, when one column is
+     * not the whole of it. A student's name lives in `first_name` and
+     * `last_name`, so storing `valueField` alone saved "Asha" for "Asha Rao".
+     * Takes precedence over `valueField` when set.
+     */
+    valueFields?: string[];
     searchFields: string[];
     subtitleFields?: string[];
   };
