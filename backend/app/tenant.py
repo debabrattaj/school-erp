@@ -141,6 +141,11 @@ DEFAULT_FEATURES = {
     # Core teaching workflow, alongside Homework and Timetable -- on by
     # default rather than an opt-in add-on.
     "syllabus": True,
+    # Learning management: study material published to a class, and homework
+    # handed in and graded through the portal. On by default like the rest of
+    # the teaching workflow -- it extends Homework rather than being a
+    # separately sold add-on like Online Tests.
+    "lms": True,
     # Bulk-writes the whole school's period grid in one action, so it stays
     # opt-in like the other *_auto_generation automations even though it has
     # no cron component -- a school must choose to hand scheduling to the
