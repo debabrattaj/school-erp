@@ -1,0 +1,124 @@
+name: Mobile APK (EAS)
+
+# Builds an installable Android APK of the Expo app on EAS.
+#
+# Run it from the Actions tab (Run workflow). It is deliberately not on a push
+# trigger: every run consumes an EAS build slot on the Expo account, so builds
+# are asked for rather than fired by every commit.
+#
+# Requires one repository secret:
+#   EXPO_TOKEN - a robot or personal access token from
+#                https://expo.dev/settings/access-tokens
+#
+# The APK link is printed in the job summary. The build itself runs on Expo's
+# servers, so the job here mostly waits on it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "eas.json build profile"
+        type: choice
+        default: preview
+        options: [preview, production]
+      wait:
+        description: "Wait for the build and print the download URL"
+        type: boolean
+        default: true
+
+concurrency:
+  # One mobile build at a time; a queued run replaces an older waiting one.
+  group: mobile-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: EAS build (${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Fail early if the token is missing
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is not set. Add it under Settings > Secrets and variables > Actions."
+            echo "Create one at https://expo.dev/settings/access-tokens"
+            exit 1
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        # The lockfile is committed, so ci gives the same tree the app was
+        # tested against rather than resolving fresh.
+        run: npm ci
+
+      # Cheap gates before spending a build slot: a type error or a failing
+      # test costs seconds here and many minutes on EAS.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test -- --ci
+
+      - name: Build APK
+        id: build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -o pipefail
+          if [ "${{ inputs.wait }}" = "true" ]; then
+            eas build \
+              --platform android \
+              --profile "${{ inputs.profile }}" \
+              --non-interactive \
+              --json \
+              --wait | tee build.json
+            URL=$(python3 -c "import json;d=json.load(open('build.json'));d=d[0] if isinstance(d,list) else d;print(d.get('artifacts',{}).get('buildUrl') or d.get('artifacts',{}).get('applicationArchiveUrl') or '')")
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+          else
+            eas build \
+              --platform android \
+              --profile "${{ inputs.profile }}" \
+              --non-interactive \
+              --no-wait
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Mobile APK"
+            echo ""
+            echo "- profile: \`${{ inputs.profile }}\`"
+            if [ -n "${{ steps.build.outputs.url }}" ]; then
+              echo "- [Download the APK](${{ steps.build.outputs.url }})"
+            else
+              echo "- Build submitted. Track it at <https://expo.dev/accounts>."
+            fi
+            echo ""
+            echo "The app ships pointing at the production API. A tester can change it"
+            echo "under **Server settings** on the login screen."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the build metadata
+        if: always() && inputs.wait
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-build-metadata
+          path: mobile/build.json
+          if-no-files-found: ignore
