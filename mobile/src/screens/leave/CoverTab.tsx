@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import React, { useCallback, useState } from "react";
+import { FlatList, Modal, Pressable, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import { Badge, Card, EmptyView, ErrorView, LoadingView, Row, SecondaryButton } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
-import { hasAccess } from "../../auth/types";
+import { canAdminister } from "../../auth/types";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface CoverSlot {
   id: number;
@@ -33,15 +35,15 @@ interface Candidate {
   unavailable_reason?: string;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function CoverTab() {
   const { user } = useAuth();
-  const canAssign = hasAccess(user?.permissions, "staff_leave", "manage");
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "staff_leave" manage grant — which the old check locked out.
+  const canAssign = canAdminister(user, "staff_leave");
 
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(todayISO());
   const [slots, setSlots] = useState<CoverSlot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +86,7 @@ export default function CoverTab() {
       setCandidateSlot(null);
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not assign",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -98,7 +100,7 @@ export default function CoverTab() {
       await api.post(`/leave/cover/${slot.id}/unassign`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not unassign this slot.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not unassign this slot.");
     }
   }
 

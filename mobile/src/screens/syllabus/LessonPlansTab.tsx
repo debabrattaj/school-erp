@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -17,8 +18,9 @@ import {
 } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
-import { hasReviewerAccess } from "../../auth/types";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
+import { todayISO } from "../../utils/dates";
 
 interface Plan {
   id: number;
@@ -47,18 +49,17 @@ function reviewTone(status?: string): "default" | "success" | "warning" | "dange
   return "default";
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
-const emptyForm = { planDate: todayIso(), title: "", objectives: "", homework: "" };
+// Built per-open, not once at module load: a session left running overnight
+// would otherwise default tomorrow's plan to yesterday's date.
+const emptyForm = () => ({ planDate: todayISO(), title: "", objectives: "", homework: "" });
 
 export default function LessonPlansTab({ classSubjectId }: { classSubjectId: number }) {
   const { user } = useAuth();
-  // review_plan is reviewer-only server-side (REVIEWERS = ["Admin","Principal"])
-  // even though Teacher's own permission map claims "syllabus": "manage" --
-  // see hasReviewerAccess()'s doc comment.
-  const canReview = hasReviewerAccess(user?.role, user?.permissions, "syllabus");
+  // Not a hardcoded role pair: the backend restricts this to Admin and
+  // Principal by name for built-in roles, but authorizes custom roles by
+  // their "syllabus" manage grant — which the old check locked out.
+  const canReview = canAdminister(user, "syllabus");
 
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +87,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
 
   async function submitPlan() {
     if (!form.title.trim()) {
-      Alert.alert("Missing details", "A lesson title is required.");
+      showAlert("Missing details", "A lesson title is required.");
       return;
     }
     setSaving(true);
@@ -98,11 +99,11 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
         objectives: form.objectives.trim() || undefined,
         homework: form.homework.trim() || undefined,
       });
-      setForm(emptyForm);
+      setForm(emptyForm());
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not create plan", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not create plan", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
@@ -113,7 +114,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       await api.post(`/syllabus/lesson-plans/${plan.id}/deliver`, {});
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not mark this lesson delivered.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not mark this lesson delivered.");
     }
   }
 
@@ -122,7 +123,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       await api.post(`/syllabus/lesson-plans/${plan.id}/defer`, {});
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not defer this lesson.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not defer this lesson.");
     }
   }
 
@@ -134,7 +135,7 @@ export default function LessonPlansTab({ classSubjectId }: { classSubjectId: num
       setReviewing(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not review this lesson plan.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not review this lesson plan.");
     } finally {
       setReviewLoading(false);
     }

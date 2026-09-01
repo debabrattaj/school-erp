@@ -4,6 +4,14 @@ export type PermissionMap = Record<string, PermissionLevel>;
 
 export type Role = "Admin" | "Principal" | "Accounts" | "Teacher" | "Parent" | "Student" | string;
 
+/**
+ * Per-school module switches from the login response. A school that has not
+ * bought Hostel, Transport, Library, Inventory, Mess, Infirmary, Online Tests,
+ * Leave or Biometric gets `false` here, and every route behind that flag
+ * answers 403 "This module is not enabled for your school."
+ */
+export type FeatureMap = Record<string, boolean>;
+
 export interface AuthUser {
   id: number;
   name: string;
@@ -11,6 +19,7 @@ export interface AuthUser {
   role: Role;
   mfa_enabled: boolean;
   permissions: PermissionMap;
+  features?: FeatureMap;
   account: {
     account_code: string;
     name?: string;
@@ -32,29 +41,58 @@ export function hasAccess(permissions: PermissionMap | undefined, feature: strin
   return grant === "manage";
 }
 
-const BUILT_IN_ROLES: Role[] = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"];
+/** The roles the backend authorizes by name rather than by permission map. */
+export const BUILT_IN_ROLES = ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"] as const;
 
-export function isCustomRole(role: Role | undefined) {
-  return !!role && !BUILT_IN_ROLES.includes(role);
+export function isBuiltInRole(role: Role | undefined) {
+  return !!role && (BUILT_IN_ROLES as readonly string[]).includes(role);
 }
 
 /**
- * A handful of backend routes gate a specific action to a role list
- * narrower than what that role's own permissions map claims for the whole
- * feature (e.g. syllabus/routes.py's REVIEWERS = ["Admin", "Principal"] for
- * deleting a unit or approving a lesson plan, even though Teacher's
- * permission map says "syllabus": "manage" -- Teacher can create/edit but
- * not delete/approve). For a *built-in* role, `hasAccess()` alone can't see
- * that distinction (built-in roles are authorized by literal name on the
- * backend, not by their permissions map), so check the same literal list
- * here to avoid showing a button that will 403. Custom roles ARE authorized
- * by their permission map for these same routes (require_roles() only
- * consults its role-name list for built-ins), so hasAccess() alone is
- * correct for them.
+ * Should this module appear in the drawer?
+ *
+ * The same rule the web sidebar uses: a built-in role is allowed by name, and
+ * any role is allowed by its permission map. Gating on the permission map
+ * alone — which is what this app did — hid eleven modules from Principals,
+ * Teachers and Accounts users that the web shows them, because the built-in
+ * role maps simply have no entry for those features.
  */
-export function hasReviewerAccess(role: Role | undefined, permissions: PermissionMap | undefined, feature: string) {
-  if (isCustomRole(role)) return hasAccess(permissions, feature, "manage");
-  return role === "Admin" || role === "Principal";
+export function canViewModule(
+  user: { role?: Role; permissions?: PermissionMap; features?: FeatureMap } | null | undefined,
+  feature: string,
+  roles?: readonly string[],
+  featureFlag?: string
+) {
+  if (!user) return false;
+
+  // The school's own module switches come first. This app ignored them
+  // entirely, so a school without Hostel, Transport, Library, Inventory, Mess,
+  // Infirmary, Online Tests, Leave or Biometric still saw all nineteen of those
+  // entries in the drawer, and every one of them opened onto a 403.
+  const flag = featureFlag ?? feature;
+  if (user.features && user.features[flag] === false) return false;
+
+  if (hasAccess(user.permissions, feature, "view")) return true;
+  return !!roles && isBuiltInRole(user.role) && roles.includes(user.role as string);
+}
+
+/**
+ * Can this user take a senior action on a feature — approving leave, signing
+ * off a lesson plan, working the gate desk?
+ *
+ * Every one of those routes restricts built-in roles to Admin and Principal by
+ * name, and authorizes custom roles by the feature's `manage` grant, so
+ * checking either one alone gets a class of user wrong. Hardcoding the two role
+ * names, as this app did, locked every custom role out of work it is granted;
+ * checking the grant alone would offer Teachers buttons the backend refuses.
+ */
+export function canAdminister(
+  user: { role?: Role; permissions?: PermissionMap } | null | undefined,
+  feature: string
+) {
+  if (!user) return false;
+  if (isBuiltInRole(user.role)) return user.role === "Admin" || user.role === "Principal";
+  return hasAccess(user.permissions, feature, "manage");
 }
 
 export function isPortalRole(role: Role) {

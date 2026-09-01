@@ -4,9 +4,10 @@ import { useAuth, ApiError } from "../auth/AuthContext";
 import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
 import { colors, elevation, radius, spacing, type } from "../theme/theme";
 import { DEFAULT_API_BASE_URL, getApiBase, setApiBase, validateApiBase } from "../api/client";
+import { buildLabel } from "../utils/buildInfo";
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const [accountCode, setAccountCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showServerSettings, setShowServerSettings] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [apiBase, setApiBaseState] = useState(DEFAULT_API_BASE_URL);
   const [serverUrlError, setServerUrlError] = useState<string | null>(null);
   const [serverUrlWarning, setServerUrlWarning] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function LoginScreen() {
 
   async function handleSubmit() {
     setError(null);
+    setNotice(null);
     if (!accountCode || !email || !password) {
       setError("School code, email and password are required.");
       return;
@@ -75,6 +78,7 @@ export default function LoginScreen() {
       return;
     }
     setApiBaseState(result.url);
+    setError(null);
     if (result.upcasted) {
       // Leave the panel open so the corrected https:// URL and the warning
       // explaining why it changed are both visible, instead of silently
@@ -83,6 +87,7 @@ export default function LoginScreen() {
       return;
     }
     setServerUrlWarning(null);
+    setNotice("Server URL saved.");
     setShowServerSettings(false);
   }
 
@@ -134,10 +139,15 @@ export default function LoginScreen() {
               keyboardType="number-pad"
               placeholder="123456"
               maxLength={6}
+              autoFocus
             />
           </Field>
         )}
 
+        {sessionExpired && !error ? (
+          <Text style={styles.notice}>Your session expired. Please sign in again.</Text>
+        ) : null}
+        {notice && !error ? <Text style={styles.notice}>{notice}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <PrimaryButton title="Sign in" onPress={handleSubmit} loading={loading} style={{ marginTop: spacing(2) }} />
@@ -163,6 +173,9 @@ export default function LoginScreen() {
           </Field>
         )}
         </View>
+
+        {/* Which build is this? Saves a round of "is it stale or is it broken". */}
+        <Text style={styles.build}>{buildLabel()}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -194,6 +207,22 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing(5),
     ...elevation.md,
+  },
+  notice: {
+    ...type.label,
+    color: colors.primaryDark,
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(2),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(3),
+    textAlign: "center",
+  },
+  build: {
+    ...type.label,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: spacing(4),
   },
   error: {
     ...type.label,

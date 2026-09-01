@@ -72,6 +72,7 @@ const Compliance = lazy(() => import("./pages/Compliance"));
 const ReportCard = lazy(() => import("./pages/ReportCard"));
 const Payroll = lazy(() => import("./pages/Payroll"));
 const Homework = lazy(() => import("./pages/Homework"));
+const LearningResources = lazy(() => import("./pages/LearningResources"));
 const OnlineTests = lazy(() => import("./pages/OnlineTests"));
 const Biometric = lazy(() => import("./pages/Biometric"));
 const Leave = lazy(() => import("./pages/Leave"));
@@ -271,6 +272,17 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <Homework />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/lms"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <LearningResources />
               </ProtectedLayout>
             </ProtectedRoute>
           }

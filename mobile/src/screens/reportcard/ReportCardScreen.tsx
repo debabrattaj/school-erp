@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { ApiError } from "../../api/client";
 import { downloadAndShare } from "../../api/files";
 import { Card, PrimaryButton, SectionLabel } from "../../components/Common";
@@ -43,7 +44,7 @@ export default function ReportCardScreen() {
         exam_id: exam.id,
       });
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not generate",
         e instanceof ApiError && typeof e.detail === "string"
           ? e.detail
@@ -90,6 +91,7 @@ export default function ReportCardScreen() {
         onClose={() => setPick(null)}
         title="Choose student"
         endpoint="/students"
+        searchParam="search"
         labelFor={studentLabel}
         subtitleFor={(s) =>
           [s.admission_no, s.class_name && `Class ${s.class_name}`, s.section].filter(Boolean).join(" · ")

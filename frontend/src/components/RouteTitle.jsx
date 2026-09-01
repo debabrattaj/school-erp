@@ -24,6 +24,7 @@ const ROUTE_TITLES = [
   { path: "/accounting", title: "Accounts" },
   { path: "/payroll", title: "Payroll" },
   { path: "/homework", title: "Homework" },
+  { path: "/lms", title: "Learning Resources" },
   { path: "/online-tests", title: "Online Tests" },
   { path: "/biometric", title: "Biometric" },
   { path: "/exams", title: "Exams" },

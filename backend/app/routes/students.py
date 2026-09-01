@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import SchoolClass, Student, User
 from app.notifications import notify_class_teacher_new_student
 from app.schemas import StudentCreate, StudentUpdate, StudentResponse
@@ -304,13 +305,52 @@ def bulk_import_students(
 
 @router.get("/", response_model=list[StudentResponse])
 def get_students(
+    class_id: int | None = None,
+    class_name: str | None = None,
+    section: str | None = None,
+    student_status: str | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Teacher", "Accounts"])
     )
 ):
-    students = db.query(Student).order_by(Student.id.desc()).all()
-    return students
+    """The student list, optionally narrowed.
+
+    Every filter is optional and the response shape is unchanged, so a caller
+    that passes nothing gets exactly what it always got. They exist because a
+    client that only wants one class had no way to say so and had to download
+    the whole table to find it -- which is what the mobile app's attendance,
+    marks and class screens were doing on every open.
+    """
+    query = db.query(Student)
+
+    if class_id is not None:
+        query = query.filter(Student.class_id == class_id)
+
+    if class_name:
+        query = query.filter(Student.class_name == class_name)
+
+    if section:
+        query = query.filter(Student.section == section)
+
+    if student_status:
+        query = query.filter(Student.student_status == student_status)
+
+    # Search, sort and paging come from the shared helper, the same one the
+    # other paged lists use -- this route grew its own copy first and was left
+    # without `sort`, which silently did nothing when a client sent it.
+    return apply_listing(
+        query, Student,
+        search=search,
+        search_fields=("first_name", "last_name", "admission_no", "roll_no"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[Student.id.desc()],
+    ).all()
 
 
 @router.get("/next-roll-no")

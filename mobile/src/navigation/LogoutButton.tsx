@@ -6,7 +6,12 @@ import { colors, spacing } from "../theme/theme";
 export default function LogoutButton() {
   const { logout } = useAuth();
   return (
-    <Pressable onPress={logout} style={{ paddingHorizontal: spacing(2) }}>
+    <Pressable
+      onPress={logout}
+      accessibilityRole="button"
+      accessibilityLabel="Log out"
+      style={{ paddingHorizontal: spacing(2) }}
+    >
       <Text style={{ color: colors.primary, fontWeight: "600" }}>Log out</Text>
     </Pressable>
   );

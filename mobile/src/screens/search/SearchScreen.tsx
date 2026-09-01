@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { api, ApiError } from "../../api/client";
+import { useAuth } from "../../auth/AuthContext";
+import { hasAccess } from "../../auth/types";
 import { AppTextInput, EmptyView, LoadingView, Tile } from "../../components/Common";
 import { colors, radius, spacing, type } from "../../theme/theme";
 
@@ -16,16 +19,17 @@ interface SearchResult {
  * The backend returns web routes (`/students/3`). Map the group onto the
  * drawer route + module stack screens this app uses instead.
  */
-const GROUP_ROUTES: Record<string, { drawer: string; detail: string }> = {
-  Students: { drawer: "students", detail: "studentsDetail" },
-  Teachers: { drawer: "teachers", detail: "teachersDetail" },
-  Classes: { drawer: "classes", detail: "classesDetail" },
-  Exams: { drawer: "exams", detail: "examsDetail" },
+const GROUP_ROUTES: Record<string, { drawer: string; detail: string; feature: string }> = {
+  Students: { drawer: "students", detail: "studentsDetail", feature: "students" },
+  Teachers: { drawer: "teachers", detail: "teachersDetail", feature: "teachers" },
+  Classes: { drawer: "classes", detail: "classesDetail", feature: "classes" },
+  Exams: { drawer: "exams", detail: "examsDetail", feature: "exams" },
 };
 
 const MONOGRAM: Record<string, string> = { Students: "St", Teachers: "Te", Classes: "Cl", Exams: "Ex" };
 
 export default function SearchScreen({ navigation }: { navigation: any }) {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +54,10 @@ export default function SearchScreen({ navigation }: { navigation: any }) {
           setError(null);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Search failed.");
+        if (!cancelled) {
+          setResults(null);
+          setError(e instanceof ApiError ? String(e.message) : "Search failed.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -71,9 +78,21 @@ export default function SearchScreen({ navigation }: { navigation: any }) {
     return Array.from(byGroup, ([title, data]) => ({ title, data }));
   }, [results]);
 
-  function open(result: SearchResult) {
+  // The drawer only holds screens the user's permissions allow, so a result in
+  // a module they cannot open has no route to navigate to — navigating anyway
+  // threw "The action NAVIGATE was not handled by any navigator".
+  function routeFor(result: SearchResult) {
     const route = GROUP_ROUTES[result.group];
-    if (!route) return;
+    if (!route || !hasAccess(user?.permissions, route.feature, "view")) return null;
+    return route;
+  }
+
+  function open(result: SearchResult) {
+    const route = routeFor(result);
+    if (!route) {
+      showAlert("No access", `Your role cannot open ${result.group.toLowerCase()} records.`);
+      return;
+    }
     navigation.navigate(route.drawer, { screen: route.detail, params: { id: result.id } });
   }
 
@@ -104,16 +123,22 @@ export default function SearchScreen({ navigation }: { navigation: any }) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: spacing(4) }}
           renderSectionHeader={({ section }) => <Text style={styles.sectionHeader}>{section.title}</Text>}
-          renderItem={({ item }) => (
-            <Pressable style={styles.row} onPress={() => open(item)}>
-              <Tile label={MONOGRAM[item.group] || item.group.slice(0, 2)} size={36} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{item.label}</Text>
-                {item.subtitle ? <Text style={styles.rowSubtitle}>{item.subtitle}</Text> : null}
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          )}
+          renderItem={({ item }) => {
+            const openable = routeFor(item) !== null;
+            return (
+              <Pressable
+                style={({ pressed }) => [styles.row, !openable && styles.rowLocked, pressed && openable && styles.rowPressed]}
+                onPress={() => open(item)}
+              >
+                <Tile label={MONOGRAM[item.group] || item.group.slice(0, 2)} size={36} />
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{item.label}</Text>
+                  {item.subtitle ? <Text style={styles.rowSubtitle}>{item.subtitle}</Text> : null}
+                </View>
+                <Text style={styles.chevron}>{openable ? "\u203a" : ""}</Text>
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
@@ -140,6 +165,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  rowLocked: { opacity: 0.55 },
+  rowPressed: { backgroundColor: colors.surfaceAlt },
   rowText: { flex: 1 },
   rowTitle: { ...type.body, color: colors.text, fontWeight: "600" },
   rowSubtitle: { ...type.caption, color: colors.textMuted, marginTop: 2 },

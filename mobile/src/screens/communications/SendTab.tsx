@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, View, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { api, ApiError } from "../../api/client";
 import { AppTextInput, Card, Field, PrimaryButton, Row, SectionLabel } from "../../components/Common";
 import { OptionPicker } from "../../components/Pickers";
@@ -47,18 +48,31 @@ export default function SendTab() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
 
+  // A ref (not state) so a fetch that resolves after either an unmount or a
+  // newer retry doesn't overwrite what's on screen with stale data.
+  const templatesLoadRef = useRef(0);
   const loadTemplates = useCallback(() => {
+    const loadId = ++templatesLoadRef.current;
     setTemplatesError(null);
     api
       .get<Template[]>("/communications/templates/")
-      .then((rows) => setTemplates(rows.filter((t) => t.status !== "Inactive")))
+      .then((rows) => {
+        if (templatesLoadRef.current === loadId) setTemplates(rows.filter((t) => t.status !== "Inactive"));
+      })
       .catch((e) => {
-        setTemplatesError(e instanceof ApiError ? String(e.message) : "Failed to load message templates.");
+        // Templates are optional here, but swallowing the failure silently made
+        // a permissions or connectivity problem look like "no templates yet".
+        if (templatesLoadRef.current === loadId) {
+          setTemplatesError(e instanceof ApiError ? String(e.message) : "Could not load templates.");
+        }
       });
   }, []);
 
   useEffect(() => {
     loadTemplates();
+    return () => {
+      templatesLoadRef.current++;
+    };
   }, [loadTemplates]);
 
   const templateOptions = useMemo(
@@ -67,28 +81,41 @@ export default function SendTab() {
   );
 
   function applyTemplate(id: string) {
-    setForm((f) => ({ ...f, templateId: id }));
     const template = templates.find((t) => String(t.id) === id);
-    if (template) {
-      setForm((f) => ({
-        ...f,
-        templateId: id,
-        channel: template.channel || f.channel,
-        category: template.category || f.category,
-        messageBody: template.body || f.messageBody,
-      }));
-    }
+    setForm((f) => ({
+      ...f,
+      templateId: id,
+      channel: template?.channel || f.channel,
+      category: template?.category || f.category,
+      messageBody: template?.body || f.messageBody,
+    }));
   }
 
-  async function submit() {
+  function confirmSend() {
     if (!form.className.trim()) {
-      Alert.alert("Missing details", "A class is required.");
+      showAlert("Missing details", "A class is required.");
       return;
     }
     if (!form.category.trim() || !form.messageBody.trim()) {
-      Alert.alert("Missing details", "Category and message are required.");
+      showAlert("Missing details", "Category and message are required.");
       return;
     }
+    // This fans a real WhatsApp/SMS/email out to every guardian in the class and
+    // cannot be undone, so it no longer happens on a single tap.
+    const audience = form.section.trim()
+      ? `class ${form.className.trim()} section ${form.section.trim()}`
+      : `every section of class ${form.className.trim()}`;
+    showAlert(
+      "Send this message?",
+      `It will go out by ${form.channel} to the guardians of ${audience}. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send", onPress: submit },
+      ]
+    );
+  }
+
+  async function submit() {
     setSending(true);
     setResult(null);
     try {
@@ -102,7 +129,7 @@ export default function SendTab() {
       });
       setResult(res);
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not send",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -166,7 +193,7 @@ export default function SendTab() {
           />
         </Field>
 
-        <PrimaryButton title="Send to class" onPress={submit} loading={sending} style={{ marginTop: spacing(2) }} />
+        <PrimaryButton title="Send to class" onPress={confirmSend} loading={sending} style={{ marginTop: spacing(2) }} />
       </Card>
 
       {result ? (
@@ -210,4 +237,5 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, color: colors.onPrimary },
   resultLine: { ...type.body, color: colors.text, marginBottom: spacing(1) },
+  templatesError: { ...type.caption, color: colors.danger, marginBottom: spacing(2) },
 });

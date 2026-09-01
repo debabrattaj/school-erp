@@ -56,9 +56,9 @@ export function useClassSubjects() {
         setOptions(opts);
         setById(map);
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof ApiError ? String(e.message) : "Failed to load classes and subjects.");
-        }
+        // Without this the rejection went unhandled and the picker just showed
+        // "Nothing to choose from yet", which reads as "none configured".
+        if (!cancelled) setError(e instanceof ApiError ? String(e.message) : "Failed to load class subjects.");
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -2391,6 +2391,9 @@ class AssignmentBase(BaseModel):
     description: Optional[str] = None
     due_date: Optional[date] = None
     attachment_url: Optional[str] = None
+    max_marks: Optional[float] = None
+    accepts_submissions: bool = True
+    allow_late_submission: bool = True
     teacher_id: Optional[int] = None
 
 
@@ -2407,17 +2410,131 @@ class AssignmentUpdate(BaseModel):
     description: Optional[str] = None
     due_date: Optional[date] = None
     attachment_url: Optional[str] = None
+    max_marks: Optional[float] = None
+    accepts_submissions: Optional[bool] = None
+    allow_late_submission: Optional[bool] = None
     teacher_id: Optional[int] = None
 
 
 class AssignmentResponse(AssignmentBase):
     id: int
     teacher_name_snapshot: Optional[str] = None
+    submission_count: Optional[int] = None
+    graded_count: Optional[int] = None
     created_at: Optional[Any] = None
     updated_at: Optional[Any] = None
 
     class Config:
         from_attributes = True
+
+
+# ---------------- Assignment submissions ----------------
+
+class AssignmentSubmissionCreate(BaseModel):
+    """What a student (or their guardian) hands in through the portal."""
+
+    content: Optional[str] = None
+    attachment_url: Optional[str] = None
+
+
+class AssignmentSubmissionGrade(BaseModel):
+    marks_awarded: Optional[float] = None
+    feedback: Optional[str] = None
+
+
+class AssignmentSubmissionResponse(BaseModel):
+    id: int
+    assignment_id: int
+    student_id: int
+    student_name_snapshot: Optional[str] = None
+    admission_no: Optional[str] = None
+    content: Optional[str] = None
+    attachment_url: Optional[str] = None
+    status: str
+    submitted_at: Optional[datetime] = None
+    is_late: bool = False
+    submitted_by: Optional[str] = None
+    marks_awarded: Optional[float] = None
+    feedback: Optional[str] = None
+    graded_by: Optional[str] = None
+    graded_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AssignmentSubmissionBoard(BaseModel):
+    """An assignment's drop-box: everyone who has handed in, and everyone
+    who was meant to and has not."""
+
+    assignment: AssignmentResponse
+    submissions: List[AssignmentSubmissionResponse] = []
+    pending_students: List[Any] = []
+    total_students: int = 0
+    submitted_count: int = 0
+    graded_count: int = 0
+    late_count: int = 0
+
+
+# ---------------- Learning resources (LMS) ----------------
+
+class LearningResourceBase(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: str
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    resource_type: str = "Document"
+    url: Optional[str] = None
+    content: Optional[str] = None
+    syllabus_unit_id: Optional[int] = None
+    status: str = "Draft"
+    available_from: Optional[date] = None
+    teacher_id: Optional[int] = None
+
+
+class LearningResourceCreate(LearningResourceBase):
+    pass
+
+
+class LearningResourceUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    resource_type: Optional[str] = None
+    url: Optional[str] = None
+    content: Optional[str] = None
+    syllabus_unit_id: Optional[int] = None
+    status: Optional[str] = None
+    available_from: Optional[date] = None
+    teacher_id: Optional[int] = None
+
+
+class LearningResourceResponse(LearningResourceBase):
+    id: int
+    teacher_name_snapshot: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    viewer_count: Optional[int] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LearningResourceEngagement(BaseModel):
+    """Who in the class has opened a resource, and who has not."""
+
+    resource_id: int
+    total_students: int = 0
+    viewed_count: int = 0
+    viewers: List[Any] = []
+    not_viewed: List[Any] = []
 
 
 # ---------------- Portal messages ----------------
@@ -2759,6 +2876,13 @@ class StudentLeaveDecision(BaseModel):
 class StudentLeaveRequestResponse(BaseModel):
     id: int
     student_id: int
+    # Denormalised onto the row like the teacher-leave and gate lists already
+    # do: without it a client had to download every student in the school just
+    # to put a name against a request.
+    student_name: Optional[str] = None
+    admission_no: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
     from_date: date
     to_date: date
     reason: Optional[str] = None

@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
+import { FlatList, Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
-import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, Row, SecondaryButton } from "../../components/Common";
+import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
 import { DatePicker } from "../../components/Pickers";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAcademicYear } from "../../modules/useAcademicYear";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface ClassRecord {
@@ -95,7 +97,12 @@ export default function ClassDetailScreen({ route, navigation }: { route: any; n
       <View style={styles.tabBarWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {TABS.map((t) => (
-            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
+            <Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]}
+              onPress={() => setTab(t)}
+              accessibilityRole="tab"
+              accessibilityLabel={t}
+              accessibilityState={{ selected: tab === t }}
+            >
               <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
             </Pressable>
           ))}
@@ -146,11 +153,13 @@ function StudentsTab({ classRecord }: { classRecord: ClassRecord }) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      setStudents(await api.get<Student[]>("/students/"));
+      // Narrowed server-side by class_id; the client-side filter below is a
+      // backstop for records that predate class_id being populated.
+      setStudents(await api.get<Student[]>("/students/", { class_id: classRecord.id }));
     } catch (e) {
       setError(e instanceof ApiError ? String(e.message) : "Failed to load students.");
     }
-  }, []);
+  }, [classRecord.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -187,9 +196,12 @@ function StudentsTab({ classRecord }: { classRecord: ClassRecord }) {
   );
 }
 
-const emptySubjectForm = { subject: null as Subject | null, teacher: null as Teacher | null, academicYear: "2026-27", weeklyPeriods: "" };
+const emptySubjectForm = { subject: null as Subject | null, teacher: null as Teacher | null, academicYear: "", weeklyPeriods: "" };
 
 function SubjectsTab({ classId }: { classId: number }) {
+  // Read from the school's settings rather than a hardcoded literal, which went
+  // stale the moment the school rolled over to a new year.
+  const currentYear = useAcademicYear();
   const [mappings, setMappings] = useState<ClassSubject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -214,7 +226,7 @@ function SubjectsTab({ classId }: { classId: number }) {
 
   async function submit() {
     if (!form.subject) {
-      Alert.alert("Missing details", "Choose a subject.");
+      showAlert("Missing details", "Choose a subject.");
       return;
     }
     setSaving(true);
@@ -224,21 +236,21 @@ function SubjectsTab({ classId }: { classId: number }) {
         subject_id: form.subject.id,
         subject_name: form.subject.subject_name,
         teacher_id: form.teacher?.id,
-        academic_year: form.academicYear.trim() || "2026-27",
+        academic_year: form.academicYear.trim() || currentYear || undefined,
         weekly_periods: form.weeklyPeriods ? Number(form.weeklyPeriods) : undefined,
       });
       setForm(emptySubjectForm);
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add subject", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add subject", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
   }
 
   function remove(m: ClassSubject) {
-    Alert.alert("Remove this subject?", m.subject_name || "", [
+    showAlert("Remove this subject?", m.subject_name || "", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -248,7 +260,7 @@ function SubjectsTab({ classId }: { classId: number }) {
             await api.delete(`/class-subjects/${m.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this subject.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this subject.");
           }
         },
       },
@@ -275,7 +287,11 @@ function SubjectsTab({ classId }: { classId: number }) {
                   <PickerButton label="Teacher" value={form.teacher?.name || null} onPress={() => setPick("teacher")} />
                 </Field>
                 <Field label="Academic year">
-                  <AppTextInput value={form.academicYear} onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))} />
+                  <AppTextInput
+                    value={form.academicYear}
+                    onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))}
+                    placeholder={currentYear || "e.g. 2026-27"}
+                  />
                 </Field>
                 <Field label="Weekly periods">
                   <AppTextInput value={form.weeklyPeriods} onChangeText={(v) => setForm((f) => ({ ...f, weeklyPeriods: v }))} keyboardType="numeric" />
@@ -325,9 +341,10 @@ function SubjectsTab({ classId }: { classId: number }) {
   );
 }
 
-const emptyExamForm = { exam: null as Exam | null, academicYear: "2026-27", examDate: "", remarks: "" };
+const emptyExamForm = { exam: null as Exam | null, academicYear: "", examDate: "", remarks: "" };
 
 function ExamsTab({ classId }: { classId: number }) {
+  const currentYear = useAcademicYear();
   const [mappings, setMappings] = useState<ClassExamMapping[] | null>(null);
   const [examNames, setExamNames] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -358,7 +375,7 @@ function ExamsTab({ classId }: { classId: number }) {
 
   async function submit() {
     if (!form.exam) {
-      Alert.alert("Missing details", "Choose an exam.");
+      showAlert("Missing details", "Choose an exam.");
       return;
     }
     setSaving(true);
@@ -366,7 +383,7 @@ function ExamsTab({ classId }: { classId: number }) {
       await api.post("/class-exam-mappings/", {
         class_id: classId,
         exam_id: form.exam.id,
-        academic_year: form.academicYear.trim() || "2026-27",
+        academic_year: form.academicYear.trim() || currentYear || undefined,
         exam_date: form.examDate || undefined,
         remarks: form.remarks.trim() || undefined,
       });
@@ -374,14 +391,14 @@ function ExamsTab({ classId }: { classId: number }) {
       setAdding(false);
       await load();
     } catch (e) {
-      Alert.alert("Could not add exam", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
+      showAlert("Could not add exam", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request.");
     } finally {
       setSaving(false);
     }
   }
 
   function remove(m: ClassExamMapping) {
-    Alert.alert("Remove this exam mapping?", examNames[m.exam_id] || "", [
+    showAlert("Remove this exam mapping?", examNames[m.exam_id] || "", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -391,7 +408,7 @@ function ExamsTab({ classId }: { classId: number }) {
             await api.delete(`/class-exam-mappings/${m.id}`);
             await load();
           } catch (e) {
-            Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this mapping.");
+            showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not remove this mapping.");
           }
         },
       },
@@ -415,7 +432,11 @@ function ExamsTab({ classId }: { classId: number }) {
                   <PickerButton label="Exam" value={form.exam?.exam_name || null} onPress={() => setPickExam(true)} />
                 </Field>
                 <Field label="Academic year">
-                  <AppTextInput value={form.academicYear} onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))} />
+                  <AppTextInput
+                    value={form.academicYear}
+                    onChangeText={(v) => setForm((f) => ({ ...f, academicYear: v }))}
+                    placeholder={currentYear || "e.g. 2026-27"}
+                  />
                 </Field>
                 <Field label="Exam date">
                   <DatePicker label="Exam date" value={form.examDate} onChange={(v) => setForm((f) => ({ ...f, examDate: v }))} />

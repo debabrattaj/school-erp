@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, Text, View, StyleSheet } from "react-native";
+import { FlatList, Text, View, StyleSheet } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
 import {
@@ -16,6 +17,8 @@ import {
   SecondaryButton,
 } from "../../components/Common";
 import RecordPicker, { PickerButton } from "../../components/RecordPicker";
+import { useAuth } from "../../auth/AuthContext";
+import { canAdminister } from "../../auth/types";
 import { colors, spacing, type } from "../../theme/theme";
 
 interface Visitor {
@@ -62,6 +65,13 @@ const emptyForm = {
 };
 
 export default function VisitorsTab() {
+  const { user } = useAuth();
+  // Registering a visitor, admitting one, checking them out and denying entry
+  // are all desk-only on the backend (Admin/Principal, or a custom role with
+  // gate_register:manage). Teachers can read the register but not work it, so
+  // offering them these buttons only produced a 403 on tap.
+  const canWorkDesk = canAdminister(user, "gate_register");
+
   const [onlyOnCampus, setOnlyOnCampus] = useState(true);
   const [visitors, setVisitors] = useState<Visitor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +108,7 @@ export default function VisitorsTab() {
 
   async function submitVisitor() {
     if (!form.visitorName.trim()) {
-      Alert.alert("Missing details", "Visitor name is required.");
+      showAlert("Missing details", "Visitor name is required.");
       return;
     }
     setSaving(true);
@@ -116,7 +126,7 @@ export default function VisitorsTab() {
       resetForm();
       await load();
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Could not register visitor",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -130,7 +140,7 @@ export default function VisitorsTab() {
       await api.post(`/gate/visitors/${v.id}/check-in`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check in this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check in this visitor.");
     }
   }
 
@@ -139,7 +149,7 @@ export default function VisitorsTab() {
       await api.post(`/gate/visitors/${v.id}/check-out`);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check out this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not check out this visitor.");
     }
   }
 
@@ -151,7 +161,7 @@ export default function VisitorsTab() {
       setDenying(null);
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not deny this visitor.");
+      showAlert("Error", e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not deny this visitor.");
     } finally {
       setDenyLoading(false);
     }
@@ -183,7 +193,7 @@ export default function VisitorsTab() {
               </Text>
             </View>
 
-            {adding ? (
+            {!canWorkDesk ? null : adding ? (
               <Card style={{ marginBottom: spacing(3) }}>
                 <Field label="Visitor name" required>
                   <AppTextInput value={form.visitorName} onChangeText={(v) => setForm((f) => ({ ...f, visitorName: v }))} placeholder="Full name" />
@@ -251,13 +261,13 @@ export default function VisitorsTab() {
             ) : null}
             {item.denied_reason ? <Text style={styles.decisionNote}>Denied: {item.denied_reason}</Text> : null}
 
-            {item.status === "Expected" ? (
+            {canWorkDesk && item.status === "Expected" ? (
               <Row style={{ gap: spacing(2), marginTop: spacing(3) }}>
                 <SecondaryButton title="Check in" onPress={() => checkIn(item)} style={{ flex: 1 }} />
                 <SecondaryButton title="Deny" onPress={() => setDenying(item)} style={{ flex: 1 }} />
               </Row>
             ) : null}
-            {item.status === "In" ? (
+            {canWorkDesk && item.status === "In" ? (
               <SecondaryButton title="Check out" onPress={() => checkOut(item)} style={{ marginTop: spacing(3) }} />
             ) : null}
           </Card>

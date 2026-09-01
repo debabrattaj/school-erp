@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../utils/alert";
 import * as ImagePicker from "expo-image-picker";
 import { ApiError } from "../api/client";
 import { uploadFile } from "../api/files";
@@ -13,9 +14,12 @@ import { colors, radius, spacing, type } from "../theme/theme";
 export default function PhotoField({
   value,
   onChange,
+  endpoint,
 }: {
   value?: string;
   onChange: (url: string) => void;
+  /** Upload route to post to; the portal has its own, see api/files.ts. */
+  endpoint?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -26,7 +30,7 @@ export default function PhotoField({
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
+      showAlert(
         "Permission needed",
         fromCamera
           ? "Allow camera access to take a photo."
@@ -48,12 +52,12 @@ export default function PhotoField({
     setPreview(asset.uri);
     setBusy(true);
     try {
-      const uploaded = await uploadFile(asset.uri, asset.fileName || undefined);
+      const uploaded = await uploadFile(asset.uri, asset.fileName || undefined, endpoint);
       if (!uploaded?.url) throw new ApiError(0, "Upload returned no URL.");
       onChange(uploaded.url);
     } catch (e) {
       setPreview(null);
-      Alert.alert(
+      showAlert(
         "Upload failed",
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "Could not upload that image."
       );

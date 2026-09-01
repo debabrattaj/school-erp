@@ -1,12 +1,16 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
+import { singular } from "../../modules/display";
 import { ModuleConfig } from "../../modules/types";
 import { AppTextInput, EmptyView, ErrorView, LoadingView, Tile } from "../../components/Common";
 import { colors, elevation, radius, spacing, type } from "../../theme/theme";
 import { hasAccess } from "../../auth/types";
 import { useAuth } from "../../auth/AuthContext";
+
+/** Rows fetched per request for modules whose list endpoint pages. */
+const PAGE_SIZE = 50;
 
 /** Values may be numbers, dates or text; compare accordingly so 10 > 9. */
 function compareValues(a: unknown, b: unknown) {
@@ -30,17 +34,52 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(false);
   const [showSort, setShowSort] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const canManage = hasAccess(user?.permissions, config.feature, "manage");
 
+  // Paged modules hand searching, sorting and paging to the server. Everything
+  // else keeps the whole list in memory and does all three here.
+  const paged = !!config.paged;
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [reachedEnd, setReachedEnd] = useState(false);
+  // Guards against a second page landing after the query that asked for it has
+  // been replaced by a new search or sort.
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    if (!paged) return;
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search, paged]);
+
+  const serverQuery = useMemo(
+    () =>
+      paged
+        ? {
+            search: debouncedSearch || undefined,
+            sort: sortKey || undefined,
+            order: sortKey ? (sortDesc ? "desc" : "asc") : undefined,
+            limit: PAGE_SIZE,
+          }
+        : undefined,
+    [paged, debouncedSearch, sortKey, sortDesc]
+  );
+
   const load = useCallback(async () => {
-    setError(null);
+    const seq = ++requestSeq.current;
     try {
-      const data = await api.get<any[]>(config.endpoint + "/");
-      setItems(data);
+      const data = await api.get<any[]>(config.endpoint + "/", paged ? { ...serverQuery, offset: 0 } : undefined);
+      if (seq !== requestSeq.current) return;
+      const rows = Array.isArray(data) ? data : [];
+      setItems(rows);
+      setReachedEnd(!paged || rows.length < PAGE_SIZE);
+      setError(null);
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       setError(e instanceof ApiError ? String(e.message) : "Failed to load data.");
     }
-  }, [config.endpoint]);
+  }, [config.endpoint, paged, serverQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,14 +87,58 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
     }, [load])
   );
 
+  /** Fetches the next page and appends it. */
+  const loadMore = useCallback(async () => {
+    if (!paged || loadingMore || reachedEnd || !items?.length || error) return;
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    try {
+      const data = await api.get<any[]>(config.endpoint + "/", { ...serverQuery, offset: items.length });
+      if (seq !== requestSeq.current) return;
+      const rows = Array.isArray(data) ? data : [];
+
+      // A backend that does not honour `limit` answers every page with the
+      // whole table, and appending that blindly duplicates the list forever.
+      // Only genuinely new ids are added, and a page carrying none ends the
+      // scroll — which keeps a new build safe against an older API.
+      const seen = new Set((items || []).map((r) => String(r?.id)));
+      const fresh = rows.filter((r) => r?.id === undefined || !seen.has(String(r.id)));
+      if (fresh.length) setItems((prev) => [...(prev || []), ...fresh]);
+      if (rows.length < PAGE_SIZE || fresh.length === 0) setReachedEnd(true);
+    } catch {
+      // A failed page leaves what is already loaded on screen; pulling to
+      // refresh is the way back.
+      setReachedEnd(true);
+    } finally {
+      if (seq === requestSeq.current) setLoadingMore(false);
+    }
+  }, [paged, loadingMore, reachedEnd, items, error, config.endpoint, serverQuery]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setReachedEnd(false);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   // Columns the user can sort by: whatever the module lists, plus its title.
   const sortableColumns = useMemo(() => {
-    const cols = [{ key: config.titleField, label: config.title.replace(/s$/, "") }, ...config.listColumns];
+    const cols = [{ key: config.titleField, label: singular(config.title) }, ...config.listColumns];
     const seen = new Set<string>();
     return cols.filter((c) => (seen.has(c.key) ? false : (seen.add(c.key), true)));
   }, [config]);
 
+  const rowKey = useCallback(
+    // Not every list endpoint returns an `id`; falling back to the index keeps
+    // FlatList from collapsing rows onto one duplicate key.
+    (item: any, index: number) => (item?.id !== undefined && item?.id !== null ? String(item.id) : `row-${index}`),
+    []
+  );
+
   const visible = useMemo(() => {
+    // The server has already searched and sorted a paged module's rows; redoing
+    // it here would only ever narrow what it returned.
+    if (paged) return items || [];
     const q = search.trim().toLowerCase();
     const rows = (items || []).filter((item) =>
       q ? config.searchFields.some((f) => String(item[f] ?? "").toLowerCase().includes(q)) : true
@@ -67,7 +150,7 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
       const result = compareValues(a[sortKey], b[sortKey]);
       return sortDesc ? -result : result;
     });
-  }, [items, search, config.searchFields, sortKey, sortDesc]);
+  }, [paged, items, search, config.searchFields, sortKey, sortDesc]);
 
   function toggleSort(key: string) {
     if (sortKey === key) {
@@ -98,19 +181,35 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
           style={styles.searchInput}
         />
         {config.allowCreate && canManage && (
-          <Pressable style={styles.addButton} onPress={() => navigation.navigate(`${config.key}Form`, {})}>
+          <Pressable
+            style={styles.addButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${singular(config.title).toLowerCase()}`}
+            onPress={() => navigation.navigate(`${config.key}Form`, {})}
+          >
             <Text style={styles.addButtonText}>+ Add</Text>
           </Pressable>
         )}
       </View>
 
       <View style={styles.sortRow}>
-        <Pressable onPress={() => setShowSort((v) => !v)} style={styles.sortToggle}>
+        <Pressable
+          onPress={() => setShowSort((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={activeSortLabel ? `Sorted by ${activeSortLabel}. Change sort` : "Sort"}
+          accessibilityState={{ expanded: showSort }}
+          style={styles.sortToggle}
+        >
           <Text style={styles.sortToggleText}>
             {activeSortLabel ? `Sorted by ${activeSortLabel} ${sortDesc ? "↓" : "↑"}` : "Sort"}
           </Text>
         </Pressable>
-        {items ? <Text style={styles.count}>{visible.length} records</Text> : null}
+        {items ? (
+          <Text style={styles.count}>
+            {visible.length}
+            {paged && !reachedEnd ? "+" : ""} record{visible.length === 1 ? "" : "s"}
+          </Text>
+        ) : null}
       </View>
 
       {showSort && (
@@ -121,6 +220,9 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 key={col.key}
                 onPress={() => toggleSort(col.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Sort by ${col.label}`}
+                accessibilityState={{ selected: active }}
                 style={[styles.sortChip, active && styles.sortChipActive]}
               >
                 <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
@@ -135,15 +237,28 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
 
       {items === null && !error ? (
         <LoadingView />
-      ) : error ? (
+      ) : error && items === null ? (
         <ErrorView message={error} onRetry={load} />
       ) : visible.length === 0 ? (
         <EmptyView message={`No ${config.title.toLowerCase()} found.`} />
       ) : (
         <FlatList
           data={visible}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={rowKey}
           contentContainerStyle={{ padding: spacing(4) }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing(4) }} />
+            ) : null
+          }
+          ListHeaderComponent={
+            // A refresh that failed while rows are already on screen shows as a
+            // banner rather than replacing the list with an error page.
+            error ? <Text style={styles.staleBanner}>{error}</Text> : null
+          }
           renderItem={({ item }) => {
             const title = `${item[config.titleField] ?? ""} ${item.last_name ?? ""}`.trim();
             const initials =
@@ -157,6 +272,12 @@ export default function ModuleListScreen({ config, navigation }: { config: Modul
               <Pressable
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 onPress={() => navigation.navigate(`${config.key}Detail`, { id: item.id })}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  config.subtitleField && item[config.subtitleField]
+                    ? `${title || "Untitled"}, ${item[config.subtitleField]}`
+                    : title || "Untitled"
+                }
               >
                 <Tile label={initials} size={38} />
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -243,4 +364,13 @@ const styles = StyleSheet.create({
   title: { ...type.heading, color: colors.text },
   subtitle: { ...type.caption, color: colors.textMuted, marginTop: 2, fontWeight: "500" },
   chevron: { fontSize: 22, color: colors.textFaint },
+  staleBanner: {
+    ...type.caption,
+    color: colors.danger,
+    backgroundColor: colors.dangerTint,
+    borderRadius: radius.sm,
+    padding: spacing(2.5),
+    marginBottom: spacing(2),
+    textAlign: "center",
+  },
 });

@@ -68,6 +68,10 @@ export function Tile({ label, size = 40 }: { label: string; size?: number }) {
   const tint = tileTint(label);
   return (
     <View
+      // Decorative: the row's own text already names the record, so announcing
+      // the monogram as well just doubles it up.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         styles.tile,
         { width: size, height: size, borderRadius: size * 0.3, backgroundColor: tint.bg },
@@ -95,7 +99,7 @@ export function Field({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>
+      <Text style={styles.label} accessibilityLabel={required ? `${label}, required` : label}>
         {label}
         {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
       </Text>
@@ -140,6 +144,11 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      // While loading the label is replaced by a spinner, so the button would
+      // otherwise announce as an unlabelled control.
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       style={({ pressed }) => [
         styles.primaryButton,
         (disabled || loading) && styles.buttonDisabled,
@@ -168,6 +177,8 @@ export function SecondaryButton({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed, style]}
     >
       <Text style={styles.secondaryButtonText}>{title}</Text>
@@ -228,9 +239,20 @@ export function PromptModal({
 }) {
   const [note, setNote] = useState("");
 
+  // Clearing only on confirm left the text behind on cancel, so the next
+  // action opened with someone else's note already typed into it.
+  React.useEffect(() => {
+    if (!visible) setNote("");
+  }, [visible]);
+
+  function cancel() {
+    setNote("");
+    onCancel();
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={promptStyles.backdrop} onPress={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
+      <Pressable style={promptStyles.backdrop} onPress={cancel}>
         <Pressable style={promptStyles.sheet} onPress={() => {}}>
           <Text style={promptStyles.title}>{title}</Text>
           {message ? <Text style={promptStyles.message}>{message}</Text> : null}
@@ -242,7 +264,7 @@ export function PromptModal({
             style={promptStyles.input}
           />
           <View style={promptStyles.actions}>
-            <SecondaryButton title="Cancel" onPress={onCancel} style={{ flex: 1 }} />
+            <SecondaryButton title="Cancel" onPress={cancel} style={{ flex: 1 }} />
             <PrimaryButton
               title={confirmLabel}
               onPress={() => {

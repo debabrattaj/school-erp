@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Linking, StyleSheet, Text, View } from "react-native";
+import { FlatList, Linking, StyleSheet, Text, View } from "react-native";
+import { showAlert } from "../../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../../api/client";
 import { AppTextInput, Badge, Card, EmptyView, ErrorView, LoadingView, PrimaryButton, SecondaryButton } from "../../../components/Common";
@@ -37,23 +38,37 @@ export default function FeesTab({ studentId }: { studentId: number }) {
   );
 
   async function startPayment(fee: Fee) {
+    let details: UpiPaymentDetails;
     try {
-      const details = await api.get<UpiPaymentDetails>(`/portal/students/${studentId}/fees/${fee.id}/payment/upi`);
-      const canOpen = await Linking.canOpenURL(details.uri);
-      if (canOpen) {
-        await Linking.openURL(details.uri);
-      } else {
-        Alert.alert("No UPI app found", "Install a UPI app (Google Pay, PhonePe, Paytm) to pay.");
-      }
-      setPayingFeeId(fee.id);
+      details = await api.get<UpiPaymentDetails>(`/portal/students/${studentId}/fees/${fee.id}/payment/upi`);
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not start payment.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not start payment.");
+      return;
     }
+
+    // Opened directly rather than gated on canOpenURL: since Android 11 that
+    // call answers false for any scheme not declared in the manifest's
+    // <queries>, so it reported "no UPI app" on phones that had several.
+    // Failing to open is the reliable signal, and it is caught below.
+    try {
+      await Linking.openURL(details.uri);
+    } catch {
+      showAlert(
+        "No UPI app found",
+        "Install a UPI app (Google Pay, PhonePe, Paytm) to pay, or pay at the school office."
+      );
+      return;
+    }
+
+    // The reference box only opens once the handoff actually happened, so a
+    // parent is never asked for a UTR for a payment they could not start.
+    setUtr("");
+    setPayingFeeId(fee.id);
   }
 
   async function confirmPayment(feeId: number) {
     if (!utr.trim()) {
-      Alert.alert("Reference required", "Enter the UPI transaction reference (UTR) after paying.");
+      showAlert("Reference required", "Enter the UPI transaction reference (UTR) after paying.");
       return;
     }
     setConfirming(true);
@@ -62,9 +77,9 @@ export default function FeesTab({ studentId }: { studentId: number }) {
       setPayingFeeId(null);
       setUtr("");
       await load();
-      Alert.alert("Submitted", "Payment reference recorded. The school will verify it shortly.");
+      showAlert("Submitted", "Payment reference recorded. The school will verify it shortly.");
     } catch (e) {
-      Alert.alert("Error", e instanceof ApiError ? String(e.message) : "Could not confirm payment.");
+      showAlert("Error", e instanceof ApiError ? String(e.message) : "Could not confirm payment.");
     } finally {
       setConfirming(false);
     }
