@@ -4,6 +4,7 @@ import { useAuth, ApiError } from "../auth/AuthContext";
 import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
 import { colors, elevation, radius, spacing, type } from "../theme/theme";
 import { DEFAULT_API_BASE_URL, getApiBase, setApiBase } from "../api/client";
+import { buildLabel } from "../utils/buildInfo";
 
 export default function LoginScreen() {
   const { login, sessionExpired } = useAuth();
@@ -145,6 +146,9 @@ export default function LoginScreen() {
           </Field>
         )}
         </View>
+
+        {/* Which build is this? Saves a round of "is it stale or is it broken". */}
+        <Text style={styles.build}>{buildLabel()}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -186,6 +190,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     marginBottom: spacing(3),
     textAlign: "center",
+  },
+  build: {
+    ...type.label,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: spacing(4),
   },
   error: {
     ...type.label,
