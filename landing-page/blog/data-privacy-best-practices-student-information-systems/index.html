@@ -43,7 +43,7 @@
   "headline": "Data Privacy Best Practices for Student Information Systems",
   "description": "Practical data privacy best practices for any student information system — what to look for, and what your school should ask about.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-08-14",
+  "dateModified": "2026-09-01",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/data-privacy-best-practices-student-information-systems/"
@@ -144,6 +144,49 @@
           <h2>How Schoolment approaches this</h2>
           <p>Every school's records live in an isolated database, passwords are hashed with Argon2, all traffic runs over HTTPS, and access inside the portal is role-based and enforced on every request. See <a href="/privacy-and-security/">Privacy &amp; Security</a> for the full picture, including data retention and deletion.</p>
         </div>
+        <div class="policy-block">
+          <h2>Consent is a record, not an assumption</h2>
+          <p>The practices above cover how data is held. The harder question is on what basis it is held at all. Processing a child's personal data generally requires verifiable consent from a parent or guardian, and the school &mdash; not the vendor &mdash; usually carries the burden of showing it was obtained.</p>
+          <p>The practical implication is simple: consent needs to be recorded in the system, dated, tied to the student record, and exportable. If it lives in a paper file in a cupboard, the school has the obligation and none of the evidence.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Least privilege is the control that actually prevents incidents</h2>
+          <p>Most real-world data exposure in schools is not an attack. It is a shared login, a spreadsheet emailed to the wrong address, or a member of staff who could see counselling notes because access was never scoped.</p>
+          <p>The fix is boring and effective. Build roles around jobs rather than convenience &mdash; an academic coordinator who can manage exams but only view fees, an accountant who never sees counselling notes &mdash; and set every module to no access, view, or manage explicitly. Schoolment enforces those rights on every request rather than hiding options in the interface, offers two-factor authentication, and applies the same rules to the web portal and the mobile app.</p>
+          <p>Add the operational habits that go with it: individual accounts rather than shared ones, password reset that does not require anyone to know an existing password, and access reviewed at the start of each academic year when roles change.</p>
+        </div>
+        <div class="policy-block">
+          <h2>The categories that need extra care</h2>
+          <p>Not all student data carries the same risk. Four categories deserve tighter handling than the rest, and schools rarely separate them:</p>
+          <ul class="check-list">
+            <li><strong>Counselling records and risk flags</strong> &mdash; pastoral notes that should be visible to the people providing care and nobody else, while still leaving an auditable trail.</li>
+            <li><strong>Health and infirmary records</strong> &mdash; visits, medicines administered, follow-ups.</li>
+            <li><strong>Biometric data</strong>, where a school uses it &mdash; the most sensitive category a school will ever hold, and one belonging to minors.</li>
+            <li><strong>Financial hardship information</strong> &mdash; concessions and scholarship decisions reveal family circumstances.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>Questions to put to a vendor, with the answers we give</h2>
+          <p>Ask these in writing, and compare answers rather than marketing pages:</p>
+          <ul class="check-list">
+            <li><strong>Is our data isolated?</strong> Each Schoolment school has its own isolated database, so one school's records are not queryable from another.</li>
+            <li><strong>How are passwords stored?</strong> Hashed with Argon2 &mdash; the provider cannot read a user's actual password.</li>
+            <li><strong>Is traffic encrypted everywhere?</strong> HTTPS across the whole portal, not just the login page.</li>
+            <li><strong>Who at the vendor can see our records, and under what circumstances?</strong></li>
+            <li><strong>Does student data leave the platform to reach any third-party service?</strong> Sai answers from the school's own records and is never given access beyond a guardian's own linked children.</li>
+            <li><strong>What is the retention and deletion policy, and can we export everything if we leave?</strong> See <a href="/privacy-and-security/">Privacy &amp; Security</a>.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>The habits that matter more than the feature list</h2>
+          <p>Software sets the ceiling on privacy; daily practice decides where you actually sit under it. Four habits worth writing into your own policy:</p>
+          <ul class="check-list">
+            <li>No shared logins, ever &mdash; including the "office computer" account everyone uses at the front desk.</li>
+            <li>Review roles and remove departed staff at the start of every academic year, not when someone remembers.</li>
+            <li>Keep student data out of personal WhatsApp groups and personal drives; use school announcements and the portal, which leave a record.</li>
+            <li>Decide retention deliberately &mdash; how long records are kept after a student leaves &mdash; and be able to state it to a parent who asks.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -199,6 +242,11 @@
         <a href="/#suite">Full module suite</a>
         <a href="/#platform">Platform &amp; security</a>
         <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#top">Online school management system</a>
+        <a href="/#suite">School ERP software</a>
+        <a href="/#modules">K-12 school ERP</a>
+        <a href="/blog/school-erp-vs-learning-management-system/">LMS for schools</a>
+        <a href="/#mobile-app">Android &amp; iOS app</a>
         <a href="/#contact">Book a demo</a>
       </div>
       <div class="footer-col">

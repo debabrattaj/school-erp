@@ -43,7 +43,7 @@
   "headline": "Cloud-Based vs On-Premise School ERP: Which Is Right for Your School?",
   "description": "The real trade-offs between cloud-based and on-premise school ERP software — cost, maintenance, access, and who actually maintains it.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-08-14",
+  "dateModified": "2026-09-01",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/cloud-vs-on-premise-school-erp/"
@@ -153,6 +153,38 @@
           <h2>Schoolment is cloud-based</h2>
           <p>Each school gets its own isolated database, accessible securely from anywhere, with updates and support included rather than a separate maintenance burden on your staff.</p>
         </div>
+        <div class="policy-block">
+          <h2>The five-year cost comparison people skip</h2>
+          <p>On-premise looks cheaper because the visible cost is a one-time purchase. The recurring costs are real, they are just paid to different people:</p>
+          <ul class="check-list">
+            <li><strong>Hardware refresh</strong> &mdash; a server has a life, and replacing it is a capital decision that arrives whether the budget is ready or not.</li>
+            <li><strong>Backups</strong> &mdash; and, more importantly, tested restores. A backup nobody has restored is a hope, not a plan.</li>
+            <li><strong>Security patching</strong> &mdash; on an unattended school server this is the thing that quietly stops happening after the first year.</li>
+            <li><strong>Power and connectivity</strong> &mdash; a server that is unreachable during an outage is a system that is down for everyone.</li>
+            <li><strong>The person</strong> &mdash; someone must own all of the above, and their availability becomes a dependency for the whole school.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>What actually goes wrong on each side</h2>
+          <p>Both models fail, but they fail differently, and knowing the failure mode is more useful than a feature comparison. On-premise fails slowly and locally: an un-patched server, a backup that was never tested, a hardware failure during exam week, a system unreachable from home when a teacher needs it. Cloud fails suddenly and externally: a provider outage, or a connectivity problem at the school.</p>
+          <p>The asymmetry is that cloud failures are usually short and someone else is working on them, while on-premise failures are usually long and the someone is you. That trade is why most schools without dedicated IT end up on cloud regardless of preference.</p>
+        </div>
+        <div class="policy-block">
+          <h2>"Our data must stay with us" deserves a closer look</h2>
+          <p>This is a legitimate requirement in some institutions, but it is often stated as a security argument when it is really a control argument &mdash; and the two come apart under examination. A cloud platform with an isolated database per school, Argon2 password hashing, HTTPS everywhere, per-module access rights enforced on every request, and two-factor authentication is usually more secure than an unattended machine in a school office, not less.</p>
+          <p>Where the control requirement is real, ask about the things that actually deliver control: can you export all of your own data, in what format, at any time; what is the retention and deletion policy; who at the vendor can access records and under what circumstances. Those answers are worth more than the physical location of a disk. See <a href="/privacy-and-security/">Privacy &amp; Security</a>.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Connectivity, and what happens on a bad day</h2>
+          <p>The honest objection to cloud in Indian schools is not security, it is the internet. Two practical mitigations: the Android and iOS app carries the same modules and permissions as the web portal, so a phone on mobile data keeps the school working when the campus line is down; and a school on a single connection should treat a backup link as part of the software budget rather than a separate IT wish.</p>
+          <p>Worth planning for explicitly: how attendance gets recorded during an outage, and how it is entered afterwards. Every school should have that answer written down before it is needed, on either model.</p>
+        </div>
+        <div class="policy-block">
+          <h2>A short decision rule</h2>
+          <p>If your school has no dedicated IT staff, needs access from outside the campus, wants updates without a project, and would rather spend its budget on teaching than on infrastructure &mdash; cloud, and the question is really which vendor.</p>
+          <p>If institutional policy genuinely requires infrastructure you control, and you already have both the staff and the discipline to patch, back up, test restores and maintain uptime indefinitely &mdash; on-premise is defensible, and you should price the staffing honestly when you compare.</p>
+          <p>Schoolment is cloud-based, with an isolated database per school, migration, updates and support included, and CSV exports of your own data whenever you want them. See <a href="/blog/how-to-evaluate-school-erp-software-india-2026/">the 2026 evaluation framework</a> for the rest of the comparison.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -208,6 +240,11 @@
         <a href="/#suite">Full module suite</a>
         <a href="/#platform">Platform &amp; security</a>
         <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#top">Online school management system</a>
+        <a href="/#suite">School ERP software</a>
+        <a href="/#modules">K-12 school ERP</a>
+        <a href="/blog/school-erp-vs-learning-management-system/">LMS for schools</a>
+        <a href="/#mobile-app">Android &amp; iOS app</a>
         <a href="/#contact">Book a demo</a>
       </div>
       <div class="footer-col">

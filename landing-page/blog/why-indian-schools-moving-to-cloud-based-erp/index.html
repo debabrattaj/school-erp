@@ -43,7 +43,7 @@
   "headline": "Why Indian Schools Are Moving to Cloud-Based ERP Systems",
   "description": "The practical reasons more Indian schools are adopting cloud-based ERP systems over spreadsheets and on-premise setups.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-08-14",
+  "dateModified": "2026-09-01",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/why-indian-schools-moving-to-cloud-based-erp/"
@@ -143,6 +143,49 @@
           <h2>What schools should still check before moving</h2>
           <p>Cloud doesn't automatically mean secure — schools should still confirm how their data is isolated, whether passwords are hashed, and whether traffic is encrypted, the same way they would for any vendor. See our <a href="/blog/data-privacy-best-practices-student-information-systems/">data privacy best practices</a> post for the specifics to check.</p>
         </div>
+        <div class="policy-block">
+          <h2>What the spreadsheet-and-register setup actually costs</h2>
+          <p>The current system feels free because nothing is invoiced for it. The cost is real, it is just paid in staff hours and in errors nobody attributes to the method:</p>
+          <ul class="check-list">
+            <li>Re-typing the same student details into a class list, a fee sheet, an exam sheet and a transport list &mdash; four places to update when a phone number changes, and four chances to miss one.</li>
+            <li>A fee position that is only accurate on the day someone reconciles it, and stale by the following morning.</li>
+            <li>An office phone that is permanently engaged during fee week because parents have no other way to check.</li>
+            <li>Records for a student who left three years ago that take an afternoon to locate.</li>
+            <li>One person who knows how the sheets fit together, whose leave becomes a scheduling problem for the whole school.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>The phone is the real driver</h2>
+          <p>Cloud gets discussed as an infrastructure decision, but for most Indian schools the deciding factor is simply that parents and staff live on their phones. A teacher marks attendance from the classroom rather than from the staff-room computer at lunch; a parent checks a fee due date at 10pm; a principal looks at the day's collection while travelling.</p>
+          <p>That is why Schoolment ships an Android and iOS app carrying the same 40+ modules and the same permissions as the web portal, rather than a cut-down parent app. The mobile view is not a summary of the system &mdash; it is the system.</p>
+        </div>
+        <div class="policy-block">
+          <h2>What schools should expect included, not billed later</h2>
+          <p>The cost comparison that matters is not the monthly subscription. It is the total for the first year, and the items that quietly become invoices are predictable:</p>
+          <ul class="check-list">
+            <li><strong>Migration</strong> of existing student, fee and academic records &mdash; the single largest hidden line in most quotes.</li>
+            <li><strong>Onboarding and training</strong> for office staff and teachers, for long enough to cover a full fee cycle and an exam season.</li>
+            <li><strong>Support</strong> after the first few months, when the initial hand-holding period typically ends.</li>
+            <li><strong>Updates</strong>, which on a cloud platform should arrive without a project.</li>
+            <li><strong>Data export</strong> if you ever leave &mdash; ask before you sign, not after.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>Start with two modules, not forty</h2>
+          <p>The schools that stall are usually the ones that tried to move everything in one term. A workable sequence is: fees and attendance first, because they are daily and the benefit is immediate; then exams and report cards, timed to a term boundary; then the parent portal and WhatsApp, once the data behind them is trustworthy; then campus operations &mdash; hostel, transport, library, inventory &mdash; when there is time to do it properly.</p>
+          <p>Modules are switched on per school in Schoolment, so staff only see what the school is actually using, and every scheduled automation &mdash; fee generation, promotion, exam creation &mdash; stays off until an admin turns it on. Turning things on deliberately is the difference between a rollout and a mess. See <a href="/blog/paper-registers-to-digital-erp-transformation/">moving from paper registers to a digital ERP</a>.</p>
+        </div>
+        <div class="policy-block">
+          <h2>The questions to put to any cloud vendor</h2>
+          <p>Cloud shifts responsibility for infrastructure to the provider, which makes their practices your practices. Five questions worth asking in writing:</p>
+          <ul class="check-list">
+            <li>Is our school's data in its own isolated database, or pooled with other schools?</li>
+            <li>How are passwords stored? Schoolment hashes them with Argon2, and all traffic runs over HTTPS.</li>
+            <li>Is access role-based and enforced on every request, or only hidden in the interface? Per-module view and manage rights, custom roles and two-factor authentication should all be available.</li>
+            <li>What is the uptime target, and what happens during an outage?</li>
+            <li>What is the retention and deletion policy when a student leaves? See <a href="/privacy-and-security/">Privacy &amp; Security</a> for how we answer these.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -198,6 +241,11 @@
         <a href="/#suite">Full module suite</a>
         <a href="/#platform">Platform &amp; security</a>
         <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#top">Online school management system</a>
+        <a href="/#suite">School ERP software</a>
+        <a href="/#modules">K-12 school ERP</a>
+        <a href="/blog/school-erp-vs-learning-management-system/">LMS for schools</a>
+        <a href="/#mobile-app">Android &amp; iOS app</a>
         <a href="/#contact">Book a demo</a>
       </div>
       <div class="footer-col">

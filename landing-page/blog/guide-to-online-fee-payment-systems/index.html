@@ -43,7 +43,7 @@
   "headline": "A Complete Guide to Online Fee Payment Systems for Schools",
   "description": "How online fee payment systems for schools actually work — collection methods, reconciliation, and what to look for before adopting one.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-08-14",
+  "dateModified": "2026-09-01",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/guide-to-online-fee-payment-systems/"
@@ -143,6 +143,44 @@
           <h2>How Schoolment handles it</h2>
           <p>Fee payments use a direct UPI link or QR code to the school's own UPI ID — no separate merchant account or hidden fee for the school. Combined with real-time Paid / Partial / Unpaid status, reconciliation happens automatically instead of manually. See <a href="/modules/school-fee-management-and-online-payment-system/">Fees &amp; Payments</a> for the full module.</p>
         </div>
+        <div class="policy-block">
+          <h2>Direct UPI versus a payment gateway, and why the difference is money</h2>
+          <p>Most school payment setups route collections through a payment gateway: the parent pays the gateway, the gateway deducts a percentage, and the balance settles to the school days later. On school fee volumes, that percentage is a meaningful annual number, and the settlement delay complicates reconciliation at exactly the wrong time of year.</p>
+          <p>Schoolment uses a direct UPI link or QR code to the school's own UPI ID, with settlement to the school's own account. There is no separate merchant account to open and no per-transaction cut taken by us. Parents pay with the UPI app they already use, and the money arrives where school money is supposed to arrive.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Billing is the half that gets underestimated</h2>
+          <p>Taking a payment is the easy part. Producing the right amount for the right student is where fee software earns its keep, and where spreadsheets fail quietly:</p>
+          <ul class="check-list">
+            <li><strong>Fee structures</strong> per class, with multiple heads &mdash; tuition, transport, lab, exam, admission &mdash; rather than one lump figure.</li>
+            <li><strong>Automatic billing</strong> on a schedule, so a term's fees are raised for every student at once instead of rebuilt each cycle.</li>
+            <li><strong>Concessions and scholarships</strong> applied as recorded decisions on the student, not as a manual edit somebody has to remember next term.</li>
+            <li><strong>Late-fee automation</strong> with rules the school sets, applied consistently rather than at the counter's discretion.</li>
+            <li><strong>Instalments and partial payments</strong>, reflected as Partial rather than as an unresolved gap.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>Reminders are the part that changes collection speed</h2>
+          <p>The payment method removes friction; reminders remove forgetting, and forgetting is the larger cause of delay. Schoolment sends automated fee reminders the moment a fee is created, and payment confirmations the moment a receipt is generated &mdash; over WhatsApp and email together wherever both are on file.</p>
+          <p>Sequence matters more than volume. A reminder before the due date prevents a delay; a notice after it starts a conversation. And a confirmation on payment eliminates the single most common inbound call of the year: "did my transfer go through?" See <a href="/modules/whatsapp-integration-for-school-communication/">WhatsApp for Parents</a>.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Receipts, refunds and the accountant's view</h2>
+          <p>The office side has requirements the parent never sees. Receipts need consistent numbering that follows the financial year rather than the academic one. Payments need to land in a ledger where income and expense can be read together, alongside payroll &mdash; salary structures and payslip generation &mdash; so the school's position is a report rather than an assembly job.</p>
+          <p>Handle the awkward cases before they arrive: a payment made against the wrong sibling, a duplicate transfer, a refund on withdrawal, and a cash payment taken at the counter that still needs to appear in the same record as online collections. A system that only handles the clean path pushes all of these back onto a spreadsheet.</p>
+        </div>
+        <div class="policy-block">
+          <h2>What parents should be able to do without calling</h2>
+          <p>The measure of a fee system is how much it removes from the office phone. Everything in this list should be self-service in the portal and the Android and iOS app:</p>
+          <ul class="check-list">
+            <li>See what is due, for which head, and by when &mdash; per child, for guardians with more than one.</li>
+            <li>Pay in full or in part, over UPI, from the reminder itself.</li>
+            <li>Download a receipt immediately, and re-download it a year later.</li>
+            <li>See a complete payment history without asking anyone to confirm it.</li>
+            <li>Ask Sai a routine question &mdash; what is pending, when is it due &mdash; at 10pm, and get an answer from the school's real records.</li>
+            <li>See it all in the school's own branding, so a payment page never looks like it belongs to somebody else. See <a href="/modules/school-fee-management-and-online-payment-system/">Fees &amp; Payments</a>.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -198,6 +236,11 @@
         <a href="/#suite">Full module suite</a>
         <a href="/#platform">Platform &amp; security</a>
         <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#top">Online school management system</a>
+        <a href="/#suite">School ERP software</a>
+        <a href="/#modules">K-12 school ERP</a>
+        <a href="/blog/school-erp-vs-learning-management-system/">LMS for schools</a>
+        <a href="/#mobile-app">Android &amp; iOS app</a>
         <a href="/#contact">Book a demo</a>
       </div>
       <div class="footer-col">
