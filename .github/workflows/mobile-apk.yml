@@ -1,39 +1,128 @@
-name: Mobile APK (EAS)
+name: Mobile APK
 
-# Builds an installable Android APK of the Expo app on EAS.
+# Builds an installable Android APK of the Expo app.
 #
-# Run it from the Actions tab (Run workflow). It is deliberately not on a push
-# trigger: every run consumes an EAS build slot on the Expo account, so builds
-# are asked for rather than fired by every commit.
+# Two routes, picked with the `method` input:
 #
-# Requires one repository secret:
-#   EXPO_TOKEN - a robot or personal access token from
-#                https://expo.dev/settings/access-tokens
+#   local (default) - prebuilds the native project and runs Gradle on the
+#                     runner. Needs no Expo account and no secrets; the APK
+#                     comes back as a workflow artifact. Signed with the
+#                     template's debug keystore, so it installs for testing
+#                     but is not fit for the Play Store.
 #
-# The APK link is printed in the job summary. The build itself runs on Expo's
-# servers, so the job here mostly waits on it.
+#   eas             - hands the build to Expo's servers. Needed for a
+#                     production, properly signed build. Requires an
+#                     EXPO_TOKEN repository secret, from
+#                     https://expo.dev/settings/access-tokens
+#
+# Run it from the Actions tab. Deliberately not on a push trigger: an APK is
+# something you ask for, not something every commit should produce.
 
 on:
   workflow_dispatch:
     inputs:
+      method:
+        description: "Where to build"
+        type: choice
+        default: local
+        options: [local, eas]
       profile:
-        description: "eas.json build profile"
+        description: "eas.json profile (eas method only)"
         type: choice
         default: preview
         options: [preview, production]
-      wait:
-        description: "Wait for the build and print the download URL"
-        type: boolean
-        default: true
 
 concurrency:
-  # One mobile build at a time; a queued run replaces an older waiting one.
   group: mobile-apk
   cancel-in-progress: false
 
 jobs:
-  build:
+  local:
+    name: Gradle build on the runner
+    if: inputs.method == 'local'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      # React Native 0.86 builds on JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: mobile
+        # The lockfile is committed, so ci gives the same tree the app was
+        # tested against rather than resolving fresh.
+        run: npm ci
+
+      # Cheap gates first: a type error or a failing test costs seconds here
+      # and many minutes once Gradle is running.
+      - name: Typecheck
+        working-directory: mobile
+        run: npx tsc --noEmit
+
+      - name: Test
+        working-directory: mobile
+        run: npm test -- --ci
+
+      - name: Generate the native project
+        working-directory: mobile
+        # android/ is not committed; it is regenerated from app.json on every
+        # build so the two can never drift.
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Assemble the APK
+        working-directory: mobile/android
+        # The Expo bare template points the release build at the debug
+        # keystore, so this signs itself without any secret.
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Collect the APK
+        id: collect
+        run: |
+          APK=$(find mobile/android -name '*.apk' -print -quit)
+          if [ -z "$APK" ]; then
+            echo "::error::Gradle finished but produced no APK."
+            exit 1
+          fi
+          echo "Built $APK ($(du -h "$APK" | cut -f1))"
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-erp-apk
+          path: ${{ steps.collect.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Mobile APK"
+            echo ""
+            echo "Built on the runner, no Expo account involved."
+            echo "Download it from the **Artifacts** section of this run"
+            echo "(\`school-erp-apk\`), unzip, and sideload."
+            echo ""
+            echo "Signed with the template debug keystore: fine for testing,"
+            echo "not for the Play Store. Use the \`eas\` method for that."
+            echo ""
+            echo "The app points at the production API. A tester can change"
+            echo "that under **Server settings** on the login screen."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  eas:
     name: EAS build (${{ inputs.profile }})
+    if: inputs.method == 'eas'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,12 +152,8 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        # The lockfile is committed, so ci gives the same tree the app was
-        # tested against rather than resolving fresh.
         run: npm ci
 
-      # Cheap gates before spending a build slot: a type error or a failing
-      # test costs seconds here and many minutes on EAS.
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -81,42 +166,26 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -o pipefail
-          if [ "${{ inputs.wait }}" = "true" ]; then
-            eas build \
-              --platform android \
-              --profile "${{ inputs.profile }}" \
-              --non-interactive \
-              --json \
-              --wait | tee build.json
-            URL=$(python3 -c "import json;d=json.load(open('build.json'));d=d[0] if isinstance(d,list) else d;print(d.get('artifacts',{}).get('buildUrl') or d.get('artifacts',{}).get('applicationArchiveUrl') or '')")
-            echo "url=$URL" >> "$GITHUB_OUTPUT"
-          else
-            eas build \
-              --platform android \
-              --profile "${{ inputs.profile }}" \
-              --non-interactive \
-              --no-wait
-          fi
+          eas build --platform android --profile "${{ inputs.profile }}" --non-interactive --json --wait | tee build.json
+          URL=$(jq -r '(if type == "array" then .[0] else . end) | .artifacts.buildUrl // .artifacts.applicationArchiveUrl // ""' build.json)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         if: always()
         run: |
           {
-            echo "## Mobile APK"
+            echo "## Mobile APK (EAS)"
             echo ""
             echo "- profile: \`${{ inputs.profile }}\`"
             if [ -n "${{ steps.build.outputs.url }}" ]; then
               echo "- [Download the APK](${{ steps.build.outputs.url }})"
             else
-              echo "- Build submitted. Track it at <https://expo.dev/accounts>."
+              echo "- No artifact URL came back. Check the log above and <https://expo.dev/accounts>."
             fi
-            echo ""
-            echo "The app ships pointing at the production API. A tester can change it"
-            echo "under **Server settings** on the login screen."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the build metadata
-        if: always() && inputs.wait
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eas-build-metadata
