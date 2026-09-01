@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Edit, Trash2, PlusCircle, ClipboardList } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardList,
+  Edit,
+  ExternalLink,
+  Inbox,
+  PlusCircle,
+  Trash2,
+} from "lucide-react";
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import { resolveFileUrl } from "../utils/files";
 
 const emptyForm = {
   academic_year: "",
@@ -13,6 +23,9 @@ const emptyForm = {
   description: "",
   due_date: "",
   attachment_url: "",
+  max_marks: "",
+  accepts_submissions: true,
+  allow_late_submission: true,
   teacher_id: "",
 };
 
@@ -29,6 +42,9 @@ export default function Homework() {
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [pageMode, setPageMode] = useState("list");
+  const [activeAssignment, setActiveAssignment] = useState(null);
+  const [board, setBoard] = useState(null);
+  const [grades, setGrades] = useState({});
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -90,8 +106,8 @@ export default function Homework() {
   ];
 
   function handleChange(e) {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
   function buildPayload() {
@@ -104,6 +120,9 @@ export default function Homework() {
       description: formData.description.trim() || null,
       due_date: formData.due_date || null,
       attachment_url: formData.attachment_url.trim() || null,
+      max_marks: formData.max_marks === "" ? null : Number(formData.max_marks),
+      accepts_submissions: !!formData.accepts_submissions,
+      allow_late_submission: !!formData.allow_late_submission,
       teacher_id: formData.teacher_id ? Number(formData.teacher_id) : null,
     };
   }
@@ -151,6 +170,9 @@ export default function Homework() {
       description: assignment.description || "",
       due_date: assignment.due_date || "",
       attachment_url: assignment.attachment_url || "",
+      max_marks: assignment.max_marks ?? "",
+      accepts_submissions: assignment.accepts_submissions !== false,
+      allow_late_submission: assignment.allow_late_submission !== false,
       teacher_id: assignment.teacher_id || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -170,8 +192,63 @@ export default function Homework() {
   function handleCancelEdit() {
     setEditingId(null);
     setFormData(emptyForm);
+    setActiveAssignment(null);
+    setBoard(null);
+    setGrades({});
     setMessage("");
     setPageMode("list");
+  }
+
+  async function openSubmissions(assignment) {
+    setActiveAssignment(assignment);
+    setBoard(null);
+    setGrades({});
+    setPageMode("submissions");
+    await loadBoard(assignment.id);
+  }
+
+  async function loadBoard(assignmentId) {
+    try {
+      const response = await API.get(`/homework/${assignmentId}/submissions`);
+      setBoard(response.data);
+      // Seed the grade inputs from what is already recorded, so a teacher
+      // correcting one mark doesn't wipe the rest of the row.
+      setGrades(
+        Object.fromEntries(
+          (response.data.submissions || []).map((s) => [
+            s.id,
+            { marks_awarded: s.marks_awarded ?? "", feedback: s.feedback ?? "" },
+          ])
+        )
+      );
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load submissions."));
+    }
+  }
+
+  function updateGrade(submissionId, field, value) {
+    setGrades((prev) => ({
+      ...prev,
+      [submissionId]: { ...(prev[submissionId] || {}), [field]: value },
+    }));
+  }
+
+  async function saveGrade(submission) {
+    const entry = grades[submission.id] || {};
+    try {
+      await API.put(
+        `/homework/${activeAssignment.id}/submissions/${submission.id}/grade`,
+        {
+          marks_awarded: entry.marks_awarded === "" ? null : Number(entry.marks_awarded),
+          feedback: (entry.feedback || "").trim() || null,
+        }
+      );
+      setMessage("Grade saved — the family can see it in the portal.");
+      await loadBoard(activeAssignment.id);
+      await loadAssignments();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save grade."));
+    }
   }
 
   function handleAdd() {
@@ -265,6 +342,40 @@ export default function Homework() {
             <input type="date" name="due_date" value={formData.due_date} onChange={handleChange} />
           </div>
           <div className="form-field">
+            <label>Marks</label>
+            <input
+              type="number"
+              name="max_marks"
+              min="0"
+              step="0.5"
+              value={formData.max_marks}
+              onChange={handleChange}
+              placeholder="Out of — leave blank if not scored"
+            />
+          </div>
+          <div className="form-field">
+            <label>Submissions</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                name="accepts_submissions"
+                checked={formData.accepts_submissions}
+                onChange={handleChange}
+              />
+              Students hand this in through the portal
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                name="allow_late_submission"
+                checked={formData.allow_late_submission}
+                onChange={handleChange}
+                disabled={!formData.accepts_submissions}
+              />
+              Accept work after the due date (flagged late)
+            </label>
+          </div>
+          <div className="form-field">
             <label>Title *</label>
             <input type="text" name="title" value={formData.title} onChange={handleChange} required />
           </div>
@@ -290,6 +401,146 @@ export default function Homework() {
       </form>
     </section>
   );
+
+  if (pageMode === "submissions" && activeAssignment) {
+    return (
+      <div className="management-page">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">Academics</p>
+            <h2>Submissions — {activeAssignment.title}</h2>
+            <p>
+              {[activeAssignment.class_name, activeAssignment.section].filter(Boolean).join(" - ")}
+              {activeAssignment.subject ? ` · ${activeAssignment.subject}` : ""}
+              {activeAssignment.due_date ? ` · due ${activeAssignment.due_date}` : ""}
+              {activeAssignment.max_marks != null ? ` · out of ${activeAssignment.max_marks}` : ""}
+            </p>
+          </div>
+          <button type="button" className="light-button" onClick={handleCancelEdit}>
+            <ArrowLeft size={17} />
+            Back
+          </button>
+        </section>
+
+        {message && <div className="toast-notification">{message}</div>}
+
+        {!board ? (
+          <div className="message-box">Loading…</div>
+        ) : (
+          <>
+            <section className="summary-strip report-summary-grid">
+              <div className="summary-card">
+                <Inbox size={22} />
+                <div>
+                  <span>Handed In</span>
+                  <strong>{board.submitted_count} / {board.total_students}</strong>
+                </div>
+              </div>
+              <div className="summary-card positive">
+                <CheckCircle2 size={22} />
+                <div>
+                  <span>Graded</span>
+                  <strong>{board.graded_count}</strong>
+                </div>
+              </div>
+              <div className="summary-card warning">
+                <ClipboardList size={22} />
+                <div>
+                  <span>Late</span>
+                  <strong>{board.late_count}</strong>
+                </div>
+              </div>
+            </section>
+
+            <div className="table-wrapper">
+              <table className="classic-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Admission No</th>
+                    <th>Submitted</th>
+                    <th>Work</th>
+                    <th>Marks</th>
+                    <th>Feedback</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.submissions.map((submission) => (
+                    <tr key={submission.id}>
+                      <td>{submission.student_name_snapshot || "-"}</td>
+                      <td>{submission.admission_no || "-"}</td>
+                      <td>
+                        {submission.submitted_at
+                          ? new Date(`${submission.submitted_at}Z`).toLocaleString()
+                          : "-"}
+                        {submission.is_late && <span className="status danger">Late</span>}
+                        {submission.submitted_by && (
+                          <small style={{ display: "block" }}>by {submission.submitted_by}</small>
+                        )}
+                      </td>
+                      <td>
+                        {submission.content && <div>{submission.content}</div>}
+                        {submission.attachment_url && (
+                          <a
+                            href={resolveFileUrl(submission.attachment_url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                          >
+                            Open file <ExternalLink size={13} />
+                          </a>
+                        )}
+                        {!submission.content && !submission.attachment_url && "-"}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          style={{ width: 80 }}
+                          value={grades[submission.id]?.marks_awarded ?? ""}
+                          onChange={(e) => updateGrade(submission.id, "marks_awarded", e.target.value)}
+                        />
+                        {activeAssignment.max_marks != null && ` / ${activeAssignment.max_marks}`}
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={grades[submission.id]?.feedback ?? ""}
+                          onChange={(e) => updateGrade(submission.id, "feedback", e.target.value)}
+                          placeholder="Comments for the family"
+                        />
+                      </td>
+                      <td>
+                        <button type="button" className="primary-button" onClick={() => saveGrade(submission)}>
+                          {submission.status === "Graded" ? "Update" : "Grade"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {board.pending_students.map((student) => (
+                    <tr key={`p-${student.student_id}`}>
+                      <td>{student.student_name}</td>
+                      <td>{student.admission_no || "-"}</td>
+                      <td colSpan={5}>
+                        <span className="status pending">Not handed in</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {!board.total_students && (
+                    <tr>
+                      <td colSpan={7}>No students in this class yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (pageMode === "form") {
     return (
@@ -351,6 +602,19 @@ export default function Homework() {
           { key: "subject", label: "Subject", render: (a) => a.subject || "-" },
           { key: "title", label: "Title", render: (a) => a.title },
           { key: "due_date", label: "Due Date", render: (a) => a.due_date || "-" },
+          {
+            key: "submission_count",
+            label: "Handed In",
+            render: (a) =>
+              a.accepts_submissions === false ? (
+                "Not collected"
+              ) : (
+                <button type="button" className="text-link-button" onClick={() => openSubmissions(a)}>
+                  {a.submission_count || 0} in · {a.graded_count || 0} graded
+                </button>
+              ),
+            value: (a) => a.submission_count || 0,
+          },
           { key: "teacher_name_snapshot", label: "Teacher", render: (a) => a.teacher_name_snapshot || "-" },
           {
             key: "actions",

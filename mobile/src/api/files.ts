@@ -104,11 +104,19 @@ export interface UploadedFile {
 }
 
 /**
- * Uploads a local file (e.g. a picked photo) to `/uploads/` and returns the
- * stored URL. Uses fetch + FormData rather than the File API's upload helper so
- * the JSON error envelope surfaces the same way as every other request.
+ * Uploads a local file (e.g. a picked photo) and returns the stored URL. Uses
+ * fetch + FormData rather than the File API's upload helper so the JSON error
+ * envelope surfaces the same way as every other request.
+ *
+ * `endpoint` picks which door to go through: staff use the default, and the
+ * parent/student portal has its own, which only exists where the school has
+ * the LMS.
  */
-export async function uploadFile(localUri: string, filename?: string): Promise<UploadedFile> {
+export async function uploadFile(
+  localUri: string,
+  filename?: string,
+  endpoint = "/uploads/"
+): Promise<UploadedFile> {
   const base = await getApiBase();
   const headers = await authHeaders();
 
@@ -121,7 +129,7 @@ export async function uploadFile(localUri: string, filename?: string): Promise<U
   // React Native's FormData takes this {uri,name,type} shape rather than a Blob.
   form.append("file", { uri: localUri, name, type: mime } as unknown as Blob);
 
-  const res = await fetch(`${base}/uploads/`, { method: "POST", headers, body: form });
+  const res = await fetch(`${base}${endpoint}`, { method: "POST", headers, body: form });
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
 

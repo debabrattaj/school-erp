@@ -14,9 +14,12 @@ import { colors, radius, spacing, type } from "../theme/theme";
 export default function PhotoField({
   value,
   onChange,
+  endpoint,
 }: {
   value?: string;
   onChange: (url: string) => void;
+  /** Upload route to post to; the portal has its own, see api/files.ts. */
+  endpoint?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -49,7 +52,7 @@ export default function PhotoField({
     setPreview(asset.uri);
     setBusy(true);
     try {
-      const uploaded = await uploadFile(asset.uri, asset.fileName || undefined);
+      const uploaded = await uploadFile(asset.uri, asset.fileName || undefined, endpoint);
       if (!uploaded?.url) throw new ApiError(0, "Upload returned no URL.");
       onChange(uploaded.url);
     } catch (e) {
