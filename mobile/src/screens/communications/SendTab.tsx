@@ -237,5 +237,4 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, color: colors.onPrimary },
   resultLine: { ...type.body, color: colors.text, marginBottom: spacing(1) },
-  templatesError: { ...type.caption, color: colors.danger, marginBottom: spacing(2) },
 });
