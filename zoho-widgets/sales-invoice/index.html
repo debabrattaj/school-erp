@@ -157,7 +157,10 @@
                             <h2 class="text-[15px] font-semibold text-slate-800">Purchase Information</h2>
                         </div>
                         <div class="flex gap-2">
-                            <input type="text" id="barcode-scan-purchase" placeholder="Barcode Scan..." autocomplete="off" onkeydown="handleBarcodeKey(event, 'purchase')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                            <div class="relative">
+                                <input type="text" id="barcode-scan-purchase" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('purchase')" onfocus="showBarcodeSuggestions('purchase')" onblur="hideBarcodeSuggestions('purchase')" onkeydown="handleBarcodeKey(event, 'purchase')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                                <div id="barcode-suggest-purchase" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
+                            </div>
                             <button onclick="addItemOrScan('purchase')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
                             </button>
@@ -215,7 +218,10 @@
                             <h2 class="text-[15px] font-semibold text-slate-800">Product Information</h2>
                         </div>
                         <div class="flex gap-2">
-                            <input type="text" id="barcode-scan-product" placeholder="Barcode Scan..." autocomplete="off" onkeydown="handleBarcodeKey(event, 'product')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                            <div class="relative">
+                                <input type="text" id="barcode-scan-product" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('product')" onfocus="showBarcodeSuggestions('product')" onblur="hideBarcodeSuggestions('product')" onkeydown="handleBarcodeKey(event, 'product')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                                <div id="barcode-suggest-product" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
+                            </div>
                             <button onclick="addItemOrScan('product')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
                             </button>
@@ -1005,76 +1011,35 @@
             // Lookup at the Item_Master record the piece was tagged against - the
             // same master the section's item dropdown is built from.
             ITEM_FIELD: "Item_Detail",
+            // Named in the suggestion under the box: two pieces can share an
+            // item name and only the design tells them apart.
+            DESIGN_FIELD: "Design",
             SECTIONS: {
+                // A scan identifies the piece; it does not price it. Only the
+                // three identifying columns are fetched - the item, its design
+                // and its purity - and the weights, rates and charges stay as
+                // they are for the counter to enter.
                 product: {
                     fill: [
                         { field: "Design", sel: ".input-design", text: true },
-                        { field: "Purity", sel: ".input-purity", text: true },
-                        { field: "Qty", sel: ".input-qty" },
-                        { field: "Gross_Weight", sel: ".input-gwt" },
-                        { field: "Net_Weight", sel: ".input-nwt" },
-                        { field: "Board_Rate", sel: ".input-rate" },
-                        { field: "Board_Amount", sel: ".input-amt" },
-                        { field: "DMD_Weight", sel: ".input-dmd-wt" },
-                        { field: "DMD_Rate", sel: ".input-dmd-rt" },
-                        { field: "DMD_Amount", sel: ".input-dmd-amt" },
-                        { field: "CS_Weight", sel: ".input-cs-wt" },
-                        { field: "CS_Rate", sel: ".input-cs-rt" },
-                        { field: "CS_Amount", sel: ".input-cs-amt" },
-                        { field: "PS_Weight", sel: ".input-ps-wt" },
-                        { field: "PS_Rate", sel: ".input-ps-rt" },
-                        { field: "PS_Amount", sel: ".input-ps-amt" },
-                        { field: "Line_Total", sel: ".input-linetotal" }
+                        { field: "Purity", sel: ".input-purity", text: true }
                     ],
-                    // TCH and Discount are a type dropdown plus the numbers that
-                    // hang off it, so they cannot be filled field by field - see
-                    // applyBarcodeCharge.
-                    charges: [
-                        {
-                            typeField: "Service_Item", typeSel: ".input-tch-type",
-                            onTypeChange: updateTchFieldVisibility,
-                            numbers: [
-                                { field: "Service_percnt", sel: ".input-tch-pct" },
-                                { field: "Service_Rate", sel: ".input-tch-rt" },
-                                { field: "Service_Amount", sel: ".input-tch-amt" }
-                            ]
-                        },
-                        {
-                            typeField: "Discount_Type", typeSel: ".input-disc-type",
-                            onTypeChange: updateDiscFieldVisibility,
-                            numbers: [
-                                { field: "Discount_percnt", sel: ".input-disc-pct" },
-                                { field: "Discount_Rate", sel: ".input-disc-rt" },
-                                { field: "Discount_Amount", sel: ".input-disc-amt" }
-                            ]
-                        }
-                    ],
+                    // The save reads Design and Purity ids off the item master.
+                    // A tagged piece's own design and purity are the truth for
+                    // that piece, so the scan overrides them - what is saved
+                    // then matches what the row shows. Keys are the master
+                    // field the save names; values are the scanned row's.
+                    idOverrides: { Collection: "Design", Purity: "Purity" },
                     recalc: tr => calcRow(tr.querySelector('.input-gwt'))
                 },
-                // Purchase Old Gold has no DMD/PS of its own and calls CS "Stone",
-                // so only the columns it actually carries are filled.
+                // Purchase Old Gold has no Design column of its own.
                 purchase: {
                     fill: [
-                        { field: "Purity", sel: ".input-purity", text: true },
-                        { field: "Gross_Weight", sel: ".input-gwt" },
-                        { field: "Net_Weight", sel: ".input-nwt" },
-                        { field: "Board_Rate", sel: ".input-rate" },
-                        { field: "CS_Weight", sel: ".input-cs-wt" },
-                        { field: "CS_Rate", sel: ".input-cs-rt" },
-                        { field: "CS_Amount", sel: ".input-cs-amt" },
-                        { field: "Line_Total", sel: ".input-linetotal" }
+                        { field: "Purity", sel: ".input-purity", text: true }
                     ],
-                    charges: [],
+                    idOverrides: { Purity: "Purity" },
                     recalc: tr => calcPurchaseRow(tr.querySelector('.input-gwt'))
                 }
-            },
-            // A Calculations Involved box is ticked when a scanned piece carries
-            // that kind of stone, so its weights are not filled into columns the
-            // checkbox is keeping hidden.
-            CALC_FIELDS: {
-                dmd: ["DMD_Weight", "DMD_Rate", "DMD_Amount"],
-                cs: ["CS_Weight", "CS_Rate", "CS_Amount"],
-                ps: ["PS_Weight", "PS_Rate", "PS_Amount"]
             }
         };
 
@@ -1618,7 +1583,10 @@
                         const custId = document.getElementById('customerSelect').value;
                         if (custId) row[map.field] = custId;
                     } else if (map.srcId) {
-                        const id = rawId(src[map.srcId]);
+                        // A scanned row carries the tagged piece's own Design and
+                        // Purity, which beat the item master's defaults.
+                        const scanned = tr._scannedIds && tr._scannedIds[map.srcId];
+                        const id = scanned || rawId(src[map.srcId]);
                         if (id) row[map.field] = id;
                     } else if (map.srcText) {
                         const text = zohoValueToText(src[map.srcText]);
@@ -1980,7 +1948,13 @@
         // report cannot be filtered to one piece, so it is read once at startup
         // the way the other masters are, and re-read on a miss.
         let barcodeRowsByCode = {};
+        // The same pieces as a list, one entry each, for the suggestions under
+        // the box. barcodeRowsByCode holds a piece once per code it answers to.
+        let barcodeRows = [];
         let barcodeIndexLoadedAt = 0;
+        const barcodeSuggestState = { product: [], purchase: [] };
+        const barcodeActiveSuggestion = { product: -1, purchase: -1 };
+        const BARCODE_SUGGESTION_LIMIT = 8;
 
         function normalizeBarcode(value) {
             return String(value === null || value === undefined ? '' : value)
@@ -2016,10 +1990,15 @@
                 if (records[0]) console.log('Sample barcode record:', records[0]);
 
                 const index = {};
+                const list = [];
                 records.forEach(record => {
-                    barcodeKeysOf(record).primary.forEach(code => {
+                    const keys = barcodeKeysOf(record);
+                    keys.primary.forEach(code => {
                         if (!index[code]) index[code] = record;
                     });
+                    if (keys.primary.length) {
+                        list.push({ code: keys.primary[0], record: record });
+                    }
                 });
                 records.forEach(record => {
                     barcodeKeysOf(record).aliases.forEach(code => {
@@ -2027,6 +2006,7 @@
                     });
                 });
                 barcodeRowsByCode = index;
+                barcodeRows = list;
             } catch (err) {
                 console.error('Failed to fetch barcodes from "' + BARCODE_SCAN_CONFIG.REPORT_NAME + '".', err);
             } finally {
@@ -2044,12 +2024,129 @@
             return barcodeRowsByCode[code] || null;
         }
 
+        // How a piece reads in the list: its item and the design that tells two
+        // pieces of the same item apart. Either half can be missing on an older
+        // row, so the code stands in when neither is there.
+        function barcodeSuggestionLabel(entry) {
+            const name = zohoValueToText(entry.record[BARCODE_SCAN_CONFIG.ITEM_FIELD]);
+            const design = zohoValueToText(entry.record[BARCODE_SCAN_CONFIG.DESIGN_FIELD]);
+            const parts = [name, design].filter(part => part && !isZohoId(part));
+            return parts.join(' - ') || entry.code;
+        }
+
+        // Typing narrows the list by code or by what the piece reads as, so a
+        // half-typed code and a remembered item name both find it. An exact code
+        // comes first, then the codes that start with what was typed.
+        function matchBarcodeRows(query) {
+            if (!query) return [];
+            const scored = [];
+            barcodeRows.forEach(entry => {
+                const label = barcodeSuggestionLabel(entry).toUpperCase();
+                let rank = -1;
+                if (entry.code === query) rank = 0;
+                else if (entry.code.indexOf(query) === 0) rank = 1;
+                else if (entry.code.indexOf(query) !== -1) rank = 2;
+                else if (label.indexOf(query) !== -1) rank = 3;
+                if (rank !== -1) scored.push({ rank: rank, entry: entry });
+            });
+            scored.sort((a, b) => a.rank - b.rank);
+            return scored.slice(0, BARCODE_SUGGESTION_LIMIT).map(hit => hit.entry);
+        }
+
+        function showBarcodeSuggestions(section) {
+            const input = document.getElementById('barcode-scan-' + section);
+            const matches = matchBarcodeRows(normalizeBarcode(input ? input.value : ''));
+            barcodeSuggestState[section] = matches;
+            // The first match is highlighted, so a scanner's trailing Enter
+            // picks the piece it just read without a keystroke of its own.
+            barcodeActiveSuggestion[section] = matches.length ? 0 : -1;
+            renderBarcodeSuggestions(section);
+        }
+
+        function renderBarcodeSuggestions(section) {
+            const box = document.getElementById('barcode-suggest-' + section);
+            if (!box) return;
+
+            const matches = barcodeSuggestState[section];
+            box.innerHTML = '';
+            if (!matches.length) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            matches.forEach((entry, index) => {
+                const option = document.createElement('div');
+                option.className = 'px-3 py-2 cursor-pointer flex flex-col ' +
+                    (index === barcodeActiveSuggestion[section] ? 'bg-indigo-50' : 'hover:bg-slate-50');
+                option.onclick = () => pickBarcodeSuggestion(section, index);
+                option.onmouseenter = () => {
+                    barcodeActiveSuggestion[section] = index;
+                    renderBarcodeSuggestions(section);
+                };
+
+                const name = document.createElement('span');
+                name.className = 'font-medium text-slate-800';
+                name.textContent = barcodeSuggestionLabel(entry);
+
+                const code = document.createElement('span');
+                code.className = 'text-[11px] text-slate-500 font-mono';
+                code.textContent = entry.code;
+
+                option.appendChild(name);
+                option.appendChild(code);
+                box.appendChild(option);
+            });
+            box.classList.remove('hidden');
+        }
+
+        function hideBarcodeSuggestions(section) {
+            barcodeSuggestState[section] = [];
+            barcodeActiveSuggestion[section] = -1;
+            const box = document.getElementById('barcode-suggest-' + section);
+            if (box) {
+                box.innerHTML = '';
+                box.classList.add('hidden');
+            }
+        }
+
+        function moveBarcodeSuggestion(section, step) {
+            const matches = barcodeSuggestState[section];
+            if (!matches.length) return;
+            const count = matches.length;
+            barcodeActiveSuggestion[section] =
+                ((barcodeActiveSuggestion[section] + step) % count + count) % count;
+            renderBarcodeSuggestions(section);
+        }
+
+        function pickBarcodeSuggestion(section, index) {
+            const entry = barcodeSuggestState[section][index];
+            if (!entry) return;
+            const input = document.getElementById('barcode-scan-' + section);
+            hideBarcodeSuggestions(section);
+            if (addBarcodeRecord(section, entry.record, entry.code) && input) {
+                input.value = '';
+            }
+            if (input) input.focus();
+        }
+
         function handleBarcodeKey(event, section) {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                moveBarcodeSuggestion(section, event.key === 'ArrowDown' ? 1 : -1);
+                return;
+            }
+            if (event.key === 'Escape') {
+                hideBarcodeSuggestions(section);
+                return;
+            }
             if (event.key !== 'Enter') return;
+
             // Scanners send Enter after the code; without this the widget-wide
             // form submit is what would answer it.
             event.preventDefault();
-            addItemOrScan(section);
+            const active = barcodeActiveSuggestion[section];
+            if (active !== -1) pickBarcodeSuggestion(section, active);
+            else addItemOrScan(section);
         }
 
         // Add Item with a code in the box adds that piece; with an empty box it
@@ -2066,17 +2163,6 @@
 
         async function addItemByBarcode(section, code) {
             const input = document.getElementById('barcode-scan-' + section);
-            const tbody = document.getElementById(`tbody-${section}`);
-
-            // A barcode is one physical piece, so the same code twice is a
-            // double scan rather than a second item.
-            const duplicate = Array.from(tbody.children)
-                .findIndex(tr => tr.dataset.barcode === code);
-            if (duplicate !== -1) {
-                showToast(`Barcode ${code} is already on row ${duplicate + 1}.`, 'error');
-                if (input) input.select();
-                return;
-            }
 
             if (input) input.disabled = true;
             let record = null;
@@ -2092,12 +2178,29 @@
                 return;
             }
 
-            const tr = addItem(section);
-            applyBarcodeToRow(tr, section, record, code);
+            hideBarcodeSuggestions(section);
+            if (addBarcodeRecord(section, record, code) && input) {
+                input.value = '';
+                input.focus();
+            }
+        }
 
-            if (input) { input.value = ''; input.focus(); }
-            const name = zohoValueToText(record[BARCODE_SCAN_CONFIG.ITEM_FIELD]);
-            showToast(`Added ${name && !isZohoId(name) ? name : 'item'} (${code}).`, 'success');
+        // Adds one tagged piece, whether it was typed in full or picked off the
+        // list. Answers whether the row went in - a barcode is one physical
+        // piece, so the same code twice is a double scan, not a second item.
+        function addBarcodeRecord(section, record, code) {
+            const tbody = document.getElementById(`tbody-${section}`);
+            const duplicate = Array.from(tbody.children)
+                .findIndex(tr => tr.dataset.barcode === code);
+            if (duplicate !== -1) {
+                showToast(`Barcode ${code} is already on row ${duplicate + 1}.`, 'error');
+                return false;
+            }
+
+            applyBarcodeToRow(addItem(section), section, record, code);
+            const label = barcodeSuggestionLabel({ code: code, record: record });
+            showToast(`Added ${label} (${code}).`, 'success');
+            return true;
         }
 
         function applyBarcodeToRow(tr, section, record, code) {
@@ -2105,10 +2208,14 @@
             tr.dataset.barcode = code;
             tr.title = 'Scanned from barcode ' + code;
 
-            // The item has to go in first: it is what sets _srcRecord, which the
-            // save reads the Item_Detail, Design and Purity ids off, and it
-            // autofills the master's own figures - which the tagged ones below
-            // then overwrite, because the piece was weighed, not the master.
+            // The scanned row's own ids for the lookups the save would otherwise
+            // take off the item master - see collectItemRows.
+            tr._scannedIds = {};
+            Object.keys(cfg.idOverrides).forEach(masterField => {
+                const id = rawId(record[cfg.idOverrides[masterField]]);
+                if (id) tr._scannedIds[masterField] = id;
+            });
+
             const matchedItem = selectBarcodeItem(tr, section, record);
 
             cfg.fill.forEach(map => {
@@ -2118,9 +2225,6 @@
                 if (value === null || value === undefined || value === '') return;
                 el.value = map.text ? zohoValueToText(value) : numOr(value, 0);
             });
-
-            cfg.charges.forEach(charge => applyBarcodeCharge(tr, record, charge));
-            if (section === 'product') revealScannedCalculations(record);
 
             cfg.recalc(tr);
 
@@ -2134,6 +2238,11 @@
         // The row's item dropdown carries Item_Master record ids, which is what
         // the subform's Item_Detail lookup holds too, so the id matches directly.
         // Rows tagged before that lookup existed can carry the name instead.
+        //
+        // The dropdown's own change handler is deliberately not run: it would
+        // autofill the master's weights and rates, and a scan is only meant to
+        // say which piece this is. Setting _srcRecord by hand is what that
+        // handler does beyond the autofill, and it is what the save needs.
         function selectBarcodeItem(tr, section, record) {
             const select = tr.querySelector('.input-item');
             if (!select || select.tagName !== 'SELECT') return false;
@@ -2156,50 +2265,9 @@
             }
 
             select.value = matched;
-            applyItemToRow(select, section);
+            tr._srcRecord = items[matched];
+            if (section === 'product') cancelledTaxNames.clear();
             return true;
-        }
-
-        // TCH and Discount are a fixed dropdown plus the numbers it governs.
-        // Choosing a type zeroes those numbers, so the type is set first; a type
-        // the subform holds but the dropdown does not list is left unselected
-        // rather than silently blanking the whole group's amounts.
-        function applyBarcodeCharge(tr, record, charge) {
-            const typeSelect = tr.querySelector(charge.typeSel);
-            if (!typeSelect) return;
-
-            const type = zohoValueToText(record[charge.typeField]);
-            const known = Array.from(typeSelect.options).some(option => option.value === type);
-            if (type && !known) {
-                console.warn('Barcode row carries "' + type + '" for ' + charge.typeField +
-                    ', which the row\'s dropdown does not list. Leaving the type blank.');
-            }
-            typeSelect.value = known ? type : '';
-            charge.onTypeChange(typeSelect);
-
-            charge.numbers.forEach(map => {
-                const el = tr.querySelector(map.sel);
-                if (el) el.value = numOr(record[map.field], 0);
-            });
-        }
-
-        // DMD/CS/PS columns stay hidden until their Calculations Involved box is
-        // ticked, so a scanned piece with stones would put its weights into
-        // columns nobody can see - and into a Calculations_Involved value that
-        // does not mention them.
-        function revealScannedCalculations(record) {
-            let changed = false;
-            Object.keys(BARCODE_SCAN_CONFIG.CALC_FIELDS).forEach(type => {
-                const box = document.getElementById('chk-' + type);
-                if (!box || box.checked) return;
-                const carries = BARCODE_SCAN_CONFIG.CALC_FIELDS[type]
-                    .some(field => numOr(record[field], 0) !== 0);
-                if (carries) {
-                    box.checked = true;
-                    changed = true;
-                }
-            });
-            if (changed) toggleColumns();
         }
 
         function addItem(section) {
