@@ -368,14 +368,29 @@ def behind_schedule(db: Session, academic_year: str | None = None, as_of: date |
     if academic_year:
         query = query.filter(models.ClassSubject.academic_year == academic_year)
 
+    rows = query.all()
+
+    # The class each row belongs to, resolved once here. Without a name the
+    # report could only render "Class #3", which is not something a head of
+    # school can act on -- and is exactly the raw-id display the rest of this
+    # product avoids.
+    class_names = {}
+    class_ids = {cs.class_id for cs in rows if cs.class_id}
+    if class_ids:
+        for c in db.query(models.SchoolClass).filter(models.SchoolClass.id.in_(class_ids)).all():
+            class_names[c.id] = (c.class_name, c.section)
+
     out = []
-    for class_subject in query.all():
+    for class_subject in rows:
         coverage = subject_coverage(db, class_subject.id, moment)
         if not coverage["overdue_units"]:
             continue
+        class_name, section = class_names.get(class_subject.class_id, (None, None))
         out.append({
             "class_subject_id": class_subject.id,
             "class_id": class_subject.class_id,
+            "class_name": class_name,
+            "section": section,
             "subject_name": class_subject.subject_name,
             "academic_year": class_subject.academic_year,
             "teacher_id": class_subject.teacher_id,

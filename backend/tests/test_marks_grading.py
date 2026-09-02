@@ -216,3 +216,123 @@ def test_report_card_succeeds_and_reflects_weighted_total(client, auth):
     }, headers=auth)
     assert report_resp.status_code == 200, report_resp.text
     assert report_resp.headers["content-type"] == "application/pdf"
+
+
+def test_report_card_pdf_accepts_all_three_templates(client, auth):
+    class_id = _create_class(client, auth, "Grading-Templates")
+    student_id = _create_student(client, auth, class_id, "GRADE-210", "Templated")
+    exam_id = _create_exam(client, auth, "Grading-Templates-Exam")
+
+    resp = client.post("/marks/", json={
+        "student_id": student_id,
+        "exam_id": exam_id,
+        "subject_name": "Chemistry",
+        "marks_obtained": 72,
+        "total_marks": 100,
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+
+    for template in ("classic", "modern", "compact"):
+        report_resp = client.get("/marks/report-card", params={
+            "student_id": student_id, "exam_id": exam_id, "template": template,
+        }, headers=auth)
+        assert report_resp.status_code == 200, (template, report_resp.text)
+        assert report_resp.headers["content-type"] == "application/pdf"
+        assert len(report_resp.content) > 0
+
+
+def test_report_card_rejects_unknown_template(client, auth):
+    class_id = _create_class(client, auth, "Grading-BadTemplate")
+    student_id = _create_student(client, auth, class_id, "GRADE-211", "Unknown")
+    exam_id = _create_exam(client, auth, "Grading-BadTemplate-Exam")
+
+    client.post("/marks/", json={
+        "student_id": student_id, "exam_id": exam_id,
+        "subject_name": "Biology", "marks_obtained": 60, "total_marks": 100,
+    }, headers=auth)
+
+    resp = client.get("/marks/report-card", params={
+        "student_id": student_id, "exam_id": exam_id, "template": "flashy",
+    }, headers=auth)
+    assert resp.status_code == 400
+    assert "flashy" in resp.json()["detail"]
+
+
+def test_report_card_data_matches_pdf_totals_and_includes_rank_and_attendance(client, auth):
+    """The bug this whole endpoint exists to close: the on-screen preview
+    and the downloaded PDF used to compute totals/grade/rank differently.
+    report-card-data is now what both read from -- assert it actually
+    carries the rank and attendance the old on-screen preview never showed,
+    and that its weighted total matches the same math the PDF uses."""
+    class_id = _create_class(client, auth, "Grading-DataEndpoint")
+    top_id = _create_student(client, auth, class_id, "GRADE-220", "Top")
+    other_id = _create_student(client, auth, class_id, "GRADE-221", "Other")
+    exam_id = _create_exam(client, auth, "Grading-DataEndpoint-Exam")
+
+    for student_id, obtained in [(top_id, 95), (other_id, 60)]:
+        resp = client.post("/marks/", json={
+            "student_id": student_id, "exam_id": exam_id,
+            "subject_name": "Mathematics", "marks_obtained": obtained, "total_marks": 100,
+        }, headers=auth)
+        assert resp.status_code == 200, resp.text
+
+    # Attendance: 4 Present out of 5 marked days -> 80%.
+    for day, status in [
+        ("2026-01-05", "Present"), ("2026-01-06", "Present"),
+        ("2026-01-07", "Present"), ("2026-01-08", "Present"),
+        ("2026-01-09", "Absent"),
+    ]:
+        att_resp = client.post("/attendance/", json={
+            "student_id": top_id,
+            "attendance_date": day,
+            "status": status,
+        }, headers=auth)
+        assert att_resp.status_code == 200, att_resp.text
+
+    data_resp = client.get("/marks/report-card-data", params={
+        "student_id": top_id, "exam_id": exam_id,
+    }, headers=auth)
+    assert data_resp.status_code == 200, data_resp.text
+    data = data_resp.json()
+
+    assert data["total_obtained"] == 95
+    assert data["total_max"] == 100
+    assert data["percentage"] == 95.0
+    assert data["overall_grade"] == "A+"
+    assert data["result"] == "Pass"
+    assert data["rank"] == 1
+    assert data["out_of"] == 2
+    assert data["attendance_percent"] == 80.0
+
+    pdf_resp = client.get("/marks/report-card", params={
+        "student_id": top_id, "exam_id": exam_id,
+    }, headers=auth)
+    assert pdf_resp.status_code == 200, pdf_resp.text
+
+
+def test_report_card_data_attendance_is_none_when_unmarked(client, auth):
+    class_id = _create_class(client, auth, "Grading-NoAttendance")
+    student_id = _create_student(client, auth, class_id, "GRADE-230", "NoAttendance")
+    exam_id = _create_exam(client, auth, "Grading-NoAttendance-Exam")
+
+    client.post("/marks/", json={
+        "student_id": student_id, "exam_id": exam_id,
+        "subject_name": "Art", "marks_obtained": 50, "total_marks": 100,
+    }, headers=auth)
+
+    resp = client.get("/marks/report-card-data", params={
+        "student_id": student_id, "exam_id": exam_id,
+    }, headers=auth)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["attendance_percent"] is None
+
+
+def test_report_card_data_404s_when_no_marks(client, auth):
+    class_id = _create_class(client, auth, "Grading-NoMarks")
+    student_id = _create_student(client, auth, class_id, "GRADE-240", "NoMarks")
+    exam_id = _create_exam(client, auth, "Grading-NoMarks-Exam")
+
+    resp = client.get("/marks/report-card-data", params={
+        "student_id": student_id, "exam_id": exam_id,
+    }, headers=auth)
+    assert resp.status_code == 404

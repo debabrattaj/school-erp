@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -67,6 +68,10 @@ export function Tile({ label, size = 40 }: { label: string; size?: number }) {
   const tint = tileTint(label);
   return (
     <View
+      // Decorative: the row's own text already names the record, so announcing
+      // the monogram as well just doubles it up.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         styles.tile,
         { width: size, height: size, borderRadius: size * 0.3, backgroundColor: tint.bg },
@@ -94,7 +99,7 @@ export function Field({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>
+      <Text style={styles.label} accessibilityLabel={required ? `${label}, required` : label}>
         {label}
         {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
       </Text>
@@ -139,6 +144,11 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      // While loading the label is replaced by a spinner, so the button would
+      // otherwise announce as an unlabelled control.
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       style={({ pressed }) => [
         styles.primaryButton,
         (disabled || loading) && styles.buttonDisabled,
@@ -167,6 +177,8 @@ export function SecondaryButton({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed, style]}
     >
       <Text style={styles.secondaryButtonText}>{title}</Text>
@@ -197,6 +209,94 @@ export function Badge({
 export function Row({ children, style }: { children: React.ReactNode; style?: object }) {
   return <View style={[styles.row, style]}>{children}</View>;
 }
+
+/**
+ * Bottom-sheet confirmation with an optional note — the mobile stand-in for
+ * `window.prompt()` (React Native has no cross-platform equivalent; iOS-only
+ * `Alert.prompt` won't do). Used for approve/reject/cancel style actions that
+ * take a free-text reason.
+ */
+export function PromptModal({
+  visible,
+  title,
+  message,
+  placeholder = "Add a note (optional)",
+  confirmLabel = "Confirm",
+  destructive,
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  title: string;
+  message?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: (note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+
+  // Clearing only on confirm left the text behind on cancel, so the next
+  // action opened with someone else's note already typed into it.
+  React.useEffect(() => {
+    if (!visible) setNote("");
+  }, [visible]);
+
+  function cancel() {
+    setNote("");
+    onCancel();
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
+      <Pressable style={promptStyles.backdrop} onPress={cancel}>
+        <Pressable style={promptStyles.sheet} onPress={() => {}}>
+          <Text style={promptStyles.title}>{title}</Text>
+          {message ? <Text style={promptStyles.message}>{message}</Text> : null}
+          <AppTextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder={placeholder}
+            multiline
+            style={promptStyles.input}
+          />
+          <View style={promptStyles.actions}>
+            <SecondaryButton title="Cancel" onPress={cancel} style={{ flex: 1 }} />
+            <PrimaryButton
+              title={confirmLabel}
+              onPress={() => {
+                onConfirm(note.trim());
+                setNote("");
+              }}
+              loading={loading}
+              style={[{ flex: 1 }, destructive ? promptStyles.destructiveButton : null]}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const promptStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(20,21,43,0.45)", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing(5),
+    paddingBottom: spacing(8),
+    ...elevation.lg,
+  },
+  title: { ...type.heading, color: colors.text, marginBottom: spacing(1) },
+  message: { ...type.body, color: colors.textMuted, marginBottom: spacing(3) },
+  input: { minHeight: 80, textAlignVertical: "top", marginBottom: spacing(4) },
+  actions: { flexDirection: "row", gap: spacing(3) },
+  destructiveButton: { backgroundColor: colors.danger, shadowColor: colors.danger },
+});
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },

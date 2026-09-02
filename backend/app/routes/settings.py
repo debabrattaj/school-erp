@@ -23,7 +23,8 @@ def create_default_settings(db: Session):
         currency="INR",
         receipt_prefix="REC",
         pass_percentage=40,
-        grade_rules="A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
+        grade_rules="A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39",
+        report_card_template="classic",
     )
 
     db.add(settings)

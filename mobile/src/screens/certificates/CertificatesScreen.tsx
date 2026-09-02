@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
+import { showAlert } from "../../utils/alert";
 import { ApiError } from "../../api/client";
 import { downloadAndShare } from "../../api/files";
 import { Card, PrimaryButton, SecondaryButton, SectionLabel } from "../../components/Common";
@@ -39,7 +40,7 @@ export default function CertificatesScreen() {
       const safe = studentLabel(student).replace(/[^\w]+/g, "-").toLowerCase();
       await downloadAndShare(`/students/${student.id}/${docKey}`, `${docKey}-${safe}.pdf`);
     } catch (e) {
-      Alert.alert(
+      showAlert(
         `Could not generate ${label}`,
         e instanceof ApiError && typeof e.detail === "string" ? e.detail : "The server refused the request."
       );
@@ -84,6 +85,7 @@ export default function CertificatesScreen() {
         onClose={() => setPicking(false)}
         title="Choose student"
         endpoint="/students"
+        searchParam="search"
         labelFor={studentLabel}
         subtitleFor={(s) =>
           [s.admission_no, s.class_name && `Class ${s.class_name}`, s.section].filter(Boolean).join(" · ")

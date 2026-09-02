@@ -1,3 +1,5 @@
+import type { ComponentType } from "react";
+
 export type FieldType =
   | "text"
   | "number"
@@ -43,6 +45,13 @@ export interface FormFieldConfig {
     endpoint: string;
     /** The field whose value is saved (e.g. "class_name"). */
     valueField: string;
+    /**
+     * Fields joined with a space to form the saved value, when one column is
+     * not the whole of it. A student's name lives in `first_name` and
+     * `last_name`, so storing `valueField` alone saved "Asha" for "Asha Rao".
+     * Takes precedence over `valueField` when set.
+     */
+    valueFields?: string[];
     searchFields: string[];
     subtitleFields?: string[];
   };
@@ -88,7 +97,35 @@ export interface ModuleConfig {
   icon: string;
   group: ModuleGroup;
   feature: string;
+  /**
+   * Built-in roles allowed by name, mirroring the web sidebar's `roles` list.
+   * Only needed where a role is granted the module by name rather than through
+   * its permission map.
+   */
+  roles?: readonly string[];
+  /**
+   * The key in the school's `features` map, when it differs from `feature`
+   * (Leave is granted as "staff_leave" but sold as "leave"). Defaults to
+   * `feature`.
+   */
+  featureFlag?: string;
   endpoint: string;
+  /**
+   * False when `{endpoint}/{id}` is a *different* route rather than a missing
+   * one, so the record must be found in the list instead. Master Data is the
+   * case: `/master-data/{category}` reads the id as a category name.
+   */
+  hasDetailRoute?: boolean;
+  /**
+   * The list endpoint understands `search`, `sort`, `order`, `limit` and
+   * `offset`, so this module fetches a page at a time and hands searching and
+   * sorting to the server.
+   *
+   * Only set where the table grows with use. Paging a list while still
+   * searching it client-side would silently search only the loaded page, so
+   * the two go together or not at all.
+   */
+  paged?: boolean;
   titleField: string;
   subtitleField?: string;
   searchFields: string[];
@@ -98,4 +135,6 @@ export interface ModuleConfig {
   allowCreate?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;
+  /** Overrides the generic field-list detail screen with a bespoke one, e.g. a composite dashboard. */
+  detailComponent?: ComponentType<any>;
 }

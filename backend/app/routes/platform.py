@@ -58,7 +58,6 @@ FEATURE_LABELS = {
     "users": "User Management",
     "settings": "Institution Settings",
     "master_data": "Master Data",
-    "student_layout": "Student Layout Builder",
     "report_card": "Report Card",
     "student_enrollments": "Student Enrollments",
     "admissions": "Admissions CRM",
@@ -91,6 +90,7 @@ FEATURE_LABELS = {
     "exam_auto_generation": "Automatic Exam Creation",
     "leave": "Staff Leave & Substitution",
     "syllabus": "Syllabus & Lesson Plans",
+    "lms": "Learning Resources & Submissions",
     "timetable_auto_generation": "Automatic Timetable Generation",
     "admission_reminders": "Admissions Follow-up Reminders",
 }

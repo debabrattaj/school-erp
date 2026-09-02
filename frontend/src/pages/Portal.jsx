@@ -1,20 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { QrCode, X, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, QrCode, Trash2, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
 import API from "../api";
 import { getUser, isFeatureEnabled } from "../auth";
+import { formatMoney } from "../utils/money";
+import { resolveFileUrl, uploadFile } from "../utils/files";
+import { TrendArea, CollectionMeter } from "../components/DashboardCharts";
 
 // Online Tests is sold separately, so its tab only exists for schools the
 // platform owner has enabled it for. The server enforces this too -- hiding
 // the tab alone would leave the endpoints reachable.
 const TABS = [
   ["summary", "Summary"],
+  ["performance", "Performance"],
   ["attendance", "Attendance"],
   ["marks", "Marks"],
   ["fees", "Fees"],
   ["timetable", "Timetable"],
   ["homework", "Homework"],
+  ["learning", "Learning", "lms"],
   ["tests", "Online Tests", "online_tests"],
   ["leave", "Leave"],
   ["library", "Library", "library"],
@@ -30,6 +35,73 @@ function parseUtc(value) {
 
 function getApiErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
+}
+
+// The set of charts a parent/student can add to their own "Dashboard" tab.
+// Deliberately a short, fixed catalog (not a free source/dimension/measure
+// builder like the staff DashboardBuilder) -- every option here is already
+// scoped to the signed-in user's own linked child by construction, so there
+// is nothing to pick that could show another family's data.
+const PORTAL_WIDGET_KINDS = [
+  {
+    kind: "attendance_trend",
+    title: "Attendance Over Time",
+    subtitle: "Monthly attendance %",
+  },
+  {
+    kind: "marks_trend",
+    title: "Marks Over Time",
+    subtitle: "Percentage by exam",
+  },
+  {
+    kind: "fee_summary",
+    title: "Fee Status",
+    subtitle: "Paid vs due this year",
+  },
+];
+
+const DEFAULT_PORTAL_WIDGETS = PORTAL_WIDGET_KINDS.map((entry) => ({
+  id: entry.kind,
+  kind: entry.kind,
+}));
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function monthKey(dateString) {
+  return (dateString || "").slice(0, 7); // "2026-03-14" -> "2026-03"
+}
+
+function buildAttendanceTrend(attendance) {
+  if (!attendance?.records?.length) return [];
+
+  const buckets = new Map();
+  attendance.records.forEach((record) => {
+    const key = monthKey(record.date);
+    if (!key) return;
+
+    const bucket = buckets.get(key) || { present: 0, total: 0 };
+    bucket.total += 1;
+    if (record.status === "Present" || record.status === "Late") bucket.present += 1;
+    else if (record.status === "Half Day") bucket.present += 0.5;
+    buckets.set(key, bucket);
+  });
+
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, bucket]) => ({
+      date: key,
+      percentage: bucket.total ? Math.round((bucket.present / bucket.total) * 1000) / 10 : null,
+    }));
+}
+
+function buildMarksTrend(marks) {
+  if (!marks?.exams?.length) return [];
+
+  return marks.exams
+    .filter((exam) => exam.exam_date)
+    .map((exam) => ({ date: exam.exam_date, percentage: exam.percentage }));
 }
 
 // On-device face-presence check during a proctored, webcam-required attempt.
@@ -61,6 +133,10 @@ export default function Portal() {
   const [upiReference, setUpiReference] = useState("");
   const [confirmingUpi, setConfirmingUpi] = useState(false);
 
+  const [dashboardWidgets, setDashboardWidgets] = useState(DEFAULT_PORTAL_WIDGETS);
+  const [dashboardLayoutLoaded, setDashboardLayoutLoaded] = useState(false);
+  const [showAddWidget, setShowAddWidget] = useState(false);
+
   useEffect(() => {
     if (!message) return undefined;
 
@@ -82,6 +158,13 @@ export default function Portal() {
 
   const [timetable, setTimetable] = useState([]);
   const [homework, setHomework] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [openResourceId, setOpenResourceId] = useState(null);
+  // Draft answers keyed by assignment id, so switching between assignments
+  // does not lose what has been typed for another.
+  const [submissionDrafts, setSubmissionDrafts] = useState({});
+  const [submittingHomeworkId, setSubmittingHomeworkId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
@@ -134,6 +217,45 @@ export default function Portal() {
     } catch (error) {
       setMessage(getApiErrorMessage(error, "Unable to load your students."));
     }
+  }
+
+  // Same per-user saved-layout endpoint the staff Dashboard builder uses
+  // (DashboardLayout.user_id) -- it stores an opaque widget array, so a
+  // parent's small {id, kind} shape here coexists fine with the richer
+  // {source, groupBy, measure, ...} shape staff widgets use elsewhere.
+  async function loadDashboardLayout() {
+    try {
+      const response = await API.get("/dashboard/layout");
+      const widgets = response.data?.widgets;
+      if (Array.isArray(widgets) && widgets.length) {
+        setDashboardWidgets(widgets);
+      }
+    } catch {
+      // Keep the default widget set on failure.
+    } finally {
+      setDashboardLayoutLoaded(true);
+    }
+  }
+
+  async function saveDashboardLayout(widgets) {
+    try {
+      await API.put("/dashboard/layout", { widgets });
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save your dashboard changes."));
+    }
+  }
+
+  function addDashboardWidget(kind) {
+    const next = [...dashboardWidgets, { id: uid(), kind }];
+    setDashboardWidgets(next);
+    saveDashboardLayout(next);
+    setShowAddWidget(false);
+  }
+
+  function removeDashboardWidget(id) {
+    const next = dashboardWidgets.filter((widget) => widget.id !== id);
+    setDashboardWidgets(next);
+    saveDashboardLayout(next);
   }
 
   async function loadStudentData(studentId) {
@@ -241,6 +363,75 @@ export default function Portal() {
       setMessage(getApiErrorMessage(error, "Unable to send message."));
     } finally {
       setSendingMessage(false);
+    }
+  }
+
+  async function loadResources(studentId) {
+    if (!studentId) return;
+    setResourcesLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/resources`);
+      setResources(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load learning resources."));
+    } finally {
+      setResourcesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "learning" && selectedId) {
+      loadResources(selectedId);
+    }
+  }, [activeTab, selectedId]);
+
+  async function openResource(resource) {
+    setOpenResourceId(openResourceId === resource.id ? null : resource.id);
+    if (resource.url) {
+      window.open(resolveFileUrl(resource.url), "_blank", "noopener");
+    }
+    // Best-effort: failing to record the view must never stop a student
+    // reading the material.
+    try {
+      await API.post(`/portal/students/${selectedId}/resources/${resource.id}/view`);
+      setResources((prev) =>
+        prev.map((r) => (r.id === resource.id ? { ...r, viewed: true } : r))
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function updateSubmissionDraft(assignmentId, field, value) {
+    setSubmissionDrafts((prev) => ({
+      ...prev,
+      [assignmentId]: { ...(prev[assignmentId] || {}), [field]: value },
+    }));
+  }
+
+  async function submitHomework(assignmentId) {
+    const draft = submissionDrafts[assignmentId] || {};
+    const content = (draft.content || "").trim();
+    const attachmentUrl = (draft.attachment_url || "").trim();
+    if (!content && !attachmentUrl) {
+      setMessage("Add some text or attach a file before submitting.");
+      return;
+    }
+
+    setSubmittingHomeworkId(assignmentId);
+    try {
+      await API.post(`/portal/students/${selectedId}/homework/${assignmentId}/submit`, {
+        content: content || null,
+        attachment_url: attachmentUrl || null,
+      });
+      setMessage("Submitted. Your teacher can see it now.");
+      setSubmissionDrafts((prev) => ({ ...prev, [assignmentId]: {} }));
+      const response = await API.get(`/portal/students/${selectedId}/homework`);
+      setHomework(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to submit this work."));
+    } finally {
+      setSubmittingHomeworkId(null);
     }
   }
 
@@ -655,11 +846,29 @@ export default function Portal() {
 
   useEffect(() => {
     loadChildren();
+    loadDashboardLayout();
   }, []);
 
   useEffect(() => {
     loadStudentData(selectedId);
   }, [selectedId, yearFilter]);
+
+  const attendanceTrend = useMemo(() => buildAttendanceTrend(attendance), [attendance]);
+  const marksTrend = useMemo(() => buildMarksTrend(marks), [marks]);
+
+  const feeSummary = useMemo(() => {
+    if (!fees?.totals) return null;
+    const { total_amount: total, total_paid: paid, total_due: due } = fees.totals;
+    return {
+      percentage: total ? Math.round((paid / total) * 1000) / 10 : 0,
+      collected: paid,
+      due,
+    };
+  }, [fees]);
+
+  const availableWidgetKinds = PORTAL_WIDGET_KINDS.filter(
+    (entry) => !dashboardWidgets.some((widget) => widget.kind === entry.kind)
+  );
 
   useEffect(() => {
     if (!isParent) return;
@@ -827,10 +1036,12 @@ export default function Portal() {
                   <th>Roll No</th>
                   <td>{summary.current_enrollment?.roll_no || "-"}</td>
                 </tr>
-                <tr>
-                  <th>House</th>
-                  <td>{summary.student?.house || "-"}</td>
-                </tr>
+                {isFeatureEnabled("house_system") && (
+                  <tr>
+                    <th>House</th>
+                    <td>{summary.student?.house || "-"}</td>
+                  </tr>
+                )}
                 <tr>
                   <th>Father</th>
                   <td>{summary.guardian?.father_name || "-"}</td>
@@ -842,6 +1053,100 @@ export default function Portal() {
               </tbody>
             </table>
             </div>
+          )}
+
+          {!loading && activeTab === "performance" && dashboardLayoutLoaded && (
+            <>
+              <div className="builder-grid">
+                {dashboardWidgets.map((widget) => {
+                  const meta = PORTAL_WIDGET_KINDS.find((entry) => entry.kind === widget.kind);
+                  if (!meta) return null;
+
+                  return (
+                    <div key={widget.id} className="widget-card">
+                      <div className="widget-head">
+                        <div className="widget-title">
+                          <h3>{meta.title}</h3>
+                          <p>{meta.subtitle}</p>
+                        </div>
+                        <div className="widget-actions">
+                          <button
+                            type="button"
+                            className="widget-remove"
+                            aria-label={`Remove ${meta.title}`}
+                            onClick={() => removeDashboardWidget(widget.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="widget-body">
+                        {widget.kind === "attendance_trend" && (
+                          <TrendArea
+                            data={attendanceTrend}
+                            unit="%"
+                            emptyText="No attendance recorded yet."
+                          />
+                        )}
+                        {widget.kind === "marks_trend" && (
+                          <TrendArea
+                            data={marksTrend}
+                            unit="%"
+                            color="var(--success-600)"
+                            emptyText="No exam marks recorded yet."
+                          />
+                        )}
+                        {widget.kind === "fee_summary" &&
+                          (feeSummary ? (
+                            <CollectionMeter
+                              percentage={feeSummary.percentage}
+                              collected={feeSummary.collected}
+                              due={feeSummary.due}
+                              formatMoney={(value) => formatMoney(value)}
+                            />
+                          ) : (
+                            <p className="chart-empty">No fee records yet.</p>
+                          ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!dashboardWidgets.length && (
+                <p className="builder-empty">
+                  No charts added yet. Use "Add Chart" below to build your own view.
+                </p>
+              )}
+
+              <div style={{ marginTop: "1rem", position: "relative" }}>
+                {availableWidgetKinds.length > 0 && (
+                  <button
+                    type="button"
+                    className="light-button"
+                    onClick={() => setShowAddWidget((prev) => !prev)}
+                  >
+                    <Plus size={16} />
+                    Add Chart
+                  </button>
+                )}
+
+                {showAddWidget && (
+                  <div className="report-saved-views" style={{ marginTop: "10px" }}>
+                    {availableWidgetKinds.map((entry) => (
+                      <button
+                        key={entry.kind}
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => addDashboardWidget(entry.kind)}
+                      >
+                        {entry.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {!loading && activeTab === "attendance" && attendance && (
@@ -1100,34 +1405,172 @@ export default function Portal() {
           )}
 
           {!loading && activeTab === "homework" && (
-            <div className="table-wrapper">
-            <table className="classic-table">
-              <thead>
-                <tr>
-                  <th>Due Date</th>
-                  <th>Subject</th>
-                  <th>Title</th>
-                  <th>Description</th>
-                  <th>Teacher</th>
-                </tr>
-              </thead>
-              <tbody>
-                {homework.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.due_date || "-"}</td>
-                    <td>{item.subject || "-"}</td>
-                    <td>{item.title}</td>
-                    <td>{item.description || "-"}</td>
-                    <td>{item.teacher_name || "-"}</td>
-                  </tr>
+            <div className="portal-stack">
+              {homework.map((item) => {
+                const draft = submissionDrafts[item.id] || {};
+                const submission = item.submission;
+                return (
+                  <div className="portal-card" key={item.id}>
+                    <div className="portal-card-title">
+                      <strong>{item.title}</strong>
+                      {item.due_date && <span className="status pending">Due {item.due_date}</span>}
+                      {submission?.is_late && <span className="status danger">Late</span>}
+                      {submission?.status === "Graded" && <span className="status active">Graded</span>}
+                    </div>
+                    <div className="portal-card-meta">
+                      {[item.subject, item.teacher_name].filter(Boolean).join(" · ") || "-"}
+                      {item.max_marks != null && ` · out of ${item.max_marks}`}
+                    </div>
+                    {item.description && <p>{item.description}</p>}
+                    {item.attachment_url && (
+                      <a href={resolveFileUrl(item.attachment_url)} target="_blank" rel="noreferrer">
+                        Open worksheet
+                      </a>
+                    )}
+
+                    {submission && (
+                      <div className="portal-card-inset">
+                        <div>
+                          Handed in{" "}
+                          {submission.submitted_at
+                            ? new Date(`${submission.submitted_at}Z`).toLocaleString()
+                            : ""}
+                          {submission.submitted_by ? ` by ${submission.submitted_by}` : ""}
+                        </div>
+                        {submission.content && <p>{submission.content}</p>}
+                        {submission.attachment_url && (
+                          <a
+                            href={resolveFileUrl(submission.attachment_url)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open submitted file
+                          </a>
+                        )}
+                        {submission.status === "Graded" && (
+                          <div>
+                            <strong>
+                              Marks:{" "}
+                              {submission.marks_awarded != null
+                                ? `${submission.marks_awarded}${item.max_marks != null ? ` / ${item.max_marks}` : ""}`
+                                : "—"}
+                            </strong>
+                            {submission.feedback && <p>Teacher's feedback: {submission.feedback}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {item.can_submit && (
+                      <form
+                        className="classic-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          submitHomework(item.id);
+                        }}
+                      >
+                        <div className="form-field">
+                          <label>{submission ? "Replace your answer" : "Your answer"}</label>
+                          <textarea
+                            rows={3}
+                            value={draft.content || ""}
+                            onChange={(e) => updateSubmissionDraft(item.id, "content", e.target.value)}
+                            placeholder="Type your answer, or attach a photo/PDF of your work."
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label>Attachment</label>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                const url = await uploadFile(file, "/uploads/portal");
+                                updateSubmissionDraft(item.id, "attachment_url", url);
+                                setMessage("File attached — press Submit to hand it in.");
+                              } catch (error) {
+                                setMessage(getApiErrorMessage(error, "Upload failed."));
+                              }
+                            }}
+                          />
+                          {draft.attachment_url && <small>Attached: {draft.attachment_url}</small>}
+                        </div>
+                        <div className="form-actions">
+                          <button
+                            type="submit"
+                            className="primary-button"
+                            disabled={submittingHomeworkId === item.id}
+                          >
+                            <Send size={16} />
+                            {submittingHomeworkId === item.id ? "Submitting…" : "Submit"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {!item.can_submit && item.accepts_submissions === false && (
+                      <small>This assignment is not collected — nothing to hand in.</small>
+                    )}
+                    {!item.can_submit &&
+                      item.accepts_submissions &&
+                      submission?.status !== "Graded" && (
+                        <small>The due date has passed and late work is not accepted.</small>
+                      )}
+                  </div>
+                );
+              })}
+              {!homework.length && (
+                <div className="portal-card">No homework posted for this class yet.</div>
+              )}
+            </div>
+          )}
+
+          {!loading && activeTab === "learning" && (
+            <div className="portal-stack">
+              {resourcesLoading && <div className="portal-card">Loading study material…</div>}
+              {!resourcesLoading &&
+                resources.map((resource) => (
+                  <div className="portal-card" key={resource.id}>
+                    <div className="portal-card-title">
+                      <strong>{resource.title}</strong>
+                      <span className="status pending">{resource.resource_type}</span>
+                      {resource.viewed && <span className="status active">Opened</span>}
+                    </div>
+                    <div className="portal-card-meta">
+                      {[resource.subject, resource.teacher_name].filter(Boolean).join(" · ") || "-"}
+                    </div>
+                    {resource.description && <p>{resource.description}</p>}
+                    {resource.resource_type === "Note" ? (
+                      <>
+                        {openResourceId === resource.id && <p>{resource.content}</p>}
+                        <div className="portal-card-actions">
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => openResource(resource)}
+                          >
+                            {openResourceId === resource.id ? "Hide note" : "Read note"}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="portal-card-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => openResource(resource)}
+                        >
+                          Open {resource.resource_type.toLowerCase()}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
-                {!homework.length && (
-                  <tr>
-                    <td colSpan={5}>No homework posted for this class yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              {!resourcesLoading && !resources.length && (
+                <div className="portal-card">No study material published for this class yet.</div>
+              )}
             </div>
           )}
 

@@ -42,6 +42,11 @@ def get_student_snapshot(student: Student):
     }
 
 
+# Who may mark attendance: Admin and Teacher, and nobody else. A Principal can
+# read the register and the day's roster but not record or change a mark --
+# attendance is the class teacher's record, and a head of school reviewing it
+# is not the same as writing it. Principal's permission map says
+# attendance:view to match. Delete stays Admin-only.
 @router.post("/", response_model=AttendanceResponse)
 def mark_attendance(
     attendance: AttendanceCreate,
@@ -162,7 +167,7 @@ def get_class_roster(
     section: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_roles(["Admin", "Teacher"])
+        require_roles(["Admin", "Principal", "Teacher"])
     )
 ):
     """A class's student list for one day, each row carrying whatever

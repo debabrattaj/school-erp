@@ -39,3 +39,24 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        # ci, not install: this is also the check that a clean checkout can
+        # resolve the tree at all. A peer conflict here is a real failure.
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Test
+        run: npm test -- --ci

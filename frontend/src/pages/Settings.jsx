@@ -12,8 +12,15 @@ import {
 import API from "../api";
 import { getUser, isFeatureEnabled, saveAuth } from "../auth";
 import { useSchoolSettings } from "../SettingsContext";
+import CustomSelect from "../components/CustomSelect";
 import MfaCard from "../components/MfaCard";
 import PhotoUploadField from "../components/PhotoUploadField";
+
+const REPORT_CARD_TEMPLATE_OPTIONS = [
+  { value: "classic", label: "Classic — familiar, plain layout" },
+  { value: "modern", label: "Modern — brand-colored header, grade badges" },
+  { value: "compact", label: "Compact — smaller fonts, fits more per page" },
+];
 
 const emptyForm = {
   school_name: "",
@@ -38,6 +45,7 @@ const emptyForm = {
 
   pass_percentage: 35,
   grade_rules: "",
+  report_card_template: "classic",
 };
 
 const featureGroups = [
@@ -74,7 +82,6 @@ const featureGroups = [
       ["enrichment", "Activities & Enrichment"],
       ["compliance", "Compliance & Accreditation"],
       ["library", "Library"],
-      ["student_layout", "Student Layout"],
       ["multi_curriculum", "Multi Curriculum"],
     ],
   },
@@ -175,6 +182,7 @@ export default function Settings() {
 
         pass_percentage: settingsResponse.data.pass_percentage || 35,
         grade_rules: settingsResponse.data.grade_rules || "",
+        report_card_template: settingsResponse.data.report_card_template || "classic",
       });
     } catch (error) {
       console.error(error);
@@ -582,6 +590,17 @@ export default function Settings() {
                   placeholder="A+:90-100,A:80-89,B:70-79,C:60-69,D:50-59,F:0-49"
                   disabled={user?.role !== "Admin"}
                 ></textarea>
+              </div>
+
+              <div className="form-field full-width">
+                <label>Report Card Template</label>
+                <CustomSelect
+                  value={formData.report_card_template}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, report_card_template: value }))}
+                  options={REPORT_CARD_TEMPLATE_OPTIONS}
+                  disabled={user?.role !== "Admin"}
+                />
+                <small>Default layout for downloaded report cards. Can still be changed per download from the Report Card page.</small>
               </div>
             </div>
           </section>

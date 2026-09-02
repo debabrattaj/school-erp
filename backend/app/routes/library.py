@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app import library_reminders
 from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import (
     LibraryBook,
     LibraryBookCopy,
@@ -263,10 +264,20 @@ def update_settings_endpoint(
 
 @router.get("/books/", response_model=list[LibraryBookResponse])
 def get_books(
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(DESK)),
 ):
-    return db.query(LibraryBook).order_by(LibraryBook.title.asc()).all()
+    return apply_listing(
+        db.query(LibraryBook), LibraryBook,
+        search=search, search_fields=("title", "accession_no", "author", "category"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[LibraryBook.title.asc()],
+    ).all()
 
 
 @router.post("/books/", response_model=LibraryBookResponse)
@@ -552,6 +563,11 @@ def get_issues(
     status: str | None = None,
     student_id: int | None = None,
     staff_id: int | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(DESK)),
 ):
@@ -562,7 +578,12 @@ def get_issues(
         query = query.filter(LibraryIssue.student_id == student_id)
     if staff_id:
         query = query.filter(LibraryIssue.staff_id == staff_id)
-    issues = query.order_by(LibraryIssue.id.desc()).all()
+    issues = apply_listing(
+        query, LibraryIssue,
+        search=search, search_fields=("status",),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[LibraryIssue.id.desc()],
+    ).all()
     return [serialize_issue(issue, db) for issue in issues]
 
 

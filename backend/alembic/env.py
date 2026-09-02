@@ -28,7 +28,14 @@ import app.models  # noqa: E402,F401
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: this env.py also runs in-process when
+    # the API server programmatically stamps/migrates a tenant DB (see
+    # app/db_migrations.py, called from account creation), not just from the
+    # standalone `alembic` CLI. The stdlib default would disable every other
+    # logger already configured in that process (e.g. "mailer") for the rest
+    # of its life, since alembic.ini's [loggers] only lists root/sqlalchemy/
+    # alembic.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

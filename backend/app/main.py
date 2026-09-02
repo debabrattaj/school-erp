@@ -43,6 +43,7 @@ from app.routes import chatbot
 from app.routes import platform
 from app.routes import payroll
 from app.routes import homework
+from app.routes import lms as lms_routes
 from app.routes import online_tests
 from app.routes import biometric
 from app.routes import payments as payments_routes
@@ -54,6 +55,7 @@ from app.routes import syllabus as syllabus_routes
 from app.routes import tracking as tracking_routes
 from app.routes import fee_reminders as fee_reminder_routes
 from app.routes import leads
+from app.routes import report_views
 from app.tenant import init_tenant_registry
 from app.routes import (
     students,
@@ -1173,6 +1175,7 @@ app.include_router(fees.router)
 app.include_router(fee_structures.router)
 app.include_router(payroll.router)
 app.include_router(homework.router)
+app.include_router(lms_routes.router)
 app.include_router(online_tests.router)
 app.include_router(biometric.router)
 app.include_router(payments_routes.router)
@@ -1206,6 +1209,7 @@ app.include_router(accounting.router)
 app.include_router(admissions.router)
 app.include_router(admission_reminders.router)
 app.include_router(leads.router)
+app.include_router(report_views.router)
 app.include_router(admission_workflow.router)
 app.include_router(international_documents.router)
 app.include_router(multi_curriculum.router)

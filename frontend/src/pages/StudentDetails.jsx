@@ -15,6 +15,7 @@ import {
 import API from "../api";
 import { resolveFileUrl } from "../utils/files";
 import { useMoney } from "../utils/money";
+import { usePageTitle } from "../utils/usePageTitle";
 import { getModuleCustomFields } from "../services/moduleCustomFieldService";
 import {
   AttendanceStackedBar,
@@ -66,6 +67,8 @@ export default function StudentDetails() {
   const [student, setStudent] = useState(null);
   const [classRecord, setClassRecord] = useState(null);
   const [customFields, setCustomFields] = useState([]);
+
+  usePageTitle(student ? getStudentDisplayName(student) : "Student Details");
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [feeRecords, setFeeRecords] = useState([]);

@@ -4,9 +4,10 @@ import { useAuth, ApiError } from "../auth/AuthContext";
 import { AppTextInput, Field, PrimaryButton, SecondaryButton } from "../components/Common";
 import { colors, elevation, radius, spacing, type } from "../theme/theme";
 import { DEFAULT_API_BASE_URL, getApiBase, setApiBase } from "../api/client";
+import { buildLabel } from "../utils/buildInfo";
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const [accountCode, setAccountCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showServerSettings, setShowServerSettings] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [apiBase, setApiBaseState] = useState(DEFAULT_API_BASE_URL);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export default function LoginScreen() {
 
   async function handleSubmit() {
     setError(null);
+    setNotice(null);
     if (!accountCode || !email || !password) {
       setError("School code, email and password are required.");
       return;
@@ -47,7 +50,19 @@ export default function LoginScreen() {
   }
 
   async function saveServerUrl() {
-    await setApiBase(apiBase.trim());
+    const candidate = apiBase.trim();
+    // A bare host or a typo here strands the user with "could not reach the
+    // server" and no clue why, so the shape is checked before it is stored.
+    if (!/^https?:\/\/[^\s/]+/i.test(candidate)) {
+      setError("Enter a full URL starting with http:// or https://");
+      return;
+    }
+    // setApiBase strips the trailing slash; every request path already has one,
+    // so a saved "https://host/api/" used to produce "https://host/api//auth/login".
+    const saved = await setApiBase(candidate);
+    setApiBaseState(saved);
+    setError(null);
+    setNotice("Server URL saved.");
     setShowServerSettings(false);
   }
 
@@ -99,10 +114,15 @@ export default function LoginScreen() {
               keyboardType="number-pad"
               placeholder="123456"
               maxLength={6}
+              autoFocus
             />
           </Field>
         )}
 
+        {sessionExpired && !error ? (
+          <Text style={styles.notice}>Your session expired. Please sign in again.</Text>
+        ) : null}
+        {notice && !error ? <Text style={styles.notice}>{notice}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <PrimaryButton title="Sign in" onPress={handleSubmit} loading={loading} style={{ marginTop: spacing(2) }} />
@@ -126,6 +146,9 @@ export default function LoginScreen() {
           </Field>
         )}
         </View>
+
+        {/* Which build is this? Saves a round of "is it stale or is it broken". */}
+        <Text style={styles.build}>{buildLabel()}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -157,6 +180,22 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing(5),
     ...elevation.md,
+  },
+  notice: {
+    ...type.label,
+    color: colors.primaryDark,
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(2),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(3),
+    textAlign: "center",
+  },
+  build: {
+    ...type.label,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: spacing(4),
   },
   error: {
     ...type.label,

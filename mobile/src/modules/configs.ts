@@ -1,5 +1,6 @@
 import { ModuleConfig } from "./types";
 import * as generated from "./generated";
+import ClassDetailScreen from "../screens/classes/ClassDetailScreen";
 
 export const studentsModule: ModuleConfig = {
   key: "students",
@@ -8,6 +9,7 @@ export const studentsModule: ModuleConfig = {
   group: "Students",
   feature: "students",
   endpoint: "/students",
+  paged: true,
   titleField: "first_name",
   subtitleField: "class_name",
   searchFields: ["first_name", "last_name", "admission_no", "roll_no"],
@@ -55,6 +57,7 @@ export const teachersModule: ModuleConfig = {
   group: "People & Access",
   feature: "teachers",
   endpoint: "/teachers",
+  paged: true,
   titleField: "name",
   subtitleField: "department",
   searchFields: ["name", "employee_no", "email", "subject"],
@@ -110,6 +113,7 @@ export const classesModule: ModuleConfig = {
   allowCreate: true,
   allowEdit: true,
   allowDelete: true,
+  detailComponent: ClassDetailScreen,
 };
 
 export const examsModule: ModuleConfig = {
@@ -148,6 +152,7 @@ export const feesModule: ModuleConfig = {
   group: "Finance & Operations",
   feature: "fees",
   endpoint: "/fees",
+  paged: true,
   titleField: "fee_type",
   subtitleField: "payment_status",
   searchFields: ["fee_type", "receipt_no", "payment_status"],

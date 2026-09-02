@@ -11,6 +11,7 @@ from app import proctoring_storage
 from app.database import get_db
 from app import models, schemas
 from app.models import User
+from app.routes import lms as lms_routes
 from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
 from app.tenant import get_account_code_from_request, is_feature_enabled, require_feature
@@ -273,6 +274,15 @@ def portal_student_marks(
 
     marks = query.all()
 
+    exam_dates = {
+        exam.id: exam.exam_date
+        for exam in (
+            db.query(models.Exam.id, models.Exam.exam_date)
+            .filter(models.Exam.id.in_({mark.exam_id for mark in marks}))
+            .all()
+        )
+    }
+
     exams = {}
     for mark in marks:
         exam_key = mark.exam_name_snapshot or f"Exam #{mark.exam_id}"
@@ -281,6 +291,10 @@ def portal_student_marks(
             {
                 "exam_name": exam_key,
                 "academic_year": mark.academic_year,
+                # First mark for this exam decides which exam's date is used --
+                # only matters for the rare same-name exam across years, which
+                # exam_key already conflates.
+                "exam_date": exam_dates.get(mark.exam_id),
                 "subjects": [],
                 "total_obtained": 0,
                 "total_max": 0,
@@ -305,7 +319,15 @@ def portal_student_marks(
             else None
         )
 
-    return {"exams": list(exams.values())}
+    # Chronological, so a "performance over time" chart can plot this
+    # straight through without re-sorting. Exams with no resolvable date
+    # (orphaned exam_id) sort last rather than crashing the comparison.
+    ordered_exams = sorted(
+        exams.values(),
+        key=lambda group: (group["exam_date"] is None, group["exam_date"]),
+    )
+
+    return {"exams": ordered_exams}
 
 
 @router.get("/students/{student_id}/fees")
@@ -624,8 +646,17 @@ def portal_student_timetable(
     ]
 
 
+def _assignment_targets_student(assignment: models.Assignment, student: models.Student) -> bool:
+    """Is this assignment addressed to this student? A blank section on the
+    assignment means every section of the class."""
+    if assignment.class_name != student.class_name:
+        return False
+    return assignment.section is None or assignment.section == student.section
+
+
 @router.get("/students/{student_id}/homework")
 def portal_student_homework(
+    request: Request,
     student_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
@@ -637,13 +668,33 @@ def portal_student_homework(
         query = query.filter(
             (models.Assignment.section == student.section) | (models.Assignment.section.is_(None))
         )
+    else:
+        query = query.filter(models.Assignment.section.is_(None))
 
     assignments = query.order_by(
         models.Assignment.due_date.desc().nullslast(), models.Assignment.id.desc()
     ).all()
 
-    return [
-        {
+    # Hand-in is an LMS feature: a school without it keeps homework as a
+    # notice board, and the extra fields simply are not there rather than
+    # offering a drop-box the server would then refuse.
+    submissions = {}
+    lms_on = _lms_enabled(request)
+    if lms_on and assignments:
+        submissions = {
+            submission.assignment_id: submission
+            for submission in db.query(models.AssignmentSubmission)
+            .filter(
+                models.AssignmentSubmission.student_id == student_id,
+                models.AssignmentSubmission.assignment_id.in_([a.id for a in assignments]),
+            )
+            .all()
+        }
+
+    today = date.today()
+    items = []
+    for a in assignments:
+        item = {
             "id": a.id,
             "subject": a.subject,
             "title": a.title,
@@ -651,10 +702,244 @@ def portal_student_homework(
             "due_date": a.due_date,
             "attachment_url": a.attachment_url,
             "teacher_name": a.teacher_name_snapshot,
+            "max_marks": a.max_marks,
             "created_at": a.created_at,
         }
-        for a in assignments
+        if lms_on:
+            overdue = bool(a.due_date and today > a.due_date)
+            item["accepts_submissions"] = a.accepts_submissions
+            item["allow_late_submission"] = a.allow_late_submission
+            item["submission"] = _submission_public(submissions.get(a.id))
+            # Whether the drop-box is open right now, worked out here so the
+            # portal and the server can never disagree about it.
+            item["can_submit"] = bool(
+                a.accepts_submissions
+                and (not overdue or a.allow_late_submission)
+                and (a.id not in submissions or submissions[a.id].status != "Graded")
+            )
+        items.append(item)
+
+    return items
+
+
+# ---------------- Learning management (LMS) ----------------
+
+# Study material and homework hand-in are one module: a school that has not
+# been given the LMS keeps plain homework notices, and neither the material
+# shelf nor the drop-box exists for it. Enforced here as well as in the
+# staff routes, so hiding the portal tab is never the only thing stopping a
+# family reaching it.
+LMS_GATE = [Depends(require_feature("lms"))]
+
+
+def _lms_enabled(request: Request) -> bool:
+    return is_feature_enabled(get_account_code_from_request(request), "lms")
+
+
+def _submission_public(submission: models.AssignmentSubmission | None) -> dict | None:
+    """What a family may see of their own hand-in. Deliberately not the same
+    shape the teacher gets -- graded_by is staff-internal."""
+    if not submission:
+        return None
+    return {
+        "id": submission.id,
+        "status": submission.status,
+        "content": submission.content,
+        "attachment_url": submission.attachment_url,
+        "submitted_at": submission.submitted_at,
+        "submitted_by": submission.submitted_by,
+        "is_late": submission.is_late,
+        "marks_awarded": submission.marks_awarded,
+        "feedback": submission.feedback,
+        "graded_at": submission.graded_at,
+    }
+
+
+@router.get("/students/{student_id}/resources", dependencies=LMS_GATE)
+def portal_student_resources(
+    student_id: int,
+    subject: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Published study material for this student's class, newest first.
+
+    Draft, archived and not-yet-released material is filtered out in the
+    query rather than in the client, so material a teacher is still writing
+    can never reach a family early.
+    """
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = lms_routes.visible_resources_query(
+        db, student.class_name, student.section, date.today()
+    )
+    if subject:
+        query = query.filter(models.LearningResource.subject == subject)
+
+    resources = query.order_by(
+        models.LearningResource.published_at.desc().nullslast(),
+        models.LearningResource.id.desc(),
+    ).all()
+
+    seen = {
+        view.resource_id: view
+        for view in db.query(models.LearningResourceView)
+        .filter(
+            models.LearningResourceView.student_id == student_id,
+            models.LearningResourceView.resource_id.in_([r.id for r in resources] or [0]),
+        )
+        .all()
+    }
+
+    return [
+        {
+            "id": r.id,
+            "title": r.title,
+            "description": r.description,
+            "subject": r.subject,
+            "resource_type": r.resource_type,
+            "url": r.url,
+            "content": r.content,
+            "teacher_name": r.teacher_name_snapshot,
+            "available_from": r.available_from,
+            "published_at": r.published_at,
+            "viewed": r.id in seen,
+            "last_viewed_at": seen[r.id].last_viewed_at if r.id in seen else None,
+        }
+        for r in resources
     ]
+
+
+@router.post("/students/{student_id}/resources/{resource_id}/view", dependencies=LMS_GATE)
+def portal_mark_resource_viewed(
+    student_id: int,
+    resource_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Record that this student opened a resource, so a teacher can see who
+    has read the material and who has not."""
+    student = ensure_student_access(db, current_user, student_id)
+
+    resource = (
+        lms_routes.visible_resources_query(db, student.class_name, student.section, date.today())
+        .filter(models.LearningResource.id == resource_id)
+        .first()
+    )
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    view = (
+        db.query(models.LearningResourceView)
+        .filter(
+            models.LearningResourceView.resource_id == resource_id,
+            models.LearningResourceView.student_id == student_id,
+        )
+        .first()
+    )
+    now = datetime.utcnow()
+    if view:
+        view.view_count = (view.view_count or 0) + 1
+        view.last_viewed_at = now
+    else:
+        view = models.LearningResourceView(
+            resource_id=resource_id,
+            student_id=student_id,
+            view_count=1,
+            first_viewed_at=now,
+            last_viewed_at=now,
+        )
+        db.add(view)
+
+    db.commit()
+    db.refresh(view)
+    return {"viewed": True, "view_count": view.view_count, "last_viewed_at": view.last_viewed_at}
+
+
+@router.post("/students/{student_id}/homework/{assignment_id}/submit", dependencies=LMS_GATE)
+def portal_submit_homework(
+    student_id: int,
+    assignment_id: int,
+    payload: schemas.AssignmentSubmissionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Hand work in, or replace what was handed in earlier.
+
+    One submission per student per assignment: re-submitting overwrites,
+    rather than leaving a teacher to guess which of three uploads is the one
+    to mark. Once graded it is frozen, so a grade can never end up attached
+    to work that was swapped out after marking.
+    """
+    student = ensure_student_access(db, current_user, student_id)
+
+    assignment = (
+        db.query(models.Assignment)
+        .filter(models.Assignment.id == assignment_id)
+        .first()
+    )
+    if not assignment or not _assignment_targets_student(assignment, student):
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    if not assignment.accepts_submissions:
+        raise HTTPException(
+            status_code=400,
+            detail="This assignment does not accept submissions.",
+        )
+
+    content = (payload.content or "").strip()
+    attachment_url = (payload.attachment_url or "").strip()
+    if not content and not attachment_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Add some text or attach a file before submitting.",
+        )
+
+    today = date.today()
+    is_late = bool(assignment.due_date and today > assignment.due_date)
+    if is_late and not assignment.allow_late_submission:
+        raise HTTPException(
+            status_code=400,
+            detail="The due date for this assignment has passed.",
+        )
+
+    submission = (
+        db.query(models.AssignmentSubmission)
+        .filter(
+            models.AssignmentSubmission.assignment_id == assignment_id,
+            models.AssignmentSubmission.student_id == student_id,
+        )
+        .first()
+    )
+    if submission and submission.status == "Graded":
+        raise HTTPException(
+            status_code=400,
+            detail="This work has already been graded and can no longer be changed.",
+        )
+
+    now = datetime.utcnow()
+    student_label = " ".join(filter(None, [student.first_name, student.last_name]))
+    if not submission:
+        submission = models.AssignmentSubmission(
+            assignment_id=assignment_id,
+            student_id=student_id,
+            created_at=now,
+        )
+        db.add(submission)
+
+    submission.student_name_snapshot = student_label
+    submission.content = content or None
+    submission.attachment_url = attachment_url or None
+    submission.status = "Submitted"
+    submission.submitted_at = now
+    submission.is_late = is_late
+    # A guardian uploading for a younger child is normal, and the teacher
+    # should be able to see who actually sent it.
+    submission.submitted_by = f"{current_user.name} ({current_user.role})"
+
+    db.commit()
+    db.refresh(submission)
+    return _submission_public(submission)
 
 
 MESSAGE_ROLES = PORTAL_ROLES + ["Teacher"]

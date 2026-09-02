@@ -1,45 +1,51 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Menu, PanelLeftClose } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import ProtectedRoute from "./components/ProtectedRoute";
-import MasterData from "./pages/MasterData";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ApplyOnline from "./pages/ApplyOnline";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Timetable from "./pages/Timetable";
-import Roles from "./pages/Roles";
-import Students from "./pages/Students";
-import Teachers from "./pages/Teachers";
-import Fees from "./pages/Fees";
-import Accounts from "./pages/Accounts";
-import Attendance from "./pages/Attendance";
-import Exams from "./pages/Exams";
-import Classes from "./pages/Classes";
-import Marks from "./pages/Marks";
-import Reports from "./pages/Reports";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
 import { SettingsProvider } from "./SettingsContext";
-// import StudentLayoutBuilder from "./pages/StudentLayoutBuilder";
-import ModuleLayoutBuilder from "./pages/ModuleLayoutBuilder";
-import StudentDetails from "./pages/StudentDetails";
-import ClassDetails from "./pages/ClassDetails";
-import Subjects from "./pages/Subjects";
-import StudentEnrollments from "./pages/StudentEnrollments";
-import AcademicYears from "./pages/AcademicYears";
-import Portal from "./pages/Portal";
-import PortalAccess from "./pages/PortalAccess";
-import Assistant from "./pages/Assistant";
 import FloatingAssistant from "./components/FloatingAssistant";
 import PlatformLogin from "./pages/PlatformLogin";
-import PlatformConsole from "./pages/PlatformConsole";
 import { isPlatformLoggedIn } from "./platformApi";
 import { Navigate } from "react-router-dom";
+import RouteTitle from "./components/RouteTitle";
+
+// Everything past the login screen is lazy-loaded per route instead of
+// bundled into one shared chunk -- a school's daily users only ever touch a
+// handful of these pages, so there is no reason to make every visitor
+// download all ~45 of them (proctoring's on-device face detection model
+// alone was pushing the shared bundle well past Vite's 500kB warning).
+const MasterData = lazy(() => import("./pages/MasterData"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Timetable = lazy(() => import("./pages/Timetable"));
+const Roles = lazy(() => import("./pages/Roles"));
+const Students = lazy(() => import("./pages/Students"));
+const Teachers = lazy(() => import("./pages/Teachers"));
+const Fees = lazy(() => import("./pages/Fees"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const Exams = lazy(() => import("./pages/Exams"));
+const Classes = lazy(() => import("./pages/Classes"));
+const Marks = lazy(() => import("./pages/Marks"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Users = lazy(() => import("./pages/Users"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ModuleLayoutBuilder = lazy(() => import("./pages/ModuleLayoutBuilder"));
+const StudentDetails = lazy(() => import("./pages/StudentDetails"));
+const ClassDetails = lazy(() => import("./pages/ClassDetails"));
+const Subjects = lazy(() => import("./pages/Subjects"));
+const StudentEnrollments = lazy(() => import("./pages/StudentEnrollments"));
+const AcademicYears = lazy(() => import("./pages/AcademicYears"));
+const Portal = lazy(() => import("./pages/Portal"));
+const PortalAccess = lazy(() => import("./pages/PortalAccess"));
+const Assistant = lazy(() => import("./pages/Assistant"));
+const PlatformConsole = lazy(() => import("./pages/PlatformConsole"));
 
 function PlatformRoute({ children }) {
   if (!isPlatformLoggedIn()) {
@@ -47,29 +53,40 @@ function PlatformRoute({ children }) {
   }
   return children;
 }
-import Hostel from "./pages/Hostel";
-import Transport from "./pages/Transport";
-import HealthInfirmary from "./pages/HealthInfirmary";
-import MessManagement from "./pages/MessManagement";
-import Library from "./pages/Library";
-import Inventory from "./pages/Inventory";
-import Admissions from "./pages/Admissions";
-import InternationalDocuments from "./pages/InternationalDocuments";
-import MultiCurriculum from "./pages/MultiCurriculum";
-import AdmissionAssessments from "./pages/AdmissionAssessments";
-import Communications from "./pages/Communications";
-import StudentServices from "./pages/StudentServices";
-import AlumniWithdrawals from "./pages/AlumniWithdrawals";
-import Counseling from "./pages/Counseling";
-import Enrichment from "./pages/Enrichment";
-import Compliance from "./pages/Compliance";
-import ReportCard from "./pages/ReportCard";
-import Payroll from "./pages/Payroll";
-import Homework from "./pages/Homework";
-import OnlineTests from "./pages/OnlineTests";
-import Biometric from "./pages/Biometric";
-import Leave from "./pages/Leave";
-import Syllabus from "./pages/Syllabus";
+const Hostel = lazy(() => import("./pages/Hostel"));
+const Transport = lazy(() => import("./pages/Transport"));
+const HealthInfirmary = lazy(() => import("./pages/HealthInfirmary"));
+const MessManagement = lazy(() => import("./pages/MessManagement"));
+const Library = lazy(() => import("./pages/Library"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Admissions = lazy(() => import("./pages/Admissions"));
+const InternationalDocuments = lazy(() => import("./pages/InternationalDocuments"));
+const MultiCurriculum = lazy(() => import("./pages/MultiCurriculum"));
+const AdmissionAssessments = lazy(() => import("./pages/AdmissionAssessments"));
+const Communications = lazy(() => import("./pages/Communications"));
+const StudentServices = lazy(() => import("./pages/StudentServices"));
+const AlumniWithdrawals = lazy(() => import("./pages/AlumniWithdrawals"));
+const Counseling = lazy(() => import("./pages/Counseling"));
+const Enrichment = lazy(() => import("./pages/Enrichment"));
+const Compliance = lazy(() => import("./pages/Compliance"));
+const ReportCard = lazy(() => import("./pages/ReportCard"));
+const Payroll = lazy(() => import("./pages/Payroll"));
+const Homework = lazy(() => import("./pages/Homework"));
+const LearningResources = lazy(() => import("./pages/LearningResources"));
+const OnlineTests = lazy(() => import("./pages/OnlineTests"));
+const Biometric = lazy(() => import("./pages/Biometric"));
+const Leave = lazy(() => import("./pages/Leave"));
+const Syllabus = lazy(() => import("./pages/Syllabus"));
+const Gate = lazy(() => import("./pages/Gate"));
+
+function RouteFallback() {
+  return (
+    <div className="loading-box" style={{ margin: "60px auto", maxWidth: 320 }}>
+      <span className="spinner" aria-hidden="true" />
+      Loading...
+    </div>
+  );
+}
 
 const MOBILE_BREAKPOINT = 900;
 
@@ -131,6 +148,8 @@ function ProtectedLayout({ children }) {
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <RouteTitle />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -259,6 +278,17 @@ export default function App() {
         />
 
         <Route
+          path="/lms"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <LearningResources />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/online-tests"
           element={
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
@@ -372,16 +402,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        {/* <Route
-          path="/students/layout"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <ProtectedLayout>
-                <StudentLayoutBuilder />
-              </ProtectedLayout>
-            </ProtectedRoute>
-          }
-        /> */}
         <Route
           path="/:moduleName/layout"
           element={
@@ -604,6 +624,16 @@ export default function App() {
           }
         />
         <Route
+          path="/gate"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <Gate />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/syllabus"
           element={
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
@@ -654,6 +684,7 @@ export default function App() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

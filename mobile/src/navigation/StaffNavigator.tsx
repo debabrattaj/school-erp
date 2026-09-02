@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import DashboardScreen from "../screens/dashboard/DashboardScreen";
 import AttendanceScreen from "../screens/attendance/AttendanceScreen";
 import MarksScreen from "../screens/marks/MarksScreen";
-import SettingsScreen from "../screens/settings/SettingsScreen";
+import SettingsNavigator from "./SettingsNavigator";
 import PayrollScreen from "../screens/payroll/PayrollScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
 import ReportCardScreen from "../screens/reportcard/ReportCardScreen";
@@ -12,12 +12,17 @@ import CertificatesScreen from "../screens/certificates/CertificatesScreen";
 import AssistantScreen from "../screens/assistant/AssistantScreen";
 import SearchScreen from "../screens/search/SearchScreen";
 import PortalAccessScreen from "../screens/portalaccess/PortalAccessScreen";
+import LeaveScreen from "../screens/leave/LeaveScreen";
+import GateScreen from "../screens/gate/GateScreen";
+import CommunicationsScreen from "../screens/communications/CommunicationsScreen";
+import SyllabusScreen from "../screens/syllabus/SyllabusScreen";
 import { staffModules } from "../modules/configs";
 import { MODULE_GROUPS, ModuleConfig, ModuleGroup } from "../modules/types";
 import { createModuleStack } from "./ModuleStack";
 import DrawerContent from "./DrawerContent";
+import NoAccessScreen from "../screens/NoAccessScreen";
 import { useAuth } from "../auth/AuthContext";
-import { hasAccess } from "../auth/types";
+import { canViewModule } from "../auth/types";
 import { colors } from "../theme/theme";
 import LogoutButton from "./LogoutButton";
 
@@ -56,12 +61,15 @@ const AttendanceStackScreen = singleScreenStack("AttendanceHome", "Attendance", 
 const MarksStackScreen = singleScreenStack("MarksHome", "Marks", MarksScreen);
 const PayrollStackScreen = singleScreenStack("PayrollHome", "Payroll", PayrollScreen);
 const ReportsStackScreen = singleScreenStack("ReportsHome", "Reports", ReportsScreen);
-const SettingsStackScreen = singleScreenStack("SettingsHome", "Institution Settings", SettingsScreen);
 const ReportCardStackScreen = singleScreenStack("ReportCardHome", "Report Card", ReportCardScreen);
 const CertificatesStackScreen = singleScreenStack("CertificatesHome", "Certificates", CertificatesScreen);
 const AssistantStackScreen = singleScreenStack("AssistantHome", "Assistant", AssistantScreen);
 const SearchStackScreen = singleScreenStack("SearchHome", "Search", SearchScreen);
 const PortalAccessStackScreen = singleScreenStack("PortalAccessHome", "Portal Access", PortalAccessScreen);
+const LeaveStackScreen = singleScreenStack("LeaveHome", "Leave", LeaveScreen);
+const GateStackScreen = singleScreenStack("GateHome", "Gate Register", GateScreen);
+const CommunicationsStackScreen = singleScreenStack("CommunicationsHome", "Communication", CommunicationsScreen);
+const SyllabusStackScreen = singleScreenStack("SyllabusHome", "Syllabus & Lesson Plans", SyllabusScreen);
 
 /**
  * The bespoke (non-CRUD) screens, filed into the same drawer groups the web
@@ -73,6 +81,10 @@ const BESPOKE: {
   icon: string;
   group: ModuleGroup;
   feature: string;
+  /** Built-in roles allowed by name, as in the web sidebar. */
+  roles?: readonly string[];
+  /** The school feature switch gating this module, when it differs from `feature`. */
+  featureFlag?: string;
   Component: React.ComponentType<any>;
 }[] = [
   { name: "Dashboard", title: "Dashboard", icon: "Db", group: "Overview", feature: "dashboard", Component: DashboardStackScreen },
@@ -82,10 +94,14 @@ const BESPOKE: {
   { name: "Marks", title: "Marks", icon: "Mk", group: "Academics", feature: "marks", Component: MarksStackScreen },
   { name: "ReportCard", title: "Report Card", icon: "Rc", group: "Academics", feature: "marks", Component: ReportCardStackScreen },
   { name: "Certificates", title: "Certificates", icon: "Ce", group: "Students", feature: "students", Component: CertificatesStackScreen },
-  { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", Component: PortalAccessStackScreen },
+  { name: "PortalAccess", title: "Portal Access", icon: "Pa", group: "Communication & Portal", feature: "users", roles: ["Admin", "Principal"], Component: PortalAccessStackScreen },
+  { name: "Leave", title: "Leave", icon: "Lv", group: "People & Access", feature: "staff_leave", roles: ["Admin", "Principal", "Teacher"], featureFlag: "leave", Component: LeaveStackScreen },
+  { name: "Gate", title: "Gate Register", icon: "Gt", group: "People & Access", feature: "gate_register", Component: GateStackScreen },
+  { name: "Communications", title: "Communication", icon: "Cm", group: "Communication & Portal", feature: "parent_communication", Component: CommunicationsStackScreen },
+  { name: "Syllabus", title: "Syllabus & Lesson Plans", icon: "Sy", group: "Academics", feature: "syllabus", Component: SyllabusStackScreen },
   { name: "Payroll", title: "Payroll", icon: "Py", group: "Finance & Operations", feature: "payroll", Component: PayrollStackScreen },
   { name: "Reports", title: "Reports", icon: "Rp", group: "Reports & Administration", feature: "reports", Component: ReportsStackScreen },
-  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsStackScreen },
+  { name: "Settings", title: "Institution Settings", icon: "Se", group: "Reports & Administration", feature: "settings", Component: SettingsNavigator },
 ];
 
 /**
@@ -100,14 +116,15 @@ function byGroupOrder(a: { group: ModuleGroup; title: string }, b: { group: Modu
 
 export default function StaffNavigator() {
   const { user } = useAuth();
-  const canSee = (feature: string) => hasAccess(user?.permissions, feature, "view");
+  const canSee = (feature: string, roles?: readonly string[], featureFlag?: string) =>
+    canViewModule(user, feature, roles, featureFlag);
 
   // Built once per permission set: createModuleStack returns a fresh component
   // type each call, so rebuilding on every render would remount every stack and
   // throw away the user's place in it.
   const screens = useMemo(() => {
     const modules = staffModules
-      .filter((m: ModuleConfig) => canSee(m.feature))
+      .filter((m: ModuleConfig) => canSee(m.feature, m.roles, m.featureFlag))
       .map((m: ModuleConfig) => ({
         key: m.key,
         title: m.title,
@@ -116,7 +133,7 @@ export default function StaffNavigator() {
         Component: createModuleStack(m),
       }));
 
-    const bespoke = BESPOKE.filter((b) => canSee(b.feature)).map((b) => ({
+    const bespoke = BESPOKE.filter((b) => canSee(b.feature, b.roles, b.featureFlag)).map((b) => ({
       key: b.name,
       title: b.title,
       icon: b.icon,
@@ -125,7 +142,12 @@ export default function StaffNavigator() {
     }));
 
     return [...bespoke, ...modules].sort(byGroupOrder);
-  }, [user?.permissions]);
+  }, [user?.permissions, user?.role, user?.features]);
+
+  // A drawer with no children throws ("Couldn't find any screens for the
+  // navigator"), which is what a staff account whose role grants nothing used
+  // to hit — a blank crash instead of an explanation.
+  if (screens.length === 0) return <NoAccessScreen />;
 
   return (
     <Drawer.Navigator

@@ -1,5 +1,14 @@
 // AUTO-DERIVED from the deployed OpenAPI schema, then curated.
 // Field shapes mirror what the backend accepts; titles/icons/groups/features are hand-set.
+//
+// Curation that must survive a regeneration:
+//  - `student_name` on Admissions CRM is FREE TEXT, not a lookup: an admission
+//    inquiry is raised for a prospective student who is not in /students at
+//    all, so there is nothing to pick from. The web uses a text input there.
+//  - `student_name` on Alumni & Exit IS a lookup over /students -- that record
+//    is about someone who did enrol -- but it composes `valueFields`
+//    ["first_name", "last_name"]. The deriver had it storing `first_name`
+//    alone, which saved "Asha" for "Asha Rao".
 import { ModuleConfig } from "./types";
 
 export const subjectsModule: ModuleConfig = {
@@ -8,6 +17,7 @@ export const subjectsModule: ModuleConfig = {
   icon: "Sb",
   group: "Academics",
   feature: "master_data",
+  roles: ["Admin", "Principal", "Teacher"],
   endpoint: "/subjects",
   titleField: "subject_name",
   subtitleField: "subject_code",
@@ -60,6 +70,7 @@ export const homeworkModule: ModuleConfig = {
   group: "Academics",
   feature: "homework",
   endpoint: "/homework",
+  paged: true,
   titleField: "title",
   subtitleField: "academic_year",
   searchFields: ["title", "academic_year", "class_name", "section"],
@@ -208,8 +219,13 @@ export const studentEnrollmentsModule: ModuleConfig = {
   title: "Student Enrollments",
   icon: "En",
   group: "Students",
+  // `/student-enrollments` has no entry in the backend's path→feature map, so
+// no permission grant can reach it — the role list below is what admits a
+// user, exactly as on the web.
   feature: "student_enrollments",
+  roles: ["Admin", "Principal", "Teacher"],
   endpoint: "/student-enrollments",
+  paged: true,
   titleField: "academic_year",
   subtitleField: "roll_no",
   searchFields: ["academic_year", "roll_no", "enrollment_status", "promotion_status"],
@@ -231,7 +247,7 @@ export const admissionsModule: ModuleConfig = {
   subtitleField: "inquiry_no",
   searchFields: ["student_name", "inquiry_no", "grade_applying", "academic_year"],
   listColumns: [{"key": "grade_applying", "label": "Grade Applying"}, {"key": "academic_year", "label": "Academic Year"}, {"key": "guardian_name", "label": "Guardian Name"}, {"key": "guardian_phone", "label": "Guardian Phone"}],
-  formFields: [{"key": "inquiry_no", "label": "Inquiry No.", "type": "text", "required": true}, {"key": "student_name", "label": "Student Name", "type": "lookup", "lookup": {"endpoint": "/students", "valueField": "first_name", "searchFields": ["first_name", "last_name", "admission_no"], "subtitleFields": ["admission_no", "class_name"]}, "required": true}, {"key": "grade_applying", "label": "Grade Applying", "type": "lookup", "lookup": {"endpoint": "/classes", "valueField": "class_name", "searchFields": ["class_name"], "subtitleFields": ["section"]}, "required": true}, {"key": "academic_year", "label": "Academic Year", "type": "masterSelect", "masterCategory": "AcademicYear", "required": true}, {"key": "guardian_name", "label": "Guardian Name", "type": "text", "required": true}, {"key": "guardian_phone", "label": "Guardian Phone", "type": "phone", "required": true}, {"key": "guardian_email", "label": "Guardian Email", "type": "email"}, {"key": "source", "label": "Source", "type": "text"}, {"key": "stage", "label": "Stage", "type": "select", "options": [{"label": "Inquiry", "value": "Inquiry"}, {"label": "Application", "value": "Application"}, {"label": "Assessment", "value": "Assessment"}, {"label": "Offer", "value": "Offer"}, {"label": "Admitted", "value": "Admitted"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Withdrawn", "value": "Withdrawn"}]}, {"key": "follow_up_date", "label": "Follow Up Date", "type": "date"}, {"key": "assigned_to", "label": "Assigned To", "type": "lookup", "lookup": {"endpoint": "/teachers", "valueField": "name", "searchFields": ["name", "employee_no"], "subtitleFields": ["department"]}}, {"key": "converted_student_id", "label": "Converted Student ID", "type": "number"}, {"key": "notes", "label": "Notes", "type": "textarea"}],
+  formFields: [{"key": "inquiry_no", "label": "Inquiry No.", "type": "text", "required": true}, {"key": "student_name", "label": "Student Name", "type": "text", "placeholder": "Student full name", "required": true}, {"key": "grade_applying", "label": "Grade Applying", "type": "lookup", "lookup": {"endpoint": "/classes", "valueField": "class_name", "searchFields": ["class_name"], "subtitleFields": ["section"]}, "required": true}, {"key": "academic_year", "label": "Academic Year", "type": "masterSelect", "masterCategory": "AcademicYear", "required": true}, {"key": "guardian_name", "label": "Guardian Name", "type": "text", "required": true}, {"key": "guardian_phone", "label": "Guardian Phone", "type": "phone", "required": true}, {"key": "guardian_email", "label": "Guardian Email", "type": "email"}, {"key": "source", "label": "Source", "type": "text"}, {"key": "stage", "label": "Stage", "type": "select", "options": [{"label": "Inquiry", "value": "Inquiry"}, {"label": "Application", "value": "Application"}, {"label": "Assessment", "value": "Assessment"}, {"label": "Offer", "value": "Offer"}, {"label": "Admitted", "value": "Admitted"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Withdrawn", "value": "Withdrawn"}]}, {"key": "follow_up_date", "label": "Follow Up Date", "type": "date"}, {"key": "assigned_to", "label": "Assigned To", "type": "lookup", "lookup": {"endpoint": "/teachers", "valueField": "name", "searchFields": ["name", "employee_no"], "subtitleFields": ["department"]}}, {"key": "converted_student_id", "label": "Converted Student ID", "type": "number"}, {"key": "notes", "label": "Notes", "type": "textarea"}],
   allowCreate: true,
   allowEdit: true,
   allowDelete: true,
@@ -242,7 +258,9 @@ export const admissionAssessmentsModule: ModuleConfig = {
   title: "Admission Tests",
   icon: "At",
   group: "Admissions",
-  feature: "admission_assessments",
+  feature: "admissions",
+  featureFlag: "admission_assessments",
+  roles: ["Admin", "Principal", "Teacher"],
   endpoint: "/admission-assessments",
   titleField: "assessment_type",
   subtitleField: "scheduled_time",
@@ -276,12 +294,13 @@ export const alumniWithdrawalsModule: ModuleConfig = {
   icon: "Aw",
   group: "Admissions",
   feature: "alumni_withdrawals",
+  roles: ["Admin", "Principal", "Teacher", "Accounts"],
   endpoint: "/alumni-withdrawals",
   titleField: "student_name",
   subtitleField: "record_no",
   searchFields: ["student_name", "record_no", "admission_no", "last_class"],
   listColumns: [{"key": "student_id", "label": "Student ID"}, {"key": "admission_no", "label": "Admission No."}, {"key": "last_class", "label": "Last Class"}, {"key": "record_type", "label": "Record Type"}],
-  formFields: [{"key": "record_no", "label": "Record No.", "type": "text", "required": true}, {"key": "student_id", "label": "Student ID", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}}, {"key": "student_name", "label": "Student Name", "type": "lookup", "lookup": {"endpoint": "/students", "valueField": "first_name", "searchFields": ["first_name", "last_name", "admission_no"], "subtitleFields": ["admission_no", "class_name"]}, "required": true}, {"key": "admission_no", "label": "Admission No.", "type": "lookup", "lookup": {"endpoint": "/students", "valueField": "admission_no", "searchFields": ["admission_no", "first_name", "last_name"], "subtitleFields": ["first_name", "class_name"]}}, {"key": "last_class", "label": "Last Class", "type": "lookup", "lookup": {"endpoint": "/classes", "valueField": "class_name", "searchFields": ["class_name"], "subtitleFields": ["section"]}}, {"key": "record_type", "label": "Record Type", "type": "select", "options": [{"label": "Withdrawal", "value": "Withdrawal"}, {"label": "Transfer", "value": "Transfer"}, {"label": "Alumni", "value": "Alumni"}]}, {"key": "request_date", "label": "Request Date", "type": "date"}, {"key": "leaving_date", "label": "Leaving Date", "type": "date"}, {"key": "reason", "label": "Reason", "type": "text", "required": true}, {"key": "destination_school", "label": "Destination School", "type": "text"}, {"key": "destination_country", "label": "Destination Country", "type": "text"}, {"key": "certificate_status", "label": "Certificate Status", "type": "select", "options": [{"label": "Pending", "value": "Pending"}, {"label": "In Progress", "value": "In Progress"}, {"label": "Issued", "value": "Issued"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Not Required", "value": "Not Required"}]}, {"key": "alumni_email", "label": "Alumni Email", "type": "email"}, {"key": "alumni_phone", "label": "Alumni Phone", "type": "phone"}, {"key": "current_status", "label": "Current Status", "type": "select", "options": [{"label": "Pending", "value": "Pending"}, {"label": "Approved", "value": "Approved"}, {"label": "Completed", "value": "Completed"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Archived", "value": "Archived"}]}, {"key": "approved_by", "label": "Approved By", "type": "text"}, {"key": "approval_date", "label": "Approval Date", "type": "date"}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
+  formFields: [{"key": "record_no", "label": "Record No.", "type": "text", "required": true}, {"key": "student_id", "label": "Student ID", "type": "reference", "reference": {"endpoint": "/students", "searchFields": ["first_name", "last_name", "admission_no"], "labelFields": ["first_name", "last_name"], "subtitleFields": ["admission_no", "class_name"]}}, {"key": "student_name", "label": "Student Name", "type": "lookup", "lookup": {"endpoint": "/students", "valueField": "first_name", "valueFields": ["first_name", "last_name"], "searchFields": ["first_name", "last_name", "admission_no"], "subtitleFields": ["admission_no", "class_name"]}, "required": true}, {"key": "admission_no", "label": "Admission No.", "type": "lookup", "lookup": {"endpoint": "/students", "valueField": "admission_no", "searchFields": ["admission_no", "first_name", "last_name"], "subtitleFields": ["first_name", "class_name"]}}, {"key": "last_class", "label": "Last Class", "type": "lookup", "lookup": {"endpoint": "/classes", "valueField": "class_name", "searchFields": ["class_name"], "subtitleFields": ["section"]}}, {"key": "record_type", "label": "Record Type", "type": "select", "options": [{"label": "Withdrawal", "value": "Withdrawal"}, {"label": "Transfer", "value": "Transfer"}, {"label": "Alumni", "value": "Alumni"}]}, {"key": "request_date", "label": "Request Date", "type": "date"}, {"key": "leaving_date", "label": "Leaving Date", "type": "date"}, {"key": "reason", "label": "Reason", "type": "text", "required": true}, {"key": "destination_school", "label": "Destination School", "type": "text"}, {"key": "destination_country", "label": "Destination Country", "type": "text"}, {"key": "certificate_status", "label": "Certificate Status", "type": "select", "options": [{"label": "Pending", "value": "Pending"}, {"label": "In Progress", "value": "In Progress"}, {"label": "Issued", "value": "Issued"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Not Required", "value": "Not Required"}]}, {"key": "alumni_email", "label": "Alumni Email", "type": "email"}, {"key": "alumni_phone", "label": "Alumni Phone", "type": "phone"}, {"key": "current_status", "label": "Current Status", "type": "select", "options": [{"label": "Pending", "value": "Pending"}, {"label": "Approved", "value": "Approved"}, {"label": "Completed", "value": "Completed"}, {"label": "Rejected", "value": "Rejected"}, {"label": "Archived", "value": "Archived"}]}, {"key": "approved_by", "label": "Approved By", "type": "text"}, {"key": "approval_date", "label": "Approval Date", "type": "date"}, {"key": "remarks", "label": "Remarks", "type": "textarea"}],
   allowCreate: true,
   allowEdit: true,
   allowDelete: true,
@@ -311,6 +330,7 @@ export const accountingEntriesModule: ModuleConfig = {
   group: "Finance & Operations",
   feature: "accounting",
   endpoint: "/accounting/entries",
+  paged: true,
   titleField: "entry_type",
   subtitleField: "category",
   searchFields: ["entry_type", "category", "payment_mode", "reference_no"],
@@ -413,6 +433,7 @@ export const healthVisitsModule: ModuleConfig = {
   group: "Student Wellbeing",
   feature: "health_infirmary",
   endpoint: "/health-infirmary/visits",
+  paged: true,
   titleField: "visit_time",
   subtitleField: "symptoms",
   searchFields: ["visit_time", "symptoms", "diagnosis", "treatment"],
@@ -430,6 +451,7 @@ export const libraryBooksModule: ModuleConfig = {
   group: "Finance & Operations",
   feature: "library",
   endpoint: "/library/books",
+  paged: true,
   titleField: "title",
   subtitleField: "accession_no",
   searchFields: ["title", "accession_no", "author", "category"],
@@ -447,6 +469,7 @@ export const libraryIssuesModule: ModuleConfig = {
   group: "Finance & Operations",
   feature: "library",
   endpoint: "/library/issues",
+  paged: true,
   titleField: "status",
   searchFields: ["status"],
   listColumns: [{"key": "book_id", "label": "Book ID"}, {"key": "borrower_type", "label": "Borrower Type"}, {"key": "student_id", "label": "Student ID"}, {"key": "staff_id", "label": "Staff ID"}, {"key": "issue_date", "label": "Issue Date"}, {"key": "due_date", "label": "Due Date"}, {"key": "renewal_count", "label": "Renewals"}],
@@ -597,6 +620,7 @@ export const inventoryItemsModule: ModuleConfig = {
   icon: "In",
   group: "Finance & Operations",
   feature: "inventory",
+  roles: ["Admin", "Principal", "Accounts", "Teacher"],
   endpoint: "/inventory/items",
   titleField: "item_name",
   subtitleField: "item_code",
@@ -614,6 +638,7 @@ export const inventoryKitsModule: ModuleConfig = {
   icon: "Ik",
   group: "Finance & Operations",
   feature: "inventory",
+  roles: ["Admin", "Principal", "Accounts", "Teacher"],
   endpoint: "/inventory/kits",
   titleField: "name",
   subtitleField: "applies_to",
@@ -631,6 +656,7 @@ export const inventoryTransactionsModule: ModuleConfig = {
   icon: "Sm",
   group: "Finance & Operations",
   feature: "inventory",
+  roles: ["Admin", "Principal", "Accounts", "Teacher"],
   endpoint: "/inventory/transactions",
   titleField: "transaction_type",
   subtitleField: "transaction_date",
@@ -666,6 +692,7 @@ export const messAttendanceModule: ModuleConfig = {
   group: "Finance & Operations",
   feature: "mess_management",
   endpoint: "/mess/attendance",
+  paged: true,
   titleField: "meal_type",
   subtitleField: "status",
   searchFields: ["meal_type", "status"],
@@ -683,6 +710,9 @@ export const masterDataModule: ModuleConfig = {
   group: "Reports & Administration",
   feature: "master_data",
   endpoint: "/master-data",
+  // /master-data/{id} is the by-category route, which answers 400 for a
+  // numeric id rather than 404 — so the row is found in the list instead.
+  hasDetailRoute: false,
   titleField: "category",
   subtitleField: "value",
   searchFields: ["category", "value"],

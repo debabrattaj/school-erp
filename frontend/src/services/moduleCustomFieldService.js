@@ -1,5 +1,18 @@
 import API from "../api";
 
+export async function getAllModuleCustomFields(moduleName) {
+  try {
+    const response = await API.get(`/module-custom-fields/${moduleName}`);
+    return response.data || [];
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 export async function getModuleCustomFields(moduleName, recordId) {
   try {
     const response = await API.get(

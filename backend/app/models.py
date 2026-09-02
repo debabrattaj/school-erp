@@ -98,6 +98,11 @@ class SchoolSettings(Base):
         nullable=True,
         default="A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
     )
+    # Which of the built-in report card layouts this school's PDFs use by
+    # default -- "classic" | "modern" | "compact" (see app/pdf.py). A
+    # download can still override this per-request; this is just the
+    # starting selection shown on the Report Card page.
+    report_card_template = Column(String, nullable=False, default="classic")
 
 
 class Student(Base):
@@ -1887,10 +1892,68 @@ class Assignment(Base):
     due_date = Column(Date, nullable=True, index=True)
     attachment_url = Column(String, nullable=True)
 
+    # What the assignment is out of, when it is graded. Left blank for
+    # homework that is only checked off rather than scored.
+    max_marks = Column(Float, nullable=True)
+    # Whether students hand work in through the portal at all. Plenty of
+    # homework ("read chapter 3", "practise the piece") is never submitted,
+    # so a teacher can switch the drop-box off per assignment.
+    accepts_submissions = Column(Boolean, nullable=False, default=True)
+    # A submission after due_date is always flagged late; this decides
+    # whether it is accepted at all.
+    allow_late_submission = Column(Boolean, nullable=False, default=True)
+
     teacher_id = Column(
         Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
     )
     teacher_name_snapshot = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AssignmentSubmission(Base):
+    """One student's hand-in for one assignment, and the teacher's grade.
+
+    A student has at most one submission per assignment -- re-submitting
+    replaces the previous text/attachment and re-stamps submitted_at, rather
+    than piling up drafts a teacher then has to choose between. Once graded,
+    the submission is locked so a grade can never silently refer to work that
+    was swapped out afterwards.
+    """
+
+    __tablename__ = "assignment_submissions"
+    __table_args__ = (
+        UniqueConstraint("assignment_id", "student_id", name="uq_submission_assignment_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    assignment_id = Column(
+        Integer, ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_name_snapshot = Column(String, nullable=True)
+
+    content = Column(Text, nullable=True)
+    attachment_url = Column(String, nullable=True)
+
+    status = Column(String, nullable=False, default="Submitted", index=True)
+    # Submitted, Graded
+
+    submitted_at = Column(DateTime, default=datetime.utcnow, index=True)
+    # Decided against the due date at submit time and then kept: moving the
+    # due date later must not quietly un-late work that was handed in late.
+    is_late = Column(Boolean, nullable=False, default=False)
+    # Who actually pressed submit -- a younger child's work is routinely
+    # uploaded by a guardian, and the teacher should be able to see that.
+    submitted_by = Column(String, nullable=True)
+
+    marks_awarded = Column(Float, nullable=True)
+    feedback = Column(Text, nullable=True)
+    graded_by = Column(String, nullable=True)
+    graded_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -3134,3 +3197,107 @@ class FeeReminderLog(Base):
     __table_args__ = (
         UniqueConstraint("fee_id", "rule_id", name="uq_fee_reminder_once"),
     )
+
+
+class SavedReportView(Base):
+    """A user's saved Reports Center filters for one module, so a report they
+    run often doesn't need rebuilding by hand every time."""
+
+    __tablename__ = "saved_report_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    module_name = Column(String, nullable=False, index=True)
+
+    # JSON text, parsed/serialized in the route -- same convention as
+    # DashboardLayout.widgets in app/dashboard_models.py.
+    filters = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Learning management (LMS)
+#
+# Teaching material a class can read on its own time, and the record of who
+# actually opened it. Scoped by class/section/subject strings rather than by
+# class_subject_id like the syllabus module, because material is routinely
+# shared with "every section of Grade 8" and with classes that have no
+# subject mapping set up yet.
+# ---------------------------------------------------------------------------
+
+
+class LearningResource(Base):
+    """A study material -- a file, a link, a video or a written note --
+    published to a class (and optionally one section) for students and their
+    guardians to read in the portal.
+    """
+
+    __tablename__ = "learning_resources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True, index=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    resource_type = Column(String, nullable=False, default="Document", index=True)
+    # Document, Video, Link, Note
+
+    # Where the material lives: an uploaded file or an external link for
+    # Document/Video/Link, and body text for a Note.
+    url = Column(String, nullable=True)
+    content = Column(Text, nullable=True)
+
+    # Optional link back to the syllabus, so a chapter's material sits with
+    # the chapter. Nullable because revision packs and reading lists belong
+    # to no single unit.
+    syllabus_unit_id = Column(
+        Integer, ForeignKey("syllabus_units.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    status = Column(String, nullable=False, default="Draft", index=True)
+    # Draft, Published, Archived
+    # A future date holds a published resource back from the portal until the
+    # class gets there -- teachers prepare a term's material in one sitting.
+    available_from = Column(Date, nullable=True, index=True)
+    published_at = Column(DateTime, nullable=True)
+
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LearningResourceView(Base):
+    """One row per student per resource: whether they opened it, and when.
+
+    Kept as a rolled-up counter rather than an event log -- a teacher wants
+    "who has not read this yet", not an audit trail, and one row per student
+    keeps that a single indexed lookup.
+    """
+
+    __tablename__ = "learning_resource_views"
+    __table_args__ = (
+        UniqueConstraint("resource_id", "student_id", name="uq_resource_view_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    resource_id = Column(
+        Integer, ForeignKey("learning_resources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    view_count = Column(Integer, nullable=False, default=1)
+    first_viewed_at = Column(DateTime, default=datetime.utcnow)
+    last_viewed_at = Column(DateTime, default=datetime.utcnow)

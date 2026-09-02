@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.csv_import import csv_template_response, read_csv_upload
 from app.database import get_db
+from app.listing import apply_listing
 from app.security import require_roles
 from app import models, schemas
 
@@ -12,6 +13,15 @@ router = APIRouter(
     prefix="/teachers",
     tags=["Teachers"]
 )
+
+# Reads: every staff page that looks up a teacher by name (Homework, Library,
+# Inventory, Online Tests, Timetable, Syllabus, Payroll, Biometric, Gate
+# Register, Leave, ...) needs this, so it's broad rather than matching the
+# Teachers page's own allowedRoles.
+TEACHER_READ_ROLES = ["Admin", "Principal", "Teacher", "Accounts"]
+# Writes: matches the Teachers page's own allowedRoles (frontend/src/App.jsx,
+# "/teachers") and the bulk-import roles already enforced below.
+TEACHER_WRITE_ROLES = ["Admin", "Principal"]
 
 BULK_IMPORT_COLUMNS = [
     "employee_no",
@@ -191,18 +201,28 @@ def bulk_import_teachers(
 
 
 @router.get("/", response_model=list[schemas.TeacherResponse])
-def get_teachers(db: Session = Depends(get_db)):
-    return (
-        db.query(models.Teacher)
-        .order_by(models.Teacher.id.desc())
-        .all()
-    )
+def get_teachers(
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(TEACHER_READ_ROLES)),
+):
+    return apply_listing(
+        db.query(models.Teacher), models.Teacher,
+        search=search, search_fields=("name", "employee_no", "email", "subject"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[models.Teacher.id.desc()],
+    ).all()
 
 
 @router.get("/{teacher_id}", response_model=schemas.TeacherResponse)
 def get_teacher(
     teacher_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(TEACHER_READ_ROLES)),
 ):
     teacher = (
         db.query(models.Teacher)
@@ -219,7 +239,8 @@ def get_teacher(
 @router.post("/", response_model=schemas.TeacherResponse)
 def create_teacher(
     payload: schemas.TeacherCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(TEACHER_WRITE_ROLES)),
 ):
     existing_teacher = (
         db.query(models.Teacher)
@@ -264,7 +285,8 @@ def create_teacher(
 def update_teacher(
     teacher_id: int,
     payload: schemas.TeacherCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(TEACHER_WRITE_ROLES)),
 ):
     db_teacher = (
         db.query(models.Teacher)
@@ -318,7 +340,8 @@ def update_teacher(
 @router.delete("/{teacher_id}")
 def delete_teacher(
     teacher_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(TEACHER_WRITE_ROLES)),
 ):
     db_teacher = (
         db.query(models.Teacher)

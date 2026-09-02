@@ -1983,3 +1983,93 @@ for `run_fee_reminders.py` (§8h).
 modules in the mobile app (`mobile/src/modules/generated.ts`). Renewals,
 reports and the reminder ladder editor are web-only for now — no bespoke
 mobile screens for those yet.
+
+## 22. Learning management: study material and homework hand-in
+
+Two halves of one module, behind the `lms` feature flag: material a class
+reads on its own time, and homework that is actually handed in and marked.
+`backend/app/routes/lms.py` holds the material endpoints (`/lms/...`), the
+teacher's side of the drop-box lives with the assignments it belongs to in
+`backend/app/routes/homework.py`, and the family's side is in
+`backend/app/routes/portal.py`.
+
+**On by default**, like Homework, Timetable and Syllabus — it extends the
+teaching workflow rather than being a separately sold add-on like Online
+Tests. Switch it off per school from the Platform Console (Manage Modules →
+Learning Resources & Submissions) and both halves disappear, endpoints
+included.
+
+### Learning resources
+
+A resource is a **Document**, **Video**, **Link** or **Note**, published to a
+class and optionally one section. Scoped by class/section/subject strings
+rather than by `class_subject_id` like the syllabus, because material is
+routinely shared with every section of a grade, and with classes whose
+subject mappings were never set up. `syllabus_unit_id` optionally files it
+under a chapter.
+
+Three things have to be true before a family sees it, all enforced in the
+query rather than in the client:
+
+- `status` is `Published` (not `Draft`, not `Archived`), and
+- `available_from` is blank or already passed, and
+- the class — and section, where the resource names one — matches.
+
+That second rule is what lets a teacher prepare a term's material in one
+sitting: publish everything, dated, and each piece appears the week the
+class gets to it. `published_at` is stamped the first time it goes live and
+then left alone, so it records when the class received the material, not
+when a typo was fixed.
+
+**Who has read it.** Opening a resource in the portal records a view
+(`learning_resource_views`, one rolled-up row per student per resource, not
+an event log). `GET /lms/resources/{id}/engagement` turns that into the
+question a teacher actually asks the day before the lesson: who has opened
+this, and who has not.
+
+### Homework hand-in
+
+Assignments gain `max_marks`, `accepts_submissions` and
+`allow_late_submission`. Plenty of homework ("read chapter 3") is never
+collected, so the drop-box is per assignment — but existing assignments
+default to accepting work, so switching the LMS on does not leave a school's
+current homework silently closed.
+
+- **One submission per student per assignment.** Re-submitting replaces the
+  text/attachment and re-stamps `submitted_at` rather than leaving a teacher
+  to choose between three uploads.
+- **Late is decided at submit time and kept.** Moving the due date later
+  cannot un-late work that was handed in late. `allow_late_submission`
+  decides whether late work is accepted at all; the flag is separate from
+  the fact.
+- **Graded work is frozen.** Once a teacher grades it the student cannot
+  swap the work out from under the mark.
+- **Guardians may submit for a child**, which is normal for younger years —
+  `submitted_by` records who actually pressed the button, so the teacher can
+  see it.
+
+`GET /homework/{id}/submissions` returns the whole class: who handed in, who
+is late, and who has not handed in at all. Grading is
+`PUT /homework/{id}/submissions/{submission_id}/grade` — marks are validated
+against `max_marks`, and feedback with no mark still counts as graded, since
+plenty of homework comes back with comments and no score.
+
+### Portal uploads
+
+Families need to attach a photo or PDF of their work, and `/uploads/` is
+staff-only. Rather than widen it, the portal has its own door,
+`POST /uploads/portal`, restricted to Parent/Student (plus Admin/Principal)
+and gated on `lms` — so a school without the module has no endpoint through
+which a parent can put files on the server at all. Same type allow-list and
+size cap as the staff route.
+
+### Frontend
+
+- **Staff** — *Learning Resources* (`/lms`) lists and publishes material and
+  shows the per-resource "who has opened it" view. *Homework* gained a
+  submissions board per assignment, with inline marks and feedback.
+- **Portal** — a *Learning* tab for study material, and the Homework tab
+  now carries the hand-in form and, once marked, the grade and the teacher's
+  feedback.
+- **Mobile** — the same two: a *Learning* tab, and hand-in (text plus a
+  photo of the work) inside the Homework tab.

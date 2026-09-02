@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app.models import Fee, ReceiptSequence, Student, SchoolSettings, User
 from app import concessions
 from app.notifications import notify_guardian_fee_added
@@ -433,6 +434,11 @@ def create_fee_for_class(
 @router.get("/", response_model=list[FeeResponse])
 def get_fees(
     academic_year: str | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Accounts"])
@@ -443,7 +449,12 @@ def get_fees(
     if academic_year:
         query = query.filter(Fee.academic_year == academic_year)
 
-    return query.order_by(Fee.id.desc()).all()
+    return apply_listing(
+        query, Fee,
+        search=search, search_fields=("fee_type", "receipt_no", "payment_status"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[Fee.id.desc()],
+    ).all()
 
 
 @router.get("/student/{student_id}", response_model=list[FeeResponse])

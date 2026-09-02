@@ -5,9 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.listing import apply_listing
 from app import models, schemas
+from app.models import User
+from app.security import require_roles
 
 router = APIRouter(tags=["Student Enrollments"])
+
+# Matches the frontend route's own allowedRoles (frontend/src/App.jsx,
+# "/student-enrollments") -- applied uniformly since the UI itself doesn't
+# further restrict promote/year-end to a subset of these roles.
+ENROLLMENT_ROLES = ["Admin", "Principal", "Teacher"]
 
 
 def get_student_name(student):
@@ -139,7 +147,13 @@ def get_student_enrollments(
     class_id: Optional[int] = None,
     academic_year: Optional[str] = None,
     enrollment_status: Optional[str] = None,
+    search: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     query = db.query(models.StudentEnrollment)
 
@@ -157,7 +171,12 @@ def get_student_enrollments(
             models.StudentEnrollment.enrollment_status == enrollment_status
         )
 
-    enrollments = query.order_by(models.StudentEnrollment.id.desc()).all()
+    enrollments = apply_listing(
+        query, models.StudentEnrollment,
+        search=search, search_fields=("academic_year", "roll_no", "enrollment_status", "promotion_status"),
+        sort=sort, order=order, limit=limit, offset=offset,
+        default_order=[models.StudentEnrollment.id.desc()],
+    ).all()
 
     return [serialize_enrollment(enrollment, db) for enrollment in enrollments]
 
@@ -169,6 +188,7 @@ def get_student_enrollments(
 def create_student_enrollment(
     payload: schemas.StudentEnrollmentCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     student = validate_student(db, payload.student_id)
     class_record = validate_class(db, payload.class_id)
@@ -228,6 +248,7 @@ def update_student_enrollment(
     enrollment_id: int,
     payload: schemas.StudentEnrollmentUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     enrollment = (
         db.query(models.StudentEnrollment)
@@ -274,6 +295,7 @@ def update_student_enrollment(
 def delete_student_enrollment(
     enrollment_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     enrollment = (
         db.query(models.StudentEnrollment)
@@ -294,6 +316,7 @@ def delete_student_enrollment(
 def sync_current_student_enrollments(
     academic_year: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     validate_academic_year(db, academic_year)
 
@@ -351,6 +374,7 @@ def sync_current_student_enrollments(
 def promote_students(
     payload: schemas.StudentPromotionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     validate_academic_year(db, payload.from_academic_year)
     validate_academic_year(db, payload.to_academic_year)
@@ -435,6 +459,7 @@ def promote_students(
 def process_year_end(
     payload: schemas.YearEndRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     """Process end-of-year outcomes per student:
     - promote: close current enrollment, create new enrollment in to_class for to_year
@@ -677,6 +702,7 @@ def _suggest_next_class(db: Session, current_class: models.SchoolClass):
 def year_end_suggestions(
     academic_year: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ENROLLMENT_ROLES)),
 ):
     """Suggest promote/detain/graduate per active student based on marks
     vs the school's pass percentage. Suggestions only - staff decide."""

@@ -4,32 +4,60 @@
   "main": "index.ts",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
-    "@react-native-community/datetimepicker": "^9.1.0",
     "@react-navigation/drawer": "^7.13.8",
     "@react-navigation/native": "^7.3.16",
     "@react-navigation/native-stack": "^7.18.8",
     "expo": "~57.0.12",
+    "expo-constants": "~57.0.10",
     "expo-file-system": "^57.0.4",
     "expo-image-picker": "^57.0.10",
     "expo-sharing": "^57.0.12",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
+    "react-dom": "^19.2.3",
     "react-native": "0.86.2",
     "react-native-gesture-handler": "^3.1.0",
     "react-native-reanimated": "^4.5.3",
     "react-native-safe-area-context": "^5.8.1",
-    "react-native-screens": "^4.27.0"
+    "react-native-screens": "^4.27.0",
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "^0.10.3"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "0.86.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "^57.0.6",
+    "jest": "^30.5.0",
+    "jest-expo": "^57.0.5",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg))"
+    ],
+    "testMatch": [
+      "<rootDir>/src/**/__tests__/**/*.test.ts?(x)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/__tests__/**"
+    ]
+  },
+  "overrides": {
+    "@react-native/jest-preset": "0.86.2"
+  }
 }

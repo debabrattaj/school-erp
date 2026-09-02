@@ -5,11 +5,24 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
+from app.models import User
+from app.security import get_current_user, require_roles
 
 router = APIRouter(
     prefix="/module-layouts",
     tags=["Module Layouts"]
 )
+
+# Reads: any authenticated staff role -- Attendance, Classes, Exams, Reports,
+# Students and Teachers all read a module's layout to render its custom
+# fields, across every staff role from Teacher up to Admin.
+#
+# Writes: several of those same pages silently PUT a "repaired" layout back
+# on load when they detect drift (see Classes.jsx/Exams.jsx/Teachers.jsx's
+# getActiveLayout()), not just the dedicated ModuleLayoutBuilder editor --
+# so this can't be Admin-only without breaking that self-heal for Principal/
+# Teacher users on those pages.
+LAYOUT_MANAGE_ROLES = ["Admin", "Principal", "Teacher"]
 
 
 ALLOWED_MODULES = {
@@ -52,7 +65,8 @@ def build_layout_response(layout: models.ModuleLayout):
 @router.get("/{module_name}", response_model=schemas.ModuleLayoutResponse)
 def get_module_layout(
     module_name: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     normalized_module = normalize_module_name(module_name)
 
@@ -78,7 +92,8 @@ def get_module_layout(
 def create_module_layout(
     module_name: str,
     payload: schemas.ModuleLayoutSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(LAYOUT_MANAGE_ROLES)),
 ):
     normalized_module = normalize_module_name(module_name)
 
@@ -111,7 +126,8 @@ def create_module_layout(
 def update_module_layout(
     module_name: str,
     payload: schemas.ModuleLayoutSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(LAYOUT_MANAGE_ROLES)),
 ):
     normalized_module = normalize_module_name(module_name)
 
@@ -142,7 +158,8 @@ def update_module_layout(
 @router.delete("/{module_name}")
 def delete_module_layout(
     module_name: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(LAYOUT_MANAGE_ROLES)),
 ):
     normalized_module = normalize_module_name(module_name)
 

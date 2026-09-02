@@ -80,7 +80,6 @@ DEFAULT_FEATURES = {
     "users": True,
     "settings": True,
     "master_data": True,
-    "student_layout": True,
     "report_card": True,
     "student_enrollments": True,
     "admissions": True,
@@ -142,6 +141,11 @@ DEFAULT_FEATURES = {
     # Core teaching workflow, alongside Homework and Timetable -- on by
     # default rather than an opt-in add-on.
     "syllabus": True,
+    # Learning management: study material published to a class, and homework
+    # handed in and graded through the portal. On by default like the rest of
+    # the teaching workflow -- it extends Homework rather than being a
+    # separately sold add-on like Online Tests.
+    "lms": True,
     # Bulk-writes the whole school's period grid in one action, so it stays
     # opt-in like the other *_auto_generation automations even though it has
     # no cron component -- a school must choose to hand scheduling to the
@@ -199,22 +203,29 @@ def init_tenant_registry():
             db.commit()
             db.refresh(account)
 
-        existing_features = {
-            feature.feature_key
-            for feature in db.query(SchoolFeature)
-            .filter(SchoolFeature.account_id == account.id)
-            .all()
-        }
+        # Every account, not just the default one. A school only gets feature
+        # rows when it is created, so a module added to DEFAULT_FEATURES after
+        # that would read as disabled for every existing school -- including
+        # the ones declared on by default, which is not what the flag says.
+        # Backfilling the missing keys here is idempotent and leaves any row a
+        # platform owner has already set alone.
+        for school in db.query(SchoolAccount).all():
+            existing_features = {
+                feature.feature_key
+                for feature in db.query(SchoolFeature)
+                .filter(SchoolFeature.account_id == school.id)
+                .all()
+            }
 
-        for feature_key, enabled in DEFAULT_FEATURES.items():
-            if feature_key not in existing_features:
-                db.add(
-                    SchoolFeature(
-                        account_id=account.id,
-                        feature_key=feature_key,
-                        is_enabled=enabled,
+            for feature_key, enabled in DEFAULT_FEATURES.items():
+                if feature_key not in existing_features:
+                    db.add(
+                        SchoolFeature(
+                            account_id=school.id,
+                            feature_key=feature_key,
+                            is_enabled=enabled,
+                        )
                     )
-                )
 
         db.commit()
     finally:

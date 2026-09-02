@@ -28,6 +28,7 @@ import { resolveFileUrl } from "../utils/files";
 import { useT } from "../i18n";
 import { getMasterValues } from "../services/masterDataService";
 import { getModuleLayout } from "../services/moduleLayoutService";
+import { isFeatureEnabled } from "../auth";
 
 const MODULE_NAME = "Students";
 const LEGACY_STORAGE_KEY = "student_form_layout_v1";
@@ -439,31 +440,40 @@ export default function Students() {
     const response = await API.get("/classes/");
     setClasses(response.data || []);
   }
+  function applyFeatureGates(sections) {
+    if (isFeatureEnabled("house_system")) return sections;
+
+    return sections.map((section) => ({
+      ...section,
+      fields: section.fields.filter((field) => field.name !== "house"),
+    }));
+  }
+
   async function getActiveLayout() {
     try {
       const backendLayout = await getModuleLayout(MODULE_NAME);
 
       if (backendLayout && Array.isArray(backendLayout)) {
-        return backendLayout;
+        return applyFeatureGates(backendLayout);
       }
 
       const legacyLayout = getLegacyLocalLayout();
 
       if (legacyLayout) {
-        return legacyLayout;
+        return applyFeatureGates(legacyLayout);
       }
 
-      return defaultStudentLayout;
+      return applyFeatureGates(defaultStudentLayout);
     } catch (error) {
       console.error("Unable to load module layout", error);
 
       const legacyLayout = getLegacyLocalLayout();
 
       if (legacyLayout) {
-        return legacyLayout;
+        return applyFeatureGates(legacyLayout);
       }
 
-      return defaultStudentLayout;
+      return applyFeatureGates(defaultStudentLayout);
     }
   }
 
@@ -1221,6 +1231,7 @@ export default function Students() {
       student.nationality.toLowerCase() !== "india"
   ).length;
 
+  const canUseHouse = isFeatureEnabled("house_system");
   const sectionFilterOptions = dropdownValues.Section || [];
   const statusFilterOptions = dropdownValues.StudentStatus || [];
   const customFields = getCustomFields();
@@ -1229,7 +1240,7 @@ export default function Students() {
     ["student", "Student"],
     ["class", "Class"],
     ["section", "Section"],
-    ["house", "House"],
+    ...(canUseHouse ? [["house", "House"]] : []),
     ["residential", "Residential"],
     ["status", "Status"],
     ["guardian", "Guardian"],
@@ -1686,7 +1697,9 @@ export default function Students() {
               <h4>Filter By Fields</h4>
 
               <div className="student-field-filter-list">
-                {studentFilterFields.map(([fieldName, label]) => {
+                {studentFilterFields
+                  .filter(([fieldName]) => canUseHouse || fieldName !== "house")
+                  .map(([fieldName, label]) => {
                   const filter = fieldFilters[fieldName] || {};
                   const enabled = Boolean(filter.enabled);
 
@@ -1810,7 +1823,10 @@ export default function Students() {
             </section>
 
             {loading ? (
-              <div className="loading-box">Loading students...</div>
+              <div className="loading-box">
+                <span className="spinner" aria-hidden="true" />
+                Loading students...
+              </div>
             ) : (
               <div className="table-wrapper">
                 <table className="classic-table student-list-table">
