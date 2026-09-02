@@ -3301,3 +3301,545 @@ class LearningResourceView(Base):
     view_count = Column(Integer, nullable=False, default=1)
     first_viewed_at = Column(DateTime, default=datetime.utcnow)
     last_viewed_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# SCORM
+#
+# A SCORM package is a zip of ordinary web content plus an imsmanifest.xml
+# saying where it starts. The content talks to the LMS through a JavaScript
+# API object it expects to find on a parent window -- so the player page that
+# defines that object is served by this backend, from the same origin as the
+# extracted content (see routes/scorm.py). A cross-origin player cannot work:
+# the SCO's window.parent.API lookup is blocked by the same-origin policy.
+# ---------------------------------------------------------------------------
+
+
+class ScormPackage(Base):
+    """An uploaded SCORM course, extracted and served as static content."""
+
+    __tablename__ = "scorm_packages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True, index=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # "1.2" or "2004". Read from the manifest's schemaversion, and it decides
+    # which API object the player exposes -- the two are not interchangeable.
+    scorm_version = Column(String, nullable=False, default="1.2")
+    manifest_identifier = Column(String, nullable=True)
+    # Entry point, relative to the package root (e.g. "shared/launchpage.html").
+    launch_url = Column(String, nullable=False)
+    # Directory name under SCORM_CONTENT_DIR/<tenant>/. Random, so package
+    # content is not enumerable by anyone who knows a package id.
+    storage_key = Column(String, nullable=False, unique=True, index=True)
+    package_bytes = Column(Integer, nullable=True)
+
+    # Where the manifest declares one; a score at or above this is a pass.
+    # Only meaningful for packages that report a score at all.
+    mastery_score = Column(Float, nullable=True)
+
+    status = Column(String, nullable=False, default="Draft", index=True)
+    # Draft, Published, Archived
+    available_from = Column(Date, nullable=True, index=True)
+    published_at = Column(DateTime, nullable=True)
+
+    teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    teacher_name_snapshot = Column(String, nullable=True)
+
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ScormAttempt(Base):
+    """One student's run through a package, and the cmi state it reported.
+
+    One row per student per package: SCORM's own model is a single resumable
+    attempt carrying suspend_data and a bookmark, not a series of takes like
+    an online test. Re-entering resumes where they left off.
+    """
+
+    __tablename__ = "scorm_attempts"
+    __table_args__ = (
+        UniqueConstraint("package_id", "student_id", name="uq_scorm_attempt_package_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(
+        Integer, ForeignKey("scorm_packages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_name_snapshot = Column(String, nullable=True)
+
+    # SCORM 1.2 cmi.core.lesson_status vocabulary, which 2004's
+    # completion_status/success_status are normalised onto so one column
+    # answers "did they finish, and did they pass" for both versions.
+    lesson_status = Column(String, nullable=False, default="not attempted", index=True)
+    # not attempted, browsed, incomplete, completed, passed, failed
+
+    score_raw = Column(Float, nullable=True)
+    score_min = Column(Float, nullable=True)
+    score_max = Column(Float, nullable=True)
+
+    # The SCO's own bookmark and resume blob, stored verbatim and handed back
+    # untouched on the next launch. Never interpreted here -- the format is
+    # the content author's business.
+    lesson_location = Column(String, nullable=True)
+    suspend_data = Column(Text, nullable=True)
+
+    # Accumulated across sessions, in seconds. SCORM reports session_time as
+    # a formatted duration; it is parsed once on commit rather than stored as
+    # text, so reporting can add it up.
+    total_time_seconds = Column(Integer, nullable=False, default=0)
+    session_count = Column(Integer, nullable=False, default=0)
+
+    started_at = Column(DateTime, default=datetime.utcnow)
+    last_accessed_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Courses
+#
+# The course is the unit of learning: modelled on the shape schools and HR
+# systems actually use -- a course made of ordered sections, each made of
+# ordered lessons, with people enrolled onto it and progress tracked per
+# lesson. A lesson holds no content of its own where the content already
+# exists elsewhere in the ERP (a learning resource, a SCORM package, an
+# online test, an assignment); it points at it, so material used in a course
+# is the same row its own module shows, never a copy that can drift.
+#
+# Sequencing and prerequisites live here rather than in a separate "path"
+# entity: an ordered course already is the path, and one structure means a
+# student sees one progress figure rather than two that can disagree.
+# ---------------------------------------------------------------------------
+
+
+class Course(Base):
+    """A course: self-paced, blended (with instructor-led sessions), or a
+    plain e-material shelf."""
+
+    __tablename__ = "courses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, nullable=True, unique=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    cover_image_url = Column(String, nullable=True)
+
+    course_type = Column(String, nullable=False, default="self_paced", index=True)
+    # self_paced  - work through it alone, at any time
+    # blended     - self-paced lessons plus instructor-led sessions
+    # e_material  - a reference shelf with no sequence and no completion
+
+    # Nullable class/section: a course can be school-wide (staff induction,
+    # digital citizenship) rather than tied to one class.
+    academic_year = Column(String, nullable=True, index=True)
+    class_name = Column(String, nullable=True, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True, index=True)
+
+    trainer_teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    trainer_name_snapshot = Column(String, nullable=True)
+
+    status = Column(String, nullable=False, default="Draft", index=True)
+    # Draft, Published, Archived
+    available_from = Column(Date, nullable=True, index=True)
+    published_at = Column(DateTime, nullable=True)
+
+    # How learners get on it. Both can be true: a class is enrolled wholesale
+    # and other students may still join themselves.
+    allow_self_enrollment = Column(Boolean, nullable=False, default=False)
+    auto_enroll_class = Column(Boolean, nullable=False, default=False)
+
+    # Must be Completed before this one can be started. One link, not a
+    # graph: chains of two or three are what schools actually build, and a
+    # cycle check on a single link is something we can guarantee.
+    prerequisite_course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # Off makes the course a menu rather than a sequence -- every lesson open
+    # from the start, which is what an e-material shelf wants.
+    enforce_lesson_order = Column(Boolean, nullable=False, default=True)
+    # Shown to learners as the expected effort; never enforced.
+    duration_minutes = Column(Integer, nullable=True)
+    is_mandatory = Column(Boolean, nullable=False, default=False)
+
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseSection(Base):
+    """An ordered module within a course, grouping lessons."""
+
+    __tablename__ = "course_sections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sequence_no = Column(Integer, nullable=False, default=1, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseLesson(Base):
+    """One lesson: a piece of content, or a pointer to one held elsewhere."""
+
+    __tablename__ = "course_lessons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    section_id = Column(
+        Integer, ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Denormalised from the section: every progress and ordering query needs
+    # the course, and this saves a join on the hottest read in the module.
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sequence_no = Column(Integer, nullable=False, default=1, index=True)
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    content_type = Column(String, nullable=False, default="text", index=True)
+    # Self-contained:   text, link, video, document
+    # Pointers:         resource, scorm, online_test, assignment, session
+
+    content = Column(Text, nullable=True)   # text lessons
+    url = Column(String, nullable=True)     # link / video / document lessons
+
+    resource_id = Column(
+        Integer, ForeignKey("learning_resources.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    scorm_package_id = Column(
+        Integer, ForeignKey("scorm_packages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    online_test_id = Column(
+        Integer, ForeignKey("online_tests.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    assignment_id = Column(
+        Integer, ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    session_id = Column(
+        Integer, ForeignKey("course_sessions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # How this lesson is deemed finished. Stated rather than inferred from
+    # content_type (Moodle's activity-completion idea): the same video is
+    # "watched it" in one course and "answer the question below" in another.
+    completion_rule = Column(String, nullable=False, default="view", index=True)
+    # view   - opening it is enough
+    # submit - hand something in / attempt it (assignment, test, SCORM)
+    # score  - reach min_score
+    # manual - the learner ticks it off themselves
+
+    # An optional lesson is visible and completable but never blocks what
+    # comes after it -- extension reading, a practice quiz.
+    is_required = Column(Boolean, nullable=False, default=True)
+    # Where the lesson is scored, the mark that counts as done. Null means
+    # reaching the end of it is enough.
+    min_score = Column(Float, nullable=True)
+    estimated_minutes = Column(Integer, nullable=True)
+
+    # Beyond plain ordering: a specific earlier lesson that must be finished
+    # first. Lets a course fan out -- three optional readings, then one gate.
+    prerequisite_lesson_id = Column(
+        Integer, ForeignKey("course_lessons.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseEnrollment(Base):
+    """One student on one course, and how far through it they are."""
+
+    __tablename__ = "course_enrollments"
+    __table_args__ = (
+        UniqueConstraint("course_id", "student_id", name="uq_enrollment_course_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_name_snapshot = Column(String, nullable=True)
+
+    enrolled_via = Column(String, nullable=False, default="nominated", index=True)
+    # nominated (staff picked them), self (they joined), class_auto (whole class)
+    enrolled_by = Column(String, nullable=True)
+    enrolled_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    status = Column(String, nullable=False, default="Enrolled", index=True)
+    # Enrolled, In Progress, Completed, Dropped
+
+    # Recomputed from lesson progress on every change rather than incremented,
+    # so a course whose lessons are edited later cannot leave a learner stuck
+    # at a percentage that no longer means anything.
+    progress_percent = Column(Float, nullable=False, default=0)
+    final_score = Column(Float, nullable=True)
+
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    last_activity_at = Column(DateTime, nullable=True, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseLessonProgress(Base):
+    """A learner's state on one lesson."""
+
+    __tablename__ = "course_lesson_progress"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "lesson_id", name="uq_lesson_progress_enrollment_lesson"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    enrollment_id = Column(
+        Integer, ForeignKey("course_enrollments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    lesson_id = Column(
+        Integer, ForeignKey("course_lessons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    status = Column(String, nullable=False, default="Not Started", index=True)
+    # Not Started, In Progress, Completed
+    score = Column(Float, nullable=True)
+
+    first_viewed_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseSession(Base):
+    """An instructor-led session on a blended course -- a classroom slot or a
+    scheduled online meeting."""
+
+    __tablename__ = "course_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    mode = Column(String, nullable=False, default="classroom", index=True)  # classroom, online
+    venue = Column(String, nullable=True)
+    meeting_url = Column(String, nullable=True)
+
+    # A named run of the session, so the same course can be delivered to
+    # several groups on different dates without cloning the course.
+    batch_name = Column(String, nullable=True, index=True)
+    capacity = Column(Integer, nullable=True)
+
+    starts_at = Column(DateTime, nullable=True, index=True)
+    ends_at = Column(DateTime, nullable=True)
+
+    trainer_teacher_id = Column(
+        Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    trainer_name_snapshot = Column(String, nullable=True)
+
+    status = Column(String, nullable=False, default="Scheduled", index=True)
+    # Scheduled, Completed, Cancelled
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseSessionAttendance(Base):
+    """Who turned up to an instructor-led session."""
+
+    __tablename__ = "course_session_attendance"
+    __table_args__ = (
+        UniqueConstraint("session_id", "enrollment_id", name="uq_session_attendance_enrollment"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(
+        Integer, ForeignKey("course_sessions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    enrollment_id = Column(
+        Integer, ForeignKey("course_enrollments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    attended = Column(Boolean, nullable=False, default=False, index=True)
+    marked_by = Column(String, nullable=True)
+    marked_at = Column(DateTime, nullable=True)
+    remarks = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseFeedback(Base):
+    """A learner's rating of a course, once they have been on it."""
+
+    __tablename__ = "course_feedback"
+    __table_args__ = (
+        UniqueConstraint("course_id", "student_id", name="uq_course_feedback_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_name_snapshot = Column(String, nullable=True)
+
+    rating = Column(Integer, nullable=False)  # 1-5
+    comment = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CourseNote(Base):
+    """A learner's private notes, on a course or on one lesson of it.
+
+    Private to the student and their guardians -- never shown to staff. A
+    notebook a teacher can read is not a notebook.
+    """
+
+    __tablename__ = "course_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    lesson_id = Column(
+        Integer, ForeignKey("course_lessons.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    student_id = Column(
+        Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    body = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Discussion forums
+#
+# A topic belongs to a course, or to a class where a school runs discussion
+# without a course around it. It can be anchored further, to a resource or a
+# single lesson, so the discussion sits with what it is about.
+# ---------------------------------------------------------------------------
+
+
+class DiscussionTopic(Base):
+    """A discussion thread for a class."""
+
+    __tablename__ = "discussion_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    # Nullable: a topic on a school-wide course belongs to no single class.
+    class_name = Column(String, nullable=True, index=True)
+    section = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=True, index=True)
+
+    title = Column(String, nullable=False)
+    # The opening post's text lives on the first DiscussionPost, not here, so
+    # editing and moderating the opener works like any other post.
+
+    resource_id = Column(
+        Integer, ForeignKey("learning_resources.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    course_id = Column(
+        Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    lesson_id = Column(
+        Integer, ForeignKey("course_lessons.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    created_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_by_name = Column(String, nullable=False)
+    created_by_role = Column(String, nullable=False)
+    # Whether the author was staff. Denormalised because a user's role can
+    # change later, and a post should keep reading as what it was when written.
+    is_staff = Column(Boolean, nullable=False, default=False)
+
+    is_pinned = Column(Boolean, nullable=False, default=False, index=True)
+    # A locked topic stays readable and stops accepting replies -- the
+    # discussion equivalent of closing comments, not deleting them.
+    is_locked = Column(Boolean, nullable=False, default=False)
+
+    # Kept on the row rather than counted per request: a forum list is read
+    # far more often than it is written.
+    post_count = Column(Integer, nullable=False, default=0)
+    last_post_at = Column(DateTime, nullable=True, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DiscussionPost(Base):
+    """A message in a topic, or a reply to one."""
+
+    __tablename__ = "discussion_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topic_id = Column(
+        Integer, ForeignKey("discussion_topics.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # One level of nesting only: a reply to a reply is still a reply to the
+    # post that started that sub-thread, which is enough structure for a
+    # class discussion and keeps rendering flat and cheap.
+    parent_post_id = Column(
+        Integer, ForeignKey("discussion_posts.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    author_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    author_name = Column(String, nullable=False)
+    author_role = Column(String, nullable=False)
+    is_staff = Column(Boolean, nullable=False, default=False)
+
+    body = Column(Text, nullable=False)
+
+    # Moderation hides rather than deletes: a teacher removing a post from
+    # view should not destroy the record of what was said.
+    is_hidden = Column(Boolean, nullable=False, default=False, index=True)
+    hidden_by = Column(String, nullable=True)
+    hidden_at = Column(DateTime, nullable=True)
+    hidden_reason = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

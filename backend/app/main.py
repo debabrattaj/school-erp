@@ -44,6 +44,9 @@ from app.routes import platform
 from app.routes import payroll
 from app.routes import homework
 from app.routes import lms as lms_routes
+from app.routes import courses as course_routes
+from app.routes import scorm as scorm_routes
+from app.routes import discussions as discussion_routes
 from app.routes import online_tests
 from app.routes import biometric
 from app.routes import payments as payments_routes
@@ -1176,6 +1179,9 @@ app.include_router(fee_structures.router)
 app.include_router(payroll.router)
 app.include_router(homework.router)
 app.include_router(lms_routes.router)
+app.include_router(course_routes.router)
+app.include_router(scorm_routes.router)
+app.include_router(discussion_routes.router)
 app.include_router(online_tests.router)
 app.include_router(biometric.router)
 app.include_router(payments_routes.router)

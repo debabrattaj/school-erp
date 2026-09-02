@@ -2894,3 +2894,344 @@ class StudentLeaveRequestResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------------- SCORM ----------------
+
+class ScormPackageUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    status: Optional[str] = None
+    available_from: Optional[date] = None
+    mastery_score: Optional[float] = None
+    teacher_id: Optional[int] = None
+
+
+class ScormPackageResponse(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    academic_year: Optional[str] = None
+    class_name: str
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    scorm_version: str
+    manifest_identifier: Optional[str] = None
+    launch_url: str
+    storage_key: str
+    package_bytes: Optional[int] = None
+    mastery_score: Optional[float] = None
+    status: str
+    available_from: Optional[date] = None
+    published_at: Optional[datetime] = None
+    teacher_id: Optional[int] = None
+    teacher_name_snapshot: Optional[str] = None
+    created_by: Optional[str] = None
+    attempt_count: Optional[int] = None
+    completed_count: Optional[int] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------- Courses ----------------
+
+class CourseBase(BaseModel):
+    code: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    course_type: str = "self_paced"
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    trainer_teacher_id: Optional[int] = None
+    status: str = "Draft"
+    available_from: Optional[date] = None
+    allow_self_enrollment: bool = False
+    auto_enroll_class: bool = False
+    prerequisite_course_id: Optional[int] = None
+    enforce_lesson_order: bool = True
+    duration_minutes: Optional[int] = None
+    is_mandatory: bool = False
+
+
+class CourseCreate(CourseBase):
+    pass
+
+
+class CourseUpdate(BaseModel):
+    code: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    course_type: Optional[str] = None
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    trainer_teacher_id: Optional[int] = None
+    status: Optional[str] = None
+    available_from: Optional[date] = None
+    allow_self_enrollment: Optional[bool] = None
+    auto_enroll_class: Optional[bool] = None
+    prerequisite_course_id: Optional[int] = None
+    enforce_lesson_order: Optional[bool] = None
+    duration_minutes: Optional[int] = None
+    is_mandatory: Optional[bool] = None
+
+
+class CourseLessonBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    sequence_no: Optional[int] = None
+    content_type: str = "text"
+    content: Optional[str] = None
+    url: Optional[str] = None
+    resource_id: Optional[int] = None
+    scorm_package_id: Optional[int] = None
+    online_test_id: Optional[int] = None
+    assignment_id: Optional[int] = None
+    session_id: Optional[int] = None
+    completion_rule: str = "view"
+    is_required: bool = True
+    min_score: Optional[float] = None
+    estimated_minutes: Optional[int] = None
+    prerequisite_lesson_id: Optional[int] = None
+
+
+class CourseLessonCreate(CourseLessonBase):
+    pass
+
+
+class CourseLessonUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    sequence_no: Optional[int] = None
+    content_type: Optional[str] = None
+    content: Optional[str] = None
+    url: Optional[str] = None
+    resource_id: Optional[int] = None
+    scorm_package_id: Optional[int] = None
+    online_test_id: Optional[int] = None
+    assignment_id: Optional[int] = None
+    session_id: Optional[int] = None
+    completion_rule: Optional[str] = None
+    is_required: Optional[bool] = None
+    min_score: Optional[float] = None
+    estimated_minutes: Optional[int] = None
+    prerequisite_lesson_id: Optional[int] = None
+
+
+class CourseLessonResponse(CourseLessonBase):
+    id: int
+    course_id: int
+    section_id: int
+    sequence_no: int
+
+    class Config:
+        from_attributes = True
+
+
+class CourseSectionCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    sequence_no: Optional[int] = None
+
+
+class CourseSectionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    sequence_no: Optional[int] = None
+
+
+class CourseSectionResponse(BaseModel):
+    id: int
+    course_id: int
+    sequence_no: int
+    title: str
+    description: Optional[str] = None
+    lessons: List[CourseLessonResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class CourseResponse(CourseBase):
+    id: int
+    trainer_name_snapshot: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    section_count: Optional[int] = None
+    lesson_count: Optional[int] = None
+    enrolled_count: Optional[int] = None
+    completed_count: Optional[int] = None
+    average_rating: Optional[float] = None
+    rating_count: Optional[int] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CourseDetailResponse(CourseResponse):
+    sections: List[CourseSectionResponse] = []
+
+
+class CourseEnrollmentResponse(BaseModel):
+    id: int
+    course_id: int
+    student_id: int
+    student_name_snapshot: Optional[str] = None
+    enrolled_via: str
+    enrolled_by: Optional[str] = None
+    enrolled_at: Optional[datetime] = None
+    status: str
+    progress_percent: float
+    final_score: Optional[float] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CourseProgressBoard(BaseModel):
+    course: CourseResponse
+    enrollments: List[CourseEnrollmentResponse] = []
+    not_enrolled: List[Any] = []
+    enrolled_count: int = 0
+    completed_count: int = 0
+    average_progress: float = 0
+
+
+class CourseSessionCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    mode: str = "classroom"
+    venue: Optional[str] = None
+    meeting_url: Optional[str] = None
+    batch_name: Optional[str] = None
+    capacity: Optional[int] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    trainer_teacher_id: Optional[int] = None
+    status: str = "Scheduled"
+
+
+class CourseSessionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    mode: Optional[str] = None
+    venue: Optional[str] = None
+    meeting_url: Optional[str] = None
+    batch_name: Optional[str] = None
+    capacity: Optional[int] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    trainer_teacher_id: Optional[int] = None
+    status: Optional[str] = None
+
+
+class CourseSessionResponse(BaseModel):
+    id: int
+    course_id: int
+    title: str
+    description: Optional[str] = None
+    mode: str
+    venue: Optional[str] = None
+    meeting_url: Optional[str] = None
+    batch_name: Optional[str] = None
+    capacity: Optional[int] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    trainer_teacher_id: Optional[int] = None
+    trainer_name_snapshot: Optional[str] = None
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class CourseFeedbackCreate(BaseModel):
+    rating: int
+    comment: Optional[str] = None
+
+
+class CourseNoteCreate(BaseModel):
+    lesson_id: Optional[int] = None
+    body: str
+
+
+# ---------------- Discussions ----------------
+
+class DiscussionTopicCreate(BaseModel):
+    title: str
+    # The opening message. Optional so staff can open an empty topic for a
+    # class to fill.
+    body: Optional[str] = None
+    course_id: Optional[int] = None
+    lesson_id: Optional[int] = None
+    resource_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    is_pinned: bool = False
+    is_locked: bool = False
+
+
+class DiscussionTopicUpdate(BaseModel):
+    title: Optional[str] = None
+    course_id: Optional[int] = None
+    lesson_id: Optional[int] = None
+    resource_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    is_locked: Optional[bool] = None
+
+
+class DiscussionTopicResponse(BaseModel):
+    id: int
+    title: str
+    course_id: Optional[int] = None
+    course_title: Optional[str] = None
+    lesson_id: Optional[int] = None
+    resource_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    class_name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    created_by_name: str
+    created_by_role: str
+    is_staff: bool
+    is_pinned: bool
+    is_locked: bool
+    post_count: int
+    last_post_at: Optional[datetime] = None
+    created_at: Optional[Any] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DiscussionPostCreate(BaseModel):
+    body: str
+    parent_post_id: Optional[int] = None
+
+
+class DiscussionModerationRequest(BaseModel):
+    hidden: bool = True
+    reason: Optional[str] = None
