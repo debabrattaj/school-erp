@@ -231,11 +231,17 @@ def tenant_stats(database_url: str) -> dict:
 
 
 def account_summary(db, account: SchoolAccount, include_stats: bool = True):
+    # Filtered to DEFAULT_FEATURES: a flag removed from the code (e.g. the
+    # retired student_layout) can leave its SchoolFeature row behind in the
+    # database. Surfacing it here would round-trip straight back into the
+    # Platform Console's save payload and make update_school_features()
+    # reject the entire save as an "unknown feature key" -- see there.
     features = {
         f.feature_key: bool(f.is_enabled)
         for f in db.query(SchoolFeature)
         .filter(SchoolFeature.account_id == account.id)
         .all()
+        if f.feature_key in DEFAULT_FEATURES
     }
     data = {
         "id": account.id,
@@ -675,11 +681,13 @@ def update_school_features(
     payload: FeatureUpdateRequest,
     owner: PlatformAdmin = Depends(require_platform_owner),
 ):
-    unknown = [k for k in payload.features if k not in DEFAULT_FEATURES]
-    if unknown:
-        raise HTTPException(
-            status_code=400, detail=f"Unknown feature keys: {', '.join(unknown)}"
-        )
+    # Keys not in DEFAULT_FEATURES are dropped, not rejected: account_summary()
+    # only ever hands the console keys it currently knows, so the one way an
+    # unrecognized key reaches this payload is a retired flag whose row never
+    # got cleaned up riding along in a save built from that same response.
+    # Rejecting the whole request for that would permanently block any school
+    # carrying one from saving modules ever again.
+    features = {k: v for k, v in payload.features.items() if k in DEFAULT_FEATURES}
 
     db = CentralSessionLocal()
     try:
@@ -690,7 +698,7 @@ def update_school_features(
             .filter(SchoolFeature.account_id == account.id)
             .all()
         }
-        for key, enabled in payload.features.items():
+        for key, enabled in features.items():
             if key in existing:
                 existing[key].is_enabled = enabled
                 existing[key].updated_at = datetime.utcnow()
@@ -700,6 +708,11 @@ def update_school_features(
                         account_id=account.id, feature_key=key, is_enabled=enabled
                     )
                 )
+        # Self-cleaning: a save is also the natural moment to drop this
+        # account's own stale rows, so they stop accumulating.
+        for key, row in existing.items():
+            if key not in DEFAULT_FEATURES:
+                db.delete(row)
         db.commit()
         return account_summary(db, account, include_stats=False)
     finally:
