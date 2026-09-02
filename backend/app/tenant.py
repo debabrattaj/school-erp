@@ -146,6 +146,16 @@ DEFAULT_FEATURES = {
     # the teaching workflow -- it extends Homework rather than being a
     # separately sold add-on like Online Tests.
     "lms": True,
+    # Courses: sections, lessons, enrollment, sequencing and progress. The
+    # structured half of the LMS, on by default with the rest of it.
+    "courses": True,
+    # SCORM runtime and package storage. Off by default: it accepts uploaded
+    # web content and serves it back, which is a real storage and hosting
+    # commitment a school should opt into rather than inherit.
+    "scorm": False,
+    # Course discussion forums. Off by default on purpose -- student-visible
+    # discussion is a safeguarding decision, not a default.
+    "discussions": False,
     # Bulk-writes the whole school's period grid in one action, so it stays
     # opt-in like the other *_auto_generation automations even though it has
     # no cron component -- a school must choose to hand scheduling to the

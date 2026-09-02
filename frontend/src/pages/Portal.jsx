@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, QrCode, Trash2, X, Send } from "lucide-react";
 import QRCode from "qrcode";
 
-import API from "../api";
+import API, { API_BASE } from "../api";
 import { getUser, isFeatureEnabled } from "../auth";
 import { formatMoney } from "../utils/money";
 import { resolveFileUrl, uploadFile } from "../utils/files";
@@ -20,6 +20,8 @@ const TABS = [
   ["timetable", "Timetable"],
   ["homework", "Homework"],
   ["learning", "Learning", "lms"],
+  ["courses", "Courses", "courses"],
+  ["forum", "Discussion", "discussions"],
   ["tests", "Online Tests", "online_tests"],
   ["leave", "Leave"],
   ["library", "Library", "library"],
@@ -165,6 +167,20 @@ export default function Portal() {
   // does not lose what has been typed for another.
   const [submissionDrafts, setSubmissionDrafts] = useState({});
   const [submittingHomeworkId, setSubmittingHomeworkId] = useState(null);
+
+  const [courses, setCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [activeCourse, setActiveCourse] = useState(null);
+  const [courseNotes, setCourseNotes] = useState([]);
+  const [noteBody, setNoteBody] = useState("");
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+
+  const [topics, setTopics] = useState([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [activeThread, setActiveThread] = useState(null);
+  const [forumReply, setForumReply] = useState("");
+  const [forumReplyTo, setForumReplyTo] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
@@ -432,6 +448,169 @@ export default function Portal() {
       setMessage(getApiErrorMessage(error, "Unable to submit this work."));
     } finally {
       setSubmittingHomeworkId(null);
+    }
+  }
+
+  async function loadCourses(studentId) {
+    if (!studentId) return;
+    setCoursesLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/courses`);
+      setCourses(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load courses."));
+    } finally {
+      setCoursesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "courses" && selectedId && !activeCourse) {
+      loadCourses(selectedId);
+    }
+  }, [activeTab, selectedId, activeCourse]);
+
+  async function openCourse(courseId) {
+    try {
+      const [detail, notes] = await Promise.all([
+        API.get(`/portal/students/${selectedId}/courses/${courseId}`),
+        API.get(`/portal/students/${selectedId}/courses/${courseId}/notes`).catch(() => ({ data: [] })),
+      ]);
+      setActiveCourse(detail.data);
+      setCourseNotes(notes.data || []);
+      setRatingValue(detail.data.my_feedback?.rating || 0);
+      setRatingComment(detail.data.my_feedback?.comment || "");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to open that course."));
+    }
+  }
+
+  async function refreshCourse() {
+    if (activeCourse) await openCourse(activeCourse.course.id);
+  }
+
+  async function selfEnroll(courseId) {
+    try {
+      await API.post(`/portal/students/${selectedId}/courses/${courseId}/enroll`);
+      setMessage("You are on the course.");
+      await loadCourses(selectedId);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to join that course."));
+    }
+  }
+
+  async function completeLesson(lessonId) {
+    try {
+      const response = await API.post(
+        `/portal/students/${selectedId}/courses/${activeCourse.course.id}/lessons/${lessonId}/complete`
+      );
+      setMessage(
+        response.data.status === "Completed" ? "Course complete." : "Marked as done."
+      );
+      await refreshCourse();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to mark that lesson."));
+    }
+  }
+
+  async function openScormLesson(packageId) {
+    try {
+      const response = await API.post(
+        `/portal/students/${selectedId}/scorm/${packageId}/launch`
+      );
+      // The player lives on the API origin, because SCORM content reaches its
+      // LMS through window.parent and that is blocked across origins.
+      window.open(`${API_BASE}${response.data.player_url}`, "_blank", "noopener");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to open that module."));
+    }
+  }
+
+  async function saveNote(event) {
+    event.preventDefault();
+    if (!noteBody.trim()) return;
+    try {
+      await API.post(`/portal/students/${selectedId}/courses/${activeCourse.course.id}/notes`, {
+        body: noteBody.trim(),
+      });
+      setNoteBody("");
+      const notes = await API.get(
+        `/portal/students/${selectedId}/courses/${activeCourse.course.id}/notes`
+      );
+      setCourseNotes(notes.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save that note."));
+    }
+  }
+
+  async function deleteNote(noteId) {
+    try {
+      await API.delete(
+        `/portal/students/${selectedId}/courses/${activeCourse.course.id}/notes/${noteId}`
+      );
+      setCourseNotes((prev) => prev.filter((note) => note.id !== noteId));
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to delete that note."));
+    }
+  }
+
+  async function submitRating(event) {
+    event.preventDefault();
+    try {
+      await API.post(`/portal/students/${selectedId}/courses/${activeCourse.course.id}/feedback`, {
+        rating: Number(ratingValue),
+        comment: ratingComment.trim() || null,
+      });
+      setMessage("Thanks for the feedback.");
+      await refreshCourse();
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to save your rating."));
+    }
+  }
+
+  async function loadTopics(studentId) {
+    if (!studentId) return;
+    setTopicsLoading(true);
+    try {
+      const response = await API.get(`/portal/students/${studentId}/discussions`);
+      setTopics(response.data || []);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to load discussions."));
+    } finally {
+      setTopicsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "forum" && selectedId && !activeThread) {
+      loadTopics(selectedId);
+    }
+  }, [activeTab, selectedId, activeThread]);
+
+  async function openThread(topicId) {
+    try {
+      const response = await API.get(`/portal/students/${selectedId}/discussions/${topicId}`);
+      setActiveThread(response.data);
+      setForumReply("");
+      setForumReplyTo(null);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to open that topic."));
+    }
+  }
+
+  async function postToThread(event) {
+    event.preventDefault();
+    if (!forumReply.trim()) return;
+    try {
+      await API.post(
+        `/portal/students/${selectedId}/discussions/${activeThread.topic.id}/posts`,
+        { body: forumReply.trim(), parent_post_id: forumReplyTo }
+      );
+      setForumReply("");
+      setForumReplyTo(null);
+      await openThread(activeThread.topic.id);
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Unable to post."));
     }
   }
 
@@ -1570,6 +1749,302 @@ export default function Portal() {
                 ))}
               {!resourcesLoading && !resources.length && (
                 <div className="portal-card">No study material published for this class yet.</div>
+              )}
+            </div>
+          )}
+
+          {!loading && activeTab === "courses" && !activeCourse && (
+            <div className="portal-stack">
+              {coursesLoading && <div className="portal-card">Loading courses…</div>}
+              {!coursesLoading && courses.map((course) => (
+                <div className="portal-card" key={course.id}>
+                  <div className="portal-card-title">
+                    <strong>{course.title}</strong>
+                    {course.is_mandatory && <span className="status danger">Mandatory</span>}
+                    {course.status === "Completed" && <span className="status active">Completed</span>}
+                    {course.enrolled && course.status !== "Completed" && (
+                      <span className="status pending">{course.progress_percent}%</span>
+                    )}
+                  </div>
+                  <div className="portal-card-meta">
+                    {[course.subject, course.trainer_name].filter(Boolean).join(" · ") || "—"}
+                    {course.duration_minutes ? ` · about ${course.duration_minutes} min` : ""}
+                  </div>
+                  {course.description && <p>{course.description}</p>}
+                  {!course.prerequisite_met && course.prerequisite_course_title && (
+                    <p>Finish <strong>{course.prerequisite_course_title}</strong> first.</p>
+                  )}
+                  <div className="portal-card-actions">
+                    {course.enrolled ? (
+                      <button type="button" className="primary-button" onClick={() => openCourse(course.id)}>
+                        {course.progress_percent > 0 ? "Continue" : "Start"}
+                      </button>
+                    ) : course.can_self_enroll ? (
+                      <button type="button" className="secondary-button" onClick={() => selfEnroll(course.id)}>
+                        Join this course
+                      </button>
+                    ) : (
+                      <small>Ask your teacher to add you to this course.</small>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {!coursesLoading && !courses.length && (
+                <div className="portal-card">No courses for this student yet.</div>
+              )}
+            </div>
+          )}
+
+          {!loading && activeTab === "courses" && activeCourse && (
+            <div className="portal-stack">
+              <div className="portal-card">
+                <div className="portal-card-title">
+                  <strong>{activeCourse.course.title}</strong>
+                  <span className="status pending">{activeCourse.enrollment.progress_percent}% done</span>
+                  {activeCourse.enrollment.status === "Completed" && (
+                    <span className="status active">Completed</span>
+                  )}
+                </div>
+                <div className="portal-card-meta">
+                  {[activeCourse.course.subject, activeCourse.course.trainer_name].filter(Boolean).join(" · ")}
+                  {activeCourse.course.enforce_lesson_order ? " · lessons unlock in order" : ""}
+                </div>
+                <div className="portal-card-actions">
+                  <button type="button" className="light-button" onClick={() => { setActiveCourse(null); loadCourses(selectedId); }}>
+                    Back to courses
+                  </button>
+                </div>
+              </div>
+
+              {activeCourse.sections.map((section) => (
+                <div className="portal-card" key={section.id}>
+                  <div className="portal-card-title">
+                    <strong>{section.sequence_no}. {section.title}</strong>
+                  </div>
+                  {section.description && <p>{section.description}</p>}
+                  <div className="portal-stack" style={{ marginTop: 12 }}>
+                    {section.lessons.map((lesson) => (
+                      <div className="portal-card-inset" key={lesson.id}>
+                        <div className="portal-card-title">
+                          <strong>{lesson.title}</strong>
+                          {lesson.completed && <span className="status active">Done</span>}
+                          {lesson.locked && <span className="status inactive">Locked</span>}
+                          {!lesson.is_required && <span className="status pending">Optional</span>}
+                        </div>
+                        {lesson.description && <p>{lesson.description}</p>}
+
+                        {lesson.locked ? (
+                          <small>Finish the earlier lessons to open this.</small>
+                        ) : (
+                          <>
+                            {lesson.content_type === "text" && lesson.content && <p>{lesson.content}</p>}
+                            {["link", "video", "document"].includes(lesson.content_type) && lesson.url && (
+                              <a href={resolveFileUrl(lesson.url)} target="_blank" rel="noreferrer">
+                                Open {lesson.content_type}
+                              </a>
+                            )}
+                            {lesson.content_type === "resource" && lesson.resource && (
+                              lesson.resource.resource_type === "Note" ? (
+                                <p>{lesson.resource.content}</p>
+                              ) : (
+                                <a href={resolveFileUrl(lesson.resource.url)} target="_blank" rel="noreferrer">
+                                  Open {lesson.resource.resource_type.toLowerCase()}
+                                </a>
+                              )
+                            )}
+                            <div className="portal-card-actions">
+                              {lesson.content_type === "scorm" && lesson.scorm_package_id && (
+                                <button type="button" className="primary-button" onClick={() => openScormLesson(lesson.scorm_package_id)}>
+                                  Launch module
+                                </button>
+                              )}
+                              {lesson.content_type === "online_test" && (
+                                <button type="button" className="secondary-button" onClick={() => setActiveTab("tests")}>
+                                  Go to Online Tests
+                                </button>
+                              )}
+                              {lesson.content_type === "assignment" && (
+                                <button type="button" className="secondary-button" onClick={() => setActiveTab("homework")}>
+                                  Go to Homework
+                                </button>
+                              )}
+                              {["view", "manual"].includes(lesson.completion_rule) && !lesson.completed && (
+                                <button type="button" className="primary-button" onClick={() => completeLesson(lesson.id)}>
+                                  Mark as done
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {!section.lessons.length && <small>No lessons in this section yet.</small>}
+                  </div>
+                </div>
+              ))}
+
+              {!!activeCourse.sessions.length && (
+                <div className="portal-card">
+                  <div className="portal-card-title"><strong>Sessions</strong></div>
+                  <div className="table-wrapper">
+                    <table className="classic-table">
+                      <thead>
+                        <tr><th>Session</th><th>When</th><th>Where</th><th>Trainer</th></tr>
+                      </thead>
+                      <tbody>
+                        {activeCourse.sessions.map((session) => (
+                          <tr key={session.id}>
+                            <td>{session.title}</td>
+                            <td>{session.starts_at ? new Date(`${session.starts_at}Z`).toLocaleString() : "TBC"}</td>
+                            <td>
+                              {session.mode === "online" && session.meeting_url ? (
+                                <a href={session.meeting_url} target="_blank" rel="noreferrer">Join online</a>
+                              ) : (session.venue || session.mode)}
+                            </td>
+                            <td>{session.trainer_name || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="portal-card">
+                <div className="portal-card-title"><strong>My notes</strong></div>
+                <div className="portal-card-meta">Private to you — staff cannot read these.</div>
+                {courseNotes.map((note) => (
+                  <div className="portal-card-inset" key={note.id}>
+                    <p>{note.body}</p>
+                    <div className="portal-card-actions">
+                      <button type="button" className="light-button" onClick={() => deleteNote(note.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+                <form className="classic-form" onSubmit={saveNote}>
+                  <div className="form-field">
+                    <textarea rows={2} value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="Jot something down…" />
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="secondary-button">Save note</button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="portal-card">
+                <div className="portal-card-title"><strong>Rate this course</strong></div>
+                <form className="classic-form" onSubmit={submitRating}>
+                  <div className="form-grid">
+                    <div className="form-field">
+                      <label>Rating</label>
+                      <select value={ratingValue} onChange={(e) => setRatingValue(e.target.value)}>
+                        <option value={0}>Choose…</option>
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <option key={value} value={value}>{value} / 5</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label>Comment</label>
+                      <textarea rows={2} value={ratingComment} onChange={(e) => setRatingComment(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="secondary-button" disabled={!Number(ratingValue)}>
+                      Save rating
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {!loading && activeTab === "forum" && !activeThread && (
+            <div className="portal-stack">
+              {topicsLoading && <div className="portal-card">Loading discussion…</div>}
+              {!topicsLoading && topics.map((topic) => (
+                <div className="portal-card" key={topic.id}>
+                  <div className="portal-card-title">
+                    <strong>{topic.is_pinned ? "📌 " : ""}{topic.title}</strong>
+                    {topic.is_locked && <span className="status inactive">Locked</span>}
+                  </div>
+                  <div className="portal-card-meta">
+                    {topic.post_count} post{topic.post_count === 1 ? "" : "s"}
+                    {topic.last_post_at ? ` · last ${new Date(`${topic.last_post_at}Z`).toLocaleString()}` : ""}
+                    {` · opened by ${topic.created_by_name}`}
+                  </div>
+                  <div className="portal-card-actions">
+                    <button type="button" className="primary-button" onClick={() => openThread(topic.id)}>
+                      Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!topicsLoading && !topics.length && (
+                <div className="portal-card">No discussion topics yet.</div>
+              )}
+            </div>
+          )}
+
+          {!loading && activeTab === "forum" && activeThread && (
+            <div className="portal-stack">
+              <div className="portal-card">
+                <div className="portal-card-title">
+                  <strong>{activeThread.topic.title}</strong>
+                  {activeThread.topic.is_locked && <span className="status inactive">Locked</span>}
+                </div>
+                <div className="portal-card-actions">
+                  <button type="button" className="light-button" onClick={() => { setActiveThread(null); loadTopics(selectedId); }}>
+                    Back to topics
+                  </button>
+                </div>
+              </div>
+
+              {activeThread.posts.map((post) => (
+                <div
+                  className="portal-card"
+                  key={post.id}
+                  style={{ marginLeft: post.parent_post_id ? 24 : 0 }}
+                >
+                  <div className="portal-card-title">
+                    <strong>{post.author_name}</strong>
+                    {post.is_staff && <span className="status active">Staff</span>}
+                  </div>
+                  <div className="portal-card-meta">
+                    {post.created_at ? new Date(`${post.created_at}Z`).toLocaleString() : ""}
+                  </div>
+                  <p>{post.body}</p>
+                  {!activeThread.topic.is_locked && (
+                    <div className="portal-card-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => setForumReplyTo(post.parent_post_id || post.id)}
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {activeThread.topic.is_locked ? (
+                <div className="portal-card">This topic is closed for new replies.</div>
+              ) : (
+                <form className="portal-card classic-form" onSubmit={postToThread}>
+                  <div className="form-field">
+                    <label>{forumReplyTo ? "Your reply" : "Add to the discussion"}</label>
+                    <textarea rows={3} value={forumReply} onChange={(e) => setForumReply(e.target.value)} />
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="primary-button"><Send size={16} /> Post</button>
+                    {forumReplyTo && (
+                      <button type="button" className="light-button" onClick={() => setForumReplyTo(null)}>
+                        Cancel reply
+                      </button>
+                    )}
+                  </div>
+                </form>
               )}
             </div>
           )}

@@ -35,6 +35,9 @@ import {
   BookMarked,
   DoorOpen,
   MonitorPlay,
+  Route as RouteIcon,
+  PlayCircle,
+  MessagesSquare,
 } from "lucide-react";
 import { getUser } from "../auth";
 import { useI18n } from "../i18n";
@@ -119,6 +122,30 @@ export default function Sidebar({ onNavigate }) {
       path: "/homework",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "homework",
+      group: "Academics",
+    },
+    {
+      label: "Courses",
+      icon: RouteIcon,
+      path: "/courses",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "courses",
+      group: "Academics",
+    },
+    {
+      label: "SCORM Content",
+      icon: PlayCircle,
+      path: "/scorm-content",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "scorm",
+      group: "Academics",
+    },
+    {
+      label: "Discussion Forums",
+      icon: MessagesSquare,
+      path: "/discussions",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "discussions",
       group: "Academics",
     },
     {
