@@ -161,7 +161,7 @@
                                 <input type="text" id="barcode-scan-purchase" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('purchase')" onfocus="showBarcodeSuggestions('purchase')" onblur="hideBarcodeSuggestions('purchase')" onkeydown="handleBarcodeKey(event, 'purchase')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
                                 <div id="barcode-suggest-purchase" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
                             </div>
-                            <button onclick="addItemOrScan('purchase')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                            <button onclick="addItem('purchase')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
                             </button>
                         </div>
@@ -222,7 +222,7 @@
                                 <input type="text" id="barcode-scan-product" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('product')" onfocus="showBarcodeSuggestions('product')" onblur="hideBarcodeSuggestions('product')" onkeydown="handleBarcodeKey(event, 'product')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
                                 <div id="barcode-suggest-product" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
                             </div>
-                            <button onclick="addItemOrScan('product')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                            <button onclick="addItem('product')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
                             </button>
                         </div>
@@ -2118,18 +2118,15 @@
             renderBarcodeSuggestions(section);
         }
 
-        // Picking off the list completes the code into the box rather than
-        // adding the piece outright: the operator sees which piece they landed
-        // on before Add Item (or Enter) commits it.
         function pickBarcodeSuggestion(section, index) {
             const entry = barcodeSuggestState[section][index];
             if (!entry) return;
             hideBarcodeSuggestions(section);
             const input = document.getElementById('barcode-scan-' + section);
-            if (input) {
-                input.value = entry.code;
-                input.focus();
-            }
+            // The box empties only once the piece is in, so a refused code stays
+            // on screen to be corrected.
+            if (addBarcodeRecord(section, entry.record, entry.code) && input) input.value = '';
+            if (input) input.focus();
         }
 
         function handleBarcodeKey(event, section) {
@@ -2148,28 +2145,18 @@
             // form submit is what would answer it.
             event.preventDefault();
 
-            // Enter completes a half-typed code into the box; when the box
-            // already holds the code in full - a scanner has just typed it, or
-            // a pick put it there - Enter is what adds the piece.
-            const entry = barcodeSuggestState[section][barcodeActiveSuggestion[section]];
-            const input = document.getElementById('barcode-scan-' + section);
-            if (entry && entry.code !== normalizeBarcode(input ? input.value : '')) {
-                pickBarcodeSuggestion(section, barcodeActiveSuggestion[section]);
+            // Enter takes the highlighted piece, which is the first match, so a
+            // scanner's trailing Enter lands the code it just typed. A code with
+            // no match left in the list is still looked up, in case the list was
+            // closed by hand.
+            const active = barcodeActiveSuggestion[section];
+            if (active !== -1) {
+                pickBarcodeSuggestion(section, active);
                 return;
             }
-            addItemOrScan(section);
-        }
-
-        // Add Item with a code in the box adds that piece; with an empty box it
-        // adds a blank row exactly as it always did.
-        function addItemOrScan(section) {
             const input = document.getElementById('barcode-scan-' + section);
             const code = normalizeBarcode(input ? input.value : '');
-            if (!code) {
-                addItem(section);
-                return;
-            }
-            addItemByBarcode(section, code);
+            if (code) addItemByBarcode(section, code);
         }
 
         async function addItemByBarcode(section, code) {
@@ -2208,10 +2195,25 @@
                 return false;
             }
 
-            applyBarcodeToRow(addItem(section), section, record, code);
+            applyBarcodeToRow(spareRowFor(section), section, record, code);
             const label = barcodeSuggestionLabel({ code: code, record: record });
             showToast(`Added ${label} (${code}).`, 'success');
             return true;
+        }
+
+        // The table opens with a blank row, and Add Item leaves more of them. A
+        // scan fills the first one that has no item on it rather than pushing a
+        // new row under it - the blank the operator is looking at is the one
+        // they expect to fill. Only when every row is spoken for does a scan add
+        // one of its own.
+        function spareRowFor(section) {
+            const tbody = document.getElementById(`tbody-${section}`);
+            const spare = Array.from(tbody.children).find(tr => {
+                if (tr.dataset.barcode || tr._srcRecord) return false;
+                const item = tr.querySelector('.input-item');
+                return !item || !item.value;
+            });
+            return spare || addItem(section);
         }
 
         function applyBarcodeToRow(tr, section, record, code) {

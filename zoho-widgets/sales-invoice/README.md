@@ -14,12 +14,18 @@ subform, which is what the Barcode screen lists and what
 `Barcode_Item_Details_Report` exposes. Typing into a section's **Barcode
 Scan…** box searches those pieces as you type and drops the matches into a
 list under the box, each read as **`item name - design`** with its code
-beneath. Picking one — click, or arrow keys and Enter — completes its code
-into the box, so a piece can be found without typing its code out in full;
-**Add Item** (or Enter) then commits it. Enter only completes while the
-box holds less than the whole code, so a scanner, which sends the code and
-its own Enter, still adds the piece in one go.
+beneath. Picking one — click, or arrow keys and Enter — puts it straight on
+the table, so a piece can be added without typing its code out in full and
+without a second click. A scanner's trailing Enter takes the first match,
+which is the code it just sent.
 
+**Add Item** is untouched by any of this: it adds a blank row, whatever is
+in the box.
+
+- **Which row it fills.** The first row with no item on it — the blank the
+  table opens with, or one **Add Item** left — because that is the blank
+  the operator is looking at. A row is only added when every row already
+  holds a piece.
 - **What it fetches.** Item Detail, Design and Purity. A scan says which
   piece this is; it does not price it, so quantity, weights, rates,
   amounts, TCH and discount stay as they are for the counter to enter.
@@ -52,9 +58,6 @@ its own Enter, still adds the piece in one go.
   is on. An unknown code adds nothing. A code whose `Item_Detail` is not in
   `Item_Master_Report` still fills the row, but says so: the item has to be
   picked by hand or the row will not save.
-
-An empty box leaves **Add Item** doing exactly what it always did — adding
-a blank row.
 
 Both Product Information and Purchase Old Gold have the box wired.
 Purchase has no Design column of its own, so it fetches the item and its
