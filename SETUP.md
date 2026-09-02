@@ -119,6 +119,11 @@ In CI/production just `pip install pytest` and run `python -m pytest`.
 
 ## 8. Deploying: Vercel (frontend) + Render (backend) + Postgres
 
+- **Demo accounts**: `SEED_DEMO_USERS` defaults to `false`, so a production
+  deploy that leaves it unset is safe by default (the demo passwords in
+  `app/seed.py` are public knowledge). Don't set it to `true` in production —
+  each real school's first Admin comes from the Platform Console's "create
+  school" flow instead, with a password the platform owner chooses.
 - **Frontend**: set `VITE_API_BASE_URL` to the backend's public URL in the
   Vercel project's environment variables (see `frontend/.env.example`).
   `frontend/vercel.json` adds the SPA rewrite `BrowserRouter` needs so deep
@@ -2157,7 +2162,13 @@ Two hostile-archive defences, both enforced before anything is written:
 **zip slip** (a member resolving outside the package directory) and
 **decompression bombs** (caps on total uncompressed size and member count).
 Limits are `MAX_SCORM_PACKAGE_MB` (80), `MAX_SCORM_UNCOMPRESSED_MB` (400) and
-`MAX_SCORM_MEMBERS` (5000); content lives under `SCORM_CONTENT_DIR`.
+`MAX_SCORM_MEMBERS` (5000); content lives under `SCORM_CONTENT_DIR`, which
+**must stay outside `UPLOAD_DIR`**. `UPLOAD_DIR` is mounted as a public
+static path at `/uploads`, so a SCORM directory nested inside it would serve
+course files to anyone holding the URL, bypassing the per-tenant check
+`/scorm/content` makes before handing one over. The default
+(`./scorm_content`) already sits outside it, and a test asserts the two do
+not nest.
 
 **Why the player is served by the API, not the React app.** A SCO finds its
 LMS by walking up to `window.parent.API` (1.2) or `window.parent.API_1484_11`

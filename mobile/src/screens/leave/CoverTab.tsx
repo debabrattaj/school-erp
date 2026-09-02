@@ -159,6 +159,7 @@ export default function CoverTab() {
                 data={[...candidates].sort((a, b) => Number(b.available) - Number(a.available))}
                 keyExtractor={(c) => String(c.teacher_id)}
                 style={{ maxHeight: 400 }}
+                ListEmptyComponent={<EmptyView message="No eligible substitutes for this slot." />}
                 renderItem={({ item }) => (
                   <Pressable
                     disabled={!item.available || assigning}

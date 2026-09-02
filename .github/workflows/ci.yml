@@ -5,6 +5,11 @@ on:
     branches: [main, master]
   pull_request:
 
+# Least-privilege default: this workflow only checks out the repo, installs
+# deps, and runs tests/build -- it never writes back to the repository.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest

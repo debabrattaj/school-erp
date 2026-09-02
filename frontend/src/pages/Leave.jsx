@@ -71,7 +71,7 @@ function studentLabel(students, studentId) {
 }
 
 export default function Leave() {
-  const canApprove = hasAccess(APPROVER_ROLES);
+  const canApprove = hasAccess(APPROVER_ROLES, "manage");
 
   const [activeTab, setActiveTab] = useState("requests");
   const [message, setMessage] = useState("");

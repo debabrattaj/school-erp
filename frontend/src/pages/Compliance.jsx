@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, Edit, PlusCircle
 
 import API from "../api";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import { isSafeExternalUrl } from "../utils/files";
 
 const emptyTaskForm = {
   task_code: "",
@@ -234,7 +235,7 @@ export default function Compliance() {
           { key: "owner", label: "Owner", render: (task) => task.owner || "-" },
           { key: "due_date", label: "Due Date", render: (task) => task.due_date || "-" },
           { key: "risk_level", label: "Risk", render: (task) => task.risk_level || "-" },
-          { key: "evidence_link", label: "Evidence", render: (task) => task.evidence_link ? <a href={task.evidence_link} target="_blank" rel="noreferrer">Open</a> : "-", value: (task) => task.evidence_link || "" },
+          { key: "evidence_link", label: "Evidence", render: (task) => isSafeExternalUrl(task.evidence_link) ? <a href={task.evidence_link} target="_blank" rel="noreferrer">Open</a> : task.evidence_link ? "Invalid link" : "-", value: (task) => task.evidence_link || "" },
           { key: "status", label: "Status", render: (task) => <span className={task.status === "Deferred" ? "status danger" : "status active"}>{task.status || "Open"}</span>, value: (task) => task.status || "Open" },
           { key: "actions", label: "Actions", hideable: false, actions: false, render: (task) => <div className="action-buttons"><button type="button" className="edit-button" onClick={() => handleEdit(task)} title="Edit"><Edit size={15} /></button><button type="button" className="delete-button" onClick={() => handleDelete(task.id)} title="Delete"><Trash2 size={15} /></button></div>, value: () => "" },
         ]}

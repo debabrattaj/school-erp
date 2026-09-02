@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 // The live backend on cPanel — the same origin the admin frontend is built
 // against (VITE_API_BASE_URL in .cpanel.yml). No trailing slash: request paths
@@ -6,6 +7,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // "Server settings" (e.g. http://10.0.2.2:8000 to reach a local backend from the
 // Android emulator), same pattern as the native Android app this replaces.
 export const DEFAULT_API_BASE_URL = "https://schoolment.com/school-erp";
+
+// The token is the one piece of session state worth the extra cost of
+// Keychain/Keystore-backed storage (SecureStore) rather than plain
+// AsyncStorage — everything else here (account code, cached server URL) is
+// not a credential and staying in AsyncStorage keeps it readable synchronously
+// on the render path where that's needed.
 
 /** Requests that hang longer than this fail rather than spinning forever. */
 const REQUEST_TIMEOUT_MS = 30000;
@@ -31,11 +38,81 @@ export async function getApiBase(): Promise<string> {
   return cachedBaseUrl;
 }
 
-export async function setApiBase(url: string) {
-  const clean = normaliseBaseUrl(url) || DEFAULT_API_BASE_URL;
-  cachedBaseUrl = clean;
-  await AsyncStorage.setItem(API_BASE_KEY, clean);
-  return clean;
+/**
+ * Whether `hostname` is a private/loopback address — legitimate for on-prem
+ * or local-network deployments and local dev, where plain HTTP is acceptable
+ * because the traffic never leaves the local network. Everything else must
+ * use HTTPS, since the login screen POSTs the school code, email and
+ * password to whatever this resolves to.
+ */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") return true;
+  if (host.endsWith(".local")) return true; // mDNS
+
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 127) return true; // 127.0.0.0/8
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  }
+  return false;
+}
+
+/**
+ * Splits a user-entered server URL into scheme + authority (host[:port]) +
+ * the rest of the URL, defaulting to https when no scheme was typed. Kept as
+ * simple string parsing rather than the `URL` global, which isn't reliably
+ * available in the Hermes runtime this app ships on.
+ */
+function parseServerUrl(input: string): { protocol: "http" | "https"; authority: string; hostname: string; rest: string } | null {
+  const m = input.match(/^(?:(https?):\/\/)?([^/?#]+)(.*)$/i);
+  if (!m || !m[2]) return null;
+  const protocol = (m[1]?.toLowerCase() as "http" | "https" | undefined) || "https";
+  const authority = m[2];
+  const hostname = authority.replace(/:\d+$/, "");
+  return { protocol, authority, hostname, rest: m[3] || "" };
+}
+
+export type ApiBaseValidation = { ok: true; url: string; upcasted: boolean } | { ok: false; error: string };
+
+/**
+ * Validates (and where possible auto-fixes) the "Server settings" override
+ * on the login screen. Plain HTTP is only accepted to a private/loopback
+ * host; for any other host it is silently upgraded to HTTPS rather than
+ * rejected outright, since the more common case is a user pasting a bare
+ * `http://` URL by habit rather than deliberately choosing cleartext.
+ */
+export function validateApiBase(input: string): ApiBaseValidation {
+  const trimmed = input.trim();
+  if (!trimmed) return { ok: false, error: "Enter a server URL." };
+
+  const parsed = parseServerUrl(trimmed);
+  if (!parsed || !parsed.hostname) {
+    return { ok: false, error: "That doesn't look like a valid URL." };
+  }
+
+  const upcasted = parsed.protocol === "http" && !isPrivateHost(parsed.hostname);
+  const protocol = upcasted ? "https" : parsed.protocol;
+  const path = parsed.rest.replace(/\/+$/, "");
+  return { ok: true, url: `${protocol}://${parsed.authority}${path}`, upcasted };
+}
+
+/**
+ * Saves the "Server settings" override, after running it through
+ * `validateApiBase`. Returns the validation result so callers (the login
+ * screen) can surface an error or an "upgraded to https" notice; the base
+ * URL is only written to storage when validation succeeds.
+ */
+export async function setApiBase(url: string): Promise<ApiBaseValidation> {
+  const result = validateApiBase(url);
+  if (!result.ok) return result;
+  cachedBaseUrl = result.url;
+  await AsyncStorage.setItem(API_BASE_KEY, result.url);
+  return result;
 }
 
 /**
@@ -48,7 +125,7 @@ export function getApiBaseSync() {
 }
 
 export async function getToken() {
-  return AsyncStorage.getItem(TOKEN_KEY);
+  return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
 export async function getAccountCode() {
@@ -56,11 +133,11 @@ export async function getAccountCode() {
 }
 
 export async function setSession(token: string, accountCode: string) {
-  await Promise.all([AsyncStorage.setItem(TOKEN_KEY, token), AsyncStorage.setItem(ACCOUNT_CODE_KEY, accountCode)]);
+  await Promise.all([SecureStore.setItemAsync(TOKEN_KEY, token), AsyncStorage.setItem(ACCOUNT_CODE_KEY, accountCode)]);
 }
 
 export async function clearSession() {
-  await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(ACCOUNT_CODE_KEY)]);
+  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), AsyncStorage.removeItem(ACCOUNT_CODE_KEY)]);
 }
 
 export class ApiError extends Error {

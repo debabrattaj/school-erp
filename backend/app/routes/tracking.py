@@ -16,8 +16,17 @@ from app import tracking as tracking_logic
 from app.database import get_db
 from app.models import User
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/transport-tracking", tags=["Vehicle Tracking"])
+# Vehicle tracking rides on the transport module -- gate every route
+# (including device ingest, which resolves its tenant from the same
+# X-School-Code header require_feature reads) so the flag is a real
+# entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/transport-tracking",
+    tags=["Vehicle Tracking"],
+    dependencies=[Depends(require_feature("transport"))],
+)
 
 MANAGERS = ["Admin", "Principal", "Accounts"]
 READERS = ["Admin", "Principal", "Accounts", "Teacher"]

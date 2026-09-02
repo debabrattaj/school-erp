@@ -91,7 +91,7 @@ function reviewStatusClass(status) {
 }
 
 export default function Syllabus() {
-  const canReview = hasAccess(REVIEWER_ROLES);
+  const canReview = hasAccess(REVIEWER_ROLES, "manage");
 
   const [classes, setClasses] = useState([]);
   const [classSubjects, setClassSubjects] = useState([]);

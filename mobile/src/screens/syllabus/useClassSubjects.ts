@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import type { Option } from "../../components/Pickers";
 
@@ -28,10 +28,16 @@ export function useClassSubjects() {
   const [byId, setById] = useState<Map<number, ClassSubjectInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setError(null);
       try {
         const [classSubjects, classes] = await Promise.all([
           api.get<ClassSubjectRow[]>("/class-subjects/"),
@@ -60,7 +66,7 @@ export function useClassSubjects() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  return { options, byId, loading, error };
+  return { options, byId, loading, error, reload };
 }

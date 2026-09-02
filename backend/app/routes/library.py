@@ -36,8 +36,15 @@ from app.schemas import (
     LibrarySettingsUpdate,
 )
 from app.security import require_roles
+from app.tenant import require_feature
 
-router = APIRouter(prefix="/library", tags=["Library"])
+# Library is an optional, separately-sold module -- gate every route so the
+# tenant.py flag is a real entitlement check, not just a sidebar hint.
+router = APIRouter(
+    prefix="/library",
+    tags=["Library"],
+    dependencies=[Depends(require_feature("library"))],
+)
 
 # Book/settings catalogue management stays Admin/Principal, matching the
 # original module. Day-to-day desk work (issue, return, renew, reserve) also

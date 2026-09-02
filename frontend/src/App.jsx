@@ -239,7 +239,7 @@ export default function App() {
         <Route
           path="/fees"
           element={
-            <ProtectedRoute allowedRoles={["Admin", "Accounts"]}>
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Accounts"]}>
               <ProtectedLayout>
                 <Fees />
               </ProtectedLayout>

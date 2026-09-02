@@ -21,3 +21,16 @@ export async function uploadFile(file, endpoint = "/uploads/") {
   const res = await API.post(endpoint, form);
   return res.data?.url || "";
 }
+
+// Guards free-text, user-entered link fields (e.g. compliance evidence
+// links) before they're rendered as an <a href>. Without this a
+// "javascript:" URI would execute in whoever's session clicks it.
+export function isSafeExternalUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
