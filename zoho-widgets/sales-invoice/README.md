@@ -75,6 +75,20 @@ purity; `BARCODE_SCAN_CONFIG.SECTIONS` holds the per-section mapping.
   between its mousedown and its mouseup, and the click would never arrive —
   the list would look right and do nothing.
 
+## TCH service types
+
+The row's TCH dropdown carries the same three options as the Barcode
+widget's Service Type, value for value — `percentage` / "Percentage (%)",
+`piece` / "Per Piece", `rate` / "Per Rate/gm" — so a scanned piece's
+`Service_Item` selects here rather than falling through as an unknown
+type. A row that stored the label instead of the code selects the same
+option; both are matched.
+
+The rate box means different things to the two rate types, so the amount
+comes off a different basis: **Per Rate/gm** multiplies by net weight,
+**Per Piece** by quantity. Percentage stays as it was — a percentage of
+the board amount.
+
 ## Field names
 
 `ITEM_SOURCES`, `BARCODE_SCAN_CONFIG` and the `*_CONFIG` objects at the top
