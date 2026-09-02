@@ -373,3 +373,46 @@ def test_scorm_blocked_when_module_disabled(client, auth, learner):
         ).status_code == 403
     finally:
         _set_feature("scorm", True)
+
+
+def test_package_store_is_outside_the_public_uploads_mount():
+    """UPLOAD_DIR is served as static files at /uploads with no auth. A SCORM
+    directory nested inside it would hand out course content to anyone with
+    the URL, sidestepping the per-tenant check /scorm/content makes -- so the
+    two paths must not nest, by default or by configuration.
+    """
+    import importlib
+    import os
+
+    from app import scorm_storage
+    from app.routes import uploads as uploads_routes
+
+    def resolved(module, attr, env_var, default):
+        # What a deployment actually ends up with: its env var, or the
+        # module's own default when it sets none.
+        return os.path.realpath(os.getenv(env_var, default))
+
+    upload_dir = resolved(uploads_routes, "UPLOAD_DIR", "UPLOAD_DIR", "./uploads")
+    scorm_dir = resolved(scorm_storage, "SCORM_CONTENT_DIR", "SCORM_CONTENT_DIR", "./scorm_content")
+
+    assert not scorm_dir.startswith(upload_dir + os.sep), (
+        f"SCORM content dir {scorm_dir} is inside the public uploads mount {upload_dir}"
+    )
+
+    # And the shipped default, independent of whatever this test run sets.
+    for var in ("SCORM_CONTENT_DIR", "UPLOAD_DIR"):
+        os.environ.pop(var, None)
+    try:
+        default_scorm = os.path.realpath(
+            importlib.reload(scorm_storage).SCORM_CONTENT_DIR
+        )
+        default_upload = os.path.realpath(
+            importlib.reload(uploads_routes).UPLOAD_DIR
+        )
+        assert not default_scorm.startswith(default_upload + os.sep)
+    finally:
+        # Restore the test environment's paths for everything that follows.
+        os.environ["SCORM_CONTENT_DIR"] = scorm_dir
+        os.environ["UPLOAD_DIR"] = upload_dir
+        importlib.reload(scorm_storage)
+        importlib.reload(uploads_routes)

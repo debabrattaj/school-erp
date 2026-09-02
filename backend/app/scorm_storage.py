@@ -25,7 +25,12 @@ import uuid
 import zipfile
 from xml.etree import ElementTree
 
-SCORM_CONTENT_DIR = os.getenv("SCORM_CONTENT_DIR", "./uploads/scorm")
+# Deliberately NOT under UPLOAD_DIR: that directory is mounted as a public
+# StaticFiles path at /uploads, so anything beneath it is fetchable with no
+# token at all -- which would sidestep the per-tenant check that
+# routes/scorm.py:scorm_content does before serving a file. Keep this path
+# outside UPLOAD_DIR wherever you point it.
+SCORM_CONTENT_DIR = os.getenv("SCORM_CONTENT_DIR", "./scorm_content")
 MAX_PACKAGE_MB = int(os.getenv("MAX_SCORM_PACKAGE_MB", "80"))
 MAX_UNCOMPRESSED_MB = int(os.getenv("MAX_SCORM_UNCOMPRESSED_MB", "400"))
 MAX_MEMBERS = int(os.getenv("MAX_SCORM_MEMBERS", "5000"))
