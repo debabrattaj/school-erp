@@ -11,7 +11,10 @@ from app import proctoring_storage
 from app.database import get_db
 from app import models, schemas
 from app.models import User
+from app.routes import courses as course_routes
+from app.routes import discussions as discussion_routes
 from app.routes import lms as lms_routes
+from app.routes import scorm as scorm_routes
 from app.routes.fees import calculate_fee_status, generate_receipt_no, get_settings
 from app.security import require_roles
 from app.tenant import get_account_code_from_request, is_feature_enabled, require_feature
@@ -940,6 +943,696 @@ def portal_submit_homework(
     db.commit()
     db.refresh(submission)
     return _submission_public(submission)
+
+
+# ---------------- Courses, SCORM and discussions ----------------
+
+COURSE_GATE = [Depends(require_feature("courses"))]
+SCORM_GATE = [Depends(require_feature("scorm"))]
+DISCUSSION_GATE = [Depends(require_feature("discussions"))]
+
+
+def _lesson_public(lesson, state: dict, db: Session) -> dict:
+    """What a learner may see of a lesson. A locked lesson keeps its title
+    and type -- knowing what is coming is the point of a sequence -- but not
+    its content."""
+    locked = state.get("locked", False)
+    payload = {
+        "id": lesson.id,
+        "section_id": lesson.section_id,
+        "sequence_no": lesson.sequence_no,
+        "title": lesson.title,
+        "description": lesson.description,
+        "content_type": lesson.content_type,
+        "completion_rule": lesson.completion_rule,
+        "is_required": lesson.is_required,
+        "min_score": lesson.min_score,
+        "estimated_minutes": lesson.estimated_minutes,
+        "completed": state.get("completed", False),
+        "score": state.get("score"),
+        "locked": locked,
+    }
+    if locked:
+        return payload
+
+    payload["content"] = lesson.content
+    payload["url"] = lesson.url
+    payload["resource_id"] = lesson.resource_id
+    payload["scorm_package_id"] = lesson.scorm_package_id
+    payload["online_test_id"] = lesson.online_test_id
+    payload["assignment_id"] = lesson.assignment_id
+    payload["session_id"] = lesson.session_id
+
+    if lesson.content_type == "resource" and lesson.resource_id:
+        resource = (
+            db.query(models.LearningResource)
+            .filter(models.LearningResource.id == lesson.resource_id)
+            .first()
+        )
+        if resource:
+            payload["resource"] = {
+                "id": resource.id,
+                "title": resource.title,
+                "resource_type": resource.resource_type,
+                "url": resource.url,
+                "content": resource.content,
+            }
+    return payload
+
+
+@router.get("/students/{student_id}/courses", dependencies=COURSE_GATE)
+def portal_list_courses(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Courses this student is on, plus any they may join themselves."""
+    student = ensure_student_access(db, current_user, student_id)
+
+    enrollments = {
+        row.course_id: row
+        for row in db.query(models.CourseEnrollment)
+        .filter(models.CourseEnrollment.student_id == student_id)
+        .all()
+    }
+    for enrollment in enrollments.values():
+        course_routes.recompute_enrollment(db, enrollment, commit=False)
+    db.commit()
+
+    visible = course_routes.visible_courses_query(db, student, date.today()).all()
+    by_id = {course.id: course for course in visible}
+    # A course a learner was put on stays visible even if it is later
+    # unpublished or their class changes: half-finished work must not vanish.
+    for course_id in enrollments:
+        if course_id not in by_id:
+            course = db.query(models.Course).filter(models.Course.id == course_id).first()
+            if course:
+                by_id[course_id] = course
+
+    items = []
+    for course in by_id.values():
+        enrollment = enrollments.get(course.id)
+        prerequisite_met = course_routes.course_prerequisite_met(db, course, student_id)
+        prerequisite_title = None
+        if course.prerequisite_course_id:
+            prior = (
+                db.query(models.Course)
+                .filter(models.Course.id == course.prerequisite_course_id)
+                .first()
+            )
+            prerequisite_title = prior.title if prior else None
+
+        items.append({
+            "id": course.id,
+            "code": course.code,
+            "title": course.title,
+            "description": course.description,
+            "cover_image_url": course.cover_image_url,
+            "course_type": course.course_type,
+            "subject": course.subject,
+            "trainer_name": course.trainer_name_snapshot,
+            "duration_minutes": course.duration_minutes,
+            "is_mandatory": course.is_mandatory,
+            "enrolled": enrollment is not None,
+            "status": enrollment.status if enrollment else None,
+            "progress_percent": enrollment.progress_percent if enrollment else 0,
+            "can_self_enroll": bool(
+                course.allow_self_enrollment
+                and enrollment is None
+                and course.status == "Published"
+                and prerequisite_met
+            ),
+            "prerequisite_met": prerequisite_met,
+            "prerequisite_course_title": prerequisite_title,
+        })
+
+    items.sort(key=lambda item: (not item["enrolled"], item["title"].lower()))
+    return items
+
+
+@router.post("/students/{student_id}/courses/{course_id}/enroll", dependencies=COURSE_GATE)
+def portal_self_enroll(
+    student_id: int,
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    course = (
+        course_routes.visible_courses_query(db, student, date.today())
+        .filter(models.Course.id == course_id)
+        .first()
+    )
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if not course.allow_self_enrollment:
+        raise HTTPException(
+            status_code=400, detail="This course is not open for self-enrollment."
+        )
+    if not course_routes.course_prerequisite_met(db, course, student_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Finish the prerequisite course before starting this one.",
+        )
+
+    enrollment = course_routes.get_or_create_enrollment(
+        db, course, student, "self", current_user.name
+    )
+    return {
+        "enrolled": True,
+        "status": enrollment.status,
+        "progress_percent": enrollment.progress_percent,
+    }
+
+
+def _require_enrollment(db: Session, course_id: int, student_id: int):
+    enrollment = (
+        db.query(models.CourseEnrollment)
+        .filter(
+            models.CourseEnrollment.course_id == course_id,
+            models.CourseEnrollment.student_id == student_id,
+        )
+        .first()
+    )
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="You are not enrolled on this course.")
+    return enrollment
+
+
+@router.get("/students/{student_id}/courses/{course_id}", dependencies=COURSE_GATE)
+def portal_course_detail(
+    student_id: int,
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+    enrollment = _require_enrollment(db, course_id, student_id)
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    state = course_routes.recompute_enrollment(db, enrollment)
+    sections = (
+        db.query(models.CourseSection)
+        .filter(models.CourseSection.course_id == course_id)
+        .order_by(models.CourseSection.sequence_no, models.CourseSection.id)
+        .all()
+    )
+    lessons_by_section: dict[int, list] = {}
+    for lesson in course_routes._ordered_lessons(db, course_id):
+        lessons_by_section.setdefault(lesson.section_id, []).append(
+            _lesson_public(lesson, state.get(lesson.id, {}), db)
+        )
+
+    sessions = (
+        db.query(models.CourseSession)
+        .filter(models.CourseSession.course_id == course_id)
+        .order_by(models.CourseSession.starts_at.asc().nullslast())
+        .all()
+    )
+    feedback = (
+        db.query(models.CourseFeedback)
+        .filter(
+            models.CourseFeedback.course_id == course_id,
+            models.CourseFeedback.student_id == student_id,
+        )
+        .first()
+    )
+
+    return {
+        "course": {
+            "id": course.id,
+            "title": course.title,
+            "description": course.description,
+            "course_type": course.course_type,
+            "subject": course.subject,
+            "trainer_name": course.trainer_name_snapshot,
+            "enforce_lesson_order": course.enforce_lesson_order,
+        },
+        "enrollment": {
+            "status": enrollment.status,
+            "progress_percent": enrollment.progress_percent,
+            "final_score": enrollment.final_score,
+            "completed_at": enrollment.completed_at,
+        },
+        "sections": [
+            {
+                "id": section.id,
+                "title": section.title,
+                "description": section.description,
+                "sequence_no": section.sequence_no,
+                "lessons": lessons_by_section.get(section.id, []),
+            }
+            for section in sections
+        ],
+        "sessions": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "mode": s.mode,
+                "venue": s.venue,
+                "meeting_url": s.meeting_url,
+                "batch_name": s.batch_name,
+                "starts_at": s.starts_at,
+                "ends_at": s.ends_at,
+                "trainer_name": s.trainer_name_snapshot,
+                "status": s.status,
+            }
+            for s in sessions
+        ],
+        "my_feedback": (
+            {"rating": feedback.rating, "comment": feedback.comment} if feedback else None
+        ),
+    }
+
+
+@router.post(
+    "/students/{student_id}/courses/{course_id}/lessons/{lesson_id}/complete",
+    dependencies=COURSE_GATE,
+)
+def portal_complete_lesson(
+    student_id: int,
+    course_id: int,
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Mark a lesson opened or ticked off.
+
+    Only lessons whose completion is the learner's to assert -- reading,
+    watching, following a link. A lesson completed by submitting or scoring
+    is completed by doing that thing, and saying so here does not make it so.
+    """
+    ensure_student_access(db, current_user, student_id)
+    enrollment = _require_enrollment(db, course_id, student_id)
+
+    lesson = (
+        db.query(models.CourseLesson)
+        .filter(
+            models.CourseLesson.id == lesson_id,
+            models.CourseLesson.course_id == course_id,
+        )
+        .first()
+    )
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    state = course_routes.recompute_enrollment(db, enrollment)
+    if state.get(lesson_id, {}).get("locked"):
+        raise HTTPException(
+            status_code=400, detail="Finish the earlier lessons first."
+        )
+    if lesson.completion_rule not in ("view", "manual"):
+        raise HTTPException(
+            status_code=400,
+            detail="This lesson is completed by finishing the activity it opens.",
+        )
+
+    now = datetime.utcnow()
+    progress = (
+        db.query(models.CourseLessonProgress)
+        .filter(
+            models.CourseLessonProgress.enrollment_id == enrollment.id,
+            models.CourseLessonProgress.lesson_id == lesson_id,
+        )
+        .first()
+    )
+    if not progress:
+        progress = models.CourseLessonProgress(
+            enrollment_id=enrollment.id, lesson_id=lesson_id
+        )
+        db.add(progress)
+    progress.status = "Completed"
+    progress.first_viewed_at = progress.first_viewed_at or now
+    progress.completed_at = progress.completed_at or now
+
+    enrollment.started_at = enrollment.started_at or now
+    enrollment.last_activity_at = now
+    db.commit()
+
+    course_routes.recompute_enrollment(db, enrollment)
+    db.refresh(enrollment)
+    return {
+        "completed": True,
+        "progress_percent": enrollment.progress_percent,
+        "status": enrollment.status,
+    }
+
+
+@router.post(
+    "/students/{student_id}/courses/{course_id}/feedback",
+    dependencies=COURSE_GATE,
+)
+def portal_course_feedback(
+    student_id: int,
+    course_id: int,
+    payload: schemas.CourseFeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+    _require_enrollment(db, course_id, student_id)
+
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5.")
+
+    feedback = (
+        db.query(models.CourseFeedback)
+        .filter(
+            models.CourseFeedback.course_id == course_id,
+            models.CourseFeedback.student_id == student_id,
+        )
+        .first()
+    )
+    if not feedback:
+        feedback = models.CourseFeedback(
+            course_id=course_id,
+            student_id=student_id,
+            student_name_snapshot=" ".join(
+                filter(None, [student.first_name, student.last_name])
+            ),
+        )
+        db.add(feedback)
+    feedback.rating = payload.rating
+    feedback.comment = payload.comment
+
+    db.commit()
+    db.refresh(feedback)
+    return {"rating": feedback.rating, "comment": feedback.comment}
+
+
+@router.get("/students/{student_id}/courses/{course_id}/notes", dependencies=COURSE_GATE)
+def portal_list_notes(
+    student_id: int,
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    _require_enrollment(db, course_id, student_id)
+    notes = (
+        db.query(models.CourseNote)
+        .filter(
+            models.CourseNote.course_id == course_id,
+            models.CourseNote.student_id == student_id,
+        )
+        .order_by(models.CourseNote.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": note.id,
+            "lesson_id": note.lesson_id,
+            "body": note.body,
+            "created_at": note.created_at,
+        }
+        for note in notes
+    ]
+
+
+@router.post("/students/{student_id}/courses/{course_id}/notes", dependencies=COURSE_GATE)
+def portal_add_note(
+    student_id: int,
+    course_id: int,
+    payload: schemas.CourseNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """A learner's own notebook. Never shown to staff -- a notebook a teacher
+    can read is not a notebook."""
+    ensure_student_access(db, current_user, student_id)
+    _require_enrollment(db, course_id, student_id)
+
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="A note cannot be empty.")
+
+    note = models.CourseNote(
+        course_id=course_id,
+        lesson_id=payload.lesson_id,
+        student_id=student_id,
+        body=body,
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return {"id": note.id, "lesson_id": note.lesson_id, "body": note.body}
+
+
+@router.delete(
+    "/students/{student_id}/courses/{course_id}/notes/{note_id}",
+    dependencies=COURSE_GATE,
+)
+def portal_delete_note(
+    student_id: int,
+    course_id: int,
+    note_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    ensure_student_access(db, current_user, student_id)
+    note = (
+        db.query(models.CourseNote)
+        .filter(
+            models.CourseNote.id == note_id,
+            models.CourseNote.course_id == course_id,
+            models.CourseNote.student_id == student_id,
+        )
+        .first()
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.commit()
+    return {"message": "Note deleted"}
+
+
+@router.get("/students/{student_id}/scorm", dependencies=SCORM_GATE)
+def portal_list_scorm(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    query = db.query(models.ScormPackage).filter(
+        models.ScormPackage.class_name == student.class_name,
+        models.ScormPackage.status == "Published",
+        (models.ScormPackage.available_from.is_(None))
+        | (models.ScormPackage.available_from <= date.today()),
+    )
+    if student.section:
+        query = query.filter(
+            (models.ScormPackage.section == student.section)
+            | (models.ScormPackage.section.is_(None))
+        )
+    else:
+        query = query.filter(models.ScormPackage.section.is_(None))
+
+    packages = query.order_by(
+        models.ScormPackage.published_at.desc().nullslast(), models.ScormPackage.id.desc()
+    ).all()
+    attempts = {
+        attempt.package_id: attempt
+        for attempt in db.query(models.ScormAttempt)
+        .filter(
+            models.ScormAttempt.student_id == student_id,
+            models.ScormAttempt.package_id.in_([p.id for p in packages] or [0]),
+        )
+        .all()
+    }
+
+    return [
+        {
+            "id": package.id,
+            "title": package.title,
+            "description": package.description,
+            "subject": package.subject,
+            "scorm_version": package.scorm_version,
+            "teacher_name": package.teacher_name_snapshot,
+            "lesson_status": (
+                attempts[package.id].lesson_status if package.id in attempts else "not attempted"
+            ),
+            "score_raw": attempts[package.id].score_raw if package.id in attempts else None,
+            "total_time_seconds": (
+                attempts[package.id].total_time_seconds if package.id in attempts else 0
+            ),
+        }
+        for package in packages
+    ]
+
+
+@router.post("/students/{student_id}/scorm/{package_id}/launch", dependencies=SCORM_GATE)
+def portal_launch_scorm(
+    request: Request,
+    student_id: int,
+    package_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    """Mint a launch URL for the player.
+
+    The player is served by this API rather than the portal because SCORM
+    content reaches its LMS through window.parent, which the same-origin
+    policy blocks across origins.
+    """
+    student = ensure_student_access(db, current_user, student_id)
+
+    package = (
+        db.query(models.ScormPackage)
+        .filter(
+            models.ScormPackage.id == package_id,
+            models.ScormPackage.status == "Published",
+        )
+        .first()
+    )
+    if not package or package.class_name != student.class_name:
+        raise HTTPException(status_code=404, detail="Course content not found")
+    if package.section and package.section != student.section:
+        raise HTTPException(status_code=404, detail="Course content not found")
+    if package.available_from and package.available_from > date.today():
+        raise HTTPException(status_code=404, detail="Course content not found")
+
+    account_code = get_account_code_from_request(request) or "default"
+    token = scorm_routes.create_launch_token(student_id, package_id, account_code)
+    scorm_routes.get_or_create_attempt(db, package, student)
+
+    return {
+        "player_url": f"/scorm/play?token={quote(token)}",
+        "title": package.title,
+        "scorm_version": package.scorm_version,
+    }
+
+
+def _topic_visible_to_student(topic: models.DiscussionTopic, student: models.Student) -> bool:
+    """A family sees a topic on their child's course, or on their class."""
+    if topic.class_name and topic.class_name != student.class_name:
+        return False
+    if topic.section and topic.section != student.section:
+        return False
+    return True
+
+
+@router.get("/students/{student_id}/discussions", dependencies=DISCUSSION_GATE)
+def portal_list_discussions(
+    student_id: int,
+    course_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+
+    enrolled_course_ids = [
+        row.course_id
+        for row in db.query(models.CourseEnrollment)
+        .filter(models.CourseEnrollment.student_id == student_id)
+        .all()
+    ]
+
+    query = db.query(models.DiscussionTopic).filter(
+        (models.DiscussionTopic.course_id.in_(enrolled_course_ids or [0]))
+        | (models.DiscussionTopic.class_name == student.class_name)
+    )
+    if course_id:
+        query = query.filter(models.DiscussionTopic.course_id == course_id)
+
+    topics = query.order_by(
+        models.DiscussionTopic.is_pinned.desc(),
+        models.DiscussionTopic.last_post_at.desc().nullslast(),
+        models.DiscussionTopic.id.desc(),
+    ).all()
+
+    return [
+        {
+            "id": topic.id,
+            "title": topic.title,
+            "course_id": topic.course_id,
+            "subject": topic.subject,
+            "created_by_name": topic.created_by_name,
+            "is_staff": topic.is_staff,
+            "is_pinned": topic.is_pinned,
+            "is_locked": topic.is_locked,
+            "post_count": topic.post_count,
+            "last_post_at": topic.last_post_at,
+        }
+        for topic in topics
+        if _topic_visible_to_student(topic, student)
+    ]
+
+
+def _portal_topic_or_404(db: Session, topic_id: int, student: models.Student):
+    topic = (
+        db.query(models.DiscussionTopic)
+        .filter(models.DiscussionTopic.id == topic_id)
+        .first()
+    )
+    if not topic or not _topic_visible_to_student(topic, student):
+        raise HTTPException(status_code=404, detail="Topic not found")
+    if topic.course_id:
+        enrolled = (
+            db.query(models.CourseEnrollment)
+            .filter(
+                models.CourseEnrollment.course_id == topic.course_id,
+                models.CourseEnrollment.student_id == student.id,
+            )
+            .first()
+        )
+        if not enrolled:
+            raise HTTPException(status_code=404, detail="Topic not found")
+    return topic
+
+
+@router.get("/students/{student_id}/discussions/{topic_id}", dependencies=DISCUSSION_GATE)
+def portal_get_discussion(
+    student_id: int,
+    topic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+    topic = _portal_topic_or_404(db, topic_id, student)
+
+    posts = discussion_routes.visible_posts(db, topic_id, include_hidden=False)
+    return {
+        "topic": {
+            "id": topic.id,
+            "title": topic.title,
+            "course_id": topic.course_id,
+            "is_locked": topic.is_locked,
+            "is_pinned": topic.is_pinned,
+            "created_by_name": topic.created_by_name,
+        },
+        "posts": [
+            discussion_routes.post_response(post, include_hidden_body=False)
+            for post in posts
+        ],
+    }
+
+
+@router.post(
+    "/students/{student_id}/discussions/{topic_id}/posts", dependencies=DISCUSSION_GATE
+)
+def portal_add_discussion_post(
+    student_id: int,
+    topic_id: int,
+    payload: schemas.DiscussionPostCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(PORTAL_ROLES)),
+):
+    student = ensure_student_access(db, current_user, student_id)
+    topic = _portal_topic_or_404(db, topic_id, student)
+
+    if topic.is_locked:
+        raise HTTPException(
+            status_code=400, detail="This topic is closed for new replies."
+        )
+
+    post = discussion_routes.create_post(
+        db, topic, payload.body, current_user, payload.parent_post_id
+    )
+    return discussion_routes.post_response(post, include_hidden_body=False)
 
 
 MESSAGE_ROLES = PORTAL_ROLES + ["Teacher"]

@@ -73,6 +73,9 @@ const ReportCard = lazy(() => import("./pages/ReportCard"));
 const Payroll = lazy(() => import("./pages/Payroll"));
 const Homework = lazy(() => import("./pages/Homework"));
 const LearningResources = lazy(() => import("./pages/LearningResources"));
+const CoursesPage = lazy(() => import("./pages/Courses"));
+const ScormContent = lazy(() => import("./pages/ScormContent"));
+const DiscussionsPage = lazy(() => import("./pages/Discussions"));
 const OnlineTests = lazy(() => import("./pages/OnlineTests"));
 const Biometric = lazy(() => import("./pages/Biometric"));
 const Leave = lazy(() => import("./pages/Leave"));
@@ -283,6 +286,39 @@ export default function App() {
             <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
               <ProtectedLayout>
                 <LearningResources />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/courses"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <CoursesPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/scorm-content"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <ScormContent />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/discussions"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <DiscussionsPage />
               </ProtectedLayout>
             </ProtectedRoute>
           }

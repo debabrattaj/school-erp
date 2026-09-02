@@ -2073,3 +2073,129 @@ size cap as the staff route.
   feedback.
 - **Mobile** — the same two: a *Learning* tab, and hand-in (text plus a
   photo of the work) inside the Homework tab.
+
+## 23. Courses, SCORM and discussion forums
+
+The structured half of the LMS, modelled on what Moodle and Zoho People's LMS
+actually do: `backend/app/routes/courses.py` (course outline, enrollment and
+progress), `backend/app/routes/scorm.py` with `backend/app/scorm_storage.py`
+(package ingest and runtime), and `backend/app/routes/discussions.py`.
+
+Three flags, because these are three decisions a school makes separately:
+
+| Flag | Default | Why |
+| --- | --- | --- |
+| `courses` | **on** | Part of the teaching workflow, like Homework and Syllabus. |
+| `scorm` | **off** | It accepts uploaded web content and hosts it — a real storage commitment. |
+| `discussions` | **off** | Student-visible discussion is a safeguarding decision, not a default. |
+
+### Courses
+
+A course is **sections → lessons**. A lesson either carries its own content
+(text, link, video, document) or **points at something that already exists**
+in the ERP: a learning resource, a SCORM package, an online test, an
+assignment, or an instructor-led session.
+
+Pointing rather than copying is the whole design. A student who hands work in
+through the Homework tab sees their course move on without doing anything
+twice, and material used in a course is the same row its own module shows —
+it cannot drift.
+
+**Progress is derived, never reported.** Each lesson states how it is
+finished (Moodle's activity-completion idea), and that judgement is
+recomputed from the evidence:
+
+- `view` — opening it is enough (a resource view counts automatically)
+- `submit` — a submission, a submitted test attempt, or a SCORM
+  completed/passed
+- `score` — the above, and at or above `min_score`
+- `manual` — the learner ticks it off
+
+Because it is recomputed rather than incremented, a grade corrected downward
+past its bar takes the tick back with it, and editing a course's outline
+restates every learner's percentage instead of leaving it describing the old
+shape.
+
+**Sequencing and prerequisites** live on the course rather than in a separate
+"learning path" entity — an ordered course already is the path, and one
+structure means a learner sees one progress figure instead of two that can
+disagree:
+
+- `enforce_lesson_order` gates each lesson behind the earlier **required**
+  ones. Off makes the course a menu, which is what an e-material shelf wants.
+- `is_required = false` makes a lesson visible and completable but never
+  blocking — extension reading, a practice quiz.
+- `prerequisite_lesson_id` names a specific earlier gate, so a course can fan
+  out (three optional readings, then one gate).
+- `prerequisite_course_id` requires another course to be **Completed** first.
+  Enforced on staff nomination as well as self-enrollment, because it is a
+  rule about the learner, not about the button they pressed.
+
+A locked lesson still shows its title and type in the portal — knowing what
+is coming is the point of a sequence — but its content is withheld
+server-side, not merely hidden in the client.
+
+**Enrollment** covers the three ways it happens: `auto_enroll_class` puts the
+whole class on at publish (idempotent — re-publishing disturbs nobody),
+staff nominate individuals, and `allow_self_enrollment` lets learners join.
+
+**Blended courses** add instructor-led sessions with batches, venues or
+meeting links, and a register. Marking attendance completes a `session`
+lesson.
+
+Learners rate a course once and keep private notes. Private means staff
+cannot read them: a notebook a teacher can read is not a notebook.
+
+### SCORM
+
+Packages are uploaded as `.zip`, unpacked once, and served as static content.
+`imsmanifest.xml` is parsed for the version, entry point and mastery score;
+where the zip has a wrapping folder (authoring tools do this constantly) the
+package root is wherever the manifest is, not the top of the archive.
+
+Two hostile-archive defences, both enforced before anything is written:
+**zip slip** (a member resolving outside the package directory) and
+**decompression bombs** (caps on total uncompressed size and member count).
+Limits are `MAX_SCORM_PACKAGE_MB` (80), `MAX_SCORM_UNCOMPRESSED_MB` (400) and
+`MAX_SCORM_MEMBERS` (5000); content lives under `SCORM_CONTENT_DIR`.
+
+**Why the player is served by the API, not the React app.** A SCO finds its
+LMS by walking up to `window.parent.API` (1.2) or `window.parent.API_1484_11`
+(2004). The same-origin policy blocks that across origins, and the admin app
+and this API are on different origins in every deployment here. So
+`GET /scorm/play` returns a page that defines the API object and iframes the
+content next to it. The portal just opens it.
+
+Authentication is a **short-lived, purpose-scoped launch token**, because an
+iframe and its subresources cannot carry an `Authorization` header. An
+ordinary session token is refused — `scope` must be `scorm-launch` — and the
+token names its tenant, so it cannot drive another school's package.
+`SCORM_LAUNCH_TOKEN_MINUTES` defaults to 180.
+
+Both versions' vocabularies are normalised onto SCORM 1.2's `lesson_status`,
+so reporting needn't know how a package was authored, and a `completed` with
+a mastery score becomes `passed`/`failed`. Session time is parsed from both
+`HHHH:MM:SS` and ISO-8601 durations and accumulated.
+
+### Discussion forums
+
+Topics belong to a course, or to a class where a school runs discussion
+without one. A family sees topics on their child's **enrolled** courses and
+their class; anything else is 404, checked server-side.
+
+- **Moderation hides, never deletes.** The record of what was said is exactly
+  what a safeguarding conversation later needs. A hidden post keeps its place
+  so replies do not become orphans, but its text reaches staff only.
+- **Locking** stops the class replying, not staff — a teacher's closing word
+  is usually why a topic was locked.
+- Replies nest **one level**: a reply to a reply attaches to the post that
+  started the sub-thread, which keeps rendering flat and cheap.
+
+### Frontend
+
+- **Staff** — *Courses* (`/courses`) with an outline builder, enrollment and
+  progress board; *SCORM Content* (`/scorm-content`) for upload, publish and
+  per-learner progress; *Discussion Forums* (`/discussions`) with pin, lock
+  and hide.
+- **Portal and mobile** — *Courses* (work through lessons, launch SCORM,
+  notes, rating) and *Discussion* tabs, both behind their feature flags.

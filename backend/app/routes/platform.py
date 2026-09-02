@@ -91,6 +91,9 @@ FEATURE_LABELS = {
     "leave": "Staff Leave & Substitution",
     "syllabus": "Syllabus & Lesson Plans",
     "lms": "Learning Resources & Submissions",
+    "courses": "Courses & Learning Paths",
+    "scorm": "SCORM Content (add-on)",
+    "discussions": "Course Discussion Forums",
     "timetable_auto_generation": "Automatic Timetable Generation",
     "admission_reminders": "Admissions Follow-up Reminders",
 }
