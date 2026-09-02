@@ -666,12 +666,13 @@
             <td>
                 <select class="input-tch-type" onchange="updateTchFieldVisibility(this)">
                     <option value="">-Select-</option>
-                    <!-- The same three the Barcode widget's Service Type offers,
-                         value for value, so a scanned piece's Service_Item
-                         selects here instead of falling through as unknown. -->
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="piece">Per Piece</option>
-                    <option value="rate">Per Rate/gm</option>
+                    <option value="Gross Weight (GWT)">Gross Weight (GWT)</option>
+                    <option value="Minimum Gross Weight (MGW)">Minimum Gross Weight (MGW)</option>
+                    <option value="Net Weight (NWT)">Net Weight (NWT)</option>
+                    <option value="Piece Rate (PRT)">Piece Rate (PRT)</option>
+                    <option value="Percentage (PER)">Percentage (PER)</option>
+                    <option value="Pure Percentage (PP)">Pure Percentage (PP)</option>
+                    <option value="Other Rate">Other Rate</option>
                 </select>
             </td>
             <td><input type="number" class="input-tch-pct" value="0" readonly oninput="updateTchFromPercent(this)"></td>
@@ -1879,10 +1880,7 @@
             toggleColumns();
         }
 
-        const TCH_RATE_TYPES = ['piece', 'rate'];
-        // Per Rate/gm charges by weight, Per Piece by count - one rate box, two
-        // units, so the amount cannot come from the same multiplier for both.
-        const TCH_PER_GRAM = 'rate';
+        const TCH_RATE_TYPES = ['Piece Rate (PRT)', 'Other Rate'];
 
         function updateTchFieldVisibility(selectEl) {
             const tr = selectEl.closest('tr');
@@ -1926,13 +1924,10 @@
 
         function updateTchFromRate(rtInput) {
             const tr = rtInput.closest('tr');
-            const typeEl = tr.querySelector('.input-tch-type');
+            const qty = getVal(tr, '.input-qty');
             const rate = getVal(tr, '.input-tch-rt');
-            const basis = (typeEl && typeEl.value === TCH_PER_GRAM)
-                ? getVal(tr, '.input-nwt')
-                : getVal(tr, '.input-qty');
 
-            tr.querySelector('.input-tch-amt').value = (basis * rate).toFixed(2);
+            tr.querySelector('.input-tch-amt').value = (qty * rate).toFixed(2);
             tr.querySelector('.input-tch-pct').value = '0';
 
             calcRow(rtInput);
@@ -2341,17 +2336,12 @@
             if (!typeSelect) return;
 
             const type = zohoValueToText(record[charge.typeField]);
-            // A tagged row can carry either the stored code ("rate") or the
-            // label the operator saw ("Per Rate/gm"), so both select the option.
-            const wanted = type.toLowerCase();
-            const match = Array.from(typeSelect.options).find(option =>
-                option.value && (option.value.toLowerCase() === wanted ||
-                                 option.textContent.trim().toLowerCase() === wanted));
-            if (type && !match) {
+            const known = Array.from(typeSelect.options).some(option => option.value === type);
+            if (type && !known) {
                 console.warn('Barcode row carries "' + type + '" for ' + charge.typeField +
                     ', which the row\'s dropdown does not list. Leaving the type blank.');
             }
-            typeSelect.value = match ? match.value : '';
+            typeSelect.value = known ? type : '';
             charge.onTypeChange(typeSelect);
 
             charge.numbers.forEach(map => {
