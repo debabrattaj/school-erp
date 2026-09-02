@@ -40,6 +40,24 @@
         .toast.show { opacity: 1; transform: translateX(0); }
         .toast-success { background-color: #16a34a; }
         .toast-error { background-color: #dc2626; }
+
+        /* The barcode list is styled here rather than with utility classes so
+           its position and stacking do not depend on the CDN stylesheet having
+           loaded - an unpositioned list still swallows the clicks aimed at it. */
+        .bc-suggest-wrap { position: relative; display: inline-block; }
+        .bc-suggest {
+            display: none;
+            position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 60;
+            width: 300px; max-height: 260px; overflow-y: auto;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+            padding: 4px 0; text-align: left;
+        }
+        .bc-suggest.open { display: block; }
+        .bc-suggest-item { padding: 7px 12px; cursor: pointer; }
+        .bc-suggest-item:hover, .bc-suggest-item.active { background-color: #eef2ff; }
+        .bc-suggest-name { display: block; font-size: 13px; font-weight: 500; color: #1e293b; }
+        .bc-suggest-code { display: block; font-size: 11px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     </style>
 </head>
 <body class="p-4 md:p-6 text-slate-800">
@@ -157,9 +175,9 @@
                             <h2 class="text-[15px] font-semibold text-slate-800">Purchase Information</h2>
                         </div>
                         <div class="flex gap-2">
-                            <div class="relative">
+                            <div class="bc-suggest-wrap">
                                 <input type="text" id="barcode-scan-purchase" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('purchase')" onfocus="showBarcodeSuggestions('purchase')" onblur="hideBarcodeSuggestions('purchase')" onkeydown="handleBarcodeKey(event, 'purchase')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
-                                <div id="barcode-suggest-purchase" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
+                                <div id="barcode-suggest-purchase" class="bc-suggest" onmousedown="event.preventDefault()"></div>
                             </div>
                             <button onclick="addItem('purchase')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
@@ -218,9 +236,9 @@
                             <h2 class="text-[15px] font-semibold text-slate-800">Product Information</h2>
                         </div>
                         <div class="flex gap-2">
-                            <div class="relative">
+                            <div class="bc-suggest-wrap">
                                 <input type="text" id="barcode-scan-product" placeholder="Barcode Scan..." autocomplete="off" oninput="showBarcodeSuggestions('product')" onfocus="showBarcodeSuggestions('product')" onblur="hideBarcodeSuggestions('product')" onkeydown="handleBarcodeKey(event, 'product')" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
-                                <div id="barcode-suggest-product" onmousedown="event.preventDefault()" class="hidden absolute right-0 top-full mt-1 z-30 w-[290px] max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1"></div>
+                                <div id="barcode-suggest-product" class="bc-suggest" onmousedown="event.preventDefault()"></div>
                             </div>
                             <button onclick="addItem('product')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
@@ -2070,33 +2088,44 @@
             const matches = barcodeSuggestState[section];
             box.innerHTML = '';
             if (!matches.length) {
-                box.classList.add('hidden');
+                box.classList.remove('open');
                 return;
             }
 
             matches.forEach((entry, index) => {
                 const option = document.createElement('div');
-                option.className = 'px-3 py-2 cursor-pointer flex flex-col ' +
-                    (index === barcodeActiveSuggestion[section] ? 'bg-indigo-50' : 'hover:bg-slate-50');
+                option.className = 'bc-suggest-item';
                 option.onclick = () => pickBarcodeSuggestion(section, index);
-                option.onmouseenter = () => {
-                    barcodeActiveSuggestion[section] = index;
-                    renderBarcodeSuggestions(section);
-                };
+                // Only the highlight moves on hover. Rebuilding the list here
+                // would destroy the row under the cursor between its mousedown
+                // and its mouseup, and the click would never be delivered.
+                option.onmouseenter = () => markActiveSuggestion(section, index);
 
                 const name = document.createElement('span');
-                name.className = 'font-medium text-slate-800';
+                name.className = 'bc-suggest-name';
                 name.textContent = barcodeSuggestionLabel(entry);
 
                 const code = document.createElement('span');
-                code.className = 'text-[11px] text-slate-500 font-mono';
+                code.className = 'bc-suggest-code';
                 code.textContent = entry.code;
 
                 option.appendChild(name);
                 option.appendChild(code);
                 box.appendChild(option);
             });
-            box.classList.remove('hidden');
+            markActiveSuggestion(section, barcodeActiveSuggestion[section]);
+            box.classList.add('open');
+        }
+
+        // Moves the highlight over the rows already on screen, leaving them in
+        // place - see the note on hover above.
+        function markActiveSuggestion(section, index) {
+            barcodeActiveSuggestion[section] = index;
+            const box = document.getElementById('barcode-suggest-' + section);
+            if (!box) return;
+            Array.from(box.children).forEach((option, i) => {
+                option.classList.toggle('active', i === index);
+            });
         }
 
         function hideBarcodeSuggestions(section) {
@@ -2105,7 +2134,7 @@
             const box = document.getElementById('barcode-suggest-' + section);
             if (box) {
                 box.innerHTML = '';
-                box.classList.add('hidden');
+                box.classList.remove('open');
             }
         }
 
@@ -2113,9 +2142,8 @@
             const matches = barcodeSuggestState[section];
             if (!matches.length) return;
             const count = matches.length;
-            barcodeActiveSuggestion[section] =
-                ((barcodeActiveSuggestion[section] + step) % count + count) % count;
-            renderBarcodeSuggestions(section);
+            markActiveSuggestion(section,
+                ((barcodeActiveSuggestion[section] + step) % count + count) % count);
         }
 
         function pickBarcodeSuggestion(section, index) {

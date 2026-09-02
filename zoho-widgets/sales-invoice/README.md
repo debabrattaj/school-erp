@@ -63,6 +63,11 @@ Both Product Information and Purchase Old Gold have the box wired.
 Purchase has no Design column of its own, so it fetches the item and its
 purity; `BARCODE_SCAN_CONFIG.SECTIONS` holds the per-section mapping.
 
+- **Hover.** Moving the mouse over a row moves the highlight and nothing
+  else. Re-rendering the list there would destroy the row under the cursor
+  between its mousedown and its mouseup, and the click would never arrive —
+  the list would look right and do nothing.
+
 ## Field names
 
 `ITEM_SOURCES`, `BARCODE_SCAN_CONFIG` and the `*_CONFIG` objects at the top
