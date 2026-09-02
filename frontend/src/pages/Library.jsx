@@ -112,7 +112,7 @@ export default function Library() {
   const { settings: schoolSettings } = useSchoolSettings();
   const formatMoney = (value) => formatMoneyUtil(value, schoolSettings?.currency);
   const remindersEnabled = isFeatureEnabled("library_reminders");
-  const canRunReminders = hasAccess(["Admin", "Principal"]);
+  const canRunReminders = hasAccess(["Admin", "Principal"], "manage");
 
   const [activeTab, setActiveTab] = useState("books");
   const [books, setBooks] = useState([]);

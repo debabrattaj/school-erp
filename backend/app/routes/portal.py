@@ -2643,6 +2643,7 @@ def student_bus(
     student_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
+    _feature: None = Depends(require_feature("transport")),
 ):
     """The bus this student is assigned to, where it is, and its next stop."""
     from app import tracking as tracking_logic

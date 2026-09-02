@@ -119,6 +119,11 @@ In CI/production just `pip install pytest` and run `python -m pytest`.
 
 ## 8. Deploying: Vercel (frontend) + Render (backend) + Postgres
 
+- **Demo accounts**: `SEED_DEMO_USERS` defaults to `false`, so a production
+  deploy that leaves it unset is safe by default (the demo passwords in
+  `app/seed.py` are public knowledge). Don't set it to `true` in production —
+  each real school's first Admin comes from the Platform Console's "create
+  school" flow instead, with a password the platform owner chooses.
 - **Frontend**: set `VITE_API_BASE_URL` to the backend's public URL in the
   Vercel project's environment variables (see `frontend/.env.example`).
   `frontend/vercel.json` adds the SPA rewrite `BrowserRouter` needs so deep

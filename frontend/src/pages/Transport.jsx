@@ -181,7 +181,7 @@ export default function Transport() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const canManageTracking = hasAccess(["Admin", "Principal", "Accounts"]);
+  const canManageTracking = hasAccess(["Admin", "Principal", "Accounts"], "manage");
 
   const [livePositions, setLivePositions] = useState([]);
   const [liveLoading, setLiveLoading] = useState(false);

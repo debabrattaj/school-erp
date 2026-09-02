@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 def _demo_users_enabled() -> bool:
-    # Defaults to enabled so dev setups and existing deploys (where the
-    # seeded demo admin is the only way in) keep working. Set
-    # SEED_DEMO_USERS=false once real admin accounts exist — the demo
-    # passwords are public knowledge (they ship in this file).
-    return os.getenv("SEED_DEMO_USERS", "true").strip().lower() in ("1", "true", "yes")
+    # Off by default: the seeded accounts' passwords are public knowledge
+    # (they ship in this file), so a production deploy that never sets this
+    # var must not get them for free. Local dev opts in via .env.example
+    # (SEED_DEMO_USERS=true) and the real multi-tenant onboarding flow
+    # (POST /platform/schools) already creates each school's first Admin
+    # with an operator-chosen password, independent of this flag.
+    return os.getenv("SEED_DEMO_USERS", "false").strip().lower() in ("1", "true", "yes")
 
 
 def seed_default_users():

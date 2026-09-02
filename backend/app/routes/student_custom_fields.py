@@ -2,12 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models import User
+from app.security import require_roles
 from app import models, schemas
 
 router = APIRouter(
     prefix="/students",
     tags=["Student Custom Fields"]
 )
+
+MANAGERS = ["Admin", "Principal"]
+READERS = ["Admin", "Principal", "Teacher"]
 
 
 def get_student_or_404(student_id: int, db: Session):
@@ -27,7 +32,10 @@ def get_student_or_404(student_id: int, db: Session):
     "/custom-fields/all",
     response_model=list[schemas.StudentCustomFieldValueResponse]
 )
-def list_all_student_custom_fields(db: Session = Depends(get_db)):
+def list_all_student_custom_fields(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(READERS)),
+):
     """Every legacy per-student custom field value, across all students, in
     one query -- lets a report/list view avoid one request per student."""
     values = (
@@ -48,7 +56,8 @@ def list_all_student_custom_fields(db: Session = Depends(get_db)):
 )
 def get_student_custom_fields(
     student_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(READERS)),
 ):
     get_student_or_404(student_id, db)
 
@@ -69,7 +78,8 @@ def get_student_custom_fields(
 def save_student_custom_fields(
     student_id: int,
     payload: schemas.StudentCustomFieldBulkSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     get_student_or_404(student_id, db)
 
@@ -125,16 +135,18 @@ def save_student_custom_fields(
 def update_student_custom_fields(
     student_id: int,
     payload: schemas.StudentCustomFieldBulkSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
-    return save_student_custom_fields(student_id, payload, db)
+    return save_student_custom_fields(student_id, payload, db, current_user)
 
 
 @router.delete("/{student_id}/custom-fields/{field_key}")
 def delete_student_custom_field(
     student_id: int,
     field_key: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     get_student_or_404(student_id, db)
 

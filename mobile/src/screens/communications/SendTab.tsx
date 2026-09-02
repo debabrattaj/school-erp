@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, View, StyleSheet } from "react-native";
 import { showAlert } from "../../utils/alert";
 import { api, ApiError } from "../../api/client";
@@ -48,22 +48,32 @@ export default function SendTab() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // A ref (not state) so a fetch that resolves after either an unmount or a
+  // newer retry doesn't overwrite what's on screen with stale data.
+  const templatesLoadRef = useRef(0);
+  const loadTemplates = useCallback(() => {
+    const loadId = ++templatesLoadRef.current;
+    setTemplatesError(null);
     api
       .get<Template[]>("/communications/templates/")
       .then((rows) => {
-        if (!cancelled) setTemplates(rows.filter((t) => t.status !== "Inactive"));
+        if (templatesLoadRef.current === loadId) setTemplates(rows.filter((t) => t.status !== "Inactive"));
       })
       .catch((e) => {
         // Templates are optional here, but swallowing the failure silently made
         // a permissions or connectivity problem look like "no templates yet".
-        if (!cancelled) setTemplatesError(e instanceof ApiError ? String(e.message) : "Could not load templates.");
+        if (templatesLoadRef.current === loadId) {
+          setTemplatesError(e instanceof ApiError ? String(e.message) : "Could not load templates.");
+        }
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadTemplates();
+    return () => {
+      templatesLoadRef.current++;
+    };
+  }, [loadTemplates]);
 
   const templateOptions = useMemo(
     () => templates.map((t) => ({ label: t.template_name, value: String(t.id), subtitle: t.category })),
@@ -152,8 +162,11 @@ export default function SendTab() {
         <Text style={styles.hint}>Leave section blank to message every section of this class.</Text>
 
         <SectionLabel>Message</SectionLabel>
-        {templatesError ? <Text style={styles.templatesError}>{templatesError}</Text> : null}
-        {templateOptions.length > 0 ? (
+        {templatesError ? (
+          <Text style={styles.templatesError} onPress={loadTemplates}>
+            {templatesError} Tap to retry.
+          </Text>
+        ) : templateOptions.length > 0 ? (
           <Field label="Start from a template">
             <OptionPicker label="Template" options={templateOptions} value={form.templateId} onChange={applyTemplate} placeholder="None" />
           </Field>
@@ -212,6 +225,7 @@ export default function SendTab() {
 const styles = StyleSheet.create({
   content: { padding: spacing(4) },
   hint: { ...type.caption, color: colors.textMuted, marginTop: spacing(1.5) },
+  templatesError: { ...type.caption, color: colors.danger, marginTop: spacing(1.5), marginBottom: spacing(2) },
   chip: {
     ...type.caption,
     color: colors.textMuted,
@@ -223,5 +237,4 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, color: colors.onPrimary },
   resultLine: { ...type.body, color: colors.text, marginBottom: spacing(1) },
-  templatesError: { ...type.caption, color: colors.danger, marginBottom: spacing(2) },
 });

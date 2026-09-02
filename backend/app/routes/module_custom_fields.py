@@ -2,12 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models import User
+from app.security import require_roles
 from app import models, schemas
 
 router = APIRouter(
     prefix="/module-custom-fields",
     tags=["Module Custom Fields"]
 )
+
+MANAGERS = ["Admin", "Principal"]
+READERS = ["Admin", "Principal", "Teacher"]
 
 
 ALLOWED_MODULES = {
@@ -106,7 +111,8 @@ def check_record_exists(module_name: str, record_id: int, db: Session):
 )
 def list_module_custom_fields(
     module_name: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(READERS)),
 ):
     """Every custom field value for a module, across all its records, in one
     query -- lets a report/list view avoid one request per record."""
@@ -132,7 +138,8 @@ def list_module_custom_fields(
 def get_module_custom_fields(
     module_name: str,
     record_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(READERS)),
 ):
     normalized_module = normalize_module_name(module_name)
     check_record_exists(normalized_module, record_id, db)
@@ -158,7 +165,8 @@ def save_module_custom_fields(
     module_name: str,
     record_id: int,
     payload: schemas.ModuleCustomFieldBulkSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     normalized_module = normalize_module_name(module_name)
     check_record_exists(normalized_module, record_id, db)
@@ -220,13 +228,15 @@ def update_module_custom_fields(
     module_name: str,
     record_id: int,
     payload: schemas.ModuleCustomFieldBulkSave,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     return save_module_custom_fields(
         module_name=module_name,
         record_id=record_id,
         payload=payload,
-        db=db
+        db=db,
+        current_user=current_user,
     )
 
 
@@ -235,7 +245,8 @@ def delete_module_custom_field(
     module_name: str,
     record_id: int,
     field_key: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     normalized_module = normalize_module_name(module_name)
     check_record_exists(normalized_module, record_id, db)
@@ -268,7 +279,8 @@ def delete_module_custom_field(
 def delete_all_module_custom_fields(
     module_name: str,
     record_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(MANAGERS)),
 ):
     normalized_module = normalize_module_name(module_name)
     check_record_exists(normalized_module, record_id, db)

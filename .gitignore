@@ -53,3 +53,7 @@ backend/uploads_private/
 # Passenger's restart-trigger file/directory (touched by .cpanel.yml on
 # deploy; pure runtime state, nothing to track)
 backend/tmp/
+
+# Developer-machine file listings (e.g. `dir /s` on Windows) accidentally
+# committed once before -- not product-relevant, may leak a local path/username.
+PROJECT_FILE_LIST.txt

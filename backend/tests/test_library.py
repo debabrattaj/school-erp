@@ -12,6 +12,40 @@ from datetime import date, timedelta
 import pytest
 
 
+def _set_library_enabled(enabled: bool):
+    from app.tenant import CentralSessionLocal, get_account
+    from app.tenant_models import SchoolFeature
+
+    account = get_account("default")
+    db = CentralSessionLocal()
+    try:
+        row = (
+            db.query(SchoolFeature)
+            .filter(
+                SchoolFeature.account_id == account["id"],
+                SchoolFeature.feature_key == "library",
+            )
+            .first()
+        )
+        if row:
+            row.is_enabled = enabled
+        else:
+            db.add(SchoolFeature(
+                account_id=account["id"], feature_key="library", is_enabled=enabled,
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture(autouse=True)
+def library_enabled(client):
+    """Sold separately, so it ships disabled -- switch it on for these tests."""
+    _set_library_enabled(True)
+    yield
+    _set_library_enabled(False)
+
+
 @pytest.fixture()
 def db_session(client):
     from app.database import SessionLocal

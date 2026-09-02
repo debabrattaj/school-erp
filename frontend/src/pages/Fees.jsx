@@ -323,7 +323,7 @@ export default function Fees() {
   const [generationRunsLoading, setGenerationRunsLoading] = useState(false);
 
   const feeRemindersEnabled = isFeatureEnabled("fee_reminders");
-  const canRunRemindersNow = hasAccess(["Admin", "Principal"]);
+  const canRunRemindersNow = hasAccess(["Admin", "Principal"], "manage");
 
   const [reminderView, setReminderView] = useState("rules");
   const [reminderRules, setReminderRules] = useState([]);
@@ -342,7 +342,7 @@ export default function Fees() {
   const [reminderHistoryLoading, setReminderHistoryLoading] = useState(false);
   const [reminderHistoryStatusFilter, setReminderHistoryStatusFilter] = useState("");
 
-  const canApproveConcessions = hasAccess(["Admin", "Principal"]);
+  const canApproveConcessions = hasAccess(["Admin", "Principal"], "manage");
 
   const [concessionView, setConcessionView] = useState("schemes");
 
@@ -364,7 +364,7 @@ export default function Fees() {
   const [concessionPreviewLoading, setConcessionPreviewLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
 
-  const canEditPaymentConfig = hasAccess(["Admin", "Principal"]);
+  const canEditPaymentConfig = hasAccess(["Admin", "Principal"], "manage");
 
   const [paymentView, setPaymentView] = useState("settings");
   const [paymentConfig, setPaymentConfig] = useState(null);
