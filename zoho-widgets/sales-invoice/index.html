@@ -2118,15 +2118,18 @@
             renderBarcodeSuggestions(section);
         }
 
+        // Picking off the list completes the code into the box rather than
+        // adding the piece outright: the operator sees which piece they landed
+        // on before Add Item (or Enter) commits it.
         function pickBarcodeSuggestion(section, index) {
             const entry = barcodeSuggestState[section][index];
             if (!entry) return;
-            const input = document.getElementById('barcode-scan-' + section);
             hideBarcodeSuggestions(section);
-            if (addBarcodeRecord(section, entry.record, entry.code) && input) {
-                input.value = '';
+            const input = document.getElementById('barcode-scan-' + section);
+            if (input) {
+                input.value = entry.code;
+                input.focus();
             }
-            if (input) input.focus();
         }
 
         function handleBarcodeKey(event, section) {
@@ -2144,9 +2147,17 @@
             // Scanners send Enter after the code; without this the widget-wide
             // form submit is what would answer it.
             event.preventDefault();
-            const active = barcodeActiveSuggestion[section];
-            if (active !== -1) pickBarcodeSuggestion(section, active);
-            else addItemOrScan(section);
+
+            // Enter completes a half-typed code into the box; when the box
+            // already holds the code in full - a scanner has just typed it, or
+            // a pick put it there - Enter is what adds the piece.
+            const entry = barcodeSuggestState[section][barcodeActiveSuggestion[section]];
+            const input = document.getElementById('barcode-scan-' + section);
+            if (entry && entry.code !== normalizeBarcode(input ? input.value : '')) {
+                pickBarcodeSuggestion(section, barcodeActiveSuggestion[section]);
+                return;
+            }
+            addItemOrScan(section);
         }
 
         // Add Item with a code in the box adds that piece; with an empty box it

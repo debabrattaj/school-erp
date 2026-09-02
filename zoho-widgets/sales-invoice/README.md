@@ -14,9 +14,11 @@ subform, which is what the Barcode screen lists and what
 `Barcode_Item_Details_Report` exposes. Typing into a section's **Barcode
 Scan…** box searches those pieces as you type and drops the matches into a
 list under the box, each read as **`item name - design`** with its code
-beneath. Picking one — click, or arrow keys and Enter — adds it, so a
-piece can be taken off the list without typing its code out in full. A
-code typed or scanned in full still works through **Add Item** or Enter.
+beneath. Picking one — click, or arrow keys and Enter — completes its code
+into the box, so a piece can be found without typing its code out in full;
+**Add Item** (or Enter) then commits it. Enter only completes while the
+box holds less than the whole code, so a scanner, which sends the code and
+its own Enter, still adds the piece in one go.
 
 - **What it fetches.** Item Detail, Design and Purity. A scan says which
   piece this is; it does not price it, so quantity, weights, rates,
