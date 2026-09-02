@@ -43,7 +43,7 @@
   "headline": "How Biometric Attendance Systems Work in Schools",
   "description": "A plain-language explainer of how biometric attendance systems work, what they're good for, and where they fit relative to digital attendance marking.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-08-14",
+  "dateModified": "2026-09-01",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/how-biometric-attendance-systems-work/"
@@ -144,7 +144,43 @@
         </div>
         <div class="policy-block">
           <h2>Where Schoolment fits</h2>
-          <p>Schoolment's <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a> module focuses on fast one-tap digital marking with live visibility for parents — it does not currently integrate with biometric hardware. If your school already has biometric devices in place, that data would need a separate integration path; this module covers the software side of attendance, timetabling, and reporting.</p>
+          <p>Schoolment's <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a> module focuses on fast one-tap digital marking with live visibility for parents, and biometric attendance is available as a separately licensed add-on for schools that need it. Either way, the software side is the same: the scan or the tap becomes an attendance record that feeds reporting, report cards and the parent portal, rather than a log sitting in a device.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Fingerprint, face and card: what each is actually good at</h2>
+          <p>"Biometric" covers several technologies with genuinely different failure modes, and the choice matters more than the label:</p>
+          <ul class="check-list">
+            <li><strong>Fingerprint</strong> &mdash; cheapest and most established, but contact-based, slow at a gate where four hundred students arrive in ten minutes, and unreliable on young children and on hands that are wet, dusty or worn.</li>
+            <li><strong>Face recognition</strong> &mdash; contactless and fast, and it handles a crowd at a gate. Highly sensitive to lighting and camera placement, and templates need re-enrolment as children grow.</li>
+            <li><strong>RFID cards</strong> &mdash; not biometric at all, and worth naming because they are frequently sold alongside. Fast and cheap, but a card is transferable, which is the exact problem biometrics were bought to solve.</li>
+            <li><strong>Manual marking</strong> &mdash; still required as a fallback in every deployment, because a substitute teacher, a failed device or a forgotten card is a normal Tuesday.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>Where the device goes decides what you are measuring</h2>
+          <p>A gate installation and a classroom installation answer different questions, and schools regularly buy one expecting the other. A device at the gate tells you a child entered the campus. It says nothing about whether they were in the third-period Chemistry class.</p>
+          <p>A device per classroom answers the period-wise question but multiplies hardware cost and maintenance by the number of rooms. Many schools land on a hybrid &mdash; biometric at the gate for arrival and safety, teacher-marked period attendance for the academic record &mdash; which is only workable if both flow into the same attendance record rather than two systems.</p>
+        </div>
+        <div class="policy-block">
+          <h2>The costs that do not appear on the quotation</h2>
+          <p>Hardware pricing is the easy part of the budget. The ongoing items are what determine whether a deployment survives its second year:</p>
+          <ul class="check-list">
+            <li>Enrolment of every student and staff member, and re-enrolment as intake changes each year.</li>
+            <li>Device maintenance, cleaning and eventual replacement, at every installed point.</li>
+            <li>Power backup and network connectivity at each device location.</li>
+            <li>The exception workload &mdash; students whose scans fail repeatedly need a documented manual path, permanently.</li>
+            <li>Consent records for biometric capture from every guardian, held where you can produce them.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2>Biometric data is the most sensitive record a school will ever hold</h2>
+          <p>This deserves to be a deciding factor rather than a footnote. Face templates and fingerprint templates belong to minors, cannot be reissued if compromised, and generally require verifiable parental consent to process at all.</p>
+          <p>Before signing for hardware, get clear answers on four points: where templates are stored and in what form; whether raw images are retained or only derived templates; what the deletion process is when a student leaves; and whether any of that data reaches a third-party service. If the vendor cannot answer these crisply, the school carries the entire risk. See <a href="/blog/data-privacy-best-practices-student-information-systems/">data privacy best practices for student information systems</a>.</p>
+        </div>
+        <div class="policy-block">
+          <h2>Decide what problem you are solving first</h2>
+          <p>Three questions, honestly answered, settle most biometric decisions. Is proxy attendance actually happening at your school, or is this a precaution against something that has never occurred? Do you need arrival-time evidence for safety and parent communication, which a gate device provides well? Or do you need faster, more reliable period-wise records, which is a software and workflow problem rather than a hardware one?</p>
+          <p>For a large number of schools the honest answer is the third, and one-tap marking on a phone or tablet &mdash; with the timetable behind it so each teacher opens their own period with the right students listed, and parents seeing attendance the same day in the portal and app &mdash; delivers the outcome without a device on any wall. Where the first two answers are yes, the biometric add-on is there. See <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a> and <a href="/blog/signs-your-school-needs-attendance-system/">the signs your school needs an attendance system</a>.</p>
         </div>
       </div>
     </div>
@@ -201,6 +237,11 @@
         <a href="/#suite">Full module suite</a>
         <a href="/#platform">Platform &amp; security</a>
         <a href="/getting-started-with-school-management-portal/">How it works</a>
+        <a href="/#top">Online school management system</a>
+        <a href="/#suite">School ERP software</a>
+        <a href="/#modules">K-12 school ERP</a>
+        <a href="/blog/school-erp-vs-learning-management-system/">LMS for schools</a>
+        <a href="/#mobile-app">Android &amp; iOS app</a>
         <a href="/#contact">Book a demo</a>
       </div>
       <div class="footer-col">
