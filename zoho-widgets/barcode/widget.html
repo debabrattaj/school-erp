@@ -1,0 +1,3133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barcode</title>
+  <style>
+:root {
+  --bg: #f2f4f8;
+  --surface: #ffffff;
+  --border: #e5e8ef;
+  --border-strong: #d8dde7;
+  --text: #131a2b;
+  --text-muted: #6b7385;
+  --text-faint: #9aa1b1;
+  --primary: #3b53f5;
+  --primary-hover: #2f45de;
+  --danger: #e5484d;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, .14);
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+.bc-app { padding: 22px 24px 32px; max-width: 1900px; margin: 0 auto; }
+
+/* ---------- header ---------- */
+.bc-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+.bc-header p { margin: 4px 0 20px; color: var(--text-muted); font-size: 13px; }
+
+/* ---------- card ---------- */
+.bc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+
+.bc-card-title {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px; font-weight: 650;
+}
+.bc-accent { width: 4px; height: 17px; border-radius: 3px; background: var(--primary); }
+
+/* ---------- voucher ---------- */
+.bc-voucher-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 22px;
+  padding: 20px 22px 24px;
+}
+
+.bc-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.bc-field > span { font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+
+.bc-field input,
+.bc-field select {
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+.bc-field select { appearance: none; padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7385' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+}
+.bc-field input:focus, .bc-field select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 83, 245, .13);
+}
+.bc-field input[type="date"] { appearance: none; line-height: 42px; }
+.bc-field input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .55; }
+.bc-field input[type="date"]:hover::-webkit-calendar-picker-indicator { opacity: .9; }
+.bc-field input[readonly] { background: #f6f7fa; color: var(--text-muted); }
+.bc-field > span .bc-req { color: #dc2626; font-style: normal; margin-left: 2px; }
+/* flagged by the mandatory-field checks — the vendor gate and the entry form;
+   cleared as soon as the field is given a value */
+.bc-field input.bc-invalid,
+.bc-field select.bc-invalid { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+.bc-field input::placeholder { color: var(--text-faint); }
+
+/* ---------- buttons ---------- */
+.bc-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: 500 13.5px/1 inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.bc-btn:hover { background: #f7f8fb; border-color: #c6ccda; }
+.bc-btn:active { transform: translateY(1px); }
+
+.bc-btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.bc-btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+.bc-btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.bc-btn-danger:hover { filter: brightness(.94); }
+
+.bc-btn-ghost { background: var(--surface); }
+
+.bc-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  border: none; border-radius: 7px;
+  background: transparent; color: var(--text-muted);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.bc-icon-btn:hover { background: #eef0f6; color: var(--text); }
+.bc-edit:hover { color: var(--primary); }
+.bc-delete { color: var(--danger); }
+.bc-delete:hover { background: #fdecec; color: var(--danger); }
+
+/* ---------- toolbar ---------- */
+/* One row: the search box absorbs the slack and gives it back, so the buttons
+   never wrap. */
+.bc-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  padding: 14px 18px;
+}
+.bc-toolbar .bc-btn { flex: none; }
+.bc-divider { width: 1px; height: 26px; background: var(--border); flex: none; }
+
+.bc-search { position: relative; flex: 1 1 200px; min-width: 110px; margin-left: auto; }
+.bc-search input {
+  width: 100%; height: 42px; padding: 0 38px 0 14px;
+  border: 1px solid var(--border-strong); border-radius: 10px;
+  font: inherit; background: var(--surface);
+}
+.bc-search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 83, 245, .13); }
+.bc-search svg {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-faint); pointer-events: none;
+}
+
+/* ---------- stats ---------- */
+/* sits below the table, so it carries no bottom margin */
+.bc-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.bc-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px 20px;
+  min-width: 0;
+}
+.bc-stat-icon {
+  width: 38px; height: 38px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.bc-stat-icon svg { width: 19px; height: 19px; }
+.bc-stat-label {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.bc-stat-value {
+  font-size: 27px; font-weight: 700; letter-spacing: -.6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bc-unit { font-size: .6em; font-weight: 600; color: var(--text-muted); margin: 0 2px; }
+
+.bc-tone-blue   .bc-stat-icon { background: #e8edff; color: #3b53f5; }
+.bc-tone-violet .bc-stat-icon { background: #f0e9ff; color: #7c4dff; }
+.bc-tone-green  .bc-stat-icon { background: #e3f8ef; color: #10a37f; }
+.bc-tone-amber  .bc-stat-icon { background: #fff3e0; color: #f08c00; }
+.bc-tone-rose   .bc-stat-icon { background: #ffeaf0; color: #e5487a; }
+.bc-tone-indigo .bc-stat-icon { background: #e9edfb; color: #4457c7; }
+
+/* ---------- table ---------- */
+.bc-table-card { overflow: hidden; margin-bottom: 18px; }
+.bc-table-scroll { overflow: auto; max-height: 60vh; }
+
+.bc-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+.bc-table th {
+  position: sticky; top: 0; z-index: 2;
+  background: #fafbfd;
+  padding: 11px 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+.bc-table th:not([data-sort-key]) { cursor: default; }
+.bc-table th > span { vertical-align: middle; }
+.bc-caret { width: 13px; height: 13px; margin-left: 5px; color: var(--text-faint); vertical-align: middle; transition: transform .15s; }
+.bc-table th.bc-sorted { color: var(--primary); }
+.bc-table th.bc-sorted .bc-caret { color: var(--primary); }
+.bc-table th.bc-sorted.bc-asc .bc-caret { transform: rotate(180deg); }
+
+.bc-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #f0f2f6;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.bc-table tbody tr:hover td { background: #f8f9fc; }
+.bc-table tbody tr:last-child td { border-bottom: none; }
+
+/* th defaults to centred text while td defaults to left, so a column with no
+   explicit alignment had its header centred over left-aligned cells. */
+.bc-al-left { text-align: left; }
+.bc-al-right { text-align: right; }
+.bc-al-center { text-align: center; }
+
+.bc-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+.bc-link:hover { text-decoration: underline; }
+
+.bc-chip {
+  display: inline-block; padding: 4px 11px;
+  border-radius: 999px; background: #eef0f6;
+  font-size: 12px; font-weight: 500; color: #444d63;
+}
+
+/* undo the global icon rule for barcodes — its stroke merges the bars and its
+   16px width shrinks the symbol to an unreadable smudge */
+.bc-barcode { display: block; width: auto; height: auto; max-width: none; stroke: none; }
+.bc-barcode rect { stroke: none; stroke-width: 0; }
+.bc-barcode-text {
+  display: block; margin-top: 2px;
+  font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 1.5px; color: #444d63;
+}
+.bc-barcode-plain { font: 500 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.bc-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 64px 20px; color: var(--text-muted);
+}
+.bc-empty svg { width: 38px; height: 38px; color: var(--text-faint); }
+.bc-empty p { margin: 0; font-size: 14.5px; }
+
+/* ---------- modal ---------- */
+.bc-modal-root { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+.bc-modal-backdrop { position: absolute; inset: 0; background: rgba(16, 24, 40, .45); }
+
+.bc-modal {
+  position: relative;
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  animation: bc-pop .16s ease-out;
+}
+@keyframes bc-pop { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+
+.bc-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 1px solid var(--border);
+}
+.bc-modal-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.bc-modal-body { padding: 22px; overflow: auto; }
+.bc-modal-foot {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 22px; border-top: 1px solid var(--border);
+}
+
+.bc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+.bc-confirm { margin: 0; line-height: 1.6; }
+
+.bc-checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.bc-check { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13.5px; }
+.bc-check input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+
+/* ---------- add-barcode modal ---------- */
+.bc-modal-xl { width: min(1220px, calc(100vw - 24px)); height: calc(100vh - 40px); }
+.bc-modal-xl .bc-modal-body { flex: 1; padding: 16px; background: var(--bg); }
+.bc-modal-head-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.bc-entry { display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 16px; align-items: start; }
+.bc-entry-col > .bc-sec + .bc-sec { margin-top: 16px; }
+
+.bc-sec { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.bc-sec-title {
+  display: flex; align-items: center; gap: 9px;
+  padding: 13px 18px; border-bottom: 1px solid var(--border);
+  font-size: 14px; font-weight: 650;
+}
+.bc-sec-title i { width: 4px; height: 16px; border-radius: 3px; background: var(--primary); }
+.bc-sec-title.bc-green i { background: #16a34a; }
+.bc-sec-title.bc-amber i { background: #d97706; }
+.bc-sec-title.bc-purple i { background: #8b5cf6; }
+.bc-sec-title.bc-teal i { background: #14b8a6; }
+.bc-sec-title.bc-orange i { background: #f97316; }
+.bc-sec-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; padding: 16px 18px 20px; }
+.bc-sec-grid .bc-inline { display: flex; gap: 8px; align-items: flex-end; }
+.bc-sec-grid .bc-inline .bc-field { flex: 1; min-width: 0; }
+.bc-sec-grid.bc-remark-grid { grid-template-columns: 2fr 1fr; }
+
+/* CSS/DMD/PS sub-sections nested inside Weight Information — a labelled divider
+   rather than a separate card, since they toggle on/off with the same checkboxes. */
+.bc-sub-sec-title {
+  margin-top: 2px;
+  padding: 14px 18px 0;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.bc-sub-sec .bc-sec-grid { padding-top: 12px; }
+.bc-small-sel { width: 74px; flex: none !important; }
+
+.bc-bal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px 18px 18px; }
+.bc-bal { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: #fbfcfe; }
+.bc-bal-ico {
+  width: 28px; height: 28px; border-radius: 8px; margin-bottom: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: #eef1ff; color: var(--primary);
+}
+.bc-bal-label { font-size: 10px; font-weight: 650; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); line-height: 1.3; }
+.bc-bal-value { font-size: 17px; font-weight: 700; margin-top: 4px; }
+.bc-bal-value small { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 3px; }
+
+.bc-drop {
+  position: relative;
+  margin: 0 18px 18px; padding: 22px 14px; text-align: center; cursor: pointer;
+  border: 1.5px dashed var(--border-strong); border-radius: 12px; color: var(--text-muted);
+}
+.bc-drop:hover { border-color: var(--primary); background: #f8f9ff; }
+.bc-drop svg { width: 26px; height: 26px; margin-bottom: 8px; }
+.bc-drop b { display: block; color: var(--text); font-size: 13px; margin-bottom: 3px; }
+.bc-drop small { font-size: 11.5px; }
+.bc-drop img { max-width: 100%; max-height: 150px; border-radius: 8px; }
+
+/* --- added from Jewellery Barcode Widget V2 --- */
+
+/* sliding DMD / Stone detail panels */
+.bc-slide { overflow: hidden; height: 0; opacity: 0; transition: height .25s ease-in-out, opacity .25s ease-in-out; }
+.bc-slide.bc-open { opacity: 1; }
+.bc-slide .bc-sec-grid { padding-top: 4px; }
+
+/* calculated fields carry V2's tinted read-only look */
+.bc-field input.bc-calc { background: #f8fafc; color: #475569; border-color: #e2e8f0; font-weight: 500; }
+
+/* image upload badge, preview and remove button */
+.bc-upload-badge {
+  display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 12px;
+  background: #f1f5f9; color: var(--text-muted); font-size: 11px; font-weight: 500;
+}
+.bc-drop-prev { position: relative; }
+.bc-drop-prev img { max-height: 150px; }
+.bc-remove-img {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0;
+  background: rgba(255, 255, 255, .92); border: 1px solid var(--border); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--danger); box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+}
+.bc-remove-img:hover { background: var(--danger); color: #fff; }
+.bc-remove-img svg { width: 13px; height: 13px; margin: 0; }
+
+@media (max-width: 1150px) {
+  .bc-entry { grid-template-columns: 1fr; }
+  .bc-sec-grid { grid-template-columns: 1fr 1fr; }
+  .bc-sec-grid.bc-remark-grid { grid-template-columns: 1fr; }
+}
+
+/* item details revealed under the Item Name picker */
+.bc-item-details {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px;
+  padding: 15px 16px; margin-top: 2px;
+  border: 1px solid #e3e5f7; border-radius: 12px; background: #f6f6fd;
+}
+.bc-item-details .bc-field input { background: #fff; color: var(--text); }
+@media (max-width: 1150px) { .bc-item-details { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- offline banner ---------- */
+.bc-offline {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 18px; padding: 12px 15px;
+  border: 1px solid #f0c36d; border-radius: 10px;
+  background: #fff8e6; color: #6b4d09; font-size: 13px;
+}
+.bc-offline svg { flex: none; margin-top: 1px; stroke: #b4820c; }
+.bc-offline b { display: block; margin-bottom: 2px; font-size: 13.5px; }
+.bc-offline code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; word-break: break-word; }
+
+/* ---------- toast ---------- */
+.bc-toast-root {
+  position: fixed; right: 20px; bottom: 20px; z-index: 200;
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+}
+.bc-toast {
+  padding: 12px 17px; border-radius: 10px;
+  background: #131a2b; color: #fff; font-size: 13.5px; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  max-width: 340px;
+}
+.bc-toast.bc-in { opacity: 1; transform: none; }
+.bc-toast-success { background: #10a37f; }
+.bc-toast-error { background: var(--danger); }
+
+/* ---------- loader ---------- */
+.bc-loader { position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .55); }
+.bc-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid #dfe3ec; border-top-color: var(--primary);
+  animation: bc-spin .7s linear infinite;
+}
+@keyframes bc-spin { to { transform: rotate(360deg); } }
+
+/* ---------- responsive ---------- */
+/* The six stat tiles stay on one line — they shrink instead of wrapping. */
+@media (max-width: 1500px) {
+  .bc-stats { gap: 12px; }
+  .bc-stat { padding: 15px 15px 17px; }
+  .bc-stat-icon { width: 33px; height: 33px; margin-bottom: 11px; }
+  .bc-stat-icon svg { width: 17px; height: 17px; }
+  .bc-stat-value { font-size: 23px; letter-spacing: -.4px; }
+  .bc-stat-label { font-size: 10.5px; letter-spacing: .5px; }
+}
+@media (max-width: 1150px) {
+  .bc-stats { gap: 10px; }
+  .bc-stat { padding: 13px 12px 15px; }
+  .bc-stat-value { font-size: 19px; }
+  .bc-stat-label { font-size: 9.5px; letter-spacing: .3px; }
+}
+/* toolbar tightens before it would ever need to wrap */
+@media (max-width: 1500px) {
+  .bc-toolbar { gap: 8px; padding: 12px 14px; }
+  .bc-toolbar .bc-btn { padding: 0 12px; gap: 6px; }
+}
+@media (max-width: 1250px) {
+  .bc-toolbar { gap: 6px; }
+  .bc-toolbar .bc-btn { padding: 0 9px; font-size: 12.5px; }
+  .bc-toolbar .bc-divider { display: none; }
+}
+@media (max-width: 1100px) {
+  .bc-voucher-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bc-search { margin-left: 0; }
+}
+@media (max-width: 700px) {
+  .bc-app { padding: 16px 14px 26px; }
+  .bc-voucher-grid, .bc-form-grid, .bc-checklist { grid-template-columns: 1fr; }
+  /* only a phone-width screen gives up the single row */
+  .bc-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bc-toolbar { flex-wrap: wrap; }
+  .bc-search { flex: 1 1 100%; margin-left: 0; order: -1; }
+  .bc-header h1 { font-size: 24px; }
+}
+
+  </style>
+  <!-- SDK 1.0 to match the Sales Invoice widget, which fetches live data in this same app -->
+  <script src="https://js.zohostatic.com/creator/widgets/version/1.0/widgetsdk-min.js"></script>
+</head>
+<body>
+  <div class="bc-app" id="bcApp">
+    <header class="bc-header">
+      <h1>Barcode Session</h1>
+      <p>Jewellery Retail Management</p>
+    </header>
+
+    <div class="bc-offline" id="offlineBanner" hidden>
+      <svg viewBox="0 0 24 24"><path d="M12 9v5M12 17.5v.01M10.3 3.9L2.4 18a1.9 1.9 0 001.7 2.9h15.8a1.9 1.9 0 001.7-2.9L13.7 3.9a1.9 1.9 0 00-3.4 0z"/></svg>
+      <div>
+        <b>Not connected to Zoho Creator</b>
+        <span id="offlineReason"></span>
+      </div>
+    </div>
+
+    <section class="bc-card bc-voucher">
+      <div class="bc-card-title"><span class="bc-accent"></span>Voucher Information</div>
+      <div class="bc-voucher-grid">
+        <label class="bc-field">
+          <span>Voucher Date</span>
+          <input type="date" id="voucherDate" />
+        </label>
+        <label class="bc-field">
+          <span>Vendor<em class="bc-req">*</em></span>
+          <select id="vendor"><option value="">Select Vendor</option></select>
+        </label>
+        <label class="bc-field">
+          <span>Invoice Number</span>
+          <input type="text" id="invoiceNumber" readonly />
+        </label>
+        <label class="bc-field">
+          <span>Price Level</span>
+          <select id="priceLevel"><option value="">Select Price Level</option></select>
+        </label>
+      </div>
+    </section>
+
+    <section class="bc-card bc-toolbar">
+      <button class="bc-btn bc-btn-primary" data-action="add">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add Barcode
+      </button>
+      <span class="bc-divider"></span>
+      <button class="bc-btn" data-action="print"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Print</button>
+      <button class="bc-btn" data-action="export"><svg viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4M4 18v2h16v-2"/></svg>Export</button>
+      <button class="bc-btn" data-action="import"><svg viewBox="0 0 24 24"><path d="M12 4v12M8 12l4 4 4-4M4 18v2h16v-2"/></svg>Import</button>
+      <div class="bc-search">
+        <input type="search" id="searchInput" placeholder="Search items..." />
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </div>
+      <button class="bc-btn" data-action="filter"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>Filter</button>
+      <button class="bc-btn" data-action="sort"><svg viewBox="0 0 24 24"><path d="M4 7h12M4 12h8M4 17h4M17 5v14M14 16l3 3 3-3"/></svg>Sort</button>
+      <button class="bc-btn" data-action="columns"><svg viewBox="0 0 24 24"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg>Columns</button>
+      <span class="bc-divider"></span>
+      <button class="bc-btn" data-action="refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg>Refresh</button>
+      <button class="bc-btn" data-action="reset"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 102.3-5.7M4 19v-6h6"/></svg>Reset</button>
+    </section>
+
+    <section class="bc-card bc-table-card">
+      <div class="bc-table-scroll">
+        <table class="bc-table">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="bc-empty" id="emptyState" hidden>
+        <svg viewBox="0 0 24 24"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M17 6v12M20 6v12"/></svg>
+        <p id="emptyStateText">No barcode items yet</p>
+        <button class="bc-btn bc-btn-primary" data-action="add">Add Barcode</button>
+      </div>
+    </section>
+
+    <section class="bc-stats" id="statsRow"></section>
+  </div>
+
+  <div class="bc-modal-root" id="modalRoot" hidden></div>
+  <div class="bc-toast-root" id="toastRoot"></div>
+  <div class="bc-loader" id="loader" hidden><div class="bc-spinner"></div></div>
+
+  <script>
+/* ---------- js/config.js ---------- */
+/* Zoho Creator form/report names and column model. Adjust link names to match your app. */
+window.BC_CONFIG = {
+  appLinkName: 'ciyor',
+
+  forms: {
+    barcode: 'Barcode',
+    barcodeItem: 'Barcode_Item'
+  },
+
+  /* voucher-level record written to the Barcode form on save. Vendor and
+     Price_Level are lookups, so they carry record ids. Item_Details is the
+     subform that holds one row per barcoded item — it is what the Barcode Report
+     shows in its "Item Details" column. */
+  barcodeFormFields: {
+    voucherDate: 'Voucher_Date',
+    /* blank any of these to stop sending that field — buildBarcodeRecord checks
+       the name as well as the value. */
+    invoiceNo: 'Invoice_No',
+    priceLevel: 'Price_Level',
+    vendor: 'Vendor',
+    itemDetails: 'Item_Details',
+    /* Single Line on the Barcode form, so it keeps the code whole — "BC-145857"
+       rather than the 145857 the subform's NUMBER column is limited to. It holds
+       one value per voucher, so each save overwrites it with the code of the item
+       just added. */
+    barcode: 'Barcode'
+  },
+
+  reports: {
+    barcodeItem: 'All_Barcode_Items',
+    vendor: 'Vendor_Report',
+    priceLevel: 'Price_Level_Report',
+    employee: 'Employee_Report',
+    itemMaster: 'Item_Master_Report',
+    designType: 'Design_Type_Master_Report',
+    shape: 'Shape_Master_Report',
+    purchaseEntry: 'Purchase_Entry_Report',
+    materialReceive: 'Material_Receive_Report',
+    /* the report backing the Barcode form — shown in Creator as "Barcode Report" */
+    barcode: 'Barcode_Report',
+    /* the report backing the Item_Details subform. Only used to discover the
+       subform's real field link names at startup. */
+    barcodeItemDetails: 'Barcode_Item_Details_Report',
+    purityMaster: 'Purity_Master1_Report'
+  },
+
+  /* The entry form's Purity dropdown is filled from Purity_Master1_Report; each
+     option carries that master's record id, which is what the subform's Purity
+     lookup stores. */
+  purityMasterFields: { label: 'Purity_Name' },
+
+  /* The Item Name dropdown lists Item_Name from Item_Master_Report. */
+  itemMasterFields: {
+    label: 'Item_Name',
+    designCodeCandidates: ['Design_Code'],
+    designNameCandidates: ['Design_Name'],
+    /* lookups — the field on Item_Master_Report may be named either way */
+    /* Collection holds the Design_Type_Master_Report id; its name comes from there */
+    designTypeCandidates: ['Collection', 'Design_Type', 'Design_Type_Name'],
+    shapeCandidates: ['Shape', 'Shape_Name'],
+    /* The Item_Details subform has no Category column, so the table's CATEGORY is
+       read off the Item_Master record the row's Item_Detail points at. */
+    categoryCandidates: ['Item_Category', 'Category', 'Sub_Group']
+  },
+
+  /* display fields of the two lookup masters */
+  designTypeFields: { label: 'Design_Type_Name' },
+  shapeFields: { label: 'Shape_Name' },
+
+  /* Balance Information's Total Weight / Total Nos are summed across these
+     receiving reports for the selected supplier. Each report names its supplier
+     link field differently. */
+  sourceReports: [
+    { report: 'Purchase_Entry_Report', supplierField: 'Supplier_Selection' },
+    { report: 'Material_Receive_Report', supplierField: 'Vendor' }
+  ],
+
+  sourceFields: {
+    netWeight: 'Total_Net_Weight',
+    qty: 'Total_Qty'
+  },
+
+  vendorFields: {
+    label: 'Vendor_Name',
+    code: 'Vendor_ID'
+  },
+
+  priceLevelFields: {
+    label: 'Name'
+  },
+
+  /* SM is the logged-in Creator user, matched against Employee_Report by email. */
+  employeeFields: {
+    email: 'Email',
+    name: 'Name'
+  },
+
+  /* Invoice numbers run INV-<yy>-0001. The count is taken from the Barcode form's
+     own report/field (where Save actually writes Invoice_No) — counting anywhere
+     else, as an earlier version did against a report that doesn't exist, silently
+     fails and the number never advances past 0000. `itemField` is a separate,
+     still-unverified name stamped onto each Barcode_Item row for cross-reference. */
+  invoiceNumberConfig: {
+    countReport: 'barcode',
+    countField: 'Invoice_No',
+    itemField: 'Invoice_Number',
+    prefix: 'INV',
+    padLength: 4
+  },
+
+  purityUnits: ['gm', 'ct', 'pcs'],
+  sizeUnits: ['in', 'cm', 'mm'],
+
+  /* Add New Barcode form field -> Creator field name. An empty string means the
+     input is captured in the UI but not sent, because Creator rejects the whole
+     addRecord when it carries a field the form does not have. Fill in the real
+     link names to start persisting these. */
+  itemFields: {
+    Barcode: 'Barcode',
+    Item_Name: 'Item_Name',
+    Sub_Group: 'Category',
+    Purity: 'Purity',
+    Gross_Weight: 'Gross_Weight',
+    Net_Weight: 'Net_Weight',
+    MRP: 'MRP',
+    Making_Charge: 'Making_Charge',
+    Discount: 'Discount',
+    Net_Amount: 'Net_Amount',
+    Voucher_Date: '',
+    Supplier: '',
+    SM: '',
+    Vendor_Item_Code: '',
+    Design_Type: '', Design_Code: '', Design_Name: '', Shape: '',
+    /* Product & Rates (V2) */
+    Purity_Unit: '',
+    Qty: '',
+    Size_Model: '',
+    Size_Unit: '',
+    Purchase_Rate: '', Retail_Rate: '',
+    /* Weight Information (V2) */
+    Tag_Weight: '',
+    CSS_Weight: '', CSS_Rate: '', CSS_Purchase_Rate: '', CSS_Retail_Rate: '',
+    DMD_Weight: '', DMD_Rate: '', DMD_Purchase_Rate: '', DMD_Retail_Rate: '',
+    PS_Weight: '', PS_Rate: '', PS_Purchase_Rate: '', PS_Retail_Rate: '',
+    /* Service & Charges (V2) */
+    Service_Type: '', Service_Value: '', Service_Amount: '',
+    Hallmarking_Charge: '', Certification_Charge: '', Other_Charge: '',
+    /* Additional information (V2) */
+    SKU_ID: '', HUID: '', Certification_Number: '', Reference_Number: '',
+    Remarks: ''
+  },
+
+  /* Field link names the Item_Details subform actually has, taken from the form
+     builder. Used to drop unmapped names before a record is sent, because
+     Barcode_Item_Details_Report is still empty and cannot be probed at startup.
+     ID, Added_Time, Added_User, Modified_Time and Modified_User are Creator's own
+     and are never written.
+     NOTE: this list is transcribed from a screenshot that was cut off between
+     Gross_Weight and ID, and again after Service_Rate — anything in those gaps
+     is missing here and will be dropped until it is added. */
+  subformKnownFields: [
+    'Barcode', 'Barcode1', 'Item_Category',
+    'Board_Amount', 'Board_Rate', 'CS_Amount', 'CS_Rate', 'CS_Weight',
+    'Design', 'Discount_Amount', 'Discount_percnt', 'Discount_Rate', 'Discount_Type',
+    'DMD_Amount', 'DMD_Rate', 'DMD_Weight', 'Gross_Weight', 'Item_Detail',
+    'Line_Total', 'Net_Weight', 'PS_Amount', 'PS_Rate', 'PS_Weight', 'Purity',
+    'Qty', 'Service_Amount', 'Service_Item', 'Service_percnt', 'Service_Rate'
+  ],
+
+  /* Add New Barcode form field -> Item_Details subform column. `type` matches the
+     subform's declared type so a string never reaches a NUMBER/DECIMAL field:
+       number     integer, non-digits stripped
+       decimal    float
+       text       sent as-is
+       itemLookup the selected Item_Master record id, not the item's name
+     A null means the entry form has the value but no confirmed home on the
+     subform yet — see the unmapped list below. */
+  subformFields: {
+    Item_Name:      { field: 'Item_Detail',     type: 'itemLookup' },
+    Qty:            { field: 'Qty',             type: 'number' },
+    Gross_Weight:   { field: 'Gross_Weight',    type: 'decimal' },
+    Net_Weight:     { field: 'Net_Weight',      type: 'decimal' },
+    CSS_Weight:     { field: 'CS_Weight',       type: 'decimal' },
+    CSS_Rate:       { field: 'CS_Rate',         type: 'decimal' },
+    DMD_Weight:     { field: 'DMD_Weight',      type: 'decimal' },
+    DMD_Rate:       { field: 'DMD_Rate',        type: 'decimal' },
+    PS_Weight:      { field: 'PS_Weight',       type: 'decimal' },
+    PS_Rate:        { field: 'PS_Rate',         type: 'decimal' },
+    Discount:       { field: 'Discount_Amount', type: 'decimal' },
+    Service_Amount: { field: 'Service_Amount',  type: 'decimal' },
+    Net_Amount:     { field: 'Line_Total',      type: 'decimal' },
+
+    /* Purity and Design are NUMBER columns on the subform — lookups holding a
+       record id, which the entry form has no way to supply ("22K" is text, and
+       there is no design input at all). Both are copied off the selected
+       Item_Master record instead. `source` lists candidate field names on that
+       record; the first one carrying a value wins, and its id is what is sent.
+       If none matches, the column is left empty and the console names the keys
+       the record actually has. */
+    /* the Purity dropdown's value is already a Purity_Master1 record id */
+    Purity:         { field: 'Purity', type: 'lookupId' },
+    Design:         { field: 'Design', type: 'itemMasterId',
+                      source: ['Design', 'Design_Code', 'Design_Name', 'Collection'] },
+
+    /* The item's barcode, written to Barcode1 rather than the subform's own
+       Barcode column: that one is NUMBER and would reduce "BC-145857" to 145857,
+       while Barcode1 takes the code whole. Sent as text — switch this to
+       'number' if Barcode1 turns out to be a numeric field, because a string
+       reaching a NUMBER field fails the entire submit. */
+    Barcode:        { field: 'Barcode1', type: 'text' },
+
+    /* Unmapped, and why:
+       Sub_Group     no Category column on the subform.
+       MRP           no MRP column in the part of the list seen so far.
+       Making_Charge Board_Rate/Board_Amount may be it — unconfirmed.
+       Service_Type  subform splits this into Service_Item / Service_percnt /
+                     Service_Rate; which one takes the form's Service_Value is
+                     not yet clear. */
+    Sub_Group:      null,
+    MRP:            null,
+    Making_Charge:  null,
+    Service_Value:  null
+  },
+
+  /* The table lists the Item_Details rows of the current voucher, so its columns
+     are the subform's own fields. Item_Detail, Purity and Design are lookups and
+     arrive as objects — "lookup" renders their display_value. Toggle any of them
+     off with the Columns button. */
+  columns: [
+    { key: 'no',              label: 'NO',        type: 'index',  width: 40,  sortable: false },
+    { key: 'action',          label: 'ACTION',    type: 'action', width: 70,  sortable: false },
+    /* 1.5px per module: a 9-character Code 39 is 195 modules, so this is 293px —
+       the narrowest the symbol goes while its bars stay separable. Below roughly
+       1.2px they blur together and no two codes look different. */
+    { key: 'Barcode1',        label: 'BARCODE',    type: 'barcode', width: 296,
+      keys: ['Barcode1', 'Barcode'], scale: 1.5, barHeight: 30 },
+    { key: 'Item_Detail',     label: 'ITEM NAME', type: 'lookup', width: 150 },
+    /* CATEGORY and MRP have no column on the Item_Details subform — its field
+       list runs CS_Weight -> Design and Modified_User -> Net_Weight with nothing
+       in between, so Category and MRP are simply not there. Both render blank
+       until those fields are added to the subform, or until they are pointed at
+       whichever existing columns are meant to carry them. The amounts the
+       subform does hold — Board, CS, DMD, PS, Service, Discount, Line_Total —
+       still feed the stat tiles below the table even though no column shows
+       them. */
+    /* Item_Category is on the subform itself; Category is the value derived from
+       the Item_Master record, kept as a fallback for rows saved before that
+       column existed. */
+    { key: 'Item_Category',   label: 'CATEGORY',  type: 'tag',    width: 100,
+      keys: ['Item_Category', 'Category'] },
+    { key: 'Purity',          label: 'PURITY',    type: 'lookup', width: 105 },
+    { key: 'Gross_Weight',    label: 'GROSS WT',  type: 'weight', width: 98 },
+    { key: 'Net_Weight',      label: 'NET WT',    type: 'weight', width: 98 },
+    { key: 'MRP',             label: 'MRP',       type: 'money',  width: 90, align: 'right' }
+  ],
+
+  stats: [
+    { key: 'count',       label: 'Total Items',   icon: 'hash',    tone: 'blue',   format: 'int' },
+    { key: 'grossWeight', label: 'Gross Weight',  icon: 'scale',   tone: 'violet', format: 'weight' },
+    { key: 'netWeight',   label: 'Net Weight',    icon: 'gem',     tone: 'green',  format: 'weight' },
+    { key: 'totalAmount', label: 'Total Amount',  icon: 'rupee',   tone: 'amber',  format: 'money' },
+    { key: 'discount',    label: 'Discount',      icon: 'tag',     tone: 'rose',   format: 'money2' },
+    { key: 'netAmount',   label: 'Net Amount',    icon: 'wallet',  tone: 'indigo', format: 'money' }
+  ],
+
+  categories: ['Bangles', 'Ring', 'Necklace', 'Chain', 'Earrings', 'Bracelet', 'Pendant', 'Coin'],
+  purities: ['24K', '22K', '18K', '14K', '925 Silver', 'Platinum']
+};
+
+/* ---------- js/utils.js ---------- */
+window.BC_UTILS = (function () {
+  const num = (v) => {
+    const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const fmt = {
+    int: (v) => String(Math.round(num(v))),
+    weight: (v) => num(v).toFixed(3),
+    money: (v) => num(v).toLocaleString('en-US', { maximumFractionDigits: 0 }),
+    money2: (v) => num(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  };
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+
+  const download = (filename, content, mime) => {
+    const blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const toCSV = (rows, columns) => {
+    const cell = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const head = columns.map((c) => cell(c.label)).join(',');
+    const body = rows.map((r, i) =>
+      columns.map((c) => cell(c.key === 'no' ? i + 1 : r[c.key])).join(',')
+    );
+    return [head].concat(body).join('\n');
+  };
+
+  const parseCSV = (text) => {
+    const rows = [];
+    let row = [], field = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else field += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (ch !== '\r') field += ch;
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim() !== ''));
+  };
+
+  const debounce = (fn, ms) => {
+    let t;
+    return function () {
+      clearTimeout(t);
+      const args = arguments;
+      t = setTimeout(() => fn.apply(this, args), ms);
+    };
+  };
+
+  const today = () => {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+
+  /* Creator returns lookups, names and formula fields as objects, not strings —
+     unwrap them the way the Sales Invoice widget does. */
+  const zohoText = (value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object') {
+      if (value.display_value) return String(value.display_value).trim();
+      if (value.zc_display_value) return String(value.zc_display_value).trim();
+      const parts = [value.prefix, value.first_name, value.last_name, value.suffix]
+        .filter(Boolean).join(' ').trim();
+      return parts;
+    }
+    return String(value).trim();
+  };
+
+  /* Creator expects dates as dd-MMM-yyyy, not the yyyy-mm-dd an <input type=date> gives. */
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const zohoDate = (isoDate) => {
+    if (!isoDate) return '';
+    const parts = String(isoDate).split('-');
+    if (parts.length !== 3) return '';
+    const month = MONTHS[parseInt(parts[1], 10) - 1];
+    return month ? parts[2] + '-' + month + '-' + parts[0] : '';
+  };
+
+  /* Code 39, the real encoding rather than bars drawn to look like one. Each
+     character is nine elements — bar, space, bar … starting and ending on a bar —
+     of which exactly three are wide. '*' delimits the symbol at both ends. */
+  const CODE39 = {
+    '0': 'nnnwwnwnn', '1': 'wnnwnnnnw', '2': 'nnwwnnnnw', '3': 'wnwwnnnnn',
+    '4': 'nnnwwnnnw', '5': 'wnnwwnnnn', '6': 'nnwwwnnnn', '7': 'nnnwnnwnw',
+    '8': 'wnnwnnwnn', '9': 'nnwwnnwnn', 'A': 'wnnnnwnnw', 'B': 'nnwnnwnnw',
+    'C': 'wnwnnwnnn', 'D': 'nnnnwwnnw', 'E': 'wnnnwwnnn', 'F': 'nnwnwwnnn',
+    'G': 'nnnnnwwnw', 'H': 'wnnnnwwnn', 'I': 'nnwnnwwnn', 'J': 'nnnnwwwnn',
+    'K': 'wnnnnnnww', 'L': 'nnwnnnnww', 'M': 'wnwnnnnwn', 'N': 'nnnnwnnww',
+    'O': 'wnnnwnnwn', 'P': 'nnwnwnnwn', 'Q': 'nnnnnnwww', 'R': 'wnnnnnwwn',
+    'S': 'nnwnnnwwn', 'T': 'nnnnwnwwn', 'U': 'wwnnnnnnw', 'V': 'nwwnnnnnw',
+    'W': 'wwwnnnnnn', 'X': 'nwnnwnnnw', 'Y': 'wwnnwnnnn', 'Z': 'nwwnwnnnn',
+    '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', '$': 'nwnwnwnnn',
+    '/': 'nwnwnnnwn', '+': 'nwnnnwnwn', '%': 'nnnwnwnwn', '*': 'nwnnwnwnn'
+  };
+
+  /* A 3:1 wide-to-narrow ratio and a 10-module quiet zone either side are what
+     make it readable; without the quiet zone a scanner will not start. */
+  function code39SVG(value, opts) {
+    const text = String(value == null ? '' : value).toUpperCase().trim();
+    if (!text) return '';
+
+    const o = opts || {};
+    const height = o.height || 34;
+    /* Modules are drawn at whole pixels. Scaling a 195-module symbol down to fit
+       a table cell put narrow bars under 1px, where the browser blends every bar
+       into the same grey and two different codes look identical. */
+    const scale = o.scale || 2;
+    const NARROW = 1, WIDE = 3, QUIET = 10;
+    const chars = ('*' + text + '*').split('');
+
+    if (chars.some((ch) => !(ch in CODE39))) {
+      /* Code 39 has no lower case and a limited symbol set — show the value
+         rather than emitting bars that cannot be scanned back. */
+      return '<span class="bc-barcode-plain">' + esc(text) + '</span>';
+    }
+
+    let x = QUIET;
+    let bars = '';
+    chars.forEach((ch, ci) => {
+      const pattern = CODE39[ch];
+      for (let i = 0; i < 9; i++) {
+        const w = pattern[i] === 'w' ? WIDE : NARROW;
+        if (i % 2 === 0) bars += '<rect x="' + x + '" y="0" width="' + w + '" height="' + height + '"/>';
+        x += w;
+      }
+      if (ci < chars.length - 1) x += NARROW;   /* inter-character gap */
+    });
+
+    const total = x + QUIET;
+    /* Size and stroke go in an inline style, not just attributes: the sheet's
+       icon rule (svg { width:16px; height:16px; stroke:currentColor;
+       stroke-width:1.9 }) is a type selector, which beats a width/height
+       attribute and would also outline every bar until they merged into one
+       block. An inline style outranks it. */
+    const box = 'width:' + (total * scale) + 'px;height:' + height +
+      'px;stroke:none;fill:none;max-width:none;';
+    return '<svg class="bc-barcode" style="' + box + '" width="' + (total * scale) +
+      '" height="' + height + '" viewBox="0 0 ' + total + ' ' + height +
+      '" shape-rendering="crispEdges" preserveAspectRatio="none" ' +
+      'role="img" aria-label="Barcode ' + esc(text) + '">' +
+      '<rect width="' + total + '" height="' + height + '" fill="#fff" stroke="none"/>' +
+      '<g fill="#111" stroke="none">' + bars + '</g></svg>' +
+      (o.caption === false ? '' : '<span class="bc-barcode-text">' + esc(text) + '</span>');
+  }
+
+  /* Creator rejects with a plain response object as often as with an Error, and
+     "" + {} is "[object Object]" — which tells the user nothing and hides what
+     actually went wrong. Pull out whatever text the object carries. */
+  function errText(err) {
+    if (err == null) return 'unknown error';
+    if (typeof err === 'string') return err;
+    if (err.message) return String(err.message);
+
+    const parts = [];
+    if (err.code) parts.push('code ' + err.code);
+    const detail = err.error || err.errors || err.description;
+    if (Array.isArray(detail)) parts.push(detail.join('; '));
+    else if (detail) parts.push(typeof detail === 'string' ? detail : JSON.stringify(detail));
+
+    if (parts.length) return parts.join(' — ');
+    try {
+      return JSON.stringify(err);
+    } catch (e) {
+      return String(err);
+    }
+  }
+
+  return { num, fmt, esc, download, toCSV, parseCSV, debounce, today, zohoText, zohoDate,
+           code39SVG, errText };
+})();
+
+/* ---------- js/api.js ---------- */
+/*
+ * Zoho Creator JS API wrapper.
+ * Reads follow the Sales Invoice widget: getAllRecords with fieldConfig "all",
+ * no appName, and a code === 3000 check on the response. Writes pass appName.
+ * There is no sample-data fallback — outside Creator the widget reports that
+ * plainly rather than showing numbers that look real.
+ */
+window.BC_API = (function () {
+  const C = window.BC_CONFIG;
+  const U = window.BC_UTILS;
+
+  const hasSDK = () => typeof ZOHO !== 'undefined' && ZOHO.CREATOR && ZOHO.CREATOR.API;
+
+  /* Creator answers 3000 on success; anything else carries no usable rows. */
+  function rowsOf(response) {
+    return (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+  }
+
+  /* Without a Creator host frame the SDK's promises never settle, so a caller that
+     just awaits them shows an empty control forever. Fail loudly instead. */
+  function withTimeout(promise, label) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(label + ' got no response from Creator within 15s')),
+        15000
+      );
+      promise.then(
+        (v) => { clearTimeout(timer); resolve(v); },
+        (e) => { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+
+  /* ---------------- records ---------------- */
+
+  /* The listed items are Item_Details subform rows, fetched one of two ways:
+
+     - once this session has created its voucher, off that parent Barcode record,
+       which scopes the list to this voucher without needing a link field;
+     - before then, straight from Barcode_Item_Details_Report, so rows entered
+       earlier or by someone else are still visible rather than the table sitting
+       blank until the first save.
+
+     The second path cannot be filtered to one voucher — the report carries every
+     voucher's rows and exposes no parent field — so it is a read-only backstop.
+     `emptyReason` tells the empty state which case produced no rows. */
+  let emptyReason = '';
+  const lastEmptyReason = () => emptyReason;
+
+  function getItems() {
+    if (!hasSDK()) {
+      emptyReason = 'Not running inside Zoho Creator.';
+      return Promise.resolve([]);
+    }
+
+    const recordId = window.BC_STORE.state.voucher.recordId;
+
+    if (!recordId) {
+      return getRecords(C.reports.barcodeItemDetails).then((rows) => {
+        console.log('[barcode] no voucher yet — read ' + rows.length + ' row(s) straight from "' +
+          C.reports.barcodeItemDetails + '".');
+        emptyReason = rows.length ? '' :
+          '"' + C.reports.barcodeItemDetails + '" has no records, and this session has not ' +
+          'saved a voucher yet.';
+        return rows;
+      });
+    }
+
+    return getRecordById(C.reports.barcode, recordId).then((record) => {
+      if (!record) {
+        emptyReason = 'Barcode record ' + recordId + ' could not be read back.';
+        return [];
+      }
+      const rows = record[C.barcodeFormFields.itemDetails];
+      if (!Array.isArray(rows)) {
+        console.warn('[barcode] "' + C.barcodeFormFields.itemDetails + '" came back as ' +
+          (rows === undefined ? 'undefined' : typeof rows) + ', not an array. Record:', record);
+        emptyReason = 'The voucher has no readable "' + C.barcodeFormFields.itemDetails + '" array.';
+        return [];
+      }
+      console.log('[barcode] voucher ' + recordId + ' has ' + rows.length + ' Item_Details row(s).');
+      emptyReason = rows.length ? '' : 'The voucher saved, but its Item_Details subform is empty.';
+      return rows;
+    });
+  }
+
+  /* Writes are logged in full both ways. Creator answers a failed write with a
+     bare code and no mention of which field it choked on, so the payload beside
+     the response is the only way to tell what it was given. */
+  function logWrite(label, payload) {
+    /* also parked on window so the last attempt can be re-read after the toast
+       is gone: BC_LAST_WRITE in the console. */
+    window.BC_LAST_WRITE = payload;
+    console.groupCollapsed('[barcode] ' + label);
+    console.log('field names sent:', Object.keys(payload.data.data).join(', '));
+    console.log('payload:', JSON.parse(JSON.stringify(payload)));
+    console.log('payload (JSON):\n' + JSON.stringify(payload.data.data, null, 2));
+    console.groupEnd();
+    return payload;
+  }
+
+  function logResult(label, res) {
+    if (res && res.code === 3000) console.log('[barcode] ' + label + ' ok:', res);
+    else console.error('[barcode] ' + label + ' FAILED:', JSON.parse(JSON.stringify(res || {})));
+    return res;
+  }
+
+  /* Adds a record to any form in the app. */
+  function addRecord(formName, data) {
+    const payload = logWrite('addRecord → ' + formName, {
+      appName: C.appLinkName,
+      formName: formName,
+      data: { data: data }
+    });
+    return ZOHO.CREATOR.API.addRecord(payload).then((res) => {
+      logResult('addRecord ' + formName, res);
+      if (res && res.code !== 3000) {
+        throw new Error((res.message || JSON.stringify(res)) + ' (' + formName + ')');
+      }
+      return res;
+    });
+  }
+
+  /* Updates a record in any report of the app. A subform field sent here replaces
+     the whole subform, so callers pass every row they want to keep. */
+  function updateRecord(reportName, id, data) {
+    const payload = logWrite('updateRecord → ' + reportName + ' #' + id, {
+      appName: C.appLinkName,
+      reportName: reportName,
+      id: id,
+      data: { data: data }
+    });
+    return ZOHO.CREATOR.API.updateRecord(payload).then((res) => {
+      logResult('updateRecord ' + reportName, res);
+      if (res && res.code !== 3000) {
+        throw new Error((res.message || JSON.stringify(res)) + ' (' + reportName + ')');
+      }
+      return res;
+    });
+  }
+
+  function addItem(data) {
+    const payload = logWrite('addRecord → ' + C.forms.barcodeItem, {
+      appName: C.appLinkName,
+      formName: C.forms.barcodeItem,
+      data: { data: data }
+    });
+    return ZOHO.CREATOR.API.addRecord(payload).then((res) => {
+      logResult('addRecord ' + C.forms.barcodeItem, res);
+      return Object.assign({ ID: res && res.data && res.data.ID }, data);
+    });
+  }
+
+  function updateItem(id, data) {
+    const payload = logWrite('updateRecord → ' + C.reports.barcodeItem + ' #' + id, {
+      appName: C.appLinkName,
+      reportName: C.reports.barcodeItem,
+      id: id,
+      data: { data: data }
+    });
+    return ZOHO.CREATOR.API.updateRecord(payload).then((res) => {
+      logResult('updateRecord ' + C.reports.barcodeItem, res);
+      return Object.assign({ ID: id }, data);
+    });
+  }
+
+  function deleteItem(id) {
+    return ZOHO.CREATOR.API.deleteRecord({
+      appName: C.appLinkName,
+      reportName: C.reports.barcodeItem,
+      criteria: `ID == ${id}`
+    }).then(() => true);
+  }
+
+  /* Deletes a record from any report of the app. */
+  function deleteRecord(reportName, id) {
+    console.log('[barcode] deleteRecord → ' + reportName + ' ID == ' + id);
+    return ZOHO.CREATOR.API.deleteRecord({
+      appName: C.appLinkName,
+      reportName: reportName,
+      criteria: `ID == ${id}`
+    }).then((res) => {
+      logResult('deleteRecord ' + reportName, res);
+      if (res && res.code !== 3000) {
+        throw new Error((res.message || JSON.stringify(res)) + ' (' + reportName + ')');
+      }
+      return res;
+    });
+  }
+
+  /* Finds a subform row by its barcode, for the case where a listed row carries
+     no usable ID. Barcode1 holds the full code; Barcode the digits of older rows. */
+  function findItemDetailByBarcode(barcode) {
+    const code = String(barcode || '').trim();
+    if (!code) return Promise.resolve(null);
+    const digits = code.replace(/\D/g, '');
+    const criteria = `(Barcode1 == "${code}" || Barcode == ${digits || 0})`;
+    return withTimeout(
+      ZOHO.CREATOR.API.getAllRecords({
+        reportName: C.reports.barcodeItemDetails,
+        criteria: criteria,
+        fieldConfig: 'all'
+      }),
+      C.reports.barcodeItemDetails + ' ' + criteria
+    ).then((res) => rowsOf(res)[0] || null)
+      .catch((err) => {
+        console.error('Failed to look up "' + code + '" in "' +
+          C.reports.barcodeItemDetails + '".', err);
+        return null;
+      });
+  }
+
+  /* Returns { ID, label, row } per record. labelField may be one field name or a
+     list of candidates — the first with a value wins, falling back to the ID. */
+  function getLookup(reportName, labelField) {
+    const fields = [].concat(labelField || []);
+    return withTimeout(
+      ZOHO.CREATOR.API.getAllRecords({ reportName: reportName, fieldConfig: 'all' }),
+      reportName
+    )
+      .then((res) => rowsOf(res).map((r) => {
+        let label = '';
+        for (let i = 0; i < fields.length && !label; i++) label = U.zohoText(r[fields[i]]);
+        return { ID: r.ID, label: label || r.ID, row: r };
+      }))
+      .catch((err) => {
+        console.error('Failed to fetch records from "' + reportName + '".', err);
+        throw err;
+      });
+  }
+
+  /* Raw rows from a report. A failure yields an empty list and a console error, so
+     one unreachable report cannot break a sum spanning several. */
+  function getRecords(reportName) {
+    if (!hasSDK()) return Promise.resolve([]);
+    return withTimeout(
+      ZOHO.CREATOR.API.getAllRecords({ reportName: reportName, fieldConfig: 'all' }),
+      reportName
+    )
+      .then(rowsOf)
+      .catch((err) => {
+        console.error('Failed to fetch records from "' + reportName + '".', err);
+        return [];
+      });
+  }
+
+  /* A report listing carries only the fields shown as columns; this returns the
+     whole record, which is where fields absent from the layout come from. */
+  function getRecordById(reportName, id) {
+    if (!hasSDK() || !ZOHO.CREATOR.API.getRecordById) return Promise.resolve(null);
+    return withTimeout(
+      ZOHO.CREATOR.API.getRecordById({
+        appName: C.appLinkName,
+        reportName: reportName,
+        id: id,
+        fieldConfig: 'all'
+      }),
+      reportName + ' #' + id
+    )
+      .then((res) => (res && res.code === 3000 && res.data) ? res.data : null)
+      .catch((err) => {
+        console.error('Failed to fetch record ' + id + ' from "' + reportName + '".', err);
+        return null;
+      });
+  }
+
+  /* getInitParams() hands back a plain object in SDK 1.0 and a promise in others.
+     The reference awaits it, which tolerates both; Promise.resolve does the same. */
+  function initParams() {
+    if (!hasSDK() || !ZOHO.CREATOR.UTIL || !ZOHO.CREATOR.UTIL.getInitParams) return Promise.resolve(null);
+    try {
+      return Promise.resolve(ZOHO.CREATOR.UTIL.getInitParams()).catch(() => null);
+    } catch (err) {
+      console.error('[barcode] ZOHO.CREATOR.UTIL.getInitParams() threw.', err);
+      return Promise.resolve(null);
+    }
+  }
+
+  /* Creator has used a few names for the logged-in address across SDK versions,
+     so try the known keys and then any value that simply looks like an email. */
+  function emailFrom(params) {
+    if (!params) return '';
+    const keys = ['loginUser', 'login_user', 'loginUserEmail', 'userEmail', 'user', 'email'];
+    for (let i = 0; i < keys.length; i++) {
+      const v = params[keys[i]];
+      if (v && String(v).indexOf('@') > -1) return String(v).trim();
+    }
+    const any = Object.keys(params)
+      .map((k) => params[k])
+      .find((v) => typeof v === 'string' && /^[^@\s]+@[^@\s]+$/.test(v.trim()));
+    return any ? any.trim() : '';
+  }
+
+  /* Email of the Creator user viewing the widget. */
+  function getLoginUser() {
+    return initParams().then((p) => {
+      console.log('[barcode] Creator init params:', p);
+      const email = emailFrom(p);
+      if (!email) console.warn('[barcode] No logged-in email found in init params.');
+      return email;
+    }).catch((err) => {
+      console.error('Failed to detect logged-in user email.', err);
+      return '';
+    });
+  }
+
+  function nextBarcode() {
+    const prefix = 'BC-';
+    if (!hasSDK()) return Promise.resolve(prefix + Date.now().toString().slice(-6));
+    return ZOHO.CREATOR.API.getAllRecords({ reportName: C.reports.barcodeItem, fieldConfig: 'all' })
+      .then((res) => {
+        const max = rowsOf(res).reduce((m, r) => Math.max(m, U.num(String(r.Barcode || '').replace(/\D/g, ''))), 100000);
+        return prefix + (max + 1);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch the last barcode from "' + C.reports.barcodeItem + '".', err);
+        return prefix + Date.now().toString().slice(-6);
+      });
+  }
+
+  return {
+    hasSDK, getItems, lastEmptyReason, getRecords, getRecordById, addRecord, updateRecord,
+    deleteRecord, findItemDetailByBarcode, addItem, updateItem, deleteItem,
+    getLookup, initParams, getLoginUser, nextBarcode
+  };
+})();
+
+/* ---------- js/store.js ---------- */
+window.BC_STORE = (function () {
+  const U = window.BC_UTILS;
+  const C = window.BC_CONFIG;
+
+  const state = {
+    voucher: {
+      voucherDate: U.today(),
+      vendor: '',
+      invoiceNumber: '',
+      priceLevel: '',
+      sessionId: '',
+      /* id of the Barcode record this session writes to. Its Item_Details rows
+         are not mirrored here — they are read back from the record itself, so
+         edits and deletes always rewrite what Creator actually holds. */
+      recordId: ''
+    },
+    items: [],
+    search: '',
+    sort: { key: null, dir: 'asc' },
+    filters: {},
+    hiddenColumns: new Set(),
+    listeners: []
+  };
+
+  const subscribe = (fn) => { state.listeners.push(fn); };
+  const emit = () => state.listeners.forEach((fn) => fn(state));
+
+  function setItems(items) { state.items = items || []; emit(); }
+  function setVoucher(patch) { Object.assign(state.voucher, patch); emit(); }
+  function setSearch(q) { state.search = q; emit(); }
+
+  function toggleSort(key) {
+    if (state.sort.key === key) state.sort.dir = state.sort.dir === 'asc' ? 'desc' : 'asc';
+    else state.sort = { key, dir: 'asc' };
+    emit();
+  }
+
+  function setFilter(key, value) {
+    if (value) state.filters[key] = value;
+    else delete state.filters[key];
+    emit();
+  }
+
+  function toggleColumn(key) {
+    if (state.hiddenColumns.has(key)) state.hiddenColumns.delete(key);
+    else state.hiddenColumns.add(key);
+    emit();
+  }
+
+  function reset() {
+    state.search = '';
+    state.sort = { key: null, dir: 'asc' };
+    state.filters = {};
+    state.hiddenColumns = new Set();
+    emit();
+  }
+
+  function visibleColumns() {
+    return C.columns.filter((c) => !state.hiddenColumns.has(c.key));
+  }
+
+  function visibleItems() {
+    let rows = state.items.slice();
+
+    /* subform lookups are { ID, display_value } objects, so every comparison goes
+       through zohoText — a plain String() on one yields "[object Object]" and
+       makes search and sort useless on exactly the columns people search by. */
+    const text = (v) => U.zohoText(v).toLowerCase();
+
+    /* a column may read several fields (Item_Category falling back to Category),
+       so search looks at all of them, not just the primary key */
+    const colText = (r, c) => (c.keys || [c.key]).map((k) => text(r[k])).join(' ');
+
+    const q = state.search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((r) => C.columns.some((c) => colText(r, c).includes(q)));
+    }
+
+    Object.keys(state.filters).forEach((key) => {
+      const val = String(state.filters[key]).toLowerCase();
+      rows = rows.filter((r) => text(r[key]) === val);
+    });
+
+    if (state.sort.key) {
+      const col = C.columns.find((c) => c.key === state.sort.key);
+      const numeric = col && ['weight', 'money'].includes(col.type);
+      const dir = state.sort.dir === 'asc' ? 1 : -1;
+      rows.sort((a, b) => {
+        const x = a[state.sort.key], y = b[state.sort.key];
+        if (numeric) return (U.num(x) - U.num(y)) * dir;
+        return U.zohoText(x).localeCompare(U.zohoText(y)) * dir;
+      });
+    }
+
+    return rows;
+  }
+
+  function totals() {
+    const rows = visibleItems();
+    const sum = (key) => rows.reduce((acc, r) => acc + U.num(r[key]), 0);
+    /* the subform has no single "amount" column — the gross is the metal, stone
+       and service amounts added up, and Line_Total is already net of discount. */
+    const totalAmount = sum('Board_Amount') + sum('CS_Amount') + sum('DMD_Amount') +
+                        sum('PS_Amount') + sum('Service_Amount');
+    const discount = sum('Discount_Amount');
+    return {
+      count: rows.length,
+      grossWeight: sum('Gross_Weight'),
+      netWeight: sum('Net_Weight'),
+      totalAmount: totalAmount,
+      discount: discount,
+      netAmount: sum('Line_Total')
+    };
+  }
+
+  return {
+    state, subscribe, setItems, setVoucher, setSearch, toggleSort,
+    setFilter, toggleColumn, reset, visibleItems, visibleColumns, totals
+  };
+})();
+
+/* ---------- js/ui.js ---------- */
+window.BC_UI = (function () {
+  const U = window.BC_UTILS;
+  const C = window.BC_CONFIG;
+  const S = window.BC_STORE;
+
+  const $ = (sel) => document.querySelector(sel);
+
+  const ICONS = {
+    hash:  '<path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>',
+    scale: '<path d="M12 3v18M7 7l-4 7h8zM17 7l-4 7h8zM5 21h14"/>',
+    gem:   '<path d="M6 3h12l3 6-9 12L3 9z"/>',
+    rupee: '<path d="M7 4h10M7 9h10M14 4c3 0 4 5 0 5H7l7 11"/>',
+    tag:   '<path d="M3 12l9-9h8v8l-9 9zM16 8h.01"/>',
+    wallet:'<path d="M3 7h18v12H3zM3 7l3-4h12l3 4M16 13h.01"/>'
+  };
+
+  /* ---------------- stat cards ---------------- */
+  function renderStats() {
+    const t = S.totals();
+    $('#statsRow').innerHTML = C.stats.map((s) => {
+      const raw = t[s.key];
+      const value = U.fmt[s.format](raw);
+      const prefix = s.format.startsWith('money') ? '<span class="bc-unit">₹</span>' : '';
+      const suffix = s.format === 'weight' ? '<span class="bc-unit">g</span>' : '';
+      return `
+        <div class="bc-stat bc-tone-${s.tone}">
+          <div class="bc-stat-icon"><svg viewBox="0 0 24 24">${ICONS[s.icon]}</svg></div>
+          <div class="bc-stat-label">${U.esc(s.label)}</div>
+          <div class="bc-stat-value">${prefix}${value}${suffix}</div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ---------------- table ---------------- */
+  function firstValue(row, col) {
+    const keys = col.keys || [col.key];
+    for (let i = 0; i < keys.length; i++) {
+      const text = U.zohoText(row[keys[i]]);
+      if (text) return text;
+    }
+    return '';
+  }
+
+  function cellHTML(col, row, index) {
+    switch (col.type) {
+      case 'index':  return String(index + 1);
+      case 'action': return `
+        <button class="bc-icon-btn bc-edit" data-row-action="edit" data-id="${U.esc(row.ID)}" title="Edit">
+          <svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4"/></svg>
+        </button>
+        <button class="bc-icon-btn bc-delete" data-row-action="delete" data-id="${U.esc(row.ID)}" title="Delete">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>
+        </button>`;
+      /* a blank value renders as nothing rather than an empty link or an empty
+         chip, which read as UI glitches on columns the subform cannot fill */
+      case 'link':   return U.zohoText(row[col.key])
+        ? `<a class="bc-link" href="#" data-row-action="edit" data-id="${U.esc(row.ID)}">${U.esc(U.zohoText(row[col.key]))}</a>`
+        : '';
+      case 'tag':    return firstValue(row, col)
+        ? `<span class="bc-chip">${U.esc(firstValue(row, col))}</span>`
+        : '';
+      /* a Creator lookup arrives as { ID, display_value }; zohoText unwraps it,
+         where U.esc alone would print [object Object]. */
+      case 'lookup': return U.esc(U.zohoText(row[col.key]));
+      /* `keys` lets a column read the first of several fields that has a value —
+         rows written before Barcode1 existed still carry the numeric Barcode. */
+      case 'barcode': return U.code39SVG(firstValue(row, col),
+        { scale: col.scale, height: col.barHeight });
+      case 'weight': return `${U.fmt.weight(row[col.key])} <span class="bc-unit">g</span>`;
+      case 'money':  return `<strong>₹${U.fmt.money(row[col.key])}</strong>`;
+      default:       return U.esc(U.zohoText(row[col.key]));
+    }
+  }
+
+  function renderTable() {
+    const cols = S.visibleColumns();
+    const rows = S.visibleItems();
+    const sort = S.state.sort;
+
+    $('#tableHead').innerHTML = '<tr>' + cols.map((c) => {
+      const sortable = c.sortable !== false;
+      const active = sort.key === c.key ? ` bc-sorted bc-${sort.dir}` : '';
+      return `<th class="bc-al-${c.align || 'left'}${active}" style="min-width:${c.width}px"
+                  ${sortable ? `data-sort-key="${c.key}"` : ''}>
+        <span>${U.esc(c.label)}</span>
+        ${sortable ? '<svg class="bc-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>' : ''}
+      </th>`;
+    }).join('') + '</tr>';
+
+    $('#tableBody').innerHTML = rows.map((row, i) =>
+      `<tr data-id="${U.esc(row.ID)}">` + cols.map((c) =>
+        `<td class="bc-al-${c.align || 'left'}">${cellHTML(c, row, i)}</td>`
+      ).join('') + '</tr>'
+    ).join('');
+
+    $('#emptyState').hidden = rows.length > 0;
+    $('.bc-table-scroll').hidden = rows.length === 0;
+
+    /* an empty table that says only "no items yet" hides whether the fetch found
+       nothing or never ran — say which. */
+    const why = window.BC_API.lastEmptyReason && window.BC_API.lastEmptyReason();
+    $('#emptyStateText').textContent = (rows.length === 0 && why)
+      ? why
+      : 'No barcode items yet';
+  }
+
+  function renderVoucher() {
+    const v = S.state.voucher;
+    $('#voucherDate').value = v.voucherDate;
+    $('#invoiceNumber').value = v.invoiceNumber;
+    $('#priceLevel').value = v.priceLevel;
+  }
+
+  function renderAll() {
+    renderStats();
+    renderTable();
+  }
+
+  /* ---------------- modal ---------------- */
+  function closeModal() {
+    const root = $('#modalRoot');
+    root.hidden = true;
+    root.innerHTML = '';
+  }
+
+  function openModal(title, bodyHTML, footerHTML, opts) {
+    const o = opts || {};
+    const root = $('#modalRoot');
+    root.innerHTML = `
+      <div class="bc-modal-backdrop" data-close="1"></div>
+      <div class="bc-modal${o.wide ? ' bc-modal-xl' : ''}" role="dialog" aria-modal="true" aria-label="${U.esc(title)}">
+        <div class="bc-modal-head">
+          <h2>${U.esc(title)}</h2>
+          <div class="bc-modal-head-actions">
+            ${o.headActions || ''}
+            <button class="bc-icon-btn" data-close="1" aria-label="Close">
+              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="bc-modal-body">${bodyHTML}</div>
+        ${footerHTML ? `<div class="bc-modal-foot">${footerHTML}</div>` : ''}
+      </div>`;
+    root.hidden = false;
+    root.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeModal));
+    const first = root.querySelector('input,select,textarea,button');
+    if (first) first.focus();
+    return root.querySelector('.bc-modal');
+  }
+
+  function itemFormHTML(row) {
+    const r = row || {};
+    const opts = (list, sel) => list.map((o) => `<option${o === sel ? ' selected' : ''}>${U.esc(o)}</option>`).join('');
+    const f = (name, label, value, type, extra) => `
+      <label class="bc-field">
+        <span>${label}</span>
+        <input name="${name}" type="${type || 'text'}" value="${U.esc(value == null ? '' : value)}" ${extra || ''} />
+      </label>`;
+    return `<form id="itemForm" class="bc-form-grid">
+      ${f('Barcode', 'Barcode', r.Barcode, 'text', 'required')}
+      ${f('Item_Name', 'Item Name', r.Item_Name, 'text', 'required')}
+      <label class="bc-field"><span>Category</span><select name="Category">${opts(C.categories, r.Category)}</select></label>
+      <label class="bc-field"><span>Purity</span><select name="Purity">${opts(C.purities, r.Purity)}</select></label>
+      ${f('Gross_Weight', 'Gross Weight (g)', r.Gross_Weight, 'number', 'step="0.001" min="0"')}
+      ${f('Net_Weight', 'Net Weight (g)', r.Net_Weight, 'number', 'step="0.001" min="0"')}
+      ${f('MRP', 'MRP (₹)', r.MRP, 'number', 'step="0.01" min="0"')}
+      ${f('Making_Charge', 'Making Charge (₹)', r.Making_Charge, 'number', 'step="0.01" min="0"')}
+      ${f('Discount', 'Discount (₹)', r.Discount, 'number', 'step="0.01" min="0"')}
+    </form>`;
+  }
+
+  /* ---------------- add-barcode entry form ---------------- */
+
+  function barcodeHeadActions() {
+    return `
+      <button class="bc-btn" id="bcListBtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Barcode List</button>
+      <label class="bc-check"><input type="checkbox" id="bcChkCss" /> CSS</label>
+      <label class="bc-check"><input type="checkbox" id="bcChkDmd" /> DMD</label>
+      <label class="bc-check"><input type="checkbox" id="bcChkPs" /> PS</label>
+      <button class="bc-btn bc-btn-primary" id="bcSave">Save</button>
+      <button class="bc-btn" id="bcReset">Reset</button>`;
+  }
+
+  /* Mirrors the Add New Barcode screen from Jewellery Barcode Widget V2: entry
+     fields on the left, running balance and image on the right. */
+  function barcodeFormHTML(row) {
+    const r = row || {};
+    const opts = (list, sel) => list.map((o) => `<option${o === sel ? ' selected' : ''}>${U.esc(o)}</option>`).join('');
+    const f = (name, label, value, type, extra) => `
+      <label class="bc-field">
+        <span>${label}</span>
+        <input name="${name}" type="${type || 'text'}" value="${U.esc(value == null ? '' : value)}" ${extra || ''} />
+      </label>`;
+    const bal = (id, label, value, unit) => `
+      <div class="bc-bal">
+        <div class="bc-bal-ico"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8h14M7 8l-3 6a3 3 0 006 0zM17 8l-3 6a3 3 0 006 0z"/></svg></div>
+        <div class="bc-bal-label">${label}</div>
+        <div class="bc-bal-value" id="${id}">${value}${unit ? `<small>${unit}</small>` : ''}</div>
+      </div>`;
+
+    return `<form id="itemForm" class="bc-entry">
+      <div class="bc-entry-col">
+
+        <section class="bc-sec" id="bcSecBasic">
+          <div class="bc-sec-title"><i></i>Basic Information</div>
+          <div class="bc-sec-grid">
+            ${f('Voucher_Date', 'Date', r.Voucher_Date || U.today(), 'date')}
+            <label class="bc-field"><span>Supplier</span><select name="Supplier" id="bcSupplier"><option value="">Select Supplier</option></select></label>
+            <label class="bc-field"><span>SM</span><select name="SM" id="bcSM"><option value="">Select SM</option></select></label>
+            ${f('Barcode', 'Barcode<em class="bc-req">*</em>', r.Barcode, 'text', 'required')}
+            <label class="bc-field"><span>Item Name<em class="bc-req">*</em></span><select name="Item_Name" id="bcItemName" required><option value="">Select Item</option></select></label>
+            ${f('Vendor_Item_Code', 'Vendor Item Code', r.Vendor_Item_Code)}
+            <div class="bc-item-details" id="bcItemDetails" hidden>
+              ${f('Design_Type', 'Design Type', r.Design_Type, 'text', 'readonly')}
+              ${f('Design_Code', 'Design Code', r.Design_Code, 'text', 'readonly')}
+              ${f('Design_Name', 'Design Name', r.Design_Name, 'text', 'readonly')}
+              ${f('Shape', 'Shape', r.Shape, 'text', 'readonly')}
+            </div>
+          </div>
+        </section>
+
+        <section class="bc-sec">
+          <div class="bc-sec-title bc-purple"><i></i>Product & Rates</div>
+          <div class="bc-sec-grid">
+            <label class="bc-field"><span>Purity<em class="bc-req">*</em></span><select name="Purity" id="bcPurity" required><option value="">Select Purity</option></select></label>
+            <div class="bc-inline">
+              <label class="bc-field"><span>Size / Model</span><input name="Size_Model" type="text" value="${U.esc(r.Size_Model || '')}" placeholder="e.g. 17" /></label>
+              <select name="Size_Unit" class="bc-small-sel">${opts(C.sizeUnits, r.Size_Unit)}</select>
+            </div>
+            ${f('Qty', 'Qty', r.Qty == null ? 1 : r.Qty, 'number', 'step="1" min="0"')}
+            ${f('Purchase_Rate', 'Purchase Rate', r.Purchase_Rate, 'number', 'step="0.01" min="0"')}
+            ${f('Retail_Rate', 'Retail/Sell Rate', r.Retail_Rate, 'number', 'step="0.01" min="0"')}
+          </div>
+        </section>
+
+        <section class="bc-sec">
+          <div class="bc-sec-title bc-green"><i></i>Weight Information</div>
+          <div class="bc-sec-grid">
+            ${f('Gross_Weight', 'Gross Weight (gm)<em class="bc-req">*</em>', r.Gross_Weight, 'number', 'step="0.001" min="0" required')}
+            ${f('Tag_Weight', 'Tag Weight (gm)', r.Tag_Weight, 'number', 'step="0.001" min="0"')}
+            ${f('Net_Weight', 'Net Weight (gm)', r.Net_Weight, 'number', 'step="0.001" min="0" readonly class="bc-calc"')}
+          </div>
+
+          <div class="bc-sub-sec" id="bcSecCss" hidden>
+            <div class="bc-sub-sec-title">CSS Details</div>
+            <div class="bc-sec-grid">
+              ${f('CSS_Weight', 'CSS Weight', r.CSS_Weight, 'number', 'step="0.001" min="0"')}
+              ${f('CSS_Rate', 'CSS Rate', r.CSS_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('CSS_Purchase_Rate', 'Purchase Rate', r.CSS_Purchase_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('CSS_Retail_Rate', 'Retail/Sell Rate', r.CSS_Retail_Rate, 'number', 'step="0.01" min="0"')}
+            </div>
+          </div>
+
+          <div class="bc-sub-sec" id="bcSecDmd" hidden>
+            <div class="bc-sub-sec-title">DMD Details</div>
+            <div class="bc-sec-grid">
+              ${f('DMD_Weight', 'DMD Weight (CT)', r.DMD_Weight, 'number', 'step="0.001" min="0"')}
+              ${f('DMD_Rate', 'DMD Rate', r.DMD_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('DMD_Purchase_Rate', 'Purchase Rate', r.DMD_Purchase_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('DMD_Retail_Rate', 'Retail/Sell Rate', r.DMD_Retail_Rate, 'number', 'step="0.01" min="0"')}
+            </div>
+          </div>
+
+          <div class="bc-sub-sec" id="bcSecPs" hidden>
+            <div class="bc-sub-sec-title">PS Details</div>
+            <div class="bc-sec-grid">
+              ${f('PS_Weight', 'PS Weight', r.PS_Weight, 'number', 'step="0.001" min="0"')}
+              ${f('PS_Rate', 'PS Rate', r.PS_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('PS_Purchase_Rate', 'Purchase Rate', r.PS_Purchase_Rate, 'number', 'step="0.01" min="0"')}
+              ${f('PS_Retail_Rate', 'Retail/Sell Rate', r.PS_Retail_Rate, 'number', 'step="0.01" min="0"')}
+            </div>
+          </div>
+        </section>
+
+        <section class="bc-sec">
+          <div class="bc-sec-title bc-orange"><i></i>Service & Charges</div>
+          <div class="bc-sec-grid">
+            <label class="bc-field"><span>Service Type</span>
+              <select name="Service_Type">
+                <option value="percentage"${(r.Service_Type || 'percentage') === 'percentage' ? ' selected' : ''}>Percentage (%)</option>
+                <option value="piece"${r.Service_Type === 'piece' ? ' selected' : ''}>Per Piece</option>
+                <option value="rate"${r.Service_Type === 'rate' ? ' selected' : ''}>Per Rate/gm</option>
+              </select>
+            </label>
+            ${f('Service_Value', 'Service Value', r.Service_Value, 'number', 'step="0.01" min="0"')}
+            ${f('Service_Amount', 'Service Amount', r.Service_Amount, 'number', 'step="0.01" readonly class="bc-calc"')}
+            ${f('Hallmarking_Charge', 'Hallmarking Charge', r.Hallmarking_Charge, 'number', 'step="0.01" min="0"')}
+            ${f('Certification_Charge', 'Certification Charge', r.Certification_Charge, 'number', 'step="0.01" min="0"')}
+            ${f('Other_Charge', 'Other Charge', r.Other_Charge, 'number', 'step="0.01" min="0"')}
+          </div>
+        </section>
+
+        <section class="bc-sec">
+          <div class="bc-sec-title bc-teal"><i></i>Additional Information</div>
+          <div class="bc-sec-grid">
+            ${f('SKU_ID', 'SKU ID', r.SKU_ID, 'text', 'placeholder="Enter SKU ID"')}
+            ${f('HUID', 'HUID', r.HUID, 'text', 'placeholder="Enter HUID"')}
+            ${f('Certification_Number', 'Certification Number', r.Certification_Number, 'text', 'placeholder="Enter cert no"')}
+            ${f('Reference_Number', 'Reference Number', r.Reference_Number, 'text', 'placeholder="Enter ref no"')}
+          </div>
+          <div class="bc-sec-grid bc-remark-grid">
+            ${f('Remarks', 'Remarks', r.Remarks, 'text', 'placeholder="Add remarks..."')}
+          </div>
+        </section>
+
+      </div>
+
+      <div class="bc-entry-col">
+        <section class="bc-sec">
+          <div class="bc-sec-title"><i></i>Balance Information</div>
+          <div class="bc-bal-grid">
+            ${bal('bcTotalWeight', 'Total Weight', '0.000', 'gm')}
+            ${bal('bcTotalNos', 'Total Nos', '0', '')}
+            ${bal('bcWeightBalance', 'Weight Balance', '0.000', 'gm')}
+            ${bal('bcNosBalance', 'Nos Balance', '0', '')}
+          </div>
+        </section>
+
+        <section class="bc-sec">
+          <div class="bc-sec-title"><i></i>Image Upload</div>
+          <div class="bc-drop" id="bcDrop">
+            <div id="bcDropPh">
+              <svg viewBox="0 0 24 24"><path d="M3 17V9a2 2 0 012-2h2.5l1.5-2h6l1.5 2H20a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="3.2"/></svg>
+              <b>Upload Image</b>
+              <small>Click, Drag &amp; Drop or Paste (Ctrl + V)</small>
+              <div class="bc-upload-badge">Supported: JPG • PNG • WEBP</div>
+            </div>
+            <div class="bc-drop-prev" id="bcDropPrev" hidden>
+              <img id="bcDropImg" src="" alt="Preview" />
+              <button type="button" class="bc-remove-img" id="bcRemoveImg" aria-label="Remove image">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+            <input type="file" id="bcFile" accept="image/png,image/jpeg,image/jpg,image/webp" hidden />
+          </div>
+          <label class="bc-check" style="margin: 0 18px 18px;"><input type="checkbox" id="bcChkCamera" /> Camera</label>
+        </section>
+      </div>
+    </form>`;
+  }
+
+  /* ---------------- toast / loader ---------------- */
+  function toast(message, tone) {
+    const el = document.createElement('div');
+    el.className = 'bc-toast bc-toast-' + (tone || 'info');
+    el.textContent = message;
+    $('#toastRoot').appendChild(el);
+    setTimeout(() => el.classList.add('bc-in'), 10);
+    setTimeout(() => {
+      el.classList.remove('bc-in');
+      setTimeout(() => el.remove(), 250);
+    }, 3000);
+  }
+
+  const loading = (on) => { $('#loader').hidden = !on; };
+
+  /* Offline is a dead end for real data, so say so permanently rather than in a
+     toast that disappears before anyone reads it. */
+  function showOffline(reason) {
+    $('#offlineReason').textContent = (reason ? reason + ' ' : '') +
+      'Open this widget from inside a Creator page to load vendors, price levels and items.';
+    $('#offlineBanner').hidden = false;
+  }
+
+  return {
+    renderAll, renderStats, renderTable, renderVoucher,
+    openModal, closeModal, itemFormHTML, barcodeFormHTML, barcodeHeadActions,
+    toast, loading, showOffline, $
+  };
+})();
+
+/* ---------- js/app.js ---------- */
+(function () {
+  const U = window.BC_UTILS;
+  const C = window.BC_CONFIG;
+  const S = window.BC_STORE;
+  const UI = window.BC_UI;
+  const API = window.BC_API;
+  const $ = UI.$;
+
+  /* ---------------- data ---------------- */
+
+  /* `expectAtLeast` is how many rows the voucher should have after a save that
+     just succeeded. Creator can serve a read taken straight after a write from
+     the record as it was before it, which would redraw the table without the row
+     that was just added — so the fetch is retried briefly until the count catches
+     up, and only then does the table redraw. */
+  function loadItems(expectAtLeast, attempt) {
+    const tries = attempt || 0;
+    UI.loading(true);
+    return API.getItems()
+      .then((rows) => {
+        if (expectAtLeast && rows.length < expectAtLeast && tries < 3) {
+          console.log('[barcode] voucher still reports ' + rows.length + ' row(s), expected ' +
+            expectAtLeast + ' — refetching.');
+          return new Promise((done) => setTimeout(done, 400 * (tries + 1)))
+            .then(() => loadItems(expectAtLeast, tries + 1));
+        }
+        S.setItems(withCategory(rows));
+        return fillMissingCategories(rows);
+      })
+      .catch((err) => UI.toast('Could not load items: ' + U.errText(err), 'error'))
+      .then(() => UI.loading(false));
+  }
+
+  /* Category is not stored on the subform — it belongs to the item. Each row is
+     given one derived from the Item_Master record its Item_Detail lookup names,
+     which is what makes the CATEGORY column, and the search and filter over it,
+     work at all. */
+  let itemCategoryById = {};
+
+  const categoryOf = (masterRow) =>
+    masterRow ? fieldText(masterRow, C.itemMasterFields.categoryCandidates) : '';
+
+  const itemFieldName = () =>
+    (C.subformFields.Item_Name && C.subformFields.Item_Name.field) || '';
+
+  function withCategory(rows) {
+    const itemField = itemFieldName();
+    if (!itemField) return rows;
+    return rows.map((r) => {
+      const id = rawId(r[itemField]);
+      const cat = id ? itemCategoryById[id] : '';
+      return cat ? Object.assign({}, r, { Category: cat }) : r;
+    });
+  }
+
+  /* The Item_Master listing carries only the fields its report displays, so an
+     item whose category is absent there is fetched in full — once, cached — and
+     the table redrawn with what came back. */
+  function fillMissingCategories(rows) {
+    const itemField = itemFieldName();
+    if (!itemField) return Promise.resolve();
+
+    const missing = [];
+    rows.forEach((r) => {
+      const id = rawId(r[itemField]);
+      if (id && !itemCategoryById[id] && missing.indexOf(id) === -1) missing.push(id);
+    });
+    if (!missing.length) return Promise.resolve();
+
+    console.log('[barcode] fetching full Item_Master records for category: ' + missing.join(', '));
+    return Promise.all(missing.map((id) => itemDetail(id).then((rec) => {
+      const cat = categoryOf(rec);
+      if (cat) {
+        itemCategoryById[id] = cat;
+      } else if (rec) {
+        console.warn('[barcode] item ' + id + ' has no ' +
+          JSON.stringify(C.itemMasterFields.categoryCandidates) + '. Full record keys: ' +
+          Object.keys(rec).join(', '));
+      } else {
+        console.warn('[barcode] item ' + id + ' could not be read from ' + C.reports.itemMaster +
+          ' — the row points at a record that is not there.');
+      }
+    }).catch(() => {}))).then(() => S.setItems(withCategory(rows)));
+  }
+
+  /* Fills a <select> from a Creator report. Every failure mode names itself in the
+     dropdown, so an empty picker is never mistaken for "no records". */
+  function fillSelect(sel, placeholder, reportName, labelField, codeField) {
+    sel.innerHTML = '<option value="">' + placeholder + '</option>';
+
+    if (!API.hasSDK()) {
+      sel.innerHTML += '<option value="" disabled>Unavailable outside Zoho Creator</option>';
+      return Promise.resolve();
+    }
+
+    return API.getLookup(reportName, labelField).then((list) => {
+      if (!list.length) {
+        sel.innerHTML += '<option value="" disabled>No records in ' + reportName + '</option>';
+        return;
+      }
+      list.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s.ID;
+        o.textContent = s.label;
+        if (codeField) o.dataset.code = U.zohoText(s.row && s.row[codeField]);
+        sel.appendChild(o);
+      });
+    }).catch((err) => {
+      sel.innerHTML += '<option value="" disabled>Failed to load from ' + reportName + '</option>';
+      UI.toast('Vendor/price lookup failed: ' + U.errText(err), 'error');
+    });
+  }
+
+  function loadVendors() {
+    return fillSelect($('#vendor'), 'Select Vendor', C.reports.vendor, C.vendorFields.label, C.vendorFields.code);
+  }
+
+  function loadPriceLevels() {
+    const sel = $('#priceLevel');
+    return fillSelect(sel, 'Select Price Level', C.reports.priceLevel, C.priceLevelFields.label)
+      .then(() => {
+        /* a single real choice is picked automatically, so Save never sends an
+           empty Price_Level just because nobody had to touch the dropdown */
+        const real = Array.prototype.filter.call(sel.options, (o) => o.value);
+        if (!sel.value && real.length === 1) sel.value = real[0].value;
+        S.setVoucher({ priceLevel: sel.value });
+      });
+  }
+
+  /* Counts this year's existing numbers and takes the next one, the same way the
+     Sales Invoice widget derives its invoice number. */
+  function loadInvoiceNumber() {
+    const cfg = C.invoiceNumberConfig;
+    const report = C.reports[cfg.countReport] || cfg.countReport;
+    const el = $('#invoiceNumber');
+    const yearPrefix = cfg.prefix + '-' + String(new Date().getFullYear()).slice(-2) + '-';
+
+    const apply = (n) => {
+      const value = yearPrefix + String(n).padStart(cfg.padLength, '0');
+      el.value = value;
+      S.setVoucher({ invoiceNumber: value });
+    };
+
+    if (!API.hasSDK()) {
+      const offlineCount = parseInt(localStorage.getItem('bcInvoiceCount') || '0', 10) + 1;
+      localStorage.setItem('bcInvoiceCount', offlineCount);
+      apply(offlineCount);
+      return Promise.resolve();
+    }
+
+    el.value = 'Generating...';
+    return API.getLookup(report, cfg.countField).then((list) => {
+      const used = list.filter((r) => r.label.indexOf(yearPrefix) === 0).length;
+      apply(used + 1);
+    }).catch((err) => {
+      console.error('Failed to fetch invoice numbers from "' + report + '".', err);
+      apply(0);
+    });
+  }
+
+  /* Design Type and Shape are lookups; cache id -> name for each master so an
+     item row that carries only the id can still be shown by name. */
+  let designTypeNames = {};
+  let shapeNames = {};
+
+  function loadLookupMasters() {
+    if (!API.hasSDK()) return Promise.resolve();
+    const masters = [
+      { report: C.reports.designType, label: C.designTypeFields.label, set: (m) => { designTypeNames = m; } },
+      { report: C.reports.shape, label: C.shapeFields.label, set: (m) => { shapeNames = m; } }
+    ];
+    return Promise.all(masters.map((m) =>
+      API.getLookup(m.report, m.label).then((list) => {
+        const byId = {};
+        list.forEach((s) => { byId[String(s.ID)] = s.label; });
+        m.set(byId);
+        console.log('[barcode] ' + m.report + ': ' + list.length + ' rows');
+      }).catch(() => {})
+    ));
+  }
+
+  /* Creator link names vary in case and punctuation, so a field is matched exactly
+     first and then on a normalised key (design_code / DesignCode / designcode ...). */
+  const normKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  function matchingKeys(row, candidates) {
+    const keys = [];
+    candidates.forEach((c) => { if (c in row && keys.indexOf(c) < 0) keys.push(c); });
+    const wanted = candidates.map(normKey);
+    Object.keys(row).forEach((k) => {
+      if (wanted.indexOf(normKey(k)) > -1 && keys.indexOf(k) < 0) keys.push(k);
+    });
+    return keys;
+  }
+
+  /* Plain text value of the first matching field. */
+  function fieldText(row, candidates) {
+    const keys = matchingKeys(row, candidates);
+    for (let i = 0; i < keys.length; i++) {
+      const text = U.zohoText(row[keys[i]]);
+      if (text) return text;
+    }
+    return '';
+  }
+
+  /* Name of a lookup value. The master map wins, because a lookup that arrives as a
+     bare id would otherwise render as its digits; plain numeric text is never shown. */
+  function lookupName(row, candidates, nameById) {
+    const keys = matchingKeys(row, candidates);
+    for (let i = 0; i < keys.length; i++) {
+      const value = row[keys[i]];
+      const id = rawId(value);
+      if (id && nameById[id]) return nameById[id];
+      const text = U.zohoText(value);
+      if (text && !/^[0-9]+$/.test(text)) return text;
+    }
+    return '';
+  }
+
+  /* Full Item_Master_Report records, fetched on demand and kept per id. */
+  const itemDetailCache = {};
+
+  function itemDetail(id) {
+    if (itemDetailCache[id]) return Promise.resolve(itemDetailCache[id]);
+    return API.getRecordById(C.reports.itemMaster, id).then((rec) => {
+      if (rec) itemDetailCache[id] = rec;
+      return rec;
+    });
+  }
+
+  /* Item_Master_Report names, cached once and reused by every modal open. */
+  let itemMasterList = null;
+
+  function loadItemMaster() {
+    if (!API.hasSDK()) { itemMasterList = []; return Promise.resolve(); }
+    return API.getLookup(C.reports.itemMaster, C.itemMasterFields.label).then((list) => {
+      itemMasterList = list;
+      list.forEach((s) => {
+        const cat = categoryOf(s.row);
+        if (cat) itemCategoryById[s.ID] = cat;
+      });
+      const found = Object.keys(itemCategoryById).length;
+      console.log('[barcode] ' + C.reports.itemMaster + ': ' + list.length + ' items, ' +
+        found + ' with a category');
+      if (!found && list.length) {
+        console.warn('[barcode] None of ' + JSON.stringify(C.itemMasterFields.categoryCandidates) +
+          ' matched on the ' + C.reports.itemMaster + ' listing. Its rows carry: ' +
+          Object.keys(list[0].row).join(', '));
+        console.warn('[barcode] first item record:', list[0].row);
+      }
+    }).catch(() => { itemMasterList = null; });
+  }
+
+  /* Option value is the item's name, not its record ID, because Barcode_Item stores
+     Item_Name as text — the ID rides along in data-id for later use. */
+  function fillItemNames(sel, selected) {
+    sel.innerHTML = '<option value="">Select Item</option>';
+
+    if (!API.hasSDK()) {
+      sel.innerHTML += '<option value="" disabled>Unavailable outside Zoho Creator</option>';
+      return;
+    }
+    if (itemMasterList === null) {
+      sel.innerHTML += '<option value="" disabled>Failed to load from ' + C.reports.itemMaster + '</option>';
+      return;
+    }
+    if (!itemMasterList.length) {
+      sel.innerHTML += '<option value="" disabled>No records in ' + C.reports.itemMaster + '</option>';
+      return;
+    }
+
+    itemMasterList.forEach((s) => {
+      const o = document.createElement('option');
+      o.value = s.label;
+      o.textContent = s.label;
+      o.dataset.id = s.ID;
+      sel.appendChild(o);
+    });
+
+    if (selected) sel.value = U.zohoText(selected);
+  }
+
+  /* Rows of Purchase_Entry_Report + Material_Receive_Report, cached once so the
+     supplier totals can be recomputed on every selection without re-querying. */
+  let sourceRows = [];
+
+  function loadSourceRows() {
+    return Promise.all(C.sourceReports.map((src) =>
+      API.getRecords(src.report).then((rows) => {
+        console.log('[barcode] ' + src.report + ': ' + rows.length + ' rows', rows[0] || '');
+        /* keep each row paired with the supplier field its own report uses */
+        return rows.map((row) => ({ row: row, supplierField: src.supplierField, report: src.report }));
+      })
+    )).then((sets) => {
+      sourceRows = Array.prototype.concat.apply([], sets);
+    });
+  }
+
+  /* A lookup value arrives either as a bare id or as an object carrying one. */
+  const rawId = (v) => (v && typeof v === 'object') ? String(v.ID || v.id || '') : (v == null ? '' : String(v));
+
+  /* True when this receiving row belongs to the given supplier. Matches the report's
+     own supplier field on record ID or on display name — Creator returns a lookup
+     as either a bare ID or an object carrying both. */
+  function rowIsSupplier(entry, id, name) {
+    const wantedId = String(id || '');
+    const wantedName = String(name || '').trim().toLowerCase();
+    if (!wantedId && !wantedName) return false;
+
+    const value = entry.row[entry.supplierField];
+    if (value === undefined) return false;
+    if (wantedId && rawId(value) === wantedId) return true;
+    return !!wantedName && U.zohoText(value).toLowerCase() === wantedName;
+  }
+
+  /* Total_Net_Weight and Total_Qty received from one supplier. */
+  function supplierTotals(id, name) {
+    const F = C.sourceFields;
+    return sourceRows.filter((e) => rowIsSupplier(e, id, name)).reduce((a, e) => ({
+      weight: a.weight + U.num(U.zohoText(e.row[F.netWeight])),
+      nos: a.nos + U.num(U.zohoText(e.row[F.qty]))
+    }), { weight: 0, nos: 0 });
+  }
+
+  /* Resolved once at startup and reused every time the entry modal opens. */
+  let currentSM = null;
+
+  /* Ported from loadCurrentUserAsSalesman() in the Sales Invoice widget: take the
+     logged-in email from the SDK, then find that person in Employee_Report. */
+  function loadCurrentUser() {
+    if (!API.hasSDK()) {
+      currentSM = { ID: '', label: 'Unavailable outside Zoho Creator' };
+      return Promise.resolve();
+    }
+
+    return API.getLoginUser().then((email) => {
+      if (!email) {
+        currentSM = { ID: '', label: 'Unable to detect logged-in user' };
+        return;
+      }
+      const wanted = email.toLowerCase();
+      return API.getLookup(C.reports.employee, C.employeeFields.name).then((list) => {
+        const match = list.find((s) => {
+          const configured = U.zohoText(s.row[C.employeeFields.email]).toLowerCase();
+          if (configured === wanted) return true;
+          /* fall back to any field holding the address, as the reference does */
+          return Object.keys(s.row).some((k) => U.zohoText(s.row[k]).toLowerCase() === wanted);
+        });
+        /* name, then a bare Name field, then the email — never the record ID */
+        const name = match &&
+          (U.zohoText(match.row[C.employeeFields.name]) || U.zohoText(match.row.Name) || email);
+        currentSM = match ? { ID: match.ID, label: name } : { ID: '', label: email };
+      }).catch((err) => {
+        console.error('Failed to look up employee in "' + C.reports.employee + '".', err);
+        currentSM = { ID: '', label: email };
+      });
+    });
+  }
+
+  const NUMERIC = [
+    'Gross_Weight', 'Net_Weight', 'Tag_Weight', 'MRP', 'Making_Charge', 'Discount',
+    'Qty', 'Purchase_Rate', 'Retail_Rate',
+    'CSS_Weight', 'CSS_Rate', 'CSS_Purchase_Rate', 'CSS_Retail_Rate',
+    'DMD_Weight', 'DMD_Rate', 'DMD_Purchase_Rate', 'DMD_Retail_Rate',
+    'PS_Weight', 'PS_Rate', 'PS_Purchase_Rate', 'PS_Retail_Rate',
+    'Service_Value', 'Service_Amount',
+    'Hallmarking_Charge', 'Certification_Charge', 'Other_Charge'
+  ];
+
+  /* The Barcode record carries the voucher header: its date, the generated invoice
+     number, and the two lookups. Supplier on the entry form is the vendor.
+     `itemRows` becomes the Item_Details subform — the whole array every time,
+     because Creator replaces a subform rather than appending to it. */
+  function buildBarcodeRecord(supplierId, itemRows, barcodeText) {
+    const F = C.barcodeFormFields;
+    const data = {};
+
+    /* a blank name in barcodeFormFields means "do not send this field", so the
+       name is checked alongside the value — data[''] would otherwise be set. */
+    const put = (field, value) => { if (field && value) data[field] = value; };
+
+    put(F.voucherDate, U.zohoDate($('#voucherDate').value || S.state.voucher.voucherDate));
+    put(F.invoiceNo, S.state.voucher.invoiceNumber || $('#invoiceNumber').value);
+    put(F.priceLevel, $('#priceLevel').value);
+    put(F.vendor, supplierId || $('#vendor').value);
+    put(F.barcode, barcodeText);
+
+    if (F.itemDetails && itemRows && itemRows.length) data[F.itemDetails] = itemRows;
+
+    return data;
+  }
+
+  /* Field link names the Item_Details subform actually has, read once from
+     Barcode_Item_Details_Report. Empty means "unknown", and then the configured
+     map is trusted as written. */
+  let subformFieldNames = null;
+
+  function loadSubformFields() {
+    if (!API.hasSDK() || !C.reports.barcodeItemDetails) return Promise.resolve();
+    return API.getRecords(C.reports.barcodeItemDetails).then((rows) => {
+      if (!rows.length) {
+        console.warn('[barcode] "' + C.reports.barcodeItemDetails + '" has no rows yet, so the ' +
+          'Item_Details field names could not be read. Falling back to C.subformKnownFields.');
+        return;
+      }
+      /* A report listing only surfaces what its layout carries, and a column
+         added after those rows were written may not come back at all — so the
+         probe is merged with the configured list rather than replacing it.
+         Dropping a field we have been told exists loses data silently; the
+         filter is only here to catch names that are outright wrong. */
+      const probed = Object.keys(rows[0]);
+      subformFieldNames = probed.concat(
+        C.subformKnownFields.filter((n) => probed.indexOf(n) === -1)
+      );
+      console.log('[barcode] Item_Details fields from the report:', probed);
+      const onlyConfigured = C.subformKnownFields.filter((n) => probed.indexOf(n) === -1);
+      if (onlyConfigured.length) {
+        console.log('[barcode] not in the report listing, trusted from C.subformKnownFields: ' +
+          onlyConfigured.join(', '));
+      }
+      /* the values matter as much as the names: a lookup comes back as an object,
+         a plain number as a number, which is how Purity/Design get diagnosed. */
+      console.log('[barcode] sample Item_Details row:', rows[0]);
+      const unknown = Object.keys(C.subformFields)
+        .map((k) => C.subformFields[k] && C.subformFields[k].field)
+        .filter((name) => name && subformFieldNames.indexOf(name) === -1);
+      if (unknown.length) {
+        console.warn('[barcode] These C.subformFields names are on neither the report nor ' +
+          'C.subformKnownFields, so they will be dropped: ' + unknown.join(', '));
+      }
+    });
+  }
+
+  /* The entry form collects text ("BC-145857", "22K") while most of the subform is
+     NUMBER/DECIMAL, and Creator fails the whole submit on a type mismatch rather
+     than skipping the field. Every value is coerced to its declared type first. */
+  /* digits only. U.num keeps a leading "-", which would turn BC-145857 negative. */
+  const digitsOf = (v) => parseInt(String(v == null ? '' : v).replace(/\D/g, ''), 10) || 0;
+
+  /* Pulls a lookup id off the selected Item_Master record. matchingKeys tolerates
+     the report naming a field slightly differently from the candidate list. */
+  function itemMasterLookupId(itemMasterRow, candidates) {
+    if (!itemMasterRow) return '';
+    const keys = matchingKeys(itemMasterRow, candidates || []);
+    for (let i = 0; i < keys.length; i++) {
+      const id = rawId(itemMasterRow[keys[i]]);
+      if (id) return id;
+    }
+    return '';
+  }
+
+  function coerceSubformValue(value, map, ctx) {
+    const type = map.type;
+    /* Creator takes a lookup as the record id; sent as-is because Number() on a
+       non-numeric id yields NaN, which serialises to null and fails the submit. */
+    if (type === 'itemLookup') return ctx.itemMasterId ? String(ctx.itemMasterId) : '';
+    if (type === 'itemMasterId') return itemMasterLookupId(ctx.itemMasterRow, map.source);
+    /* the form control already holds a record id — send it, never its label */
+    if (type === 'lookupId') return value ? String(value) : '';
+    if (type === 'number') return digitsOf(value);
+    if (type === 'decimal') return U.num(value);
+    return value == null ? '' : String(value);
+  }
+
+  /* types whose value comes from the selected item, not the entry form's fields */
+  const SYNTHETIC_TYPES = ['itemLookup', 'itemMasterId'];
+
+  /* One Item_Details row built from the entry form. Names the subform does not
+     have are dropped — sending an unknown field makes Creator reject the whole
+     Barcode record, which would lose the voucher as well as the item. */
+  function buildSubformRow(raw, itemMasterId, itemMasterRow) {
+    const row = {};
+    const names = subformFieldNames || C.subformKnownFields;
+    const ctx = { itemMasterId: itemMasterId, itemMasterRow: itemMasterRow };
+    const LOOKUPS = ['itemLookup', 'itemMasterId', 'lookupId'];
+
+    Object.keys(C.subformFields).forEach((key) => {
+      const map = C.subformFields[key];
+      if (!map || !map.field) return;
+      if (SYNTHETIC_TYPES.indexOf(map.type) === -1 && !(key in raw)) return;
+      if (names && names.indexOf(map.field) === -1) {
+        console.warn('[barcode] subform has no field "' + map.field + '" — ' + key + ' not sent.');
+        return;
+      }
+      const value = coerceSubformValue(raw[key], map, ctx);
+      /* an empty lookup is omitted rather than sent blank — Creator rejects "" */
+      if (LOOKUPS.indexOf(map.type) > -1 && !value) {
+        if (map.type === 'lookupId') {
+          console.warn('[barcode] ' + key + ' was left unselected — ' + map.field + ' not sent.');
+        } else {
+          console.warn('[barcode] no id for ' + map.field + ' — not sent. Looked for ' +
+            JSON.stringify(map.source || ['<the selected item>']) + ' on the Item_Master record, ' +
+            'which has: ' + (itemMasterRow ? Object.keys(itemMasterRow).join(', ') : '(not loaded)'));
+        }
+        return;
+      }
+      row[map.field] = value;
+    });
+
+    return row;
+  }
+
+  /* Creator replaces a subform wholesale on update, so every row that should
+     survive has to be sent back in full. Carrying the row's ID keeps it the same
+     row instead of a duplicate; lookups are unwrapped to their record id, and
+     Creator's own columns (Added_Time and friends) are left out because
+     subformKnownFields lists only the writable ones. */
+  function subformRowForUpdate(row) {
+    const out = {};
+    if (row.ID) out.ID = row.ID;
+    C.subformKnownFields.forEach((name) => {
+      if (!(name in row)) return;
+      const value = row[name];
+      if (value === null || value === '') return;
+      out[name] = (value && typeof value === 'object') ? rawId(value) : value;
+    });
+    return out;
+  }
+
+  /* Rows already on the voucher, ready to be resent. Empty when this session has
+     not created a voucher — the table is then showing the whole report, and those
+     rows belong to other vouchers and must never be written back here. */
+  function existingSubformRows() {
+    if (!S.state.voucher.recordId) return [];
+    return S.state.items.map(subformRowForUpdate);
+  }
+
+  function writeSubform(recordId, rows, barcodeText) {
+    const F = C.barcodeFormFields;
+    const patch = {};
+    patch[F.itemDetails] = rows;
+    if (F.barcode && barcodeText) patch[F.barcode] = barcodeText;
+    return API.updateRecord(C.reports.barcode, recordId, patch);
+  }
+
+  /* Which voucher owns a listed row. Until this session saves something the table
+     lists the whole report, so rows can belong to any voucher — and rewriting one
+     voucher's subform with another's rows would wipe both. The parent is found
+     first and its own rows are what get rewritten.
+
+     A report listing omits subform arrays, so each candidate is opened by id;
+     the session's own voucher is tried first and the rest newest-first, stopping
+     at the first match. Results are cached, one lookup per row at most. */
+  /* Editing and deleting act on Barcode_Item_Details_Report directly — the row's
+     own report — rather than rewriting the parent voucher's whole subform array.
+     That is both safer (nothing else on the voucher is touched) and simpler: no
+     hunt for which Barcode record owns the row, which is what used to fail with
+     "Could not find the voucher this row belongs to."
+
+     The listed rows come from that same report, so row.ID addresses the record.
+     If a row somehow has no usable ID, it is looked up by its barcode instead. */
+  function itemDetailId(row) {
+    if (row && row.ID) return Promise.resolve(String(row.ID));
+    const code = row ? (row.Barcode1 || row.Barcode) : '';
+    return API.findItemDetailByBarcode(code).then((found) => {
+      if (!found) {
+        throw new Error('No row for barcode "' + code + '" in ' +
+          C.reports.barcodeItemDetails + '.');
+      }
+      return String(found.ID);
+    });
+  }
+
+  function deleteSubformRow(row) {
+    return itemDetailId(row)
+      .then((id) => API.deleteRecord(C.reports.barcodeItemDetails, id));
+  }
+
+  function replaceSubformRow(row, newRow) {
+    return itemDetailId(row)
+      .then((id) => API.updateRecord(C.reports.barcodeItemDetails, id, newRow));
+  }
+
+  /* A subform row is keyed by the subform's field names; the entry form is built
+     from its own. Reversing the map lets Edit reopen the form with the row's
+     values — lookups render as their display text, which is what the Item Name
+     dropdown matches on. */
+  function entryFormValues(subRow) {
+    const out = {};
+    Object.keys(C.subformFields).forEach((key) => {
+      const map = C.subformFields[key];
+      if (!map || !map.field || !(map.field in subRow)) return;
+      const v = subRow[map.field];
+      /* Item Name's dropdown is keyed by label, every other lookup by record id —
+         each control has to be given back the form of value it selects on. */
+      if (v && typeof v === 'object') {
+        out[key] = (map.type === 'itemLookup') ? U.zohoText(v) : rawId(v);
+      } else {
+        out[key] = v;
+      }
+    });
+    return out;
+  }
+
+  /* Adds one row to the session's Item_Details subform. The first save creates the
+     Barcode voucher and remembers its id; later saves update that same record with
+     the full row list, so a session produces one Barcode Report line whose Item
+     Details grows, not a new line per item. */
+  function saveVoucherItem(itemRow, supplierId, barcodeText) {
+    if (!API.hasSDK()) return Promise.resolve();
+
+    const V = S.state.voucher;
+    const rows = existingSubformRows().concat([itemRow]);
+
+    if (!V.recordId) {
+      return API.addRecord(C.forms.barcode, buildBarcodeRecord(supplierId, rows, barcodeText)).then((res) => {
+        console.log('[barcode] created ' + C.forms.barcode + ' record:', res);
+        const id = res && res.data && res.data.ID;
+        if (!id) {
+          console.warn('[barcode] addRecord returned no ID, so the next item will start a new ' +
+            'voucher instead of joining this one.');
+        }
+        S.setVoucher({ recordId: id || '' });
+        return res;
+      });
+    }
+
+    return writeSubform(V.recordId, rows, barcodeText);
+  }
+
+  function readRaw(form) {
+    const raw = {};
+    new FormData(form).forEach((v, k) => { raw[k] = v; });
+    NUMERIC.forEach((k) => { if (k in raw) raw[k] = U.num(raw[k]); });
+    return raw;
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function openItemModal(row) {
+    const editing = !!row;
+    /* `row` is a subform row; the form is built from entry-form field names */
+    const formRow = editing ? entryFormValues(row) : null;
+    UI.openModal(
+      editing ? 'Edit Barcode' : 'Add New Barcode',
+      UI.barcodeFormHTML(formRow),
+      '',
+      { wide: true, headActions: UI.barcodeHeadActions() }
+    );
+
+    const form = $('#itemForm');
+    const field = (name) => form.querySelector('[name="' + name + '"]');
+
+    /* Closing the entry form reloads the widget, so what is behind it is rebuilt
+       from Creator rather than left on whatever the session had in memory. The
+       X and the backdrop both do it; a programmatic close after saving an edit
+       does not, since that path already reloads the item list itself. */
+    $('#modalRoot').querySelectorAll('[data-close]').forEach((el) => {
+      el.addEventListener('click', () => window.location.reload());
+    });
+
+    /* The supplier list is the vendor list — reuse the options already fetched
+       for the voucher card instead of hitting Vendor_Report a second time. */
+    const supplier = $('#bcSupplier');
+    Array.prototype.forEach.call($('#vendor').options, (o) => {
+      if (o.value) supplier.appendChild(o.cloneNode(true));
+    });
+    /* Default to the vendor picked on the voucher card — read the select itself,
+       which is the live truth, before falling back to stored state. */
+    supplier.value = (formRow && formRow.Supplier) || $('#vendor').value || S.state.voucher.vendor || '';
+
+    /* SM is the logged-in Creator user, resolved at startup. */
+    const sm = $('#bcSM');
+    if (currentSM) {
+      sm.innerHTML = `<option value="${U.esc(currentSM.ID)}" selected>${U.esc(currentSM.label)}</option>`;
+    }
+
+    fillItemNames($('#bcItemName'), formRow && formRow.Item_Name);
+
+    /* Purity comes from its own master; the option value is that record's id, so
+       an edited row preselects on the id entryFormValues kept for it. */
+    fillSelect($('#bcPurity'), 'Select Purity', C.reports.purityMaster, C.purityMasterFields.label)
+      .then(() => {
+        if (formRow && formRow.Purity) $('#bcPurity').value = formRow.Purity;
+      });
+
+    /* ---- item details strip ---- */
+    const itemSelect = $('#bcItemName');
+    const itemDetails = $('#bcItemDetails');
+    const DETAIL_FIELDS = ['Design_Type', 'Design_Code', 'Design_Name', 'Shape'];
+
+    function fillItemDetails(src) {
+      const M = C.itemMasterFields;
+      field('Design_Type').value = lookupName(src, M.designTypeCandidates, designTypeNames);
+      field('Design_Code').value = fieldText(src, M.designCodeCandidates);
+      field('Design_Name').value = fieldText(src, M.designNameCandidates);
+      field('Shape').value = lookupName(src, M.shapeCandidates, shapeNames);
+    }
+
+    /* Item_Master record id behind the selected Item Name, for a subform field
+       that is a lookup rather than plain text. */
+    function selectedItemMasterId() {
+      const opt = itemSelect.options[itemSelect.selectedIndex];
+      return (opt && opt.dataset) ? (opt.dataset.id || '') : '';
+    }
+
+    /* The listing row carries only what Item_Master_Report displays as columns;
+       itemDetailCache holds the complete record fetched when the item was picked.
+       Merged, so Purity/Design resolve from whichever one has them. */
+    function selectedItemMasterRow() {
+      const id = selectedItemMasterId();
+      if (!id) return null;
+      const entry = itemMasterList
+        ? itemMasterList.find((s) => String(s.ID) === String(id))
+        : null;
+      return Object.assign({}, entry ? entry.row : {}, itemDetailCache[id] || {});
+    }
+
+    function applyItemDetails() {
+      const opt = itemSelect.options[itemSelect.selectedIndex];
+      const id = opt && opt.dataset ? opt.dataset.id : '';
+      const entry = (id && itemMasterList)
+        ? itemMasterList.find((s) => String(s.ID) === String(id))
+        : null;
+
+      if (!entry) {
+        DETAIL_FIELDS.forEach((n) => { if (field(n)) field(n).value = ''; });
+        itemDetails.hidden = true;
+        return;
+      }
+
+      fillItemDetails(entry.row);
+      itemDetails.hidden = false;
+
+      /* the listing often omits fields the report does not display, so pull the
+         complete record and fill again once it arrives */
+      itemDetail(id).then((rec) => {
+        if (!rec) return;
+        const current = itemSelect.options[itemSelect.selectedIndex];
+        if (!current || current.dataset.id !== id) return;
+        console.log('[barcode] item "' + opt.value + '" full record:', rec);
+        console.log('[barcode] Item_Master fields available for Purity/Design mapping:',
+          Object.keys(rec).join(', '));
+        fillItemDetails(Object.assign({}, entry.row, rec));
+      });
+    }
+
+    itemSelect.addEventListener('change', applyItemDetails);
+    applyItemDetails();
+
+    if (!editing) {
+      API.nextBarcode().then((code) => {
+        if (field('Barcode') && !field('Barcode').value) field('Barcode').value = code;
+      });
+    }
+
+    /* ---- live calculation ---- */
+    function recalc() {
+      /* Net weight only deducts the CSS/DMD/PS stone weights, not Tag Weight —
+         Tag Weight is the tagged-in figure kept for reference/comparison only. */
+      const gross = U.num(field('Gross_Weight').value);
+      const cssWeight = U.num(field('CSS_Weight').value);
+      const dmdWeight = U.num(field('DMD_Weight').value) * 0.20; // DMD is entered in CT, converted to grams
+      const psWeight = U.num(field('PS_Weight').value);
+      const net = Math.max(0, gross - cssWeight - dmdWeight - psWeight);
+      field('Net_Weight').value = net.toFixed(3);
+
+      /* Service & Charges. Percentage assumes a placeholder rate of ₹1000/gm until a
+         real rate master is wired in; Per Rate/gm and Per Piece use the entered value as-is. */
+      const serviceType = field('Service_Type').value;
+      const serviceValue = U.num(field('Service_Value').value);
+      let serviceAmount = 0;
+      if (serviceType === 'percentage') serviceAmount = (serviceValue / 100) * net * 1000;
+      else if (serviceType === 'rate') serviceAmount = serviceValue * net;
+      else if (serviceType === 'piece') serviceAmount = serviceValue;
+      field('Service_Amount').value = serviceAmount.toFixed(2);
+
+      renderBalance();
+    }
+
+    /* Total is what the selected supplier delivered across both receiving reports.
+       Balance is that total less this entry — Net Weight against the weight, Qty
+       against the count. With no supplier figures to draw down, both read 0 rather
+       than going negative on the Qty that every new row starts with. */
+    function renderBalance() {
+      const chosen = supplier.options[supplier.selectedIndex];
+      const total = supplierTotals(supplier.value, chosen ? chosen.textContent : '');
+      const hasTotal = total.weight > 0 || total.nos > 0;
+
+      const set = (id, value, unit) => {
+        $('#' + id).innerHTML = value + (unit ? `<small>${unit}</small>` : '');
+      };
+      set('bcTotalWeight', total.weight.toFixed(3), 'gm');
+      set('bcTotalNos', String(total.nos), '');
+      set('bcWeightBalance', (hasTotal ? total.weight - U.num(field('Net_Weight').value) : 0).toFixed(3), 'gm');
+      set('bcNosBalance', String(hasTotal ? total.nos - U.num(field('Qty').value) : 0), '');
+    }
+
+    form.addEventListener('input', recalc);
+    /* selects fire change, not input, in some browsers — the supplier drives the
+       balance panel, so make sure switching it recomputes */
+    form.addEventListener('change', recalc);
+    recalc();
+
+    /* ---- header actions ---- */
+    $('#bcChkCss').addEventListener('change', (e) => { $('#bcSecCss').hidden = !e.target.checked; });
+    $('#bcChkDmd').addEventListener('change', (e) => { $('#bcSecDmd').hidden = !e.target.checked; });
+    $('#bcChkPs').addEventListener('change', (e) => { $('#bcSecPs').hidden = !e.target.checked; });
+    $('#bcListBtn').addEventListener('click', UI.closeModal);
+
+    /* V2's Reset: everything clears except Basic Information, so the operator keeps
+       date, supplier, SM and barcode while entering the next piece. */
+    $('#bcReset').addEventListener('click', () => {
+      const basic = $('#bcSecBasic');
+      form.querySelectorAll('input, select').forEach((el) => {
+        if (basic && basic.contains(el)) return;
+        if (el.type === 'checkbox') { el.checked = false; return; }
+        if (el.tagName === 'SELECT') { el.selectedIndex = 0; return; }
+        el.value = el.classList.contains('bc-calc') ? '0.00' : '';
+      });
+
+      $('#bcChkCss').checked = false;
+      $('#bcChkDmd').checked = false;
+      $('#bcChkPs').checked = false;
+      $('#bcChkCamera').checked = false;
+      $('#bcSecCss').hidden = true;
+      $('#bcSecDmd').hidden = true;
+      $('#bcSecPs').hidden = true;
+      clearImage();
+      recalc();
+    });
+
+    /* After a successful add the modal stays open so the operator can key the
+       next piece straight in. Everything clears except the supplier — the one
+       value that holds across a run of items from the same delivery. Date and
+       SM go back to their defaults rather than blank, which is what a fresh
+       form would have shown anyway. */
+    function resetForNextEntry(savedBarcode) {
+      form.querySelectorAll('input, select').forEach((el) => {
+        if (el === supplier || el === sm) return;
+        if (el.type === 'checkbox') { el.checked = false; return; }
+        if (el.tagName === 'SELECT') { el.selectedIndex = 0; return; }
+        el.value = el.classList.contains('bc-calc') ? '0.00' : '';
+      });
+      field('Voucher_Date').value = U.today();
+      field('Qty').value = 1;
+
+      $('#bcChkCss').checked = false;
+      $('#bcChkDmd').checked = false;
+      $('#bcChkPs').checked = false;
+      $('#bcChkCamera').checked = false;
+      $('#bcSecCss').hidden = true;
+      $('#bcSecDmd').hidden = true;
+      $('#bcSecPs').hidden = true;
+      clearImage();
+      applyItemDetails();
+      recalc();
+      field('Barcode').value = bumpBarcode(savedBarcode);
+      itemSelect.focus();
+    }
+
+    /* The next barcode: one past the highest code on the voucher and past the
+       one just saved. API.nextBarcode reads Barcode_Item, which nothing writes
+       any more, so asking it again would hand back the same code every time. */
+    function bumpBarcode(justSaved) {
+      const digits = (v) => U.num(U.zohoText(v).replace(/\D/g, ''));
+      let max = digits(justSaved);
+      S.state.items.forEach((r) => {
+        max = Math.max(max, digits(r.Barcode1), digits(r.Barcode));
+      });
+      return 'BC-' + (max + 1);
+    }
+
+    const newSubGroup = $('#bcNewSubGroup');
+    if (newSubGroup) {
+      newSubGroup.addEventListener('click', () => {
+        const name = window.prompt('New sub group name');
+        if (!name) return;
+        const o = document.createElement('option');
+        o.textContent = name;
+        o.selected = true;
+        $('#bcSubGroup').appendChild(o);
+      });
+    }
+
+    /* ---- image ---- */
+    const drop = $('#bcDrop');
+    const file = $('#bcFile');
+    const preview = (f) => {
+      if (!f || !/^image\//.test(f.type)) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        drop.dataset.image = reader.result;
+        $('#bcDropImg').src = reader.result;
+        $('#bcDropPrev').hidden = false;
+        $('#bcDropPh').hidden = true;
+      };
+      reader.readAsDataURL(f);
+    };
+    drop.addEventListener('click', () => file.click());
+    file.addEventListener('change', (e) => preview(e.target.files[0]));
+    drop.addEventListener('dragover', (e) => e.preventDefault());
+    drop.addEventListener('drop', (e) => { e.preventDefault(); preview(e.dataTransfer.files[0]); });
+    document.addEventListener('paste', function onPaste(e) {
+      if (!document.body.contains(drop)) return document.removeEventListener('paste', onPaste);
+      const item = Array.prototype.find.call(e.clipboardData.items, (i) => /^image\//.test(i.type));
+      if (item) preview(item.getAsFile());
+    });
+
+    function clearImage() {
+      drop.dataset.image = '';
+      file.value = '';
+      $('#bcDropImg').src = '';
+      $('#bcDropPrev').hidden = true;
+      $('#bcDropPh').hidden = false;
+    }
+
+    $('#bcRemoveImg').addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearImage();
+    });
+
+    /* ---- mandatory fields ---- */
+
+    /* Checked the same way as the vendor gate on the toolbar — a red outline on
+       every empty field and one toast — rather than the browser's own bubble,
+       which the scrolling modal body can leave pointing off screen. The toast
+       stays generic: the outlines already say which fields are missing. */
+    const REQUIRED = [
+      { name: 'Barcode',      label: 'Barcode' },
+      { name: 'Item_Name',    label: 'Item Name' },
+      { name: 'Purity',       label: 'Purity' },
+      { name: 'Gross_Weight', label: 'Gross Weight' }
+    ];
+
+    function flagInvalid(el) {
+      el.classList.add('bc-invalid');
+      const clear = () => {
+        el.classList.remove('bc-invalid');
+        el.removeEventListener('change', clear);
+        el.removeEventListener('input', clear);
+      };
+      el.addEventListener('change', clear);
+      el.addEventListener('input', clear);
+    }
+
+    function validateEntry() {
+      let missing = null;
+      REQUIRED.forEach((r) => {
+        const el = field(r.name);
+        if (!el) return;
+        if (String(el.value || '').trim()) { el.classList.remove('bc-invalid'); return; }
+        flagInvalid(el);
+        if (!missing) missing = r;
+      });
+      if (!missing) return true;
+      UI.toast('Please fill the required fields', 'error');
+      const el = field(missing.name);
+      el.scrollIntoView({ block: 'center' });
+      el.focus();
+      return false;
+    }
+
+    /* ---- save ---- */
+    $('#bcSave').addEventListener('click', () => {
+      if (!validateEntry()) return;
+      const raw = readRaw(form);
+      UI.loading(true);
+      const subRow = buildSubformRow(raw, selectedItemMasterId(), selectedItemMasterRow());
+      /* Only the Item_Details subform is written. The old parallel write to the
+         Barcode_Item form is gone: nothing reads All_Barcode_Items any more, so
+         it could only ever fail the save of a row that had already gone in. */
+      /* Only meaningful when a voucher already exists — the first save switches
+         the list from the whole report to this voucher alone, so the row count
+         legitimately drops and there is nothing to wait for. */
+      const hadVoucher = !!S.state.voucher.recordId;
+      const expected = (!editing && hadVoucher) ? S.state.items.length + 1 : 0;
+
+      const req = editing
+        ? replaceSubformRow(row, subRow)
+        : saveVoucherItem(subRow, supplier.value, raw.Barcode);
+
+      req.then(() => {
+        UI.toast(editing ? 'Barcode updated' : 'Barcode added', 'success');
+        /* An edit is done once it is saved; an add is not — the modal stays open
+           and clears itself for the next piece. */
+        if (editing) UI.closeModal();
+        /* the item list has to come back first: the next barcode is derived
+           from the codes already on the voucher */
+        return loadItems(expected).then(() => {
+          if (!editing) resetForNextEntry(raw.Barcode);
+        });
+      }).catch((err) => {
+        /* the modal stays open on failure so the entered values are not lost */
+        console.error('[barcode] save failed:', err);
+        UI.toast('Save failed: ' + U.errText(err), 'error');
+      }).then(() => UI.loading(false));
+    });
+  }
+
+  function confirmDelete(row) {
+    UI.openModal(
+      'Delete Item',
+      `<p class="bc-confirm">Delete <strong>${U.esc(U.zohoText(row.Item_Detail) || 'this row')}</strong> from the voucher? This cannot be undone.</p>`,
+      `<button class="bc-btn" data-close="1">Cancel</button>
+       <button class="bc-btn bc-btn-danger" id="confirmDelete">Delete</button>`
+    );
+    $('#confirmDelete').addEventListener('click', () => {
+      UI.loading(true);
+      deleteSubformRow(row).then(() => {
+        UI.closeModal();
+        UI.toast('Item deleted', 'success');
+        return loadItems();
+      }).catch((err) => UI.toast('Delete failed: ' + U.errText(err), 'error'))
+        .then(() => UI.loading(false));
+    });
+  }
+
+  /* Options come from the rows on screen rather than the static C.categories /
+     C.purities lists, because the subform's Item and Purity are lookups whose
+     values are whatever those masters hold. */
+  function distinctValues(key) {
+    const seen = [];
+    S.state.items.forEach((r) => {
+      const v = U.zohoText(r[key]);
+      if (v && seen.indexOf(v) === -1) seen.push(v);
+    });
+    return seen.sort();
+  }
+
+  function openFilterModal() {
+    const f = S.state.filters;
+    const opts = (list, sel) =>
+      ['<option value="">All</option>'].concat(
+        list.map((o) => `<option${o === sel ? ' selected' : ''}>${U.esc(o)}</option>`)
+      ).join('');
+    UI.openModal('Filter Items',
+      `<form id="filterForm" class="bc-form-grid">
+        <label class="bc-field"><span>Item</span><select name="Item_Detail">${opts(distinctValues('Item_Detail'), f.Item_Detail)}</select></label>
+        <label class="bc-field"><span>Purity</span><select name="Purity">${opts(distinctValues('Purity'), f.Purity)}</select></label>
+      </form>`,
+      `<button class="bc-btn" id="clearFilters">Clear</button>
+       <button class="bc-btn bc-btn-primary" id="applyFilters">Apply</button>`
+    );
+    $('#applyFilters').addEventListener('click', () => {
+      new FormData($('#filterForm')).forEach((v, k) => S.setFilter(k, v));
+      UI.closeModal();
+    });
+    $('#clearFilters').addEventListener('click', () => {
+      Object.keys(S.state.filters).forEach((k) => S.setFilter(k, ''));
+      UI.closeModal();
+    });
+  }
+
+  function openSortModal() {
+    const sortable = C.columns.filter((c) => c.sortable !== false);
+    UI.openModal('Sort Items',
+      `<form id="sortForm" class="bc-form-grid">
+        <label class="bc-field"><span>Sort by</span>
+          <select name="key">${sortable.map((c) =>
+            `<option value="${c.key}"${S.state.sort.key === c.key ? ' selected' : ''}>${U.esc(c.label)}</option>`
+          ).join('')}</select></label>
+        <label class="bc-field"><span>Direction</span>
+          <select name="dir">
+            <option value="asc"${S.state.sort.dir === 'asc' ? ' selected' : ''}>Ascending</option>
+            <option value="desc"${S.state.sort.dir === 'desc' ? ' selected' : ''}>Descending</option>
+          </select></label>
+      </form>`,
+      `<button class="bc-btn" data-close="1">Cancel</button>
+       <button class="bc-btn bc-btn-primary" id="applySort">Apply</button>`
+    );
+    $('#applySort').addEventListener('click', () => {
+      const fd = new FormData($('#sortForm'));
+      S.state.sort = { key: fd.get('key'), dir: fd.get('dir') };
+      UI.closeModal();
+      UI.renderAll();
+    });
+  }
+
+  function openColumnsModal() {
+    UI.openModal('Toggle Columns',
+      `<div class="bc-checklist">${C.columns.map((c) => `
+        <label class="bc-check">
+          <input type="checkbox" value="${c.key}" ${S.state.hiddenColumns.has(c.key) ? '' : 'checked'} />
+          <span>${U.esc(c.label)}</span>
+        </label>`).join('')}</div>`,
+      `<button class="bc-btn bc-btn-primary" data-close="1">Done</button>`
+    );
+    document.querySelectorAll('.bc-checklist input').forEach((cb) => {
+      cb.addEventListener('change', () => S.toggleColumn(cb.value));
+    });
+  }
+
+  function exportCSV() {
+    const cols = S.visibleColumns().filter((c) => c.type !== 'action');
+    const csv = U.toCSV(S.visibleItems(), cols);
+    U.download(`barcodes-${S.state.voucher.sessionId || 'session'}.csv`, csv, 'text/csv;charset=utf-8');
+    UI.toast('Exported ' + S.visibleItems().length + ' items', 'success');
+  }
+
+  function importCSV() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv';
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const rows = U.parseCSV(String(reader.result));
+        if (rows.length < 2) return UI.toast('CSV has no data rows', 'error');
+        const header = rows[0].map((h) => h.trim());
+        const colByLabel = {};
+        C.columns.forEach((c) => { colByLabel[c.label.toUpperCase()] = c.key; });
+
+        const records = rows.slice(1).map((r) => {
+          const rec = {};
+          header.forEach((h, i) => {
+            const key = colByLabel[h.toUpperCase()] || h;
+            rec[key] = r[i];
+          });
+          ['Gross_Weight', 'Net_Weight', 'MRP', 'Making_Charge', 'Discount'].forEach((k) => {
+            rec[k] = U.num(rec[k]);
+          });
+          rec.Net_Amount = rec.MRP + rec.Making_Charge - rec.Discount;
+          if (S.state.voucher.sessionId) rec.Session_ID = S.state.voucher.sessionId;
+          if (S.state.voucher.invoiceNumber) rec[C.invoiceNumberConfig.itemField] = S.state.voucher.invoiceNumber;
+          delete rec.no;
+          delete rec.action;
+          return rec;
+        });
+
+        UI.loading(true);
+        records.reduce((chain, rec) => chain.then(() => API.addItem(rec)), Promise.resolve())
+          .then(() => {
+            UI.toast('Imported ' + records.length + ' items', 'success');
+            return loadItems();
+          })
+          .catch((err) => UI.toast('Import failed: ' + U.errText(err), 'error'))
+          .then(() => UI.loading(false));
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  }
+
+  function printLabels() {
+    const rows = S.visibleItems();
+    if (!rows.length) return UI.toast('Nothing to print', 'error');
+    /* subform field names — the label used to read Item_Name/MRP off the old
+       Barcode_Item rows, which these are not. */
+    const labels = rows.map((r) => `
+      <div class="label">
+        <div class="bars">${U.code39SVG(r.Barcode1 || r.Barcode, { height: 44, scale: 1.5 })}</div>
+        <div class="name">${U.esc(U.zohoText(r.Item_Detail))}</div>
+        <div class="meta">${U.esc(U.zohoText(r.Purity))} &middot; ${U.fmt.weight(r.Net_Weight)}g</div>
+      </div>`).join('');
+
+    const win = window.open('', '_blank');
+    if (!win) return UI.toast('Popup blocked — allow popups to print', 'error');
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Labels</title><style>
+      body{font-family:system-ui,sans-serif;margin:12px;display:flex;flex-wrap:wrap;gap:8px}
+      .label{width:320px;border:1px solid #d5d9e0;border-radius:6px;padding:8px;text-align:center;page-break-inside:avoid}
+      .bars{margin:4px 0}
+      .bc-barcode{display:block;stroke:none}
+      .bc-barcode rect{stroke:none;stroke-width:0}
+      .bc-barcode-text{display:block;margin-top:2px;font:600 11px/1.2 monospace;letter-spacing:1.5px}
+      .name{font-size:11px;font-weight:600;margin-top:2px}
+      .meta{font-size:10px;color:#6b7280}
+      /* bars must print at full contrast, not as a lightened background image */
+      @media print{body{margin:0}.bc-barcode{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>${labels}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  }
+
+
+  /* ---------------- events ---------------- */
+
+  /* A barcode belongs to a vendor's delivery: the entry form defaults Supplier
+     from this select and the balance panel is drawn from that vendor's totals,
+     so there is nothing sensible to add until one is picked. */
+  function requireVendor() {
+    const vendor = $('#vendor');
+    if (vendor.value) { vendor.classList.remove('bc-invalid'); return true; }
+    vendor.classList.add('bc-invalid');
+    vendor.addEventListener('change', function clear() {
+      vendor.classList.remove('bc-invalid');
+      vendor.removeEventListener('change', clear);
+    });
+    UI.toast('Select a vendor before adding a barcode', 'error');
+    vendor.focus();
+    return false;
+  }
+
+  function bind() {
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (btn) {
+        const action = btn.dataset.action;
+        if (action === 'add') { if (requireVendor()) openItemModal(null); }
+        else if (action === 'refresh') loadItems();
+        else if (action === 'reset') { S.reset(); $('#searchInput').value = ''; }
+        else if (action === 'export') exportCSV();
+        else if (action === 'import') importCSV();
+        else if (action === 'print') printLabels();
+        else if (action === 'filter') openFilterModal();
+        else if (action === 'sort') openSortModal();
+        else if (action === 'columns') openColumnsModal();
+        return;
+      }
+
+      const rowBtn = e.target.closest('[data-row-action]');
+      if (rowBtn) {
+        e.preventDefault();
+        const row = S.state.items.find((r) => String(r.ID) === rowBtn.dataset.id);
+        if (!row) return;
+        if (rowBtn.dataset.rowAction === 'edit') openItemModal(row);
+        else confirmDelete(row);
+        return;
+      }
+
+      const th = e.target.closest('th[data-sort-key]');
+      if (th) S.toggleSort(th.dataset.sortKey);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') UI.closeModal();
+    });
+
+    $('#searchInput').addEventListener('input', U.debounce((e) => S.setSearch(e.target.value), 200));
+
+    ['voucherDate', 'vendor', 'invoiceNumber', 'priceLevel'].forEach((id) => {
+      $('#' + id).addEventListener('change', (e) => S.setVoucher({ [id]: e.target.value }));
+    });
+  }
+
+  /* ---------------- init ---------------- */
+
+  function initApp() {
+    S.subscribe(UI.renderAll);
+    bind();
+    UI.renderVoucher();
+    UI.renderAll();
+
+    if (!API.hasSDK()) {
+      UI.showOffline('ZOHO.CREATOR.API is not available on this page.');
+    }
+
+    return Promise.all([
+      loadInvoiceNumber(),
+      loadVendors(),
+      loadPriceLevels(),
+      loadCurrentUser(),
+      loadLookupMasters(),
+      loadSubformFields(),
+      loadSourceRows(),
+      /* items are listed with a category taken from the item master, so that map
+         has to exist first — otherwise every row triggers its own lookup */
+      loadItemMaster().then(() => loadItems())
+    ]);
+  }
+
+  /* Same handshake as the Sales Invoice widget — wait for init() inside Creator,
+     fall back to window.onload without the SDK — but never let a pending init()
+     stop the UI from rendering. Outside a Creator host frame that promise simply
+     never settles, which leaves the whole page dead. */
+  function boot() {
+    if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR) {
+      window.onload = initApp;
+      return;
+    }
+
+    let started = false;
+    const start = () => { if (!started) { started = true; initApp(); } };
+
+    setTimeout(() => {
+      if (!started) {
+        console.warn('[barcode] ZOHO.CREATOR.init() has not responded — the widget is not embedded in a Creator page.');
+        UI.showOffline('ZOHO.CREATOR.init() never responded, so no Creator session is available.');
+        start();
+      }
+    }, 6000);
+
+    ZOHO.CREATOR.init().then(function () {
+      return API.initParams()
+        .then((p) => { if (p && p.sessionId) S.setVoucher({ sessionId: p.sessionId }); })
+        .catch(() => {});
+    }).catch((err) => {
+      console.error('[barcode] ZOHO.CREATOR.init() failed.', err);
+    }).then(start);
+  }
+
+  boot();
+})();
+
+</script>
+</body>
+</html>

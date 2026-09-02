@@ -1,0 +1,2809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Invoice Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.zohostatic.com/creator/widgets/version/1.0/widgetsdk-min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f5f8; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        input[type="checkbox"]:checked { background-color: #4f46e5 !important; border-color: #4f46e5 !important; }
+        .col-hidden { display: none !important; }
+        table th, table td { min-width: 100px; padding: 12px 8px; }
+        table th.w-10, table td.w-10 { min-width: 40px; width: 40px; }
+        table input, table select { 
+            padding: 6px 8px; 
+            font-size: 13px; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 4px; 
+            width: 100%; 
+            outline: none; 
+            background: #fff;
+        }
+        table input:focus, table select:focus { border-color: #4f46e5; outline: 1px solid #4f46e5; }
+        table input[readonly] { background-color: #f8fafc; color: #64748b; }
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            min-width: 260px; max-width: 380px;
+            padding: 12px 16px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 13px; font-weight: 500; color: #fff;
+            display: flex; align-items: center; gap: 8px;
+            opacity: 0; transform: translateX(20px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast-success { background-color: #16a34a; }
+        .toast-error { background-color: #dc2626; }
+    </style>
+</head>
+<body class="p-4 md:p-6 text-slate-800">
+
+    <div id="toast-container"></div>
+
+    <div class="max-w-[1440px] mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Sales Invoice
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">Create and manage your sales invoices</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+
+            <div class="xl:col-span-3 space-y-6">
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200" id="invoice-details-card">
+                    <div class="flex items-center gap-2 mb-6">
+                        <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </span>
+                        <h2 class="text-[15px] font-semibold text-slate-800">Invoice Details</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                        <div class="relative" id="customerDropdownWrap">
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Customer</label>
+                            <select id="customerSelect" onchange="handleCustomerChange()" class="hidden">
+                                </select>
+                            <button type="button" id="customerDropdownBtn" onclick="toggleCustomerDropdown()" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm flex items-center justify-between gap-2">
+                                <span id="customerDropdownLabel" class="truncate text-slate-400">-Select-</span>
+                                <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="customerDropdownPanel" class="hidden absolute z-30 mt-1 w-full min-w-[260px] bg-white rounded-lg shadow-lg border border-slate-200 p-2">
+                                <div id="customerDropdownList" class="max-h-56 overflow-y-auto"></div>
+                                <button type="button" onclick="closeCustomerDropdown(); openCustomerForm();" class="w-full mt-2 px-4 py-2 text-sm font-medium rounded-lg border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    Add New Customer
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Invoice No</label>
+                            <input type="text" id="invoiceNo" readonly class="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none text-slate-500 shadow-sm cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Invoice Date</label>
+                            <input type="date" id="invoiceDate" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Due Date</label>
+                            <input type="date" id="dueDate" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Salesman</label>
+                            <select id="salesmanSelect" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm">
+                                </select>
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Reference Number</label>
+                            <input type="text" id="refNo" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm" placeholder="Optional">
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Price Level</label>
+                            <select id="priceLevel" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm">
+                                </select>
+                        </div>
+                        <div>
+                            <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Current Balance</label>
+                            <div class="flex items-center gap-2 py-1.5">
+                                <div class="text-slate-400 font-semibold text-[15px]" id="ui-current-balance">Select Customer...</div>
+                                <span id="ui-balance-nature" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="block text-[13px] font-medium text-slate-600 mb-2">Invoice Type</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" id="btn-purchase" onclick="toggleSection('purchase')" class="px-4 py-2 text-[13px] font-medium rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                                Purchase Old Gold
+                            </button>
+                            <button type="button" id="btn-product" onclick="toggleSection('product')" class="px-4 py-2 text-[13px] font-medium border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2">
+                                Product
+                            </button>
+                            <button type="button" id="btn-service" onclick="toggleSection('service')" class="px-4 py-2 text-[13px] font-medium border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2">
+                                Service
+                            </button>
+                            <button type="button" id="btn-return" onclick="triggerSalesReturn()" class="px-4 py-2 text-[13px] font-medium border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2">
+                                Sales Return
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-8 border-t border-slate-200 pt-5" id="calculationsInvolved" style="display: flex;">
+                        <span class="text-[13px] font-medium text-slate-600">Calculations Involved</span>
+                        <div class="flex gap-6">
+                            <label class="inline-flex items-center gap-2 text-[13px] font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="chk-dmd" class="rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4" onchange="toggleColumns()"> DMD</label>
+                            <label class="inline-flex items-center gap-2 text-[13px] font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="chk-cs" class="rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4" onchange="toggleColumns()"> CS</label>
+                            <label class="inline-flex items-center gap-2 text-[13px] font-medium text-slate-700 cursor-pointer"><input type="checkbox" id="chk-ps" class="rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4" onchange="toggleColumns()"> PS</label>
+                        </div>
+                    </div>
+                </div>
+
+                                                <div id="section-purchase-wrapper" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></span>
+                            <h2 class="text-[15px] font-semibold text-slate-800">Purchase Information</h2>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Barcode Scan..." class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                            <button onclick="addItem('purchase')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto mb-4 border border-slate-200 rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[12px] font-semibold text-slate-700">
+                                <tr>
+                                    <th class="w-10 text-center">#</th>
+                                    <th>Item Detail</th>
+                                    <th>Purity</th>
+                                    <th>GWT</th>
+                                    <th>NWT</th>
+                                    <th>Mud WT</th>
+                                    <th>Stone WT</th>
+                                    <th>Stone RT</th>
+                                    <th>Stone AMT</th>
+                                    <th>Rate</th>
+                                    <th class="bg-indigo-50 font-bold text-indigo-800">Line Total</th>
+                                    <th class="w-10 text-center">Act</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-[13px] text-slate-700 divide-y divide-slate-100" id="tbody-purchase"></tbody>
+                        </table>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" id="summary-purchase">
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Quantity</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="qty">0 Nos</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Gross Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="gwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Stone Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="stone">0.000 ct</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Net Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="nwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Net Pure Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="pure">0.000 GMS</div>
+                        </div>
+                    </div>
+                </div>
+
+                                <div id="section-product-wrapper" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg></span>
+                            <h2 class="text-[15px] font-semibold text-slate-800">Product Information</h2>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Barcode Scan..." class="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-500 shadow-sm">
+                            <button onclick="addItem('product')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Item
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto mb-4 border border-slate-200 rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[12px] font-semibold text-slate-700">
+                                <tr>
+                                    <th class="w-10 text-center">#</th>
+                                    <th>Item Detail</th>
+                                    <th>Design</th>
+                                    <th>Purity</th>
+                                    <th>Qty</th>
+                                    <th>GWT</th>
+                                    <th>NWT</th>
+                                    <th>RATE</th>
+                                    <th>AMOUNT</th>
+                                    <th class="col-dmd col-hidden">DMD WT</th>
+                                    <th class="col-dmd col-hidden">DMD RT</th>
+                                    <th class="col-dmd col-hidden">DMD AMT</th>
+                                    <th class="col-cs col-hidden">CS WT</th>
+                                    <th class="col-cs col-hidden">CS RT</th>
+                                    <th class="col-cs col-hidden">CS AMT</th>
+                                    <th class="col-ps col-hidden">PS WT</th>
+                                    <th class="col-ps col-hidden">PS RT</th>
+                                    <th class="col-ps col-hidden">PS AMT</th>
+                                    <th>TCH</th>
+                                    <th>TCH %</th>
+                                    <th>TCH RT</th>
+                                    <th>TCH AMT</th>
+                                    <th>Disc Type</th>
+                                    <th>Disc %</th>
+                                    <th>Disc RT</th>
+                                    <th>Disc AMT</th>
+                                    <th class="bg-indigo-50 font-bold text-indigo-800">Line Total</th>
+                                    <th>Customer</th>
+                                    <th class="w-10 text-center">Act</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-[13px] text-slate-700 divide-y divide-slate-100" id="tbody-product"></tbody>
+                        </table>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-7 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" id="summary-product">
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Quantity</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="qty">0 Nos</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Gross Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="gwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">PS Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="ps">0.000 ct</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Net Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="nwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Net Pure Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="pure">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Service Amount</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="svcamt">0.00</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Amount</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="netamt">0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                                <div id="section-service-wrapper" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></span>
+                            <h2 class="text-[15px] font-semibold text-slate-800">Service Information</h2>
+                        </div>
+                        <button onclick="addItem('service')" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Service
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto mb-4 border border-slate-200 rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[12px] font-semibold text-slate-700">
+                                <tr>
+                                    <th class="w-10 text-center">#</th>
+                                    <th>Service Name</th>
+                                    <th>Service RT</th>
+                                    <th>Disc Type</th>
+                                    <th>Disc %</th>
+                                    <th>Disc RT</th>
+                                    <th class="bg-indigo-50 font-bold text-indigo-800">Service AMT</th>
+                                    <th class="w-10 text-center">Act</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-[13px] text-slate-700 divide-y divide-slate-100" id="tbody-service"></tbody>
+                        </table>
+                    </div>
+                    <div class="grid grid-cols-2 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" id="summary-service">
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Services</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="count">0 Nos</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Service Amount</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="amt">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                                <div id="section-return-wrapper" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all duration-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg></span>
+                            <h2 class="text-[15px] font-semibold text-slate-800">Sales Return Information</h2>
+                        </div>
+                        <button onclick="openReturnFetch()" class="px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Fetch Past Purchases
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto mb-4 border border-slate-200 rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[12px] font-semibold text-slate-700">
+                                <tr>
+                                    <th class="w-10 text-center">#</th>
+                                    <th>Original Invoice #</th>
+                                    <th>Item Detail</th>
+                                    <th>Design Style</th>
+                                    <th>Purity</th>
+                                    <th>Qty</th>
+                                    <th>GWT</th>
+                                    <th>NWT</th>
+                                    <th>RATE</th>
+                                    <th>AMOUNT</th>
+                                    <th class="col-dmd">DMD WT</th>
+                                    <th class="col-dmd">DMD RT</th>
+                                    <th class="col-dmd">DMD AMT</th>
+                                    <th class="col-cs">CS WT</th>
+                                    <th class="col-cs">CS RT</th>
+                                    <th class="col-cs">CS AMT</th>
+                                    <th class="col-ps">PS WT</th>
+                                    <th class="col-ps">PS RT</th>
+                                    <th class="col-ps">PS AMT</th>
+                                    <th>TCH</th>
+                                    <th>TCH %</th>
+                                    <th>TCH RT</th>
+                                    <th>TCH AMT</th>
+                                    <th>Disc Type</th>
+                                    <th>Disc %</th>
+                                    <th>Disc RT</th>
+                                    <th>Disc AMT</th>
+                                    <th class="bg-indigo-50 font-bold text-indigo-800">Line Total</th>
+                                    <th>Sales Return</th>
+                                    <th>Product Information (Sales Invoice)</th>
+                                    <th>Customer</th>
+                                    <th class="w-10 text-center">Act</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-[13px] text-slate-700 divide-y divide-slate-100" id="tbody-return"></tbody>
+                        </table>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" id="summary-return">
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Quantity</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="qty">0 Nos</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Gross Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="gwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">PS Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="ps">0.000 ct</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Net Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="nwt">0.000 GMS</div>
+                        </div>
+                        <div class="p-3 bg-slate-50">
+                            <div class="text-[11px] font-medium text-slate-500">Total Net Pure Weight</div>
+                            <div class="text-[14px] font-semibold text-slate-800 mt-0.5" data-metric="pure">0.000 GMS</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="xl:col-span-1">
+                                <div class="sticky top-6 space-y-6">
+                                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h2 class="text-[15px] font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Invoice Calculation
+                        </h2>
+
+                        <div class="space-y-3 text-[13px] text-slate-600 mb-3">
+                            <div class="flex justify-between font-medium text-slate-700">
+                                <span>Total Product</span>
+                                <span id="sum-product">₹0.00 Dr</span>
+                            </div>
+                            <div class="flex justify-between font-medium text-slate-700">
+                                <span>Total Service</span>
+                                <span id="sum-service">₹0.00 Dr</span>
+                            </div>
+                        </div>
+
+                        <div id="tax-rows-container" class="space-y-3 text-[13px] text-slate-600 mb-3"></div>
+
+                        <div class="py-3 border-t border-slate-200 flex justify-between font-semibold text-blue-600 text-[13px]">
+                            <span>Total Tax Amount</span>
+                            <span id="sum-totaltax">₹0.00 Dr</span>
+                        </div>
+
+                        <div class="space-y-3 text-[13px] text-slate-600 py-3 border-t border-slate-200">
+                            <div class="flex justify-between font-medium text-green-600">
+                                <span>(-) Old Gold Purchase</span>
+                                <span id="sum-purchase">₹0.00 Cr</span>
+                            </div>
+                            <div class="flex justify-between font-medium text-green-600">
+                                <span>(-) Sales Return</span>
+                                <span id="sum-return">₹0.00 Cr</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-200 flex justify-between font-bold text-red-600">
+                            <span>Invoice Balance</span>
+                            <span id="sum-subtotal">₹0.00 Dr</span>
+                        </div>
+                    </div>
+
+                                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Payment Summary</h3>
+                        <div class="space-y-2.5 text-[13px]">
+                            <div class="flex justify-between items-center">
+                                <span class="text-green-600">Receipt Amount</span>
+                                <span class="font-semibold text-green-600" id="rs-receipt-amount">₹0.00</span>
+                            </div>
+                            <div id="rs-customer-credit-row" class="hidden flex justify-between items-center">
+                                <span class="text-green-600">Customer Credit</span>
+                                <span class="font-semibold text-green-600" id="rs-customer-credit-amt">₹0.00</span>
+                            </div>
+                            <div id="rs-amounts-payable-row" class="hidden flex justify-between items-center">
+                                <span class="text-red-600">Amounts Payable</span>
+                                <span class="font-semibold text-red-600" id="rs-amounts-payable-amt">₹0.00</span>
+                            </div>
+
+                            <div class="pt-2.5 border-t border-slate-100">
+                                <div class="flex items-center gap-1 mb-1.5">
+                                    <span class="text-slate-600">Bill Discount</span>
+                                    <svg class="w-3.5 h-3.5 text-slate-400" title="Enter a discount % or amount - the other field updates automatically" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center border border-slate-300 rounded px-2 py-1.5 bg-white shadow-sm flex-1">
+                                        <input type="number" id="bill-discount-pct" class="w-full outline-none text-right text-slate-800 bg-transparent p-0 border-0" value="0" step="0.01" oninput="updateDiscountFromPercent()">
+                                        <span class="text-slate-400 ml-1">%</span>
+                                    </div>
+                                    <div class="flex items-center border border-slate-300 rounded px-2 py-1.5 bg-white shadow-sm flex-1">
+                                        <span class="text-slate-400 mr-1">₹</span>
+                                        <input type="number" id="global-discount" class="w-full outline-none text-right text-slate-800 bg-transparent p-0 border-0" value="0" oninput="updateDiscountFromAmount()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2.5 border-t border-slate-100">
+                                <div class="flex items-center gap-1 mb-1.5">
+                                    <input type="checkbox" id="chk-round-off" class="rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 w-3.5 h-3.5" checked onchange="calculateInvoiceTotals()">
+                                    <span class="text-slate-600 ml-1">Round Off</span>
+                                    <svg class="w-3.5 h-3.5 text-slate-400" title="Rounds Grand Total to the nearest rupee. Click Dr/Cr to flip which side the adjustment applies to." fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center border border-slate-300 rounded px-2 py-1.5 bg-slate-50 shadow-sm flex-1">
+                                        <span class="text-slate-400 mr-1">₹</span>
+                                        <input type="text" id="rs-round-off-amt" class="w-full outline-none text-right text-slate-500 bg-transparent p-0 border-0" value="0.00" readonly>
+                                    </div>
+                                    <button type="button" id="rs-round-off-dircode" onclick="toggleRoundOffDirection()" class="px-3 py-1.5 text-[12px] font-semibold rounded border border-indigo-200 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">Dr</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-5 border-t border-slate-200 text-center">
+                            <div class="text-indigo-600 font-medium text-[13px] mb-1" id="grandtotal-label">Grand Total (Payable By You)</div>
+                            <div class="text-[22px] font-bold text-indigo-700 tracking-tight" id="sum-grandtotal">₹ 0.00</div>
+                            <div id="grandtotal-rounded-note" class="hidden text-[11px] text-slate-400 mt-0.5">(Rounded)</div>
+                            <div id="grandtotal-words" class="text-[12px] text-slate-500 mt-2"></div>
+                        </div>
+                    </div>
+
+                                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <button onclick="openPaymentModal()" class="w-full text-left px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[13px] font-medium rounded-lg flex items-center gap-2 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg> <span id="payment-btn-label">Payment</span>
+                        </button>
+                        <div id="payment-summary" class="hidden text-[12px] text-slate-600 px-1 pt-1"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-slate-200">
+            <button onclick="cancelInvoice()" class="px-4 py-2.5 text-sm font-medium border border-slate-300 rounded-lg bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-sm">Cancel</button>
+            <button id="btn-save-invoice" onclick="saveInvoice()" class="px-4 py-2.5 text-sm font-medium rounded-lg bg-indigo-600 text-white shadow-md hover:bg-indigo-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed">Save Invoice</button>
+            <button class="px-4 py-2.5 text-sm font-medium border border-slate-300 rounded-lg bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+                Print <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+        </div>
+    </div>
+
+        <div id="returnModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-base font-semibold text-slate-800">Select Past Purchases to Return</h3>
+                <button onclick="closeReturnModal()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <p class="text-[13px] text-slate-500 mb-4" id="modal-customer-text">Select items to process return.</p>
+                <div id="past-purchases-list" class="space-y-3">
+                                    </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button onclick="closeReturnModal()" class="px-4 py-2 text-[13px] font-medium border border-slate-300 rounded text-slate-700 bg-white shadow-sm">Cancel</button>
+                <button onclick="addSelectedReturns()" class="px-4 py-2 text-[13px] font-medium rounded bg-indigo-600 text-white shadow-sm hover:bg-indigo-700">Add Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-base font-semibold text-slate-800">Record Payment</h3>
+                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="flex items-center gap-3 bg-indigo-50 rounded-lg p-4">
+                        <span class="p-2 bg-white rounded-lg text-indigo-600 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-6 3v-3m-3.6-7.5h13.2c.552 0 .998.446.998.998v10.004a1 1 0 01-1 .998H3.4a1 1 0 01-1-1V7.498c0-.552.446-.998.998-.998z"></path></svg></span>
+                        <div>
+                            <div class="text-[12px] text-slate-500">Total Amount</div>
+                            <div class="text-[17px] font-bold text-indigo-700" id="pm-total-amount">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 bg-indigo-50 rounded-lg p-4">
+                        <span class="p-2 bg-white rounded-lg text-indigo-600 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg></span>
+                        <div>
+                            <div class="text-[12px] text-slate-500">Total Paid</div>
+                            <div class="text-[17px] font-bold text-emerald-600" id="pm-total-paid">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 bg-indigo-50 rounded-lg p-4">
+                        <span class="p-2 bg-white rounded-lg text-indigo-600 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a2 2 0 00-2-2H5a2 2 0 00-2 2m18 0v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6m18 0V9a2 2 0 00-2-2H5a2 2 0 00-2 2v3m14 3h.01"></path></svg></span>
+                        <div>
+                            <div class="text-[12px] text-slate-500">Balance Due</div>
+                            <div class="text-[17px] font-bold text-rose-600" id="pm-balance-due">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[13px] font-semibold text-slate-700 mb-2">Payment Details</h4>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[12px] font-semibold text-slate-700">
+                                <tr>
+                                    <th class="px-3 py-2 w-10 text-center">#</th>
+                                    <th class="px-3 py-2">Payment Type</th>
+                                    <th class="px-3 py-2">Reference / Note</th>
+                                    <th class="px-3 py-2 text-right">Amount (₹)</th>
+                                    <th class="px-3 py-2 w-12 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-rows-body" class="text-[13px] text-slate-700 divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" onclick="addPaymentRow()" class="mt-3 px-4 py-2 text-[13px] font-medium border border-indigo-200 rounded-md text-indigo-600 bg-white hover:bg-indigo-50 flex items-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Payment
+                    </button>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 max-w-xs ml-auto space-y-2 text-[13px]">
+                    <div class="flex justify-between"><span class="text-slate-500">Total Amount</span><span class="font-semibold text-slate-800" id="pm-summary-total">₹0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Total Paid</span><span class="font-semibold text-emerald-600" id="pm-summary-paid">₹0.00</span></div>
+                    <div class="border-t border-slate-200 pt-2 flex justify-between"><span class="text-slate-600 font-medium">Balance Due</span><span class="font-bold text-rose-600" id="pm-summary-balance">₹0.00</span></div>
+                </div>
+
+                <div>
+                    <label class="block text-[13px] font-medium text-slate-600 mb-1.5">Note (Optional)</label>
+                    <input type="text" id="paymentNote" class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700 shadow-sm" placeholder="Add a note or reference...">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button onclick="closePaymentModal()" class="px-4 py-2 text-[13px] font-medium border border-slate-300 rounded text-slate-700 bg-white shadow-sm">Cancel</button>
+                <button onclick="savePayment()" id="btn-save-payment" class="px-4 py-2 text-[13px] font-medium rounded bg-indigo-600 text-white shadow-sm hover:bg-indigo-700">Save Payment</button>
+            </div>
+        </div>
+    </div>
+
+        <template id="tpl-product-row">
+        <tr>
+            <td class="text-center row-idx"></td>
+            <td><input type="text" class="input-item" placeholder="Item Name"></td>
+            <td><input type="text" class="input-design" placeholder="Design" readonly></td>
+            <td><input type="text" class="input-purity" placeholder="22K" readonly></td>
+            <td><input type="number" class="input-qty calc-trigger" value="1"></td>
+            <td><input type="number" class="input-gwt calc-trigger" value="0"></td>
+            <td><input type="number" class="input-nwt" readonly value="0.000"></td>
+            <td><input type="number" class="input-rate calc-trigger" value="0"></td>
+            <td><input type="number" class="input-amt" readonly value="0"></td>
+            
+            <td class="col-dmd col-hidden"><input type="number" class="input-dmd-wt calc-trigger" value="0"></td>
+            <td class="col-dmd col-hidden"><input type="number" class="input-dmd-rt calc-trigger" value="0"></td>
+            <td class="col-dmd col-hidden"><input type="number" class="input-dmd-amt" readonly value="0"></td>
+            
+            <td class="col-cs col-hidden"><input type="number" class="input-cs-wt calc-trigger" value="0"></td>
+            <td class="col-cs col-hidden"><input type="number" class="input-cs-rt calc-trigger" value="0"></td>
+            <td class="col-cs col-hidden"><input type="number" class="input-cs-amt" readonly value="0"></td>
+            
+            <td class="col-ps col-hidden"><input type="number" class="input-ps-wt calc-trigger" value="0"></td>
+            <td class="col-ps col-hidden"><input type="number" class="input-ps-rt calc-trigger" value="0"></td>
+            <td class="col-ps col-hidden"><input type="number" class="input-ps-amt" readonly value="0"></td>
+
+            <td>
+                <select class="input-tch-type" onchange="updateTchFieldVisibility(this)">
+                    <option value="">-Select-</option>
+                    <option value="Gross Weight (GWT)">Gross Weight (GWT)</option>
+                    <option value="Minimum Gross Weight (MGW)">Minimum Gross Weight (MGW)</option>
+                    <option value="Net Weight (NWT)">Net Weight (NWT)</option>
+                    <option value="Piece Rate (PRT)">Piece Rate (PRT)</option>
+                    <option value="Percentage (PER)">Percentage (PER)</option>
+                    <option value="Pure Percentage (PP)">Pure Percentage (PP)</option>
+                    <option value="Other Rate">Other Rate</option>
+                </select>
+            </td>
+            <td><input type="number" class="input-tch-pct" value="0" readonly oninput="updateTchFromPercent(this)"></td>
+            <td><input type="number" class="input-tch-rt" value="0" readonly oninput="updateTchFromRate(this)"></td>
+            <td><input type="number" class="input-tch-amt calc-trigger" value="0"></td>
+            
+            <td>
+                <select class="input-disc-type" onchange="updateDiscFieldVisibility(this)">
+                    <option value="">-Select-</option>
+                    <option value="Percentage">Percentage</option>
+                    <option value="Rate">Rate</option>
+                </select>
+            </td>
+            <td><input type="number" class="input-disc-pct" value="0" readonly oninput="updateDiscFromPercent(this)"></td>
+            <td><input type="number" class="input-disc-rt" value="0" readonly oninput="updateDiscFromRate(this)"></td>
+            <td><input type="number" class="input-disc-amt" readonly value="0"></td>
+
+            <td><input type="number" class="input-linetotal font-bold text-indigo-700 bg-indigo-50" readonly value="0"></td>
+            <td><input type="text" class="input-customer" readonly></td>
+            <td class="text-center">
+                <button onclick="removeRow(this)" class="text-red-500 hover:text-red-700"><svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-purchase-row">
+        <tr>
+            <td class="text-center row-idx"></td>
+            <td><input type="text" class="input-item" placeholder="Item Name"></td>
+            <td><input type="text" class="input-purity" placeholder="22K" readonly></td>
+            <td><input type="number" class="input-gwt calc-trigger" value="0"></td>
+            <td><input type="number" class="input-nwt" readonly value="0.000"></td>
+            <td><input type="number" class="input-mud-wt calc-trigger" value="0"></td>
+
+            <td><input type="number" class="input-cs-wt calc-trigger" value="0"></td>
+            <td><input type="number" class="input-cs-rt calc-trigger" value="0"></td>
+            <td><input type="number" class="input-cs-amt" readonly value="0"></td>
+
+            <td><input type="number" class="input-rate calc-trigger" value="0"></td>
+            <td><input type="number" class="input-linetotal font-bold text-indigo-700 bg-indigo-50" readonly value="0"></td>
+            <td class="text-center">
+                <button onclick="removeRow(this)" class="text-red-500 hover:text-red-700"><svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-service-row">
+        <tr>
+            <td class="text-center row-idx"></td>
+            <td>
+                <select class="input-svc-type">
+                    <option value="Hallmarking">Hallmarking</option>
+                    <option value="Stedex">Stedex</option>
+                    <option value="Repair">Repair</option>
+                </select>
+            </td>
+            <td><input type="number" class="input-svc-rate calc-svc-trigger" value="0"></td>
+            <td>
+                <select class="input-svc-disc-type" onchange="updateSvcDiscFieldVisibility(this)">
+                    <option value="">-Select-</option>
+                    <option value="Percentage">Percentage</option>
+                    <option value="Rate">Rate</option>
+                </select>
+            </td>
+            <td><input type="number" class="input-svc-disc-pct" value="0" readonly oninput="updateSvcDiscFromPercent(this)"></td>
+            <td><input type="number" class="input-svc-disc-rt" value="0" readonly oninput="updateSvcDiscFromRate(this)"></td>
+            <td><input type="number" class="input-svc-linetotal font-bold text-indigo-700 bg-indigo-50" readonly value="0"></td>
+            <td class="text-center">
+                <button onclick="removeRow(this)" class="text-red-500 hover:text-red-700"><svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-return-row">
+        <tr>
+            <td class="text-center row-idx"></td>
+            <td><input type="text" class="input-ret-inv" readonly></td>
+            <td><input type="text" class="input-ret-item" readonly></td>
+            <td><input type="text" class="input-ret-design" readonly></td>
+            <td><input type="text" class="input-ret-purity" readonly></td>
+            <td><input type="number" class="input-ret-qty" readonly></td>
+            <td><input type="number" class="input-ret-gwt" readonly></td>
+            <td><input type="number" class="input-ret-nwt" readonly></td>
+            <td><input type="number" class="input-ret-rate" readonly></td>
+            <td><input type="number" class="input-ret-amount" readonly></td>
+
+            <td class="col-dmd"><input type="number" class="input-ret-dmd-wt" readonly></td>
+            <td class="col-dmd"><input type="number" class="input-ret-dmd-rt" readonly></td>
+            <td class="col-dmd"><input type="number" class="input-ret-dmd-amt" readonly></td>
+
+            <td class="col-cs"><input type="number" class="input-ret-cs-wt" readonly></td>
+            <td class="col-cs"><input type="number" class="input-ret-cs-rt" readonly></td>
+            <td class="col-cs"><input type="number" class="input-ret-cs-amt" readonly></td>
+
+            <td class="col-ps"><input type="number" class="input-ret-ps-wt" readonly></td>
+            <td class="col-ps"><input type="number" class="input-ret-ps-rt" readonly></td>
+            <td class="col-ps"><input type="number" class="input-ret-ps-amt" readonly></td>
+
+            <td><input type="text" class="input-ret-tch-type" readonly></td>
+            <td><input type="number" class="input-ret-tch-pct" readonly></td>
+            <td><input type="number" class="input-ret-tch-rt" readonly></td>
+            <td><input type="number" class="input-ret-tch-amt" readonly></td>
+
+            <td><input type="text" class="input-ret-disc-type" readonly></td>
+            <td><input type="number" class="input-ret-disc-pct" readonly></td>
+            <td><input type="number" class="input-ret-disc-rt" readonly></td>
+            <td><input type="number" class="input-ret-disc-amt" readonly></td>
+
+            <td><input type="number" class="input-ret-linetotal font-bold text-indigo-700 bg-indigo-50" readonly></td>
+            <td><input type="text" class="input-ret-sales-return" readonly placeholder="Auto"></td>
+            <td><input type="text" class="input-ret-src-product" readonly></td>
+            <td><input type="text" class="input-ret-customer" readonly></td>
+            <td class="text-center">
+                <button onclick="removeRow(this)" class="text-red-500 hover:text-red-700"><svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+            </td>
+        </tr>
+    </template>
+
+    <script>
+
+        const INVOICE_NUMBER_CONFIG = {
+            REPORT_NAME: "Sales_Invoice_Report",
+            FIELD_NAME: "Invoice_No",
+            PREFIX: "INV",
+            PAD_LENGTH: 4
+        };
+
+        const SAVE_INVOICE_CONFIG = {
+            APP_NAME: "ciyor",
+            FORM_NAME: "Sales_Invoice",
+            FIELDS: {
+                invoiceNo: "Invoice_No",
+                invoiceDate: "Invoice_Date",
+                dueDate: "Due_Date",
+                customer: "Customer",
+                salesman: "Salesman",
+                priceLevel: "Price_Level",
+                currentBalance: "Current_Balance",
+                refNo: "Reference_Number",
+                totalProduct: "Total_Product_Amount",
+                totalPurchase: "Total_Purchase_Amount",
+                totalService: "Total_Service_Amount",
+                totalReturn: "Total_Sales_Return_Amount",
+                calculationsInvolved: "Calculations_Involved",
+                invoiceType: "Invoice_Type",
+                chooseSalesReturn: "Choose_Sales_Return"
+            }
+        };
+
+        const INVOICE_TYPE_LABELS = {
+            purchase: "Purchase Old Gold",
+            product: "Product",
+            service: "Service",
+            return: "Sales Return"
+        };
+
+        const PRODUCT_ROW_CLASS_MAP = {
+            item: '.input-item', design: '.input-design', purity: '.input-purity', qty: '.input-qty',
+            gwt: '.input-gwt', nwt: '.input-nwt', rate: '.input-rate', amount: '.input-amt',
+            dmdWt: '.input-dmd-wt', dmdRt: '.input-dmd-rt', dmdAmt: '.input-dmd-amt',
+            csWt: '.input-cs-wt', csRt: '.input-cs-rt', csAmt: '.input-cs-amt',
+            psWt: '.input-ps-wt', psRt: '.input-ps-rt', psAmt: '.input-ps-amt',
+            tchType: '.input-tch-type', tchPct: '.input-tch-pct', tchRt: '.input-tch-rt', tchAmt: '.input-tch-amt',
+            discType: '.input-disc-type', discPct: '.input-disc-pct', discAmt: '.input-disc-amt',
+            lineTotal: '.input-linetotal'
+        };
+        const SERVICE_ROW_CLASS_MAP = {
+            svcType: '.input-svc-type', svcDesc: '.input-svc-desc',
+            svcQty: '.input-svc-qty', svcRate: '.input-svc-rate', lineTotal: '.input-svc-linetotal'
+        };
+        const RETURN_ROW_CLASS_MAP = {
+            origInv: '.input-ret-inv', item: '.input-ret-item',
+            qty: '.input-ret-qty', returnAmt: '.input-ret-amt', lineTotal: '.input-ret-linetotal'
+        };
+
+        const CUSTOMER_CONFIG = {
+            REPORT_NAME: "Customer_Report",
+            FIELDS: {
+                name: "Customer_Name",
+                openingBalance: "Opening_Balance_in_Cash",
+                balanceNature: "Balance_Nature"
+            }
+        };
+
+        const EMPLOYEE_CONFIG = {
+            REPORT_NAME: "Employee_Report",
+            FIELDS: {
+                email: "Email",
+                name: "Name"
+            }
+        };
+
+        const PRICE_LEVEL_CONFIG = {
+            REPORT_NAME: "Price_Level_Report",
+            FIELDS: {
+                name: "Name"
+            }
+        };
+
+        const SERVICE_MASTER_CONFIG = {
+            REPORT_NAME: "Service_Master_Report",
+            FIELDS: {
+                name: "Service_Name",
+                descriptionCandidates: ["Description", "Service_Description", "Details", "Desc"],
+                rateCandidates: ["Rate", "Service_Rate", "Price", "Amount"]
+            }
+        };
+
+        const TAX_MASTER_CONFIG = {
+            REPORT_NAME: "Tax_Report",
+            FIELDS: {
+                name: "Name",
+                percent: "Percent"
+            }
+        };
+
+        const ITEM_SOURCES = {
+            product: {
+                reportName: "Item_Master_Report",
+                subformName: "Product_Information",
+                itemDetailField: "Item_Name",
+                itemDisplayField: "",
+                saveItemAsRecordId: true,
+                autofill: [
+                    { field: "Collection", sel: ".input-design", text: true },
+                    { field: "Purity", sel: ".input-purity", text: true },
+                    { field: "Qty", sel: ".input-qty" },
+                    { field: "Gross_Weight", sel: ".input-gwt" },
+                    { field: "Net_Weight", sel: ".input-nwt" },
+                    { field: "Board_Rate", sel: ".input-rate" },
+                    { field: "Board_Amount", sel: ".input-amt" },
+                    { field: "DMD_Weight", sel: ".input-dmd-wt" },
+                    { field: "DMD_Rate", sel: ".input-dmd-rt" },
+                    { field: "DMD_Amount", sel: ".input-dmd-amt" },
+                    { field: "CS_Weight", sel: ".input-cs-wt" },
+                    { field: "CS_Rate", sel: ".input-cs-rt" },
+                    { field: "CS_Amount", sel: ".input-cs-amt" },
+                    { field: "PS_Weight", sel: ".input-ps-wt" },
+                    { field: "PS_Rate", sel: ".input-ps-rt" },
+                    { field: "PS_Amount", sel: ".input-ps-amt" },
+                    { field: "Line_Total", sel: ".input-linetotal" }
+                ],
+                save: [
+                    { field: "Item_Detail", srcRecordId: true },
+                    { field: "Design", srcId: "Collection" },
+                    { field: "Purity", srcId: "Purity" },
+                    { field: "Qty", sel: ".input-qty" },
+                    { field: "Gross_Weight", sel: ".input-gwt" },
+                    { field: "Net_Weight", sel: ".input-nwt" },
+                    { field: "Board_Rate", sel: ".input-rate" },
+                    { field: "Board_Amount", sel: ".input-amt" },
+                    { field: "DMD_Weight", sel: ".input-dmd-wt" },
+                    { field: "DMD_Rate", sel: ".input-dmd-rt" },
+                    { field: "DMD_Amount", sel: ".input-dmd-amt" },
+                    { field: "CS_Weight", sel: ".input-cs-wt" },
+                    { field: "CS_Rate", sel: ".input-cs-rt" },
+                    { field: "CS_Amount", sel: ".input-cs-amt" },
+                    { field: "PS_Weight", sel: ".input-ps-wt" },
+                    { field: "PS_Rate", sel: ".input-ps-rt" },
+                    { field: "PS_Amount", sel: ".input-ps-amt" },
+                    { field: "Service_Item", sel: ".input-tch-type", text: true },
+                    { field: "Service_percnt", sel: ".input-tch-pct" },
+                    { field: "Service_Rate", sel: ".input-tch-rt" },
+                    { field: "Service_Amount", sel: ".input-tch-amt" },
+                    { field: "Discount_Type", sel: ".input-disc-type", text: true },
+                    { field: "Discount_percnt", sel: ".input-disc-pct" },
+                    { field: "Discount_Rate", sel: ".input-disc-rt" },
+                    { field: "Discount_Amount", sel: ".input-disc-amt" },
+                    { field: "Line_Total", sel: ".input-linetotal" },
+                    { field: "Customer", currentCustomer: true }
+                ]
+            },
+            purchase: {
+                reportName: "Item_Master_Report",
+                subformName: "Purchase_Information",
+                itemDetailField: "Item_Name",
+                itemDisplayField: "",
+                saveItemAsRecordId: true,
+                autofill: [
+                    { field: "Purity", sel: ".input-purity", text: true },
+                    { field: "Gross_Weight", sel: ".input-gwt" },
+                    { field: "Net_Weight", sel: ".input-nwt" },
+                    { field: "Board_Rate", sel: ".input-rate" },
+                    { field: "Stone_Weight", sel: ".input-cs-wt" },
+                    { field: "Stone_Rate", sel: ".input-cs-rt" },
+                    { field: "Stone_Amount", sel: ".input-cs-amt" }
+                ],
+                save: [
+                    { field: "Item_Detail", srcRecordId: true },
+                    { field: "Purity", srcId: "Purity" },
+                    { field: "Gross_Weight", sel: ".input-gwt" },
+                    { field: "Net_Weight", sel: ".input-nwt" },
+                    { field: "Board_Rate", sel: ".input-rate" },
+                    { field: "Stone_Weight", sel: ".input-cs-wt" },
+                    { field: "Stone_Rate", sel: ".input-cs-rt" },
+                    { field: "Stone_Amount", sel: ".input-cs-amt" },
+                    { field: "Mud_Weight", sel: ".input-mud-wt" },
+                    { field: "Line_Total", sel: ".input-linetotal" }
+                ]
+            },
+            return: {
+                reportName: "Product_Information_Sales_Invoice_Report",
+                subformName: "Sales_Return_Item",
+                itemDetailField: "Item_Detail",
+                itemDisplayField: "",
+                customerField: "Customer",
+                amountField: "Line_Total",
+                qtyField: "Qty",
+                autofill: [],
+                save: [
+                    { field: "Item_Detail", srcId: "Item_Detail" },
+                    { field: "Design_Style", srcId: "Design" },
+                    { field: "Purity", srcId: "Purity" },
+                    { field: "Qty", srcNum: "Qty" },
+                    { field: "Gross_Weight", srcNum: "Gross_Weight" },
+                    { field: "Net_Weight", srcNum: "Net_Weight" },
+                    { field: "Board_Rate", srcNum: "Board_Rate" },
+                    { field: "Board_Amount", srcNum: "Board_Amount" },
+                    { field: "DMD_Weight", srcNum: "DMD_Weight" },
+                    { field: "DMD_Rate", srcNum: "DMD_Rate" },
+                    { field: "DMD_Amount", srcNum: "DMD_Amount" },
+                    { field: "CS_Weight", srcNum: "CS_Weight" },
+                    { field: "CS_Rate", srcNum: "CS_Rate" },
+                    { field: "CS_Amount", srcNum: "CS_Amount" },
+                    { field: "PS_Weight", srcNum: "PS_Weight" },
+                    { field: "PS_Rate", srcNum: "PS_Rate" },
+                    { field: "PS_Amount", srcNum: "PS_Amount" },
+                    { field: "Disc_Type", srcText: "Discount_Type" },
+                    { field: "Disc_RT", srcNum: "Discount_Rate" },
+                    { field: "Discount", srcNum: "Discount_percnt" },
+                    { field: "Discount_Amount", srcNum: "Discount_Amount" },
+                    { field: "Service_Item", srcText: "Service_Item" },
+                    { field: "Service_Rate", srcNum: "Service_Rate" },
+                    { field: "Service_Amount", srcNum: "Service_Amount" },
+                    { field: "Service_percnt", srcNum: "Service_percnt" },
+                    { field: "Line_Total", srcNum: "Line_Total" },
+                    { field: "Product_Information_Sales_Invoice", srcRecordId: true },
+                    { field: "Customer", currentCustomer: true }
+                ]
+            }
+        };
+
+        let customersById = {};
+        let lastSelectedCustomerId = '';
+        let paymentInfo = null;
+        let pendingPaymentRows = [];
+        const PAYMENT_TYPES = ['Cash', 'Bank Transfer', 'UPI', 'Debit Card', 'Credit Card', 'Cheque'];
+        let itemsBySection = { product: {}, purchase: {}, return: {} };
+        let itemOptionsBySection = { product: '', purchase: '', return: '' };
+        let serviceMasterById = {};
+        let taxesById = {};
+        let serviceOptionsHtml = '';
+
+        let activeSections = { purchase: false, product: false, service: false, return: false };
+
+        if (typeof ZOHO !== 'undefined' && ZOHO.CREATOR) {
+            ZOHO.CREATOR.init().then(function() {
+                initApp();
+            });
+        } else {
+            window.onload = initApp;
+        }
+
+        async function initApp() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('invoiceDate').value = today;
+
+            await Promise.all([
+                generateInvoiceNumber(),
+                loadCustomers(),
+                loadCurrentUserAsSalesman(),
+                loadPriceLevels(),
+                loadItemSource('product'),
+                loadItemSource('purchase'),
+                loadItemSource('return'),
+                loadServiceMaster(),
+                loadTaxMaster()
+            ]);
+
+            toggleSection('product');
+        }
+
+        async function loadServiceMaster() {
+            serviceMasterById = {};
+            serviceOptionsHtml = '<option value="">-Select Service-</option>';
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: SERVICE_MASTER_CONFIG.REPORT_NAME,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                if (records[0]) console.log('Sample service master record:', records[0]);
+                records.forEach(record => {
+                    serviceMasterById[record.ID] = record;
+                    const name = zohoValueToText(record[SERVICE_MASTER_CONFIG.FIELDS.name]) || record.ID;
+                    serviceOptionsHtml += `<option value="${record.ID}">${name}</option>`;
+                });
+            } catch (err) {
+                console.error('Failed to fetch services from "' + SERVICE_MASTER_CONFIG.REPORT_NAME + '".', err);
+            }
+        }
+
+        async function loadTaxMaster() {
+            taxesById = {};
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: TAX_MASTER_CONFIG.REPORT_NAME,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                if (records[0]) console.log('Sample tax record:', records[0]);
+                records.forEach(record => { taxesById[record.ID] = record; });
+            } catch (err) {
+                console.error('Failed to fetch taxes from "' + TAX_MASTER_CONFIG.REPORT_NAME + '".', err);
+            }
+        }
+
+        async function loadItemSource(section) {
+            const cfg = ITEM_SOURCES[section];
+            itemsBySection[section] = {};
+            itemOptionsBySection[section] = '<option value="">-Select Item-</option>';
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: cfg.reportName,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                if (records[0]) console.log(`Sample ${section} item record:`, records[0]);
+                if (!records.length) {
+                    itemOptionsBySection[section] += '<option value="" disabled>(no items in ' + cfg.reportName + ')</option>';
+                }
+                records.forEach(record => {
+                    itemsBySection[section][record.ID] = record;
+                    const label = itemLabel(section, record) || record.ID;
+                    itemOptionsBySection[section] += `<option value="${record.ID}">${label}</option>`;
+                });
+            } catch (err) {
+                console.error('Failed to fetch items from "' + cfg.reportName + '".', err);
+                itemOptionsBySection[section] += '<option value="" disabled>(failed to load - see console)</option>';
+            }
+        }
+
+        async function loadPriceLevels() {
+            const priceSelect = document.getElementById('priceLevel');
+            priceSelect.innerHTML = '';
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                priceSelect.innerHTML = '<option value="">Unavailable outside Zoho Creator</option>';
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: PRICE_LEVEL_CONFIG.REPORT_NAME,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                records.forEach(record => {
+                    const name = zohoValueToText(record[PRICE_LEVEL_CONFIG.FIELDS.name]) || record.ID;
+                    priceSelect.innerHTML += `<option value="${record.ID}">${name}</option>`;
+                });
+            } catch (err) {
+                console.error('Failed to fetch price levels from "' + PRICE_LEVEL_CONFIG.REPORT_NAME + '".', err);
+                priceSelect.innerHTML = '<option value="">Failed to load price levels</option>';
+            }
+        }
+
+        async function loadCustomers() {
+            const custSelect = document.getElementById('customerSelect');
+            custSelect.innerHTML = '<option value="">-Select Customer-</option>';
+            customersById = {};
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                custSelect.innerHTML += '<option value="" disabled>Customer data unavailable outside Zoho Creator</option>';
+                renderCustomerDropdownList();
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: CUSTOMER_CONFIG.REPORT_NAME,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                records.forEach(record => {
+                    customersById[record.ID] = record;
+                    const name = record[CUSTOMER_CONFIG.FIELDS.name] || record.ID;
+                    custSelect.innerHTML += `<option value="${record.ID}">${name}</option>`;
+                });
+                console.log('Loaded customers:', customersById);
+            } catch (err) {
+                console.error('Failed to fetch customers from "' + CUSTOMER_CONFIG.REPORT_NAME + '".', err);
+                custSelect.innerHTML += '<option value="" disabled>Failed to load customers</option>';
+            }
+            renderCustomerDropdownList();
+            updateCustomerDropdownLabel();
+        }
+
+        function renderCustomerDropdownList() {
+            const list = document.getElementById('customerDropdownList');
+            const currentId = document.getElementById('customerSelect').value;
+            list.innerHTML = '';
+            const ids = Object.keys(customersById);
+            if (ids.length === 0) {
+                list.innerHTML = '<div class="px-3 py-2 text-sm text-slate-400">No customers found</div>';
+                return;
+            }
+            ids.forEach(id => {
+                const name = customersById[id][CUSTOMER_CONFIG.FIELDS.name] || id;
+                const row = document.createElement('div');
+                row.className = 'px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-indigo-50 text-slate-700' + (id === currentId ? ' bg-indigo-50 font-medium text-indigo-700' : '');
+                row.textContent = name;
+                row.onclick = () => selectCustomerOption(id);
+                list.appendChild(row);
+            });
+        }
+
+        function updateCustomerDropdownLabel() {
+            const custId = document.getElementById('customerSelect').value;
+            const label = document.getElementById('customerDropdownLabel');
+            const customer = customersById[custId];
+            if (custId && customer) {
+                label.textContent = customer[CUSTOMER_CONFIG.FIELDS.name] || custId;
+                label.classList.remove('text-slate-400');
+                label.classList.add('text-slate-700');
+            } else {
+                label.textContent = '-Select-';
+                label.classList.remove('text-slate-700');
+                label.classList.add('text-slate-400');
+            }
+        }
+
+        function toggleCustomerDropdown() {
+            const panel = document.getElementById('customerDropdownPanel');
+            if (panel.classList.contains('hidden')) {
+                renderCustomerDropdownList();
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        function closeCustomerDropdown() {
+            document.getElementById('customerDropdownPanel').classList.add('hidden');
+        }
+
+        function selectCustomerOption(id) {
+            const custSelect = document.getElementById('customerSelect');
+            custSelect.value = id;
+            closeCustomerDropdown();
+            handleCustomerChange();
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('customerDropdownWrap');
+            if (wrap && !wrap.contains(e.target)) closeCustomerDropdown();
+        });
+
+        async function loadCurrentUserAsSalesman() {
+            const salesSelect = document.getElementById('salesmanSelect');
+            salesSelect.innerHTML = '';
+
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.UTIL || !ZOHO.CREATOR.API) {
+                salesSelect.innerHTML = '<option value="">Unavailable outside Zoho Creator</option>';
+                return;
+            }
+
+            let email = '';
+            try {
+                const initParams = await ZOHO.CREATOR.UTIL.getInitParams();
+                email = (initParams && initParams.loginUser) || '';
+            } catch (err) {
+                console.error('Failed to detect logged-in user email.', err);
+            }
+
+            if (!email) {
+                salesSelect.innerHTML = '<option value="">Unable to detect logged-in user</option>';
+                return;
+            }
+
+            try {
+                const response = await ZOHO.CREATOR.API.getAllRecords({
+                    reportName: EMPLOYEE_CONFIG.REPORT_NAME,
+                    fieldConfig: "all"
+                });
+                const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                console.log('Loaded employees:', records);
+
+                const emailField = EMPLOYEE_CONFIG.FIELDS.email;
+                const nameField = EMPLOYEE_CONFIG.FIELDS.name;
+                const match = records.find(r => {
+                    const configured = String(r[emailField] || '').trim().toLowerCase();
+                    if (configured === email.toLowerCase()) return true;
+                    return Object.values(r).some(v => String(v).trim().toLowerCase() === email.toLowerCase());
+                });
+
+                if (match) {
+                    const name = zohoValueToText(match[nameField]) || zohoValueToText(match.Name) || email;
+                    salesSelect.innerHTML = `<option value="${match.ID}" selected>${name}</option>`;
+                } else {
+                    salesSelect.innerHTML = `<option value="" selected>${email}</option>`;
+                }
+            } catch (err) {
+                console.error('Failed to look up employee in "' + EMPLOYEE_CONFIG.REPORT_NAME + '".', err);
+                salesSelect.innerHTML = `<option value="" selected>${email}</option>`;
+            }
+        }
+
+        function zohoValueToText(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'string') return value.trim();
+            if (typeof value === 'object') {
+                if (value.display_value) return String(value.display_value).trim();
+                if (value.zc_display_value) return String(value.zc_display_value).trim();
+                const parts = [value.prefix, value.first_name, value.last_name, value.suffix]
+                    .filter(Boolean).join(' ').trim();
+                if (parts) return parts;
+                return '';
+            }
+            return String(value).trim();
+        }
+
+        function formatBalanceNature(value) {
+            const text = zohoValueToText(value).toLowerCase();
+            if (!text) return '';
+            if (text.startsWith('cr')) return 'Cr';
+            if (text.startsWith('dr') || text.startsWith('de')) return 'Dr';
+            return zohoValueToText(value);
+        }
+
+        function isZohoId(value) {
+            return /^\d{10,}$/.test(String(value).trim());
+        }
+
+        function itemLabel(section, record) {
+            const cfg = ITEM_SOURCES[section];
+            const candidates = [
+                cfg.itemDetailField ? zohoValueToText(record[cfg.itemDetailField]) : '',
+                cfg.itemDisplayField ? zohoValueToText(record[cfg.itemDisplayField]) : ''
+            ];
+            const named = candidates.find(c => c && !isZohoId(c));
+            if (named) return named;
+            return candidates.find(Boolean) || '';
+        }
+
+        function returnItemAmount(record) {
+            const parts = ['Board_Amount', 'DMD_Amount', 'CS_Amount', 'PS_Amount', 'Service_Amount']
+                .reduce((sum, f) => sum + numOr(record[f], 0), 0);
+            const net = parts - numOr(record.Discount_Amount, 0);
+            return net || numOr(record.Line_Total, 0);
+        }
+
+        function returnItemInvoice(record) {
+            const candidates = [
+                zohoValueToText(record.Sales_Invoice),
+                zohoValueToText(record.Product_Information_Sales_Invoice),
+                zohoValueToText(record.Point_of_Sale)
+            ];
+            return candidates.find(c => c && !isZohoId(c)) || '';
+        }
+
+        async function generateInvoiceNumber() {
+            const invoiceNoInput = document.getElementById('invoiceNo');
+            invoiceNoInput.value = "Generating...";
+
+            const yy = new Date().getFullYear().toString().slice(-2);
+            const yearPrefix = `${INVOICE_NUMBER_CONFIG.PREFIX}-${yy}-`;
+
+            if (typeof ZOHO !== 'undefined' && ZOHO.CREATOR && ZOHO.CREATOR.API) {
+                try {
+                    const response = await ZOHO.CREATOR.API.getAllRecords({
+                        reportName: INVOICE_NUMBER_CONFIG.REPORT_NAME
+                    });
+                    const records = (response && response.code === 3000 && Array.isArray(response.data)) ? response.data : [];
+                    const existingCount = records.filter(r => String(r[INVOICE_NUMBER_CONFIG.FIELD_NAME] || '').startsWith(yearPrefix)).length;
+                    const nextNumber = existingCount + 1;
+                    const paddedNumber = String(nextNumber).padStart(INVOICE_NUMBER_CONFIG.PAD_LENGTH, '0');
+                    invoiceNoInput.value = `${yearPrefix}${paddedNumber}`;
+                } catch (err) {
+                    console.error('Failed to fetch invoice count from "' + INVOICE_NUMBER_CONFIG.REPORT_NAME + '". Falling back to a placeholder number.', err);
+                    invoiceNoInput.value = `${yearPrefix}${'0'.repeat(INVOICE_NUMBER_CONFIG.PAD_LENGTH)}`;
+                }
+            } else {
+                const mockCount = (parseInt(localStorage.getItem('mockInvoiceCount') || '0', 10)) + 1;
+                localStorage.setItem('mockInvoiceCount', mockCount);
+                const paddedNumber = String(mockCount).padStart(INVOICE_NUMBER_CONFIG.PAD_LENGTH, '0');
+                invoiceNoInput.value = `${yearPrefix}${paddedNumber}`;
+            }
+        }
+
+        async function saveInvoice() {
+            if (typeof ZOHO === 'undefined' || !ZOHO.CREATOR || !ZOHO.CREATOR.API) {
+                showToast('Save is only available when this widget is running inside Zoho Creator.', 'error');
+                return;
+            }
+
+            const customerId = document.getElementById('customerSelect').value;
+            if (!customerId) {
+                showToast('Please select a Customer before saving.', 'error');
+                return;
+            }
+            if (!document.getElementById('invoiceDate').value) {
+                showToast('Please set the Invoice Date.', 'error');
+                return;
+            }
+            const hasItems = ['purchase', 'product', 'service', 'return'].some(section =>
+                activeSections[section] && document.getElementById(`tbody-${section}`).children.length > 0
+            );
+            if (!hasItems) {
+                showToast('Please add at least one item before saving.', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('btn-save-invoice');
+            const originalLabel = saveBtn.innerText;
+            saveBtn.disabled = true;
+            saveBtn.innerText = 'Saving...';
+
+            try {
+                const response = await ZOHO.CREATOR.API.addRecord({
+                    appName: SAVE_INVOICE_CONFIG.APP_NAME,
+                    formName: SAVE_INVOICE_CONFIG.FORM_NAME,
+                    data: {
+                        data: buildInvoicePayload(customerId)
+                    }
+                });
+
+                if (response && response.code === 3000) {
+                    const savedRecord = response.data || {};
+                    const newId = savedRecord.ID;
+                    const savedInvoiceNo = savedRecord[INVOICE_NUMBER_CONFIG.FIELD_NAME];
+                    if (savedInvoiceNo) {
+                        document.getElementById('invoiceNo').value = savedInvoiceNo;
+                    }
+
+                    if (newId) {
+                        await linkProductRowsToInvoice(newId);
+                    }
+
+                    const customerName = (customersById[customerId] && customersById[customerId][CUSTOMER_CONFIG.FIELDS.name]) || customerId;
+                    showToast(`Invoice saved successfully for ${customerName}.`, 'success');
+
+                    setTimeout(() => { location.reload(); }, 1500);
+                    return;
+                } else {
+                    throw new Error((response && (response.message || JSON.stringify(response))) || 'Unknown error while saving invoice.');
+                }
+            } catch (err) {
+                console.error('Failed to save invoice', err);
+                showToast('Failed to save invoice: ' + (err && err.message ? err.message : err), 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerText = originalLabel;
+            }
+        }
+
+        // The parent Sales_Invoice's ID doesn't exist until after the record is
+        // saved, so Product_Information rows can't carry it in the initial
+        // addRecord payload. This follow-up fetches the newly created invoice
+        // (to get each subform row's own ID) then updates each row's
+        // Sales_Invoice lookup field to point back at the parent.
+        // ASSUMPTION: Product_Information has a Lookup field named
+        // "Sales_Invoice" pointing to Sales_Invoice - create it in Zoho
+        // Creator's form builder if it doesn't already exist.
+        async function linkProductRowsToInvoice(invoiceId) {
+            try {
+                const detail = await ZOHO.CREATOR.API.getRecordById({
+                    appName: SAVE_INVOICE_CONFIG.APP_NAME,
+                    reportName: INVOICE_NUMBER_CONFIG.REPORT_NAME,
+                    id: invoiceId,
+                    fieldConfig: "all"
+                });
+                const productRows = (detail && detail.data && detail.data.Product_Information) || [];
+                for (const row of productRows) {
+                    if (!row.ID) continue;
+                    await ZOHO.CREATOR.API.updateRecord({
+                        appName: SAVE_INVOICE_CONFIG.APP_NAME,
+                        formName: "Product_Information",
+                        id: row.ID,
+                        data: {
+                            data: { Sales_Invoice: invoiceId }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to link Product Information rows back to the saved invoice', err);
+            }
+        }
+
+        // Zoho Creator's Add Records API expects Number/Decimal/Currency/Percent
+        // fields as quoted strings (e.g. "1000.03") and Decision box fields as
+        // the string "true"/"false", not native JS numbers/booleans.
+        function stringifyPayloadValues(value) {
+            if (Array.isArray(value)) {
+                return value.map(stringifyPayloadValues);
+            }
+            if (value && typeof value === 'object') {
+                const out = {};
+                Object.keys(value).forEach(k => { out[k] = stringifyPayloadValues(value[k]); });
+                return out;
+            }
+            if (typeof value === 'number') return String(value);
+            if (typeof value === 'boolean') return value ? 'true' : 'false';
+            return value;
+        }
+
+        function buildInvoicePayload(customerId) {
+            const F = SAVE_INVOICE_CONFIG.FIELDS;
+            const activeSectionNames = Object.keys(activeSections).filter(section => activeSections[section]);
+
+            const data = {
+                [F.invoiceNo]: document.getElementById('invoiceNo').value,
+                [F.invoiceDate]: formatDateForZoho(document.getElementById('invoiceDate').value),
+                [F.customer]: customerId,
+                [F.totalProduct]: parseAmount(document.getElementById('sum-product').innerText),
+                [F.totalPurchase]: parseAmount(document.getElementById('sum-purchase').innerText),
+                [F.totalService]: parseAmount(document.getElementById('sum-service').innerText),
+                [F.totalReturn]: parseAmount(document.getElementById('sum-return').innerText),
+                [F.calculationsInvolved]: getSelectedCalculations(),
+                [F.invoiceType]: activeSectionNames.map(section => INVOICE_TYPE_LABELS[section]),
+                [F.chooseSalesReturn]: activeSections.return
+            };
+
+            const dueDate = formatDateForZoho(document.getElementById('dueDate').value);
+            if (dueDate) data[F.dueDate] = dueDate;
+            const refNo = document.getElementById('refNo').value;
+            if (refNo) data[F.refNo] = refNo;
+            const salesmanId = document.getElementById('salesmanSelect').value;
+            if (salesmanId) data[F.salesman] = salesmanId;
+            const priceLevelId = document.getElementById('priceLevel').value;
+            if (priceLevelId) data[F.priceLevel] = priceLevelId;
+            const customer = customersById[customerId];
+            if (customer) {
+                data[F.currentBalance] = parseFloat(customer[CUSTOMER_CONFIG.FIELDS.openingBalance]) || 0;
+            }
+
+            ['product', 'purchase', 'return'].forEach(section => {
+                if (!activeSections[section]) return;
+                const rows = collectItemRows(section);
+                if (rows.length) data[ITEM_SOURCES[section].subformName] = rows;
+            });
+
+            if (activeSections.service) {
+                const serviceRows = collectServiceRows();
+                if (serviceRows.length) data['Service_Information'] = serviceRows;
+            }
+
+            console.log('Sales_Invoice payload being sent:', JSON.stringify(data));
+            return data;
+        }
+
+        function collectItemRows(section) {
+            const cfg = ITEM_SOURCES[section];
+            const tbody = document.getElementById(`tbody-${section}`);
+            return Array.from(tbody.children).map(tr => {
+                const src = tr._srcRecord;
+                if (!src || !src.ID) return null;
+
+                const row = {};
+                cfg.save.forEach(map => {
+                    if (map.srcRecordId) {
+                        row[map.field] = src.ID;
+                    } else if (map.currentCustomer) {
+                        const custId = document.getElementById('customerSelect').value;
+                        if (custId) row[map.field] = custId;
+                    } else if (map.srcId) {
+                        const id = rawId(src[map.srcId]);
+                        if (id) row[map.field] = id;
+                    } else if (map.srcText) {
+                        const text = zohoValueToText(src[map.srcText]);
+                        if (text) row[map.field] = text;
+                    } else if (map.srcNum) {
+                        row[map.field] = numOr(src[map.srcNum], 0);
+                    } else if (map.sel) {
+                        if (map.text) {
+                            const el = tr.querySelector(map.sel);
+                            const val = el ? el.value : '';
+                            if (val) row[map.field] = val;
+                        } else {
+                            row[map.field] = getVal(tr, map.sel);
+                        }
+                    }
+                });
+                return row;
+            }).filter(Boolean);
+        }
+
+        function collectServiceRows() {
+            const tbody = document.getElementById('tbody-service');
+            return Array.from(tbody.children).map(tr => {
+                const select = tr.querySelector('.input-svc-type');
+                const serviceId = select ? select.value : '';
+                if (!serviceId) return null;
+
+                const row = { Service_Name: serviceId };
+                row.Service_Rate = getVal(tr, '.input-svc-rate');
+                const discType = tr.querySelector('.input-svc-disc-type').value;
+                if (discType) row.Discount_Type = discType;
+                row.Discount_percnt = getVal(tr, '.input-svc-disc-pct');
+                row.Discount_Rate = getVal(tr, '.input-svc-disc-rt');
+                row.Service_Amount = getVal(tr, '.input-svc-linetotal');
+                return row;
+            }).filter(Boolean);
+        }
+
+        function getSelectedCalculations() {
+            const list = [];
+            if (document.getElementById('chk-dmd').checked) list.push('DMD');
+            if (document.getElementById('chk-cs').checked) list.push('CS');
+            if (document.getElementById('chk-ps').checked) list.push('PS');
+            return list;
+        }
+
+        function collectRows(section, classMap, fieldMap) {
+            const tbody = document.getElementById(`tbody-${section}`);
+            return Array.from(tbody.children).map(tr => {
+                const row = {};
+                Object.entries(classMap).forEach(([key, selector]) => {
+                    const zohoField = fieldMap[key];
+                    if (!zohoField) return;
+                    const el = tr.querySelector(selector);
+                    if (!el) return;
+                    row[zohoField] = (el.tagName === 'SELECT' || el.type === 'text') ? el.value : (parseFloat(el.value) || 0);
+                });
+                return row;
+            });
+        }
+
+        function parseAmount(text) {
+            return parseFloat(String(text).replace(/[^0-9.-]/g, '')) || 0;
+        }
+
+        function formatDateForZoho(isoDate) {
+            if (!isoDate) return '';
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const [y, m, d] = isoDate.split('-');
+            const monthAbbr = MONTHS[parseInt(m, 10) - 1];
+            if (!monthAbbr) return '';
+            return `${d}-${monthAbbr}-${y} 00:00:00`;
+        }
+
+        function handleCustomerChange() {
+            const custSelect = document.getElementById('customerSelect');
+            const custId = custSelect.value;
+            const previousCustomerId = lastSelectedCustomerId;
+            lastSelectedCustomerId = custId;
+            updateCustomerDropdownLabel();
+
+            const balanceDiv = document.getElementById('ui-current-balance');
+            const natureSpan = document.getElementById('ui-balance-nature');
+            const customer = customersById[custId];
+
+            if (custId && customer) {
+                const bal = parseFloat(customer[CUSTOMER_CONFIG.FIELDS.openingBalance]) || 0;
+                const formattedBalance = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(bal);
+                balanceDiv.innerText = formattedBalance;
+                balanceDiv.className = bal < 0
+                    ? "text-red-600 font-bold text-[15px]"
+                    : "text-indigo-600 font-bold text-[15px]";
+
+                const nature = formatBalanceNature(customer[CUSTOMER_CONFIG.FIELDS.balanceNature]);
+                if (nature) {
+                    natureSpan.textContent = nature;
+                    natureSpan.classList.remove('hidden');
+                } else {
+                    natureSpan.textContent = '';
+                    natureSpan.classList.add('hidden');
+                }
+            } else {
+                balanceDiv.innerText = "Select Customer...";
+                balanceDiv.className = "text-slate-400 font-semibold text-[15px]";
+                natureSpan.textContent = '';
+                natureSpan.classList.add('hidden');
+            }
+
+            syncProductCustomerColumn();
+
+            if (previousCustomerId && previousCustomerId !== custId) {
+                clearReturnRowsForCustomerChange();
+            }
+        }
+
+        function clearReturnRowsForCustomerChange() {
+            const tbody = document.getElementById('tbody-return');
+            if (tbody.children.length === 0) return;
+            tbody.innerHTML = '';
+            updateRowIndices('return');
+            calculateInvoiceTotals();
+        }
+
+        function syncProductCustomerColumn() {
+            const custId = document.getElementById('customerSelect').value;
+            const customer = customersById[custId];
+            const name = customer ? (customer[CUSTOMER_CONFIG.FIELDS.name] || '') : '';
+            document.querySelectorAll('#tbody-product .input-customer').forEach(el => {
+                el.value = name;
+            });
+        }
+
+        const CUSTOMER_FORM_URL = 'https://creatorapp.zoho.in/leoragold/ciyor/#Form:Customer';
+        const SALES_INVOICE_REPORT_URL = 'https://creatorapp.zoho.in/leoragold/ciyor/#Report:Sales_Invoice_Report';
+
+        function cancelInvoice() {
+            try {
+                window.top.location.href = SALES_INVOICE_REPORT_URL;
+            } catch (e) {
+                window.location.href = SALES_INVOICE_REPORT_URL;
+            }
+        }
+
+        // Hold does not save anything to Zoho yet - no "held/parked invoice"
+        // storage or recall list has been specified. This is a placeholder
+        // until that behavior is defined.
+        function holdInvoice() {
+            showToast('Invoice held. (Hold does not save to Zoho yet - let me know how you want held invoices stored/recalled.)', 'success');
+        }
+
+        function openCustomerForm() {
+            const win = window.open(CUSTOMER_FORM_URL, 'CustomerFormWindow', 'width=1000,height=750,scrollbars=yes,resizable=yes');
+            if (!win) {
+                alert('Popup blocked. Please allow popups for this site and try again.');
+                return;
+            }
+            const checkClosed = setInterval(() => {
+                if (win.closed) {
+                    clearInterval(checkClosed);
+                    refreshCustomersAfterAdd();
+                }
+            }, 500);
+        }
+
+        async function refreshCustomersAfterAdd() {
+            await loadCustomers();
+            const custSelect = document.getElementById('customerSelect');
+            custSelect.value = lastSelectedCustomerId || '';
+            renderCustomerDropdownList();
+            updateCustomerDropdownLabel();
+        }
+
+        let sectionOrder = ['purchase', 'product', 'service', 'return'];
+
+        function bringSectionToFront(sectionName) {
+            sectionOrder = sectionOrder.filter(s => s !== sectionName);
+            sectionOrder.unshift(sectionName);
+            reorderSections();
+        }
+
+        function reorderSections() {
+            const wrapperIds = { purchase: 'section-purchase-wrapper', product: 'section-product-wrapper', service: 'section-service-wrapper', return: 'section-return-wrapper' };
+            let insertAfter = document.getElementById('invoice-details-card');
+            if (!insertAfter) return;
+            sectionOrder.forEach(name => {
+                const el = document.getElementById(wrapperIds[name]);
+                if (!el) return;
+                insertAfter.after(el);
+                insertAfter = el;
+            });
+        }
+
+        function toggleSection(sectionName) {
+            activeSections[sectionName] = !activeSections[sectionName];
+            const btn = document.getElementById('btn-' + sectionName);
+            if(activeSections[sectionName]) {
+                btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+                btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+                if(!btn.innerHTML.includes('svg')) btn.innerHTML += ` <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+            } else {
+                btn.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.innerHTML = btn.innerHTML.replace(/<svg.*<\/svg>/g, '');
+            }
+            const wrapperDiv = document.getElementById('section-' + sectionName + '-wrapper');
+            if(wrapperDiv) {
+                if(activeSections[sectionName]) {
+                    wrapperDiv.classList.remove('hidden');
+                    if (document.getElementById(`tbody-${sectionName}`).children.length === 0 && sectionName !== 'return') {
+                        addItem(sectionName);
+                    }
+                    bringSectionToFront(sectionName);
+                } else {
+                    wrapperDiv.classList.add('hidden');
+                }
+            }
+
+            if (activeSections['product'] || activeSections['purchase']) {
+                document.getElementById('calculationsInvolved').style.display = 'flex';
+            } else {
+                document.getElementById('calculationsInvolved').style.display = 'none';
+            }
+            
+            calculateInvoiceTotals();
+            toggleColumns();
+        }
+
+        const TCH_RATE_TYPES = ['Piece Rate (PRT)', 'Other Rate'];
+
+        function updateTchFieldVisibility(selectEl) {
+            const tr = selectEl.closest('tr');
+            const pctInput = tr.querySelector('.input-tch-pct');
+            const rtInput = tr.querySelector('.input-tch-rt');
+            const amtInput = tr.querySelector('.input-tch-amt');
+            const val = selectEl.value;
+
+            pctInput.value = '0';
+            rtInput.value = '0';
+            amtInput.value = '0';
+
+            if (val) {
+                if (TCH_RATE_TYPES.includes(val)) {
+                    rtInput.readOnly = false;
+                    pctInput.readOnly = true;
+                } else {
+                    pctInput.readOnly = false;
+                    rtInput.readOnly = true;
+                }
+                amtInput.readOnly = false;
+            } else {
+                pctInput.readOnly = true;
+                rtInput.readOnly = true;
+                amtInput.readOnly = false;
+            }
+
+            calcRow(selectEl);
+        }
+
+        function updateTchFromPercent(pctInput) {
+            const tr = pctInput.closest('tr');
+            const boardAmount = getVal(tr, '.input-amt');
+            const pct = getVal(tr, '.input-tch-pct');
+
+            tr.querySelector('.input-tch-amt').value = (boardAmount * pct / 100).toFixed(2);
+            tr.querySelector('.input-tch-rt').value = '0';
+
+            calcRow(pctInput);
+        }
+
+        function updateTchFromRate(rtInput) {
+            const tr = rtInput.closest('tr');
+            const qty = getVal(tr, '.input-qty');
+            const rate = getVal(tr, '.input-tch-rt');
+
+            tr.querySelector('.input-tch-amt').value = (qty * rate).toFixed(2);
+            tr.querySelector('.input-tch-pct').value = '0';
+
+            calcRow(rtInput);
+        }
+
+        function updateDiscFieldVisibility(selectEl) {
+            const tr = selectEl.closest('tr');
+            const pctInput = tr.querySelector('.input-disc-pct');
+            const rtInput = tr.querySelector('.input-disc-rt');
+            const val = selectEl.value;
+
+            pctInput.value = '0';
+            rtInput.value = '0';
+
+            if (val) {
+                if (val === 'Percentage') {
+                    pctInput.readOnly = false;
+                    rtInput.readOnly = true;
+                } else {
+                    rtInput.readOnly = false;
+                    pctInput.readOnly = true;
+                }
+            } else {
+                pctInput.readOnly = true;
+                rtInput.readOnly = true;
+            }
+
+            calcRow(selectEl);
+        }
+
+        function updateDiscFromPercent(pctInput) {
+            const tr = pctInput.closest('tr');
+            const serviceAmt = getVal(tr, '.input-tch-amt');
+            const pct = getVal(tr, '.input-disc-pct');
+
+            tr.querySelector('.input-disc-amt').value = (serviceAmt * pct / 100).toFixed(2);
+            tr.querySelector('.input-disc-rt').value = '0';
+
+            calcRow(pctInput);
+        }
+
+        function updateDiscFromRate(rtInput) {
+            const tr = rtInput.closest('tr');
+            const rate = getVal(tr, '.input-disc-rt');
+
+            tr.querySelector('.input-disc-amt').value = rate.toFixed(2);
+            tr.querySelector('.input-disc-pct').value = '0';
+
+            calcRow(rtInput);
+        }
+
+        function toggleColumns() {
+            const types = ['dmd', 'cs', 'ps'];
+            types.forEach(type => {
+                const el = document.getElementById(`chk-${type}`);
+                const isChecked = el ? el.checked : false;
+                document.querySelectorAll(`#section-product-wrapper .col-${type}`).forEach(col => {
+                    if (isChecked) col.classList.remove('col-hidden');
+                    else col.classList.add('col-hidden');
+                });
+            });
+            const productTbody = document.getElementById('tbody-product');
+            if (productTbody) {
+                Array.from(productTbody.children).forEach(tr => {
+                    const gwtInput = tr.querySelector('.input-gwt');
+                    if (gwtInput) calcRow(gwtInput);
+                });
+            }
+            const purchaseTbody = document.getElementById('tbody-purchase');
+            if (purchaseTbody) {
+                Array.from(purchaseTbody.children).forEach(tr => {
+                    const gwtInput = tr.querySelector('.input-gwt');
+                    if (gwtInput) calcPurchaseRow(gwtInput);
+                });
+            }
+            calculateInvoiceTotals();
+        }
+
+        function addItem(section) {
+            let tplId = 'tpl-product-row';
+            if (section === 'service') tplId = 'tpl-service-row';
+            if (section === 'purchase') tplId = 'tpl-purchase-row';
+            
+            const template = document.getElementById(tplId);
+            const clone = template.content.cloneNode(true);
+            const tbody = document.getElementById(`tbody-${section}`);
+            
+            const tr = clone.querySelector('tr');
+            tr.setAttribute('data-section', section);
+
+            if (section === 'product' || section === 'purchase') {
+                const itemInput = tr.querySelector('.input-item');
+                const itemCell = itemInput.parentElement;
+                const select = document.createElement('select');
+                select.className = 'input-item';
+                select.innerHTML = itemOptionsBySection[section];
+                select.addEventListener('change', function() {
+                    applyItemToRow(this, section);
+                });
+                itemCell.innerHTML = '';
+                itemCell.appendChild(select);
+            }
+
+            if (section === 'service' && serviceOptionsHtml) {
+                const svcSelect = tr.querySelector('.input-svc-type');
+                if (svcSelect) {
+                    svcSelect.innerHTML = serviceOptionsHtml;
+                    svcSelect.addEventListener('change', function() {
+                        applyServiceMaster(this);
+                    });
+                }
+            }
+
+            if (section === 'product') {
+                tr.querySelectorAll('.calc-trigger').forEach(input => {
+                    input.addEventListener('input', function() {
+                        calcRow(this);
+                    });
+                    input.addEventListener('change', function() {
+                        calcRow(this);
+                    });
+                });
+            } else if (section === 'purchase') {
+                tr.querySelectorAll('.calc-trigger').forEach(input => {
+                    input.addEventListener('input', function() {
+                        calcPurchaseRow(this);
+                    });
+                    input.addEventListener('change', function() {
+                        calcPurchaseRow(this);
+                    });
+                });
+            } else if (section === 'service') {
+                tr.querySelectorAll('.calc-svc-trigger').forEach(input => {
+                    input.addEventListener('input', function() {
+                        calcServiceRow(this);
+                    });
+                });
+            }
+
+            tbody.appendChild(clone);
+
+            updateRowIndices(section);
+            toggleColumns();
+            if (section === 'product') {
+                syncProductCustomerColumn();
+                // A cancelled tax should only stay hidden for the current set
+                // of items - adding another item brings all applicable taxes
+                // back into consideration.
+                cancelledTaxNames.clear();
+            }
+        }
+
+        function removeRow(btn) {
+            const tr = btn.closest('tr');
+            const section = tr.getAttribute('data-section');
+            tr.remove();
+            updateRowIndices(section);
+            if (section === 'product') cancelledTaxNames.clear();
+            calculateInvoiceTotals();
+        }
+
+        function updateRowIndices(section) {
+            const tbody = document.getElementById(`tbody-${section}`);
+            Array.from(tbody.children).forEach((tr, index) => {
+                const idxTd = tr.querySelector('.row-idx');
+                if (idxTd) idxTd.innerText = index + 1;
+            });
+        }
+
+        function getVal(tr, selector) {
+            const el = tr.querySelector(selector);
+            return el ? (parseFloat(el.value) || 0) : 0;
+        }
+
+        function numOr(value, fallback) {
+            const n = parseFloat(value);
+            return isNaN(n) ? fallback : n;
+        }
+
+        function rawId(value) {
+            if (value === null || value === undefined || value === '') return '';
+            if (typeof value === 'object') return value.ID || value.id || '';
+            return value;
+        }
+
+        function applyItemToRow(selectEl, section) {
+            const tr = selectEl.closest('tr');
+            const record = itemsBySection[section][selectEl.value];
+            if (!record) {
+                tr._srcRecord = null;
+                return;
+            }
+            tr._srcRecord = record;
+            if (section === 'product') cancelledTaxNames.clear();
+
+            ITEM_SOURCES[section].autofill.forEach(map => {
+                const el = tr.querySelector(map.sel);
+                if (!el) return;
+                el.value = map.text ? zohoValueToText(record[map.field]) : numOr(record[map.field], 0);
+            });
+
+            if (ITEM_SOURCES[section].postFill) ITEM_SOURCES[section].postFill(tr, record);
+
+            if (section === 'purchase') {
+                calcPurchaseRow(tr.querySelector('.input-nwt'));
+            } else {
+                calcRow(tr.querySelector('.input-nwt'));
+            }
+        }
+
+        // Matches the confirmed Deluge scripts for Purchase Information:
+        // Net_Weight = Gross_Weight - Mud_Weight - Stone_Weight
+        // Line_Total = (Board_Rate x Net_Weight) + Stone_Amount
+        // No DMD/PS involvement in Purchase's own calculation.
+        function calcPurchaseRow(inputElem) {
+            const tr = inputElem.closest('tr');
+            const gwt = getVal(tr, '.input-gwt');
+            const rate = getVal(tr, '.input-rate');
+            const mudWt = getVal(tr, '.input-mud-wt');
+            const csWt = getVal(tr, '.input-cs-wt');
+            const csRt = getVal(tr, '.input-cs-rt');
+
+            const nwtInput = tr.querySelector('.input-nwt');
+            const nwt = gwt - mudWt - csWt;
+            nwtInput.value = nwt.toFixed(3);
+            nwtInput.readOnly = true;
+
+            const csAmt = csRt * csWt;
+            tr.querySelector('.input-cs-amt').value = csAmt.toFixed(2);
+
+            const lineTotal = (rate * nwt) + csAmt;
+            tr.querySelector('.input-linetotal').value = lineTotal.toFixed(2);
+
+            calculateInvoiceTotals();
+        }
+
+        function calcRow(inputElem) {
+            const tr = inputElem.closest('tr');
+            const gwt = getVal(tr, '.input-gwt');
+            const rate = getVal(tr, '.input-rate');
+
+            const dmdWt = getVal(tr, '.input-dmd-wt');
+            const csWt = getVal(tr, '.input-cs-wt');
+            const psWt = getVal(tr, '.input-ps-wt');
+            const stoneWeightTotal = (dmdWt * 0.2) + csWt + psWt;
+
+            const nwtInput = tr.querySelector('.input-nwt');
+            const nwt = Math.max(gwt - stoneWeightTotal, 0);
+            nwtInput.value = nwt.toFixed(3);
+            nwtInput.readOnly = true;
+
+            // Board_Amount = Board_Rate * Net_Weight
+            let amount = rate * nwt;
+            tr.querySelector('.input-amt').value = amount.toFixed(2);
+
+            let stonesAmount = 0;
+            ['dmd', 'cs', 'ps'].forEach(type => {
+                const wt = getVal(tr, `.input-${type}-wt`);
+                const rt = getVal(tr, `.input-${type}-rt`);
+                const amt = wt * rt;
+                tr.querySelector(`.input-${type}-amt`).value = amt.toFixed(2);
+                stonesAmount += amt;
+            });
+
+            // Service (TCH) Amount is driven by updateTchFromPercent/updateTchFromRate
+            const tchAmt = getVal(tr, '.input-tch-amt');
+
+            // Discount Amount is driven by updateDiscFromPercent/updateDiscFromRate
+            const discAmt = getVal(tr, '.input-disc-amt');
+
+            // Line_Total = Board_Amount + DMD_Amount + CS_Amount + PS_Amount + Service_Amount - Discount_Amount
+            const lineTotal = amount + stonesAmount + tchAmt - discAmt;
+            tr.querySelector('.input-linetotal').value = lineTotal.toFixed(2);
+
+            calculateInvoiceTotals();
+        }
+
+        function svcDiscAmount(tr) {
+            const discType = tr.querySelector('.input-svc-disc-type').value;
+            if (discType === 'Percentage') {
+                return getVal(tr, '.input-svc-rate') * getVal(tr, '.input-svc-disc-pct') / 100;
+            }
+            if (discType === 'Rate') {
+                return getVal(tr, '.input-svc-disc-rt');
+            }
+            return 0;
+        }
+
+        function calcServiceRow(inputElem) {
+            const tr = inputElem.closest('tr');
+            const rate = getVal(tr, '.input-svc-rate');
+            const discAmt = svcDiscAmount(tr);
+            tr.querySelector('.input-svc-linetotal').value = (rate - discAmt).toFixed(2);
+            calculateInvoiceTotals();
+        }
+
+        function updateSvcDiscFieldVisibility(selectEl) {
+            const tr = selectEl.closest('tr');
+            const pctInput = tr.querySelector('.input-svc-disc-pct');
+            const rtInput = tr.querySelector('.input-svc-disc-rt');
+            const val = selectEl.value;
+
+            pctInput.value = '0';
+            rtInput.value = '0';
+
+            if (val) {
+                if (val === 'Percentage') {
+                    pctInput.readOnly = false;
+                    rtInput.readOnly = true;
+                } else {
+                    rtInput.readOnly = false;
+                    pctInput.readOnly = true;
+                }
+            } else {
+                pctInput.readOnly = true;
+                rtInput.readOnly = true;
+            }
+
+            calcServiceRow(selectEl);
+        }
+
+        function updateSvcDiscFromPercent(pctInput) {
+            const tr = pctInput.closest('tr');
+            tr.querySelector('.input-svc-disc-rt').value = '0';
+            calcServiceRow(pctInput);
+        }
+
+        function updateSvcDiscFromRate(rtInput) {
+            const tr = rtInput.closest('tr');
+            tr.querySelector('.input-svc-disc-pct').value = '0';
+            calcServiceRow(rtInput);
+        }
+
+        function firstFieldValue(record, candidates) {
+            for (const f of candidates) {
+                const v = zohoValueToText(record[f]);
+                if (v) return v;
+            }
+            return '';
+        }
+
+        function applyServiceMaster(selectEl) {
+            const tr = selectEl.closest('tr');
+            const record = serviceMasterById[selectEl.value];
+            if (!record) return;
+
+            const rate = firstFieldValue(record, SERVICE_MASTER_CONFIG.FIELDS.rateCandidates);
+            if (rate && !isNaN(parseFloat(rate))) {
+                tr.querySelector('.input-svc-rate').value = parseFloat(rate);
+            }
+
+            calcServiceRow(tr.querySelector('.input-svc-rate'));
+        }
+
+        let roundOffOverrideDirection = null; // null = auto-computed; 'Dr'/'Cr' once the user manually flips it
+
+        function toggleRoundOffDirection() {
+            const current = document.getElementById('rs-round-off-dircode').textContent.trim();
+            roundOffOverrideDirection = current === 'Dr' ? 'Cr' : 'Dr';
+            calculateInvoiceTotals();
+        }
+
+        function toggleAdditionalCharges() {
+            const body = document.getElementById('additional-charges-body');
+            body.classList.toggle('hidden');
+        }
+
+        function updateDiscountFromPercent() {
+            const pct = parseFloat(document.getElementById('bill-discount-pct').value) || 0;
+            const base = Math.abs(lastSubTotal);
+            document.getElementById('global-discount').value = (base * pct / 100).toFixed(2);
+            calculateInvoiceTotals();
+        }
+
+        function updateDiscountFromAmount() {
+            calculateInvoiceTotals();
+        }
+
+        let lastSubTotal = 0;
+
+        // Fallback only: if a Tax_Details entry can't be resolved against
+        // taxesById (Tax_Report), try parsing its display text directly as a
+        // combined "Name Rate%" label (e.g. "GST 3%").
+        function parseTaxNameAndRate(entry) {
+            const text = zohoValueToText(entry);
+            const match = text.match(/^(.*?)\s*([\d.]+)\s*%?\s*$/);
+            if (match) {
+                return { name: match[1].trim(), rate: parseFloat(match[2]) || 0 };
+            }
+            return { name: text, rate: 0 };
+        }
+
+        // Tax_Details is a multi-lookup field to Tax_Report, whose records
+        // have separate Name and Percent fields. Each entry is resolved by
+        // ID against taxesById (loaded via loadTaxMaster()).
+        function computeProductTaxBreakdown() {
+            const breakdown = {};
+            const tbody = document.getElementById('tbody-product');
+            if (!tbody) return breakdown;
+
+            Array.from(tbody.children).forEach(tr => {
+                const record = tr._srcRecord;
+                if (!record) return;
+                const rawTaxDetails = record.Tax_Details;
+                if (!rawTaxDetails) return;
+                const entries = Array.isArray(rawTaxDetails) ? rawTaxDetails : [rawTaxDetails];
+                if (!entries.length) return;
+
+                const lineTotalEl = tr.querySelector('.input-linetotal');
+                const lineTotal = parseFloat(lineTotalEl && lineTotalEl.value) || 0;
+                if (!lineTotal) return;
+
+                entries.forEach(entry => {
+                    const taxId = rawId(entry);
+                    const taxRecord = taxId ? taxesById[taxId] : null;
+                    let name, rate;
+                    if (taxRecord) {
+                        name = zohoValueToText(taxRecord[TAX_MASTER_CONFIG.FIELDS.name]);
+                        rate = parseFloat(taxRecord[TAX_MASTER_CONFIG.FIELDS.percent]) || 0;
+                    } else {
+                        const parsed = parseTaxNameAndRate(entry);
+                        name = parsed.name;
+                        rate = parsed.rate;
+                    }
+                    if (!name) return;
+                    breakdown[name] = (breakdown[name] || 0) + (lineTotal * rate / 100);
+                });
+            });
+
+            return breakdown;
+        }
+
+        let cancelledTaxNames = new Set();
+
+        function cancelTax(name) {
+            cancelledTaxNames.add(name);
+            calculateInvoiceTotals();
+        }
+
+        function renderTaxRows(breakdown) {
+            const container = document.getElementById('tax-rows-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const names = Object.keys(breakdown).filter(name => !cancelledTaxNames.has(name));
+            if (!names.length) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between font-medium text-slate-400 italic';
+                row.innerHTML = '<span>No tax applicable</span><span>—</span>';
+                container.appendChild(row);
+                return;
+            }
+
+            names.forEach(name => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center font-medium text-slate-700';
+
+                const left = document.createElement('div');
+                left.className = 'flex items-center gap-2';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.type = 'button';
+                cancelBtn.title = 'Remove this tax from the invoice';
+                cancelBtn.className = 'text-slate-400 hover:text-red-600 transition-colors shrink-0';
+                cancelBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                cancelBtn.addEventListener('click', () => cancelTax(name));
+
+                const label = document.createElement('span');
+                label.textContent = name;
+
+                left.appendChild(cancelBtn);
+                left.appendChild(label);
+
+                const value = document.createElement('span');
+                value.textContent = formatCurrency(breakdown[name]) + ' Dr';
+
+                row.appendChild(left);
+                row.appendChild(value);
+                container.appendChild(row);
+            });
+        }
+
+        function calculateInvoiceTotals() {
+            let totals = { product: 0, service: 0, purchase: 0, return: 0 };
+
+            ['product', 'service', 'purchase', 'return'].forEach(section => {
+                if(!activeSections[section]) return;
+                const tbody = document.getElementById(`tbody-${section}`);
+                if (!tbody) return;
+
+                let sum = 0;
+                const totalSelector = section === 'service' ? '.input-svc-linetotal' :
+                                     section === 'return' ? '.input-ret-linetotal' : '.input-linetotal';
+
+                Array.from(tbody.querySelectorAll(totalSelector)).forEach(input => {
+                    sum += parseFloat(input.value) || 0;
+                });
+                totals[section] = sum;
+            });
+
+            document.getElementById(`sum-product`).innerText = formatCurrency(Math.abs(totals.product)) + ' Dr';
+            document.getElementById(`sum-service`).innerText = formatCurrency(Math.abs(totals.service)) + ' Dr';
+            document.getElementById(`sum-purchase`).innerText = formatCurrency(Math.abs(totals.purchase)) + ' Cr';
+            document.getElementById(`sum-return`).innerText = formatCurrency(Math.abs(totals.return)) + ' Cr';
+
+            const debits = Math.abs(totals.product) + Math.abs(totals.service);
+            const credits = Math.abs(totals.purchase) + Math.abs(totals.return);
+
+            // Tax is looked up per Product row from its selected item's
+            // Tax_Details field (a multi-lookup to Tax_Report), resolved by
+            // ID against taxesById for the real Name/Percent. Any tax the
+            // user has cancelled via the row's X button is excluded from
+            // both the total and the rendered list.
+            const taxBreakdown = computeProductTaxBreakdown();
+            const totalTaxAmount = Object.entries(taxBreakdown).reduce((sum, [name, amt]) => cancelledTaxNames.has(name) ? sum : sum + amt, 0);
+            renderTaxRows(taxBreakdown);
+            document.getElementById('sum-totaltax').innerText = formatDrCr(totalTaxAmount);
+
+            const invoiceBalance = (debits + totalTaxAmount) - credits;
+            lastSubTotal = invoiceBalance;
+
+            document.getElementById('sum-subtotal').innerText = formatDrCr(invoiceBalance);
+            document.getElementById('rs-receipt-amount').innerText = formatDrCr(invoiceBalance);
+
+            // Receipt Balance ("Amounts Payable" row) = Invoice Balance
+            // combined with the customer's Customer Credit using standard
+            // signed (Dr=+/Cr=-) addition: same-nature amounts add together,
+            // opposite-nature amounts net against each other. The sign used
+            // is the TRUE Balance_Nature, not just the raw opening-balance
+            // number's own sign (a positive number can still be a Cr balance).
+            const custId = document.getElementById('customerSelect').value;
+            const custRecord = customersById[custId];
+            const creditRow = document.getElementById('rs-customer-credit-row');
+            const payableRow = document.getElementById('rs-amounts-payable-row');
+            let openingBalance = 0;
+            let receiptBalance = invoiceBalance;
+
+            if (custId && custRecord) {
+                openingBalance = parseFloat(custRecord[CUSTOMER_CONFIG.FIELDS.openingBalance]) || 0;
+                const nature = formatBalanceNature(custRecord[CUSTOMER_CONFIG.FIELDS.balanceNature]) || (openingBalance < 0 ? 'Cr' : 'Dr');
+                const signedOpeningBalance = (nature === 'Cr' ? -1 : 1) * Math.abs(openingBalance);
+                receiptBalance = invoiceBalance + signedOpeningBalance;
+
+                if (openingBalance !== 0) {
+                    creditRow.classList.remove('hidden');
+                    document.getElementById('rs-customer-credit-amt').textContent = `${formatCurrency(Math.abs(openingBalance))} ${nature}`;
+                    payableRow.classList.remove('hidden');
+                    document.getElementById('rs-amounts-payable-amt').textContent = formatDrCr(receiptBalance);
+                } else {
+                    creditRow.classList.add('hidden');
+                    payableRow.classList.add('hidden');
+                }
+            } else {
+                creditRow.classList.add('hidden');
+                payableRow.classList.add('hidden');
+            }
+
+            const globalDiscount = parseFloat(document.getElementById('global-discount').value) || 0;
+            // Additional Charges input was removed from the UI - kept at 0.
+            const globalCharges = 0;
+
+            const discPct = invoiceBalance !== 0 ? (globalDiscount / Math.abs(invoiceBalance)) * 100 : 0;
+            document.getElementById('bill-discount-pct').value = discPct.toFixed(2);
+
+            // Grand Total base = Receipt Balance (Invoice Balance net of
+            // Customer Credit), then Bill Discount is deducted and Additional
+            // Charges added, preserving Receipt Balance's own Dr/Cr direction.
+            const balanceSign = receiptBalance < 0 ? -1 : 1;
+            const preRoundTotal = balanceSign * Math.max(Math.abs(receiptBalance) - globalDiscount + globalCharges, 0);
+
+            const roundEnabled = document.getElementById('chk-round-off').checked;
+
+            let grandTotal = preRoundTotal;
+            let roundOffAmount = 0;
+            let roundOffDirection = 'Dr';
+
+            if (roundEnabled) {
+                const rounded = Math.round(preRoundTotal);
+                const diff = rounded - preRoundTotal;
+                const naturalDirection = diff >= 0 ? 'Dr' : 'Cr';
+                roundOffDirection = roundOffOverrideDirection || naturalDirection;
+                roundOffAmount = Math.abs(diff);
+                const signedRoundOff = (roundOffDirection === 'Dr' ? 1 : -1) * roundOffAmount;
+                grandTotal = preRoundTotal + signedRoundOff;
+            } else {
+                roundOffOverrideDirection = null;
+            }
+
+            document.getElementById('rs-round-off-amt').value = roundOffAmount.toFixed(2);
+            document.getElementById('rs-round-off-dircode').textContent = roundOffDirection;
+            document.getElementById('grandtotal-rounded-note').classList.toggle('hidden', !roundEnabled);
+
+            document.getElementById('sum-grandtotal').innerText = formatDrCr(grandTotal);
+            document.getElementById('grandtotal-label').textContent = grandTotal < 0 ? 'Grand Total (Payable To Customer)' : 'Grand Total (Payable By You)';
+            document.getElementById('grandtotal-words').textContent = amountInWords(grandTotal);
+
+            // Customer owes the shop (Dr) -> shop is collecting a Receipt.
+            // Shop owes the customer (Cr) -> shop is making a Payment out.
+            const paymentBtnLabel = document.getElementById('payment-btn-label');
+            if (paymentBtnLabel) paymentBtnLabel.textContent = grandTotal < 0 ? 'Payment' : 'Receipt';
+
+            updateAllSectionSummaries();
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num);
+        }
+
+        function formatDrCr(num) {
+            return `${formatCurrency(Math.abs(num))} ${num < 0 ? 'Cr' : 'Dr'}`;
+        }
+
+        function numberToWordsIndian(num) {
+            num = Math.round(num);
+            if (num === 0) return 'Zero';
+
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+            function twoDigits(n) {
+                if (n < 20) return ones[n];
+                return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+            }
+            function threeDigits(n) {
+                if (n < 100) return twoDigits(n);
+                return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + twoDigits(n % 100) : '');
+            }
+
+            const crore = Math.floor(num / 10000000); num %= 10000000;
+            const lakh = Math.floor(num / 100000); num %= 100000;
+            const thousand = Math.floor(num / 1000); num %= 1000;
+            const hundred = num;
+
+            let parts = [];
+            if (crore) parts.push(threeDigits(crore) + ' Crore');
+            if (lakh) parts.push(twoDigits(lakh) + ' Lakh');
+            if (thousand) parts.push(twoDigits(thousand) + ' Thousand');
+            if (hundred) parts.push(threeDigits(hundred));
+
+            return parts.join(' ');
+        }
+
+        function amountInWords(num) {
+            return 'Rupees ' + numberToWordsIndian(Math.abs(num)) + ' Only';
+        }
+
+        function sumFieldValue(tbody, selector) {
+            let total = 0;
+            tbody.querySelectorAll(selector).forEach(el => { total += parseFloat(el.value) || 0; });
+            return total;
+        }
+
+        function sumPureWeight(tbody, nwtSelector, puritySelector) {
+            let total = 0;
+            Array.from(tbody.children).forEach(tr => {
+                const nwtEl = tr.querySelector(nwtSelector);
+                const purityEl = tr.querySelector(puritySelector);
+                const nwt = parseFloat(nwtEl && nwtEl.value) || 0;
+                const purity = parseFloat(purityEl && purityEl.value) || 0;
+                total += nwt * (purity / 100);
+            });
+            return total;
+        }
+
+        function setMetric(wrap, name, text) {
+            const el = wrap.querySelector(`[data-metric="${name}"]`);
+            if (el) el.textContent = text;
+        }
+
+        function updateSectionSummary(section) {
+            const tbody = document.getElementById(`tbody-${section}`);
+            const wrap = document.getElementById(`summary-${section}`);
+            if (!tbody || !wrap) return;
+
+            if (section === 'product' || section === 'return') {
+                const prefix = section === 'return' ? '.input-ret-' : '.input-';
+                const qty = sumFieldValue(tbody, `${prefix}qty`);
+                const gwt = sumFieldValue(tbody, `${prefix}gwt`);
+                const ps = sumFieldValue(tbody, `${prefix}ps-wt`);
+                const nwt = sumFieldValue(tbody, `${prefix}nwt`);
+                const pure = sumPureWeight(tbody, `${prefix}nwt`, `${prefix}purity`);
+                setMetric(wrap, 'qty', `${qty} Nos`);
+                setMetric(wrap, 'gwt', `${gwt.toFixed(3)} GMS`);
+                setMetric(wrap, 'ps', `${ps.toFixed(3)} ct`);
+                setMetric(wrap, 'nwt', `${nwt.toFixed(3)} GMS`);
+                setMetric(wrap, 'pure', `${pure.toFixed(3)} GMS`);
+
+                if (section === 'product') {
+                    const tchAmt = sumFieldValue(tbody, '.input-tch-amt');
+                    const lineTotal = sumFieldValue(tbody, '.input-linetotal');
+                    setMetric(wrap, 'svcamt', tchAmt.toFixed(2));
+                    setMetric(wrap, 'netamt', (lineTotal - tchAmt).toFixed(2));
+                }
+            } else if (section === 'purchase') {
+                const gwt = sumFieldValue(tbody, '.input-gwt');
+                const stone = sumFieldValue(tbody, '.input-cs-wt');
+                const nwt = sumFieldValue(tbody, '.input-nwt');
+                const pure = sumPureWeight(tbody, '.input-nwt', '.input-purity');
+                setMetric(wrap, 'qty', `${tbody.children.length} Nos`);
+                setMetric(wrap, 'gwt', `${gwt.toFixed(3)} GMS`);
+                setMetric(wrap, 'stone', `${stone.toFixed(3)} ct`);
+                setMetric(wrap, 'nwt', `${nwt.toFixed(3)} GMS`);
+                setMetric(wrap, 'pure', `${pure.toFixed(3)} GMS`);
+            } else if (section === 'service') {
+                const amt = sumFieldValue(tbody, '.input-svc-linetotal');
+                setMetric(wrap, 'count', `${tbody.children.length} Nos`);
+                setMetric(wrap, 'amt', formatCurrency(amt));
+            }
+        }
+
+        function updateAllSectionSummaries() {
+            ['product', 'purchase', 'service', 'return'].forEach(updateSectionSummary);
+        }
+
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type === 'error' ? 'error' : 'success'}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function fetchPastPurchases(customerId) {
+            const cfg = ITEM_SOURCES.return;
+            const all = Object.values(itemsBySection.return);
+            return all.filter(r => {
+                const recCust = rawId(r[cfg.customerField]);
+                return recCust && String(recCust) === String(customerId);
+            });
+        }
+
+        function triggerSalesReturn() {
+            if (activeSections['return']) {
+                toggleSection('return');
+                return;
+            }
+            if (!document.getElementById('customerSelect').value) {
+                showToast("Please select a Customer first to fetch their past purchases.", 'error');
+                return;
+            }
+            toggleSection('return');
+            openReturnFetch();
+        }
+
+        function openReturnFetch() {
+            const customer = document.getElementById('customerSelect').value;
+            if(!customer) {
+                showToast("Please select a Customer first to fetch their past purchases.", 'error');
+                return;
+            }
+
+            const cfg = ITEM_SOURCES.return;
+            const customerName = (customersById[customer] && customersById[customer][CUSTOMER_CONFIG.FIELDS.name]) || customer;
+            document.getElementById('modal-customer-text').innerText = `Showing purchases for ${customerName}.`;
+            const listDiv = document.getElementById('past-purchases-list');
+
+            const addedIds = new Set(
+                Array.from(document.getElementById('tbody-return').children)
+                    .map(tr => tr._srcRecord && tr._srcRecord.ID)
+                    .filter(Boolean)
+            );
+            const records = fetchPastPurchases(customer).filter(r => !addedIds.has(r.ID));
+            if (!records.length) {
+                listDiv.innerHTML = '<p class="text-sm text-slate-500">No more past purchases to return.</p>';
+                openReturnModal();
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            records.forEach(record => {
+                const label = itemLabel('return', record) || record.ID;
+                const qty = numOr(record[cfg.qtyField], 1);
+                const amount = returnItemAmount(record);
+                listDiv.innerHTML += `
+                    <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="return-select w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500" value="${record.ID}">
+                        <div>
+                            <p class="font-medium text-[13px] text-slate-800">${label}</p>
+                            <p class="text-xs text-slate-500 mt-1">Qty: ${qty} | Amt: ${formatCurrency(amount)}</p>
+                        </div>
+                    </label>
+                `;
+            });
+            openReturnModal();
+        }
+
+        function addSelectedReturns() {
+            const checked = Array.from(document.querySelectorAll('#past-purchases-list .return-select:checked'));
+            if (!checked.length) {
+                alert('Please select at least one item to add.');
+                return;
+            }
+            checked.forEach(cb => addReturnRow(cb.value));
+            closeReturnModal();
+            calculateInvoiceTotals();
+        }
+        function openReturnModal() { document.getElementById('returnModal').classList.remove('hidden'); }
+        function closeReturnModal() { document.getElementById('returnModal').classList.add('hidden'); }
+
+        function paymentTotalAmount() {
+            return parseAmount(document.getElementById('sum-grandtotal').innerText);
+        }
+
+        function paymentRowsSum(excludeIndex) {
+            return pendingPaymentRows.reduce((sum, r, i) => i === excludeIndex ? sum : sum + (parseFloat(r.amount) || 0), 0);
+        }
+
+        function openPaymentModal() {
+            const total = paymentTotalAmount();
+            if (paymentInfo && paymentInfo.rows && paymentInfo.rows.length) {
+                pendingPaymentRows = paymentInfo.rows.map(r => ({ ...r }));
+            } else {
+                pendingPaymentRows = [{ type: 'Cash', reference: '', amount: total }];
+            }
+            document.getElementById('paymentNote').value = paymentInfo ? (paymentInfo.note || '') : '';
+            renderPaymentRows();
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+        function closePaymentModal() { document.getElementById('paymentModal').classList.add('hidden'); }
+
+        function addPaymentRow() {
+            const remaining = Math.max(0, +(paymentTotalAmount() - paymentRowsSum()).toFixed(2));
+            pendingPaymentRows.push({ type: 'Cash', reference: '', amount: remaining });
+            renderPaymentRows();
+        }
+
+        function removePaymentRow(index) {
+            pendingPaymentRows.splice(index, 1);
+            renderPaymentRows();
+        }
+
+        function updatePaymentRowAmount(index, inputEl) {
+            const total = paymentTotalAmount();
+            const othersSum = paymentRowsSum(index);
+            let value = parseFloat(inputEl.value);
+            if (isNaN(value) || value < 0) value = 0;
+            const max = Math.max(0, +(total - othersSum).toFixed(2));
+            if (value > max + 0.001) {
+                value = max;
+                inputEl.value = value.toFixed(2);
+                showToast('Payment amount cannot exceed the balance due.', 'error');
+            }
+            pendingPaymentRows[index].amount = value;
+            updatePaymentTotalsDisplay();
+        }
+
+        function renderPaymentRows() {
+            const tbody = document.getElementById('payment-rows-body');
+            tbody.innerHTML = '';
+            pendingPaymentRows.forEach((row, index) => {
+                const tr = document.createElement('tr');
+
+                const tdNum = document.createElement('td');
+                tdNum.className = 'px-3 py-2 text-center text-slate-400';
+                tdNum.textContent = index + 1;
+
+                const tdType = document.createElement('td');
+                tdType.className = 'px-3 py-2';
+                const select = document.createElement('select');
+                select.className = 'w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+                PAYMENT_TYPES.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    if (t === row.type) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                select.addEventListener('change', () => { pendingPaymentRows[index].type = select.value; });
+                tdType.appendChild(select);
+
+                const tdRef = document.createElement('td');
+                tdRef.className = 'px-3 py-2';
+                const refInput = document.createElement('input');
+                refInput.type = 'text';
+                refInput.value = row.reference || '';
+                refInput.placeholder = 'Reference / note';
+                refInput.className = 'w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+                refInput.addEventListener('input', () => { pendingPaymentRows[index].reference = refInput.value; });
+                tdRef.appendChild(refInput);
+
+                const tdAmt = document.createElement('td');
+                tdAmt.className = 'px-3 py-2';
+                const amtInput = document.createElement('input');
+                amtInput.type = 'number';
+                amtInput.step = '0.01';
+                amtInput.min = '0';
+                amtInput.value = row.amount;
+                amtInput.className = 'w-full text-right bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+                amtInput.addEventListener('input', () => updatePaymentRowAmount(index, amtInput));
+                tdAmt.appendChild(amtInput);
+
+                const tdAct = document.createElement('td');
+                tdAct.className = 'px-3 py-2 text-center';
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'text-red-500 hover:text-red-700';
+                delBtn.innerHTML = '<svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
+                delBtn.addEventListener('click', () => removePaymentRow(index));
+                tdAct.appendChild(delBtn);
+
+                tr.appendChild(tdNum);
+                tr.appendChild(tdType);
+                tr.appendChild(tdRef);
+                tr.appendChild(tdAmt);
+                tr.appendChild(tdAct);
+                tbody.appendChild(tr);
+            });
+            updatePaymentTotalsDisplay();
+        }
+
+        function updatePaymentTotalsDisplay() {
+            const total = paymentTotalAmount();
+            const paid = +paymentRowsSum().toFixed(2);
+            const balance = Math.max(0, +(total - paid).toFixed(2));
+            ['pm-total-amount', 'pm-summary-total'].forEach(id => document.getElementById(id).innerText = formatCurrency(total));
+            ['pm-total-paid', 'pm-summary-paid'].forEach(id => document.getElementById(id).innerText = formatCurrency(paid));
+            ['pm-balance-due', 'pm-summary-balance'].forEach(id => document.getElementById(id).innerText = formatCurrency(balance));
+            const saveBtn = document.getElementById('btn-save-payment');
+            if (saveBtn) saveBtn.disabled = paid > total + 0.001;
+        }
+
+        function savePayment() {
+            const total = paymentTotalAmount();
+            const paid = +paymentRowsSum().toFixed(2);
+            if (paid > total + 0.001) {
+                showToast('Total paid cannot exceed the invoice total.', 'error');
+                return;
+            }
+            paymentInfo = {
+                rows: pendingPaymentRows.map(r => ({ type: r.type, reference: (r.reference || '').trim(), amount: parseFloat(r.amount) || 0 })),
+                note: document.getElementById('paymentNote').value.trim(),
+                totalPaid: paid,
+                balanceDue: Math.max(0, +(total - paid).toFixed(2))
+            };
+            const summary = document.getElementById('payment-summary');
+            summary.classList.remove('hidden');
+            const modeList = paymentInfo.rows.filter(r => r.amount > 0).map(r => `${r.type}: ${formatCurrency(r.amount)}`).join(', ');
+            summary.innerText = `Payment: ${modeList || 'None'} — Paid ${formatCurrency(paymentInfo.totalPaid)}${paymentInfo.balanceDue > 0 ? ', Due ' + formatCurrency(paymentInfo.balanceDue) : ''}`;
+            closePaymentModal();
+        }
+
+        function addReturnRow(recordId) {
+            const cfg = ITEM_SOURCES.return;
+            const record = itemsBySection.return[recordId];
+            if (!record) return;
+
+            const template = document.getElementById('tpl-return-row');
+            const clone = template.content.cloneNode(true);
+            const tr = clone.querySelector('tr');
+            tr.setAttribute('data-section', 'return');
+            tr._srcRecord = record;
+
+            const amount = returnItemAmount(record);
+            tr.querySelector('.input-ret-inv').value = returnItemInvoice(record);
+            tr.querySelector('.input-ret-item').value = itemLabel('return', record) || record.ID;
+            tr.querySelector('.input-ret-design').value = zohoValueToText(record.Design);
+            tr.querySelector('.input-ret-purity').value = zohoValueToText(record.Purity);
+            tr.querySelector('.input-ret-qty').value = numOr(record[cfg.qtyField], 1);
+            tr.querySelector('.input-ret-gwt').value = numOr(record.Gross_Weight, 0);
+            tr.querySelector('.input-ret-nwt').value = numOr(record.Net_Weight, 0);
+            tr.querySelector('.input-ret-rate').value = numOr(record.Board_Rate, 0);
+            tr.querySelector('.input-ret-amount').value = numOr(record.Board_Amount, 0);
+
+            ['dmd', 'cs', 'ps'].forEach(type => {
+                const prefix = type.toUpperCase();
+                tr.querySelector(`.input-ret-${type}-wt`).value = numOr(record[`${prefix}_Weight`], 0);
+                tr.querySelector(`.input-ret-${type}-rt`).value = numOr(record[`${prefix}_Rate`], 0);
+                tr.querySelector(`.input-ret-${type}-amt`).value = numOr(record[`${prefix}_Amount`], 0);
+            });
+
+            tr.querySelector('.input-ret-tch-type').value = zohoValueToText(record.Service_Item);
+            tr.querySelector('.input-ret-tch-pct').value = numOr(record.Service_percnt, 0);
+            tr.querySelector('.input-ret-tch-rt').value = numOr(record.Service_Rate, 0);
+            tr.querySelector('.input-ret-tch-amt').value = numOr(record.Service_Amount, 0);
+
+            tr.querySelector('.input-ret-disc-type').value = zohoValueToText(record.Discount_Type);
+            tr.querySelector('.input-ret-disc-pct').value = numOr(record.Discount_percnt, 0);
+            tr.querySelector('.input-ret-disc-rt').value = numOr(record.Discount_Rate, 0);
+            tr.querySelector('.input-ret-disc-amt').value = numOr(record.Discount_Amount, 0);
+
+            tr.querySelector('.input-ret-linetotal').value = amount.toFixed(2);
+
+            tr.querySelector('.input-ret-src-product').value = itemLabel('return', record) || record.ID;
+            const customer = customersById[document.getElementById('customerSelect').value];
+            tr.querySelector('.input-ret-customer').value = customer ? (customer[CUSTOMER_CONFIG.FIELDS.name] || '') : '';
+
+            document.getElementById('tbody-return').appendChild(clone);
+            updateRowIndices('return');
+            toggleColumns();
+        }
+    </script>
+</body>
+</html>
