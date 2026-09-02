@@ -26,12 +26,19 @@ in the box.
   table opens with, or one **Add Item** left — because that is the blank
   the operator is looking at. A row is only added when every row already
   holds a piece.
-- **What it fetches.** Item Detail, Design and Purity. A scan says which
-  piece this is; it does not price it, so quantity, weights, rates,
-  amounts, TCH and discount stay as they are for the counter to enter.
-  Because of that, the item is put into the row's dropdown directly rather
-  than through its change handler — that handler would autofill the item
-  master's own weights and rates.
+- **What it fetches.** Every column the subform carries: Item Detail,
+  Design, Purity, quantity, the weights and rates, DMD/CS/PS, TCH,
+  discount and the line total — the piece was weighed and priced when it
+  was tagged. The row then recalculates the way any edited row does, so
+  net weight, the amounts and the line total agree with the figures that
+  came across. TCH and discount are set type-first, since choosing a type
+  zeroes the numbers under it, and a type the dropdown does not list is
+  left blank rather than blanking the group. A piece carrying DMD, CS or
+  PS values ticks that Calculations Involved box, so its weights are not
+  filled into columns the checkbox is hiding.
+  The item goes into the row's dropdown directly rather than through its
+  change handler: that handler would autofill the item master's own
+  figures over the tagged ones.
 - **What it searches.** The code, and what the piece reads as, so a
   half-typed code and a remembered item name both find it. An exact code
   sorts first, then codes starting with what was typed, then the rest;

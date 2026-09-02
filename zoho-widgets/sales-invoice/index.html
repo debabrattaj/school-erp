@@ -1033,31 +1033,79 @@
             // item name and only the design tells them apart.
             DESIGN_FIELD: "Design",
             SECTIONS: {
-                // A scan identifies the piece; it does not price it. Only the
-                // three identifying columns are fetched - the item, its design
-                // and its purity - and the weights, rates and charges stay as
-                // they are for the counter to enter.
+                // A tagged piece was weighed and priced when it was tagged, so
+                // every column the subform carries comes across with it.
                 product: {
                     fill: [
                         { field: "Design", sel: ".input-design", text: true },
-                        { field: "Purity", sel: ".input-purity", text: true }
+                        { field: "Purity", sel: ".input-purity", text: true },
+                        { field: "Qty", sel: ".input-qty" },
+                        { field: "Gross_Weight", sel: ".input-gwt" },
+                        { field: "Net_Weight", sel: ".input-nwt" },
+                        { field: "Board_Rate", sel: ".input-rate" },
+                        { field: "Board_Amount", sel: ".input-amt" },
+                        { field: "DMD_Weight", sel: ".input-dmd-wt" },
+                        { field: "DMD_Rate", sel: ".input-dmd-rt" },
+                        { field: "DMD_Amount", sel: ".input-dmd-amt" },
+                        { field: "CS_Weight", sel: ".input-cs-wt" },
+                        { field: "CS_Rate", sel: ".input-cs-rt" },
+                        { field: "CS_Amount", sel: ".input-cs-amt" },
+                        { field: "PS_Weight", sel: ".input-ps-wt" },
+                        { field: "PS_Rate", sel: ".input-ps-rt" },
+                        { field: "PS_Amount", sel: ".input-ps-amt" },
+                        { field: "Line_Total", sel: ".input-linetotal" }
                     ],
-                    // The save reads Design and Purity ids off the item master.
-                    // A tagged piece's own design and purity are the truth for
-                    // that piece, so the scan overrides them - what is saved
-                    // then matches what the row shows. Keys are the master
-                    // field the save names; values are the scanned row's.
+                    // TCH and Discount are a fixed dropdown plus the numbers it
+                    // governs, so they cannot be filled field by field - see
+                    // applyBarcodeCharge.
+                    charges: [
+                        {
+                            typeField: "Service_Item", typeSel: ".input-tch-type",
+                            onTypeChange: updateTchFieldVisibility,
+                            numbers: [
+                                { field: "Service_percnt", sel: ".input-tch-pct" },
+                                { field: "Service_Rate", sel: ".input-tch-rt" },
+                                { field: "Service_Amount", sel: ".input-tch-amt" }
+                            ]
+                        },
+                        {
+                            typeField: "Discount_Type", typeSel: ".input-disc-type",
+                            onTypeChange: updateDiscFieldVisibility,
+                            numbers: [
+                                { field: "Discount_percnt", sel: ".input-disc-pct" },
+                                { field: "Discount_Rate", sel: ".input-disc-rt" },
+                                { field: "Discount_Amount", sel: ".input-disc-amt" }
+                            ]
+                        }
+                    ],
                     idOverrides: { Collection: "Design", Purity: "Purity" },
                     recalc: tr => calcRow(tr.querySelector('.input-gwt'))
                 },
-                // Purchase Old Gold has no Design column of its own.
+                // Purchase Old Gold has no Design, DMD or PS of its own and
+                // calls CS "Stone", so it takes the columns it does carry.
                 purchase: {
                     fill: [
-                        { field: "Purity", sel: ".input-purity", text: true }
+                        { field: "Purity", sel: ".input-purity", text: true },
+                        { field: "Gross_Weight", sel: ".input-gwt" },
+                        { field: "Net_Weight", sel: ".input-nwt" },
+                        { field: "Board_Rate", sel: ".input-rate" },
+                        { field: "CS_Weight", sel: ".input-cs-wt" },
+                        { field: "CS_Rate", sel: ".input-cs-rt" },
+                        { field: "CS_Amount", sel: ".input-cs-amt" },
+                        { field: "Line_Total", sel: ".input-linetotal" }
                     ],
+                    charges: [],
                     idOverrides: { Purity: "Purity" },
                     recalc: tr => calcPurchaseRow(tr.querySelector('.input-gwt'))
                 }
+            },
+            // A Calculations Involved box is ticked when a scanned piece carries
+            // that kind of stone, so its weights do not land in columns the
+            // checkbox is keeping hidden.
+            CALC_FIELDS: {
+                dmd: ["DMD_Weight", "DMD_Rate", "DMD_Amount"],
+                cs: ["CS_Weight", "CS_Rate", "CS_Amount"],
+                ps: ["PS_Weight", "PS_Rate", "PS_Amount"]
             }
         };
 
@@ -2267,6 +2315,9 @@
                 el.value = map.text ? zohoValueToText(value) : numOr(value, 0);
             });
 
+            cfg.charges.forEach(charge => applyBarcodeCharge(tr, record, charge));
+            if (section === 'product') revealScannedCalculations(record);
+
             cfg.recalc(tr);
 
             if (!matchedItem) {
@@ -2274,6 +2325,48 @@
                     `${ITEM_SOURCES[section].reportName} - pick the item on the row, ` +
                     'or the row will be dropped on save.', 'error');
             }
+        }
+
+        // TCH and Discount are a fixed dropdown plus the numbers it governs.
+        // Choosing a type zeroes those numbers, so the type is set first; a type
+        // the subform holds but the dropdown does not list is left unselected
+        // rather than silently blanking the group's amounts.
+        function applyBarcodeCharge(tr, record, charge) {
+            const typeSelect = tr.querySelector(charge.typeSel);
+            if (!typeSelect) return;
+
+            const type = zohoValueToText(record[charge.typeField]);
+            const known = Array.from(typeSelect.options).some(option => option.value === type);
+            if (type && !known) {
+                console.warn('Barcode row carries "' + type + '" for ' + charge.typeField +
+                    ', which the row\'s dropdown does not list. Leaving the type blank.');
+            }
+            typeSelect.value = known ? type : '';
+            charge.onTypeChange(typeSelect);
+
+            charge.numbers.forEach(map => {
+                const el = tr.querySelector(map.sel);
+                if (el) el.value = numOr(record[map.field], 0);
+            });
+        }
+
+        // DMD/CS/PS columns stay hidden until their Calculations Involved box is
+        // ticked, so a scanned piece with stones would put its weights into
+        // columns nobody can see - and into a Calculations_Involved value that
+        // does not mention them.
+        function revealScannedCalculations(record) {
+            let changed = false;
+            Object.keys(BARCODE_SCAN_CONFIG.CALC_FIELDS).forEach(type => {
+                const box = document.getElementById('chk-' + type);
+                if (!box || box.checked) return;
+                const carries = BARCODE_SCAN_CONFIG.CALC_FIELDS[type]
+                    .some(field => numOr(record[field], 0) !== 0);
+                if (carries) {
+                    box.checked = true;
+                    changed = true;
+                }
+            });
+            if (changed) toggleColumns();
         }
 
         // The row's item dropdown carries Item_Master record ids, which is what
