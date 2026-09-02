@@ -728,23 +728,6 @@ window.BC_CONFIG = {
     'Qty', 'Service_Amount', 'Service_Item', 'Service_percnt', 'Service_Rate'
   ],
 
-  /* Entry-form fields whose subform column is spelled differently. Everything
-     not listed here is looked for on the subform under its own name, so a
-     column added to Item_Details starts being written with no change here. */
-  subformAliases: {
-    /* Service_Item is the subform's name-of-service column; the entry form calls
-       the same thing Service_Type. Service_Value has no counterpart - the
-       subform splits the number into Service_percnt and Service_Rate, and which
-       one it belongs in depends on the type chosen - so it is left to be
-       reported rather than guessed at. */
-    Service_Type: 'Service_Item'
-  },
-
-  /* Entry-form fields that belong to the voucher, not to the row. They are
-     written on the Barcode record itself, and a subform column that happens to
-     share their name is not theirs to fill. */
-  subformAutoSkip: ['Supplier', 'SM'],
-
   /* Add New Barcode form field -> Item_Details subform column. `type` matches the
      subform's declared type so a string never reaches a NUMBER/DECIMAL field:
        number     integer, non-digits stripped
@@ -787,19 +770,17 @@ window.BC_CONFIG = {
        reaching a NUMBER field fails the entire submit. */
     Barcode:        { field: 'Barcode1', type: 'text' },
 
-    /* Read off the selected Item_Master record, like Design above, but as text:
-       Item_Category is a plain column, not a lookup. Storing it means the
-       table's CATEGORY reads from the row rather than from the item every
-       time. */
-    Sub_Group:      { field: 'Item_Category', type: 'itemMasterText',
-                      source: ['Item_Category', 'Category', 'Sub_Group'] },
-
-    /* Everything else the entry form collects - MRP, Making_Charge, the tag and
-       purchase/retail rates, the size, service and certification fields, the
-       identifiers and Remarks - is not listed here on purpose. It is matched to
-       the subform by name (through subformAliases where the spelling differs),
-       so each one is written the moment Item_Details has a column for it, and
-       named in the console while it does not. See buildSubformRow. */
+    /* Unmapped, and why:
+       Sub_Group     no Category column on the subform.
+       MRP           no MRP column in the part of the list seen so far.
+       Making_Charge Board_Rate/Board_Amount may be it — unconfirmed.
+       Service_Type  subform splits this into Service_Item / Service_percnt /
+                     Service_Rate; which one takes the form's Service_Value is
+                     not yet clear. */
+    Sub_Group:      null,
+    MRP:            null,
+    Making_Charge:  null,
+    Service_Value:  null
   },
 
   /* The table lists the Item_Details rows of the current voucher, so its columns
@@ -2317,7 +2298,6 @@ window.BC_UI = (function () {
        non-numeric id yields NaN, which serialises to null and fails the submit. */
     if (type === 'itemLookup') return ctx.itemMasterId ? String(ctx.itemMasterId) : '';
     if (type === 'itemMasterId') return itemMasterLookupId(ctx.itemMasterRow, map.source);
-    if (type === 'itemMasterText') return itemMasterText(ctx.itemMasterRow, map.source);
     /* the form control already holds a record id — send it, never its label */
     if (type === 'lookupId') return value ? String(value) : '';
     if (type === 'number') return digitsOf(value);
@@ -2325,44 +2305,24 @@ window.BC_UI = (function () {
     return value == null ? '' : String(value);
   }
 
-  /* The display text of a field on the selected Item_Master record, for subform
-     columns that hold a label rather than a lookup. */
-  function itemMasterText(itemMasterRow, candidates) {
-    if (!itemMasterRow) return '';
-    const keys = matchingKeys(itemMasterRow, candidates || []);
-    for (let i = 0; i < keys.length; i++) {
-      const text = U.zohoText(itemMasterRow[keys[i]]);
-      if (text) return text;
-    }
-    return '';
-  }
-
   /* types whose value comes from the selected item, not the entry form's fields */
-  const SYNTHETIC_TYPES = ['itemLookup', 'itemMasterId', 'itemMasterText'];
+  const SYNTHETIC_TYPES = ['itemLookup', 'itemMasterId'];
 
   /* One Item_Details row built from the entry form. Names the subform does not
      have are dropped — sending an unknown field makes Creator reject the whole
      Barcode record, which would lose the voucher as well as the item. */
-  /* The subform column an entry field lands in when subformFields does not name
-     one: its own name, or the alias configured for it. */
-  function autoSubformField(key) {
-    return C.subformAliases[key] || key;
-  }
-
   function buildSubformRow(raw, itemMasterId, itemMasterRow) {
     const row = {};
     const names = subformFieldNames || C.subformKnownFields;
     const ctx = { itemMasterId: itemMasterId, itemMasterRow: itemMasterRow };
     const LOOKUPS = ['itemLookup', 'itemMasterId', 'lookupId'];
-    const sent = {};
-    const noColumn = [];
 
     Object.keys(C.subformFields).forEach((key) => {
       const map = C.subformFields[key];
       if (!map || !map.field) return;
       if (SYNTHETIC_TYPES.indexOf(map.type) === -1 && !(key in raw)) return;
       if (names && names.indexOf(map.field) === -1) {
-        noColumn.push(key + ' \u2192 ' + map.field);
+        console.warn('[barcode] subform has no field "' + map.field + '" — ' + key + ' not sent.');
         return;
       }
       const value = coerceSubformValue(raw[key], map, ctx);
@@ -2378,44 +2338,7 @@ window.BC_UI = (function () {
         return;
       }
       row[map.field] = value;
-      sent[key] = map.field;
     });
-
-    /* Everything else the operator filled in. subformFields only names the
-       columns whose spelling differs from the entry form's; the rest are matched
-       by name, so a field is stored as soon as Item_Details has a column for it
-       rather than being dropped for want of a line of config. A name the subform
-       does not carry is still dropped — sending one makes Creator reject the
-       whole Barcode record — but it is reported rather than passed over. */
-    Object.keys(raw).forEach((key) => {
-      const explicit = C.subformFields[key];
-      if (explicit && explicit.field) return;
-      if (C.subformAutoSkip.indexOf(key) > -1) return;
-
-      const value = raw[key];
-      /* An empty control has nothing to store, and "" is what a date or lookup
-         column rejects outright. */
-      if (value === null || value === undefined || value === '') return;
-
-      const field = autoSubformField(key);
-      if (names && names.indexOf(field) === -1) {
-        noColumn.push(key + (field === key ? '' : ' \u2192 ' + field));
-        return;
-      }
-      /* an explicit map already owns that column */
-      if (field in row) return;
-
-      row[field] = NUMERIC.indexOf(key) > -1 ? U.num(value) : String(value);
-      sent[key] = field;
-    });
-
-    console.log('[barcode] Item_Details row being sent:', row);
-    if (noColumn.length) {
-      console.warn('[barcode] Item_Details has no column for: ' + noColumn.join(', ') +
-        '. Those entries are not stored. Add the columns to the Item_Details ' +
-        'subform (or name the existing ones in C.subformAliases) and they will be ' +
-        'written with no further change.');
-    }
 
     return row;
   }
@@ -2497,36 +2420,18 @@ window.BC_UI = (function () {
      dropdown matches on. */
   function entryFormValues(subRow) {
     const out = {};
-    const take = (key, value, isItemLookup) => {
-      /* Item Name's dropdown is keyed by label, every other lookup by record id —
-         each control has to be given back the form of value it selects on. */
-      out[key] = (value && typeof value === 'object')
-        ? (isItemLookup ? U.zohoText(value) : rawId(value))
-        : value;
-    };
-
     Object.keys(C.subformFields).forEach((key) => {
       const map = C.subformFields[key];
       if (!map || !map.field || !(map.field in subRow)) return;
-      take(key, subRow[map.field], map.type === 'itemLookup');
+      const v = subRow[map.field];
+      /* Item Name's dropdown is keyed by label, every other lookup by record id —
+         each control has to be given back the form of value it selects on. */
+      if (v && typeof v === 'object') {
+        out[key] = (map.type === 'itemLookup') ? U.zohoText(v) : rawId(v);
+      } else {
+        out[key] = v;
+      }
     });
-
-    /* The fields buildSubformRow matched by name come back the same way, so an
-       edit reopens showing everything that was stored, not just the mapped few.
-       The row is walked rather than a list of the form's fields: a key the form
-       does not have is simply never read back out of the object. */
-    const entryKeyOf = {};
-    Object.keys(C.subformAliases).forEach((key) => { entryKeyOf[C.subformAliases[key]] = key; });
-
-    Object.keys(subRow).forEach((field) => {
-      const key = entryKeyOf[field] || field;
-      if (key in out) return;
-      const explicit = C.subformFields[key];
-      if (explicit && explicit.field) return;
-      if (C.subformAutoSkip.indexOf(key) > -1) return;
-      take(key, subRow[field], false);
-    });
-
     return out;
   }
 
@@ -3121,17 +3026,6 @@ window.BC_UI = (function () {
     vendor.focus();
     return false;
   }
-
-  /* Exposed for diagnosis: with the widget open in Creator, BC_DEBUG.columns()
-     lists the Item_Details field names the probe actually found, and
-     BC_DEBUG.buildSubformRow({...}) shows what a given set of entry values
-     would be written as. Naming a column that comes back missing in
-     C.subformAliases is what makes that field start being stored. */
-  window.BC_DEBUG = {
-    buildSubformRow: buildSubformRow,
-    entryFormValues: entryFormValues,
-    columns: () => subformFieldNames || C.subformKnownFields
-  };
 
   function bind() {
     document.addEventListener('click', (e) => {
