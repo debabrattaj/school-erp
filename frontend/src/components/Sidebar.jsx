@@ -126,14 +126,6 @@ export default function Sidebar({ onNavigate }) {
       group: "Academics",
     },
     {
-      label: "Online Tests",
-      icon: FileCheck,
-      path: "/online-tests",
-      roles: ["Admin", "Principal", "Teacher"],
-      feature: "online_tests",
-      group: "Academics",
-    },
-    {
       label: "Exams",
       icon: FileText,
       path: "/exams",
@@ -195,6 +187,14 @@ export default function Sidebar({ onNavigate }) {
       path: "/homework",
       roles: ["Admin", "Principal", "Teacher"],
       feature: "homework",
+      group: "Learning (LMS)",
+    },
+    {
+      label: "Online Tests",
+      icon: FileCheck,
+      path: "/online-tests",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "online_tests",
       group: "Learning (LMS)",
     },
     {
