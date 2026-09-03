@@ -666,13 +666,10 @@
             <td>
                 <select class="input-tch-type" onchange="updateTchFieldVisibility(this)">
                     <option value="">-Select-</option>
-                    <option value="Gross Weight (GWT)">Gross Weight (GWT)</option>
-                    <option value="Minimum Gross Weight (MGW)">Minimum Gross Weight (MGW)</option>
-                    <option value="Net Weight (NWT)">Net Weight (NWT)</option>
-                    <option value="Piece Rate (PRT)">Piece Rate (PRT)</option>
-                    <option value="Percentage (PER)">Percentage (PER)</option>
-                    <option value="Pure Percentage (PP)">Pure Percentage (PP)</option>
-                    <option value="Other Rate">Other Rate</option>
+                    <!-- The three the Barcode widget's Service Type offers. -->
+                    <option value="Percentage (%)">Percentage (%)</option>
+                    <option value="Per Piece">Per Piece</option>
+                    <option value="Per Rate/gm">Per Rate/gm</option>
                 </select>
             </td>
             <td><input type="number" class="input-tch-pct" value="0" readonly oninput="updateTchFromPercent(this)"></td>
@@ -1062,6 +1059,16 @@
                         {
                             typeField: "Service_Item", typeSel: ".input-tch-type",
                             onTypeChange: updateTchFieldVisibility,
+                            // The Barcode widget's Service Type shows these
+                            // labels but submits a code, so a tagged row can
+                            // carry either and both must reach the same option.
+                            // Discount has a "Rate" of its own, which is why
+                            // this belongs to TCH rather than to every charge.
+                            typeAliases: {
+                                percentage: "Percentage (%)",
+                                piece: "Per Piece",
+                                rate: "Per Rate/gm"
+                            },
                             numbers: [
                                 { field: "Service_percnt", sel: ".input-tch-pct" },
                                 { field: "Service_Rate", sel: ".input-tch-rt" },
@@ -1880,7 +1887,7 @@
             toggleColumns();
         }
 
-        const TCH_RATE_TYPES = ['Piece Rate (PRT)', 'Other Rate'];
+        const TCH_RATE_TYPES = ['Per Piece', 'Per Rate/gm'];
 
         function updateTchFieldVisibility(selectEl) {
             const tr = selectEl.closest('tr');
@@ -2335,10 +2342,11 @@
             const typeSelect = tr.querySelector(charge.typeSel);
             if (!typeSelect) return;
 
-            const type = zohoValueToText(record[charge.typeField]);
+            const raw = zohoValueToText(record[charge.typeField]);
+            const type = (charge.typeAliases || {})[raw.toLowerCase()] || raw;
             const known = Array.from(typeSelect.options).some(option => option.value === type);
-            if (type && !known) {
-                console.warn('Barcode row carries "' + type + '" for ' + charge.typeField +
+            if (raw && !known) {
+                console.warn('Barcode row carries "' + raw + '" for ' + charge.typeField +
                     ', which the row\'s dropdown does not list. Leaving the type blank.');
             }
             typeSelect.value = known ? type : '';

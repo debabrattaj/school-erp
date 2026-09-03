@@ -75,6 +75,23 @@ purity; `BARCODE_SCAN_CONFIG.SECTIONS` holds the per-section mapping.
   between its mousedown and its mouseup, and the click would never arrive —
   the list would look right and do nothing.
 
+## TCH service types
+
+The row's TCH dropdown carries the three the Barcode widget's Service Type
+offers: **Percentage (%)**, **Per Piece**, **Per Rate/gm**.
+
+That control shows those labels but submits a code (`percentage`, `piece`,
+`rate`), so a tagged row can hold either form. The TCH charge's
+`typeAliases` maps the codes onto the labels, and both select the same
+option — without it a scanned charge arrives typeless. The aliases belong
+to the TCH group rather than to charges in general, because Discount has a
+`Rate` of its own that must not be rewritten.
+
+Per Piece and Per Rate/gm are the rate-driven types (`TCH_RATE_TYPES`), so
+they open the RT box; Percentage opens the % box. Both rate types still
+compute their amount as quantity × rate — per-gram would want net weight ×
+rate instead, which is a separate change.
+
 ## Field names
 
 `ITEM_SOURCES`, `BARCODE_SCAN_CONFIG` and the `*_CONFIG` objects at the top
