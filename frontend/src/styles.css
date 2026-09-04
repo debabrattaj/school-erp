@@ -5771,6 +5771,13 @@ textarea {
   padding: 10px 12px;
 }
 
+/* Icons stay accent-blue at rest, matching the primary button's color; the
+   label text keeps the neutral color until hover/active, when the whole
+   item (icon + text) switches to it below. */
+.menu-item svg {
+  color: var(--saas-primary);
+}
+
 .menu-item:hover {
   background: var(--saas-accent-soft);
   border-color: transparent;
