@@ -78,6 +78,54 @@ def test_feature_catalog(client, platform_auth):
         assert set(entry.keys()) == {"key", "label", "default_enabled"}
 
 
+def test_stale_feature_key_does_not_block_saving_modules(client, platform_auth):
+    """Regression: a SchoolFeature row whose key was later retired from
+    DEFAULT_FEATURES (e.g. the removed student_layout flag) used to leak
+    into account_summary()'s features dict, get round-tripped straight back
+    by the Platform Console's save-all-modules UI, and make
+    update_school_features() reject the ENTIRE save as an "unknown feature
+    key" -- permanently, since every future save would carry the same stale
+    key forward. Verifies the read filters it out, the write tolerates it
+    instead of 400ing, and the stale row itself gets cleaned up.
+    """
+    from app.tenant import CentralSessionLocal, get_account
+    from app.tenant_models import SchoolFeature
+
+    stale_key = "a_retired_flag_no_longer_recognized"
+
+    account = get_account("default")
+    db = CentralSessionLocal()
+    try:
+        db.add(SchoolFeature(account_id=account["id"], feature_key=stale_key, is_enabled=True))
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.get("/platform/schools", headers=platform_auth)
+    assert resp.status_code == 200, resp.text
+    school = next(s for s in resp.json() if s["account_code"] == "default")
+    assert stale_key not in school["features"]
+
+    resp = client.put(
+        f"/platform/schools/{school['id']}/features",
+        json={"features": {**school["features"], stale_key: True}},
+        headers=platform_auth,
+    )
+    assert resp.status_code == 200, resp.text
+    assert stale_key not in resp.json()["features"]
+
+    db = CentralSessionLocal()
+    try:
+        remaining = (
+            db.query(SchoolFeature)
+            .filter(SchoolFeature.account_id == account["id"], SchoolFeature.feature_key == stale_key)
+            .first()
+        )
+        assert remaining is None
+    finally:
+        db.close()
+
+
 def test_list_plans(client, platform_auth):
     resp = client.get("/platform/plans", headers=platform_auth)
     assert resp.status_code == 200, resp.text
