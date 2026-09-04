@@ -9114,11 +9114,6 @@ h3 { font-size: 14px; font-weight: 650; }
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.sidebar-menu a:hover {
-  background: var(--surface-soft);
-  color: var(--text-strong);
-}
-
 .sidebar-menu a.active,
 .sidebar-menu a[aria-current="page"] {
   background: var(--primary-soft);
