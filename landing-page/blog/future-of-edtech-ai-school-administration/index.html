@@ -43,7 +43,7 @@
   "headline": "The Future of EdTech: How AI Is Changing School Administration",
   "description": "A grounded look at where AI is actually useful in school administration today, versus where the hype outpaces what's real.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-09-01",
+  "dateModified": "2026-09-10",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/future-of-edtech-ai-school-administration/"
@@ -119,20 +119,41 @@
     <div class="container">
       <h1>The Future of EdTech: How AI Is Changing School Administration</h1>
       <p class="lede">A grounded look at where AI is actually useful in school administration today, versus where the hype outpaces what's real.</p>
-      <p class="post-date">Published August 14, 2026</p>
+      <p class="post-date">Published August 14, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> Updated September 10, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> 8 min read</p>
     </div>
   </section>
 
   <!-- ===== Article body ===== -->
-  <section class="section" style="padding-top:1rem;">
-    <div class="container">
-      <div class="policy-content blog-policy-content">
+  <section class="section article-section" aria-label="Article" style="padding-top:1rem;">
+    <div class="container article-layout">
+      <aside class="article-sidebar">
+        <details class="article-toc" open>
+          <summary>On this page</summary>
+          <nav aria-label="Article contents"><ol>
+            <li><a href="#article-separating-the-real-use-case-from-the-hype">Separating the real use case from the hype</a></li>
+            <li><a href="#article-where-ai-is-genuinely-useful-in-school-administration-right-now">Where AI is genuinely useful in school administration right now</a></li>
+            <li><a href="#article-where-it-isn-t-and-shouldn-t-be-involved">Where it isn&#x27;t, and shouldn&#x27;t be, involved</a></li>
+            <li><a href="#article-how-sai-is-scoped-specifically">How Sai is scoped, specifically</a></li>
+            <li><a href="#article-the-five-places-automation-pays-for-itself-ai-or-not">The five places automation pays for itself, AI or not</a></li>
+            <li><a href="#article-what-genuinely-needs-a-language-model-and-what-does-not">What genuinely needs a language model, and what does not</a></li>
+            <li><a href="#article-scope-permissions-and-the-boundary-that-has-to-hold">Scope, permissions and the boundary that has to hold</a></li>
+            <li><a href="#article-what-we-are-not-going-to-build">What we are not going to build</a></li>
+            <li><a href="#article-how-to-test-an-ai-claim-in-any-vendor-s-demo">How to test an AI claim in any vendor&#x27;s demo</a></li>
+            <li><a href="#article-choose-an-administrative-question-before-choosing-an-ai-feature">Choose an administrative question before choosing an AI feature</a></li>
+            <li><a href="#article-write-acceptance-cases-for-uncertainty-and-refusal">Write acceptance cases for uncertainty and refusal</a></li>
+            <li><a href="#article-run-a-limited-evaluation-with-human-review">Run a limited evaluation with human review</a></li>
+            <li><a href="#article-measure-the-work-that-remains-after-an-answer">Measure the work that remains after an answer</a></li>
+            <li><a href="#article-evaluate-a-proposed-ai-workflow">Evaluate a proposed AI workflow</a></li>
+          </ol></nav>
+        </details>
+      </aside>
+      <article class="policy-content blog-policy-content">
         <div class="policy-block">
-          <h2>Separating the real use case from the hype</h2>
+          <h2 id="article-separating-the-real-use-case-from-the-hype">Separating the real use case from the hype</h2>
           <p>"AI in education" gets used to describe everything from genuinely useful automation to vague marketing claims. It's worth being specific: where does AI actually help with the administrative side of running a school today, as opposed to the classroom-teaching side, which is a different conversation entirely?</p>
         </div>
         <div class="policy-block">
-          <h2>Where AI is genuinely useful in school administration right now</h2>
+          <h2 id="article-where-ai-is-genuinely-useful-in-school-administration-right-now">Where AI is genuinely useful in school administration right now</h2>
           <ul class="check-list">
             <li><strong>Answering routine parent questions instantly</strong> — fee status, attendance, marks, timetable — without waiting on office hours.</li>
             <li><strong>Understanding rephrased or typo'd questions</strong> — going beyond rigid keyword search to actually understand what a parent is asking.</li>
@@ -140,15 +161,15 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>Where it isn't, and shouldn't be, involved</h2>
+          <h2 id="article-where-it-isn-t-and-shouldn-t-be-involved">Where it isn't, and shouldn't be, involved</h2>
           <p>Decisions that need human judgment — disciplinary matters, individual student circumstances, anything sensitive — shouldn't be handed to an automated system, and a responsibly built one won't try to.</p>
         </div>
         <div class="policy-block">
-          <h2>How Sai is scoped, specifically</h2>
+          <h2 id="article-how-sai-is-scoped-specifically">How Sai is scoped, specifically</h2>
           <p>Sai answers structured questions (attendance, fees, marks, timetable) straight from a school's own database using keyword matching by default — no AI needed for that to work. An optional AI layer helps it understand rephrased or typo'd questions and give a short conversational reply to general questions it doesn't recognize. Sai is never given student records or database access beyond what a guardian's own linked children's data allows. See <a href="/modules/ai-chatbot-for-school-parent-support/">Sai — Schoolment AI Chatbot</a>.</p>
         </div>
         <div class="policy-block">
-          <h2>The five places automation pays for itself, AI or not</h2>
+          <h2 id="article-the-five-places-automation-pays-for-itself-ai-or-not">The five places automation pays for itself, AI or not</h2>
           <p>Much of what is sold as AI in school administration is scheduled automation, and that is not a criticism &mdash; these are the features that actually return staff hours. What matters is paying the right price for them:</p>
           <ul class="check-list">
             <li><strong>Automatic billing</strong> &mdash; a term's fees raised for every student from a defined structure, instead of a spreadsheet rebuilt each cycle.</li>
@@ -160,17 +181,17 @@
           <p>None of these need a model. All of them need to be controllable, which is why every scheduled automation in Schoolment stays off until an admin turns it on.</p>
         </div>
         <div class="policy-block">
-          <h2>What genuinely needs a language model, and what does not</h2>
+          <h2 id="article-what-genuinely-needs-a-language-model-and-what-does-not">What genuinely needs a language model, and what does not</h2>
           <p>The distinction worth holding: retrieval and rules do not need AI; interpretation of free-form human input does. A parent asking "fees kitna baaki hai" or "how much is pending for my daughter" is the second case &mdash; the answer comes from the same database row either way, but understanding the question does not.</p>
           <p>That is exactly how Sai is built. Structured questions about attendance, fees, marks and timetable are answered by keyword matching against the school's own records, with no AI required for the common path. An optional AI layer handles rephrasing, typos and a short conversational reply to general questions it does not recognise. The data path is unchanged; only the interface is smarter.</p>
         </div>
         <div class="policy-block">
-          <h2>Scope, permissions and the boundary that has to hold</h2>
+          <h2 id="article-scope-permissions-and-the-boundary-that-has-to-hold">Scope, permissions and the boundary that has to hold</h2>
           <p>The risk in a school AI assistant is not a wrong answer, it is the right answer given to the wrong person. A guardian's Sai only ever answers about their own linked children, and it is never given student records or database access beyond that.</p>
           <p>The same principle runs through the rest of the system: custom roles with per-module no access, view or manage rights, enforced on every request rather than hidden in the interface, and applied identically on the web portal and the Android and iOS app. An assistant inherits the permission model &mdash; it does not get its own.</p>
         </div>
         <div class="policy-block">
-          <h2>What we are not going to build</h2>
+          <h2 id="article-what-we-are-not-going-to-build">What we are not going to build</h2>
           <p>It is worth being specific about the boundary, because plenty of vendors are not:</p>
           <ul class="check-list">
             <li><strong>No automated decisions about individual students.</strong> Disciplinary matters, concessions and pastoral judgment stay with people who know the family.</li>
@@ -180,7 +201,7 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>How to test an AI claim in any vendor's demo</h2>
+          <h2 id="article-how-to-test-an-ai-claim-in-any-vendor-s-demo">How to test an AI claim in any vendor's demo</h2>
           <p>Four questions separate a working feature from a slide, and they work on us as well as on anyone else:</p>
           <ul class="check-list">
             <li>Run it on our data, not yours &mdash; a badly worded question about a real student record, live.</li>
@@ -190,7 +211,46 @@
           </ul>
           <p>See <a href="/modules/ai-chatbot-for-school-parent-support/">Sai &mdash; Schoolment AI Chatbot</a> and <a href="/blog/how-ai-changed-school-management-systems/">how AI changed school management systems</a> for the longer treatment.</p>
         </div>
-      </div>
+        <div class="policy-block">
+          <h2 id="article-choose-an-administrative-question-before-choosing-an-ai-feature">Choose an administrative question before choosing an AI feature</h2>
+          <p>Start with a task that has a clear source and a checkable answer. Finding a published timetable, summarising an approved circular or directing a parent to a fee statement is easier to evaluate than a broad promise to improve school management. Identify who asks the question, which record answers it and what the system should do when that record is missing.</p>
+          <p>This approach also reveals when ordinary search or a scheduled report would suffice. If the same question always requires the same filter, a conventional interface may be simpler to operate. Language assistance is most useful when wording varies or a long approved document needs an accessible explanation. Treat that as a usability improvement with measurable boundaries.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-write-acceptance-cases-for-uncertainty-and-refusal">Write acceptance cases for uncertainty and refusal</h2>
+          <p>Test the system with an outdated notice, an ambiguous question and a request for information the user is not allowed to see. A trustworthy assistant should not fill missing records with a plausible answer. It should identify the uncertainty and direct the user to the appropriate staff member or source. Record the expected behaviour before comparing results.</p>
+          <p>Include questions about another student and requests that mix an allowed lookup with an inappropriate disclosure. The access decision must be enforced by the underlying application, rather than left to the model&#x27;s wording alone. A friendly refusal in one demonstration does not establish that the full data-access path is secure; ask the supplier to explain how permissions are applied.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-run-a-limited-evaluation-with-human-review">Run a limited evaluation with human review</h2>
+          <ul class="check-list">
+            <li>Define one use case and a small set of users who understand the trial&#x27;s scope.</li>
+            <li>Use fictional or approved test material while checking behaviour and access boundaries.</li>
+            <li>Compare responses with the source record and record omissions as well as incorrect claims.</li>
+            <li>Give users a visible route to a person when the assistant cannot answer.</li>
+            <li>Decide in advance which errors require pausing the trial and correcting the setup.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-measure-the-work-that-remains-after-an-answer">Measure the work that remains after an answer</h2>
+          <p>A response delivered in seconds can still create extra work if a parent has to call the office to verify it. Track whether the answer resolved the original question, whether staff needed to correct it and whether the source was clear. These measures provide a better basis for deciding whether to expand the feature than the number of conversations alone.</p>
+          <p>Keep responsibility with the school and its authorised staff. Decisions involving a student&#x27;s circumstances need context that a routine lookup does not provide. The useful direction for administrative AI is better access to reliable information, with clear handoffs and visible limits. Expand only when the school can demonstrate that the specific task became easier without making its records less trustworthy.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-evaluate-a-proposed-ai-workflow">Evaluate a proposed AI workflow</h2>
+          <p>Use these checks when reviewing the process with the people who will operate it. Record what was demonstrated and assign any unresolved issue to an owner before expanding the rollout.</p>
+          <div class="article-table-wrap" role="region" aria-labelledby="article-comparison-caption" tabindex="0">
+            <table class="article-table"><caption id="article-comparison-caption">Evaluate a proposed AI workflow: evidence and warning signs</caption>
+              <thead><tr><th scope="col">Checkpoint</th><th scope="col">Evidence to look for</th><th scope="col">What needs attention</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Answer quality</th><td>The response matches a current, authorised source record.</td><td>A plausible answer appears even when the source information is missing.</td></tr>
+                <tr><th scope="row">Permissions</th><td>Access is enforced in the application&#x27;s data retrieval path.</td><td>The demonstration relies only on the assistant saying it will refuse.</td></tr>
+                <tr><th scope="row">Handoff</th><td>The user can reach a person for ambiguity or judgment.</td><td>The user must repeatedly rephrase an unanswerable question.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
     </div>
   </section>
 

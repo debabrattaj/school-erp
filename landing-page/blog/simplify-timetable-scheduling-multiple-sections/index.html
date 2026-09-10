@@ -43,7 +43,7 @@
   "headline": "How to Simplify Timetable Scheduling for Schools with Multiple Sections",
   "description": "Timetable scheduling gets exponentially harder with every added section or subject. Here's how to keep it manageable without a clash-prone spreadsheet.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-09-01",
+  "dateModified": "2026-09-10",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/simplify-timetable-scheduling-multiple-sections/"
@@ -119,20 +119,40 @@
     <div class="container">
       <h1>How to Simplify Timetable Scheduling for Schools with Multiple Sections</h1>
       <p class="lede">Timetable scheduling gets exponentially harder with every added section or subject. Here's how to keep it manageable without a clash-prone spreadsheet.</p>
-      <p class="post-date">Published August 14, 2026</p>
+      <p class="post-date">Published August 14, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> Updated September 10, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> 7 min read</p>
     </div>
   </section>
 
   <!-- ===== Article body ===== -->
-  <section class="section" style="padding-top:1rem;">
-    <div class="container">
-      <div class="policy-content blog-policy-content">
+  <section class="section article-section" aria-label="Article" style="padding-top:1rem;">
+    <div class="container article-layout">
+      <aside class="article-sidebar">
+        <details class="article-toc" open>
+          <summary>On this page</summary>
+          <nav aria-label="Article contents"><ol>
+            <li><a href="#article-why-timetables-get-hard-fast-not-gradually">Why timetables get hard fast, not gradually</a></li>
+            <li><a href="#article-what-makes-multi-section-scheduling-manageable">What makes multi-section scheduling manageable</a></li>
+            <li><a href="#article-where-schoolment-fits">Where Schoolment fits</a></li>
+            <li><a href="#article-the-constraints-a-real-school-timetable-has-to-satisfy-at-once">The constraints a real school timetable has to satisfy at once</a></li>
+            <li><a href="#article-build-the-master-data-before-you-build-the-timetable">Build the master data before you build the timetable</a></li>
+            <li><a href="#article-automatic-generation-and-when-to-override-it">Automatic generation, and when to override it</a></li>
+            <li><a href="#article-mid-term-changes-are-the-real-test">Mid-term changes are the real test</a></li>
+            <li><a href="#article-what-parents-and-teachers-see-afterwards">What parents and teachers see afterwards</a></li>
+            <li><a href="#article-distinguish-hard-constraints-from-preferences">Distinguish hard constraints from preferences</a></li>
+            <li><a href="#article-check-the-teacher-view-and-the-section-view-together">Check the teacher view and the section view together</a></li>
+            <li><a href="#article-rehearse-a-midweek-substitution">Rehearse a midweek substitution</a></li>
+            <li><a href="#article-manage-versions-so-everyone-follows-the-same-schedule">Manage versions so everyone follows the same schedule</a></li>
+            <li><a href="#article-timetable-acceptance-checks">Timetable acceptance checks</a></li>
+          </ol></nav>
+        </details>
+      </aside>
+      <article class="policy-content blog-policy-content">
         <div class="policy-block">
-          <h2>Why timetables get hard fast, not gradually</h2>
+          <h2 id="article-why-timetables-get-hard-fast-not-gradually">Why timetables get hard fast, not gradually</h2>
           <p>A single section with a handful of subjects is easy to schedule by hand. Add more sections sharing the same teachers, labs, or specialist rooms, and the number of possible clashes grows much faster than the number of sections — a change in one section can quietly break another.</p>
         </div>
         <div class="policy-block">
-          <h2>What makes multi-section scheduling manageable</h2>
+          <h2 id="article-what-makes-multi-section-scheduling-manageable">What makes multi-section scheduling manageable</h2>
           <ul class="check-list">
             <li>A single source of truth for the whole school's timetable, not separate sheets per section that have to be manually cross-checked.</li>
             <li>Automatic clash detection when a teacher or room is double-booked, instead of finding out from a confused teacher on the day.</li>
@@ -140,11 +160,11 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>Where Schoolment fits</h2>
+          <h2 id="article-where-schoolment-fits">Where Schoolment fits</h2>
           <p>The <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a> module includes a clash-free timetable builder designed for exactly this — multiple sections sharing teachers and rooms, without the manual cross-checking.</p>
         </div>
         <div class="policy-block">
-          <h2>The constraints a real school timetable has to satisfy at once</h2>
+          <h2 id="article-the-constraints-a-real-school-timetable-has-to-satisfy-at-once">The constraints a real school timetable has to satisfy at once</h2>
           <p>The reason manual scheduling collapses is not arithmetic, it is that every constraint below has to hold simultaneously, and fixing a violation of one usually creates a violation of another:</p>
           <ul class="check-list">
             <li><strong>Teacher availability</strong> &mdash; no teacher in two rooms in the same period, across every section they teach.</li>
@@ -156,26 +176,65 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>Build the master data before you build the timetable</h2>
+          <h2 id="article-build-the-master-data-before-you-build-the-timetable">Build the master data before you build the timetable</h2>
           <p>Most failed timetable attempts fail at the input stage. Before the first period is placed, four things need to be correct and in one place: classes and sections, subjects and their weekly period counts, teacher records with the subjects each teacher is assigned, and rooms with any capacity restrictions. Schoolment keeps all four as master data shared with the rest of the system, so the teacher you assign in the timetable is the same record that owns leave balances, marks entry rights, and substitution cover.</p>
           <p>That shared record is what makes the difference downstream. When the timetable knows who teaches which period, attendance for that period is a one-tap action for the right teacher, and covering an absent colleague has an obvious slot to fill.</p>
         </div>
         <div class="policy-block">
-          <h2>Automatic generation, and when to override it</h2>
+          <h2 id="article-automatic-generation-and-when-to-override-it">Automatic generation, and when to override it</h2>
           <p>Schoolment includes automatic timetable generation alongside the manual builder. The generator handles the mechanical part &mdash; filling a valid grid that respects teacher, room and load constraints &mdash; which is the part that otherwise consumes a week of someone's holidays. What it cannot know is that a particular teacher should not be given the first period on Mondays, or that two sections are better kept apart in the lab.</p>
           <p>The workflow that works is generate, then override. Let the system produce a clash-free base, then hand-adjust the handful of slots that carry a human reason, with clash detection still watching. A generator you cannot override is a worse tool than a grid you filled in yourself.</p>
         </div>
         <div class="policy-block">
-          <h2>Mid-term changes are the real test</h2>
+          <h2 id="article-mid-term-changes-are-the-real-test">Mid-term changes are the real test</h2>
           <p>Any approach can produce a timetable in April. The question is what happens in September when a teacher resigns, a section is split, or a lab closes for repairs. On per-section spreadsheets, a single change means re-checking every other sheet by hand, and the errors surface as a confused teacher standing in an occupied room.</p>
           <p>With one master timetable, the change is made once and every affected view updates with it &mdash; the section's grid, each teacher's own week, and the period-wise attendance screens. Staff leave and substitute cover run against the same data, so covering an absence means picking a colleague who is genuinely free that period rather than one who looked free on the sheet in front of you.</p>
         </div>
         <div class="policy-block">
-          <h2>What parents and teachers see afterwards</h2>
+          <h2 id="article-what-parents-and-teachers-see-afterwards">What parents and teachers see afterwards</h2>
           <p>A timetable is not an administrative artifact &mdash; it is one of the most-checked screens in the whole system. Once published, each teacher sees their own full week across every section, students and parents see the class timetable in the portal and in the Android and iOS app, and Sai can answer "what does she have tomorrow" without anyone calling the office.</p>
           <p>That is the practical argument for keeping scheduling inside the ERP rather than in a standalone timetable tool: the grid feeds attendance, substitution, exam scheduling and parent communication off one record. See <a href="/modules/student-attendance-and-timetable-system/">Attendance &amp; Timetable</a>, or the <a href="/#suite">full module suite</a> for how it connects to the rest.</p>
         </div>
-      </div>
+        <div class="policy-block">
+          <h2 id="article-distinguish-hard-constraints-from-preferences">Distinguish hard constraints from preferences</h2>
+          <p>A teacher cannot teach two sections at the same time, and a room cannot host two classes simultaneously. Those are hard constraints. A preference for a subject before lunch or a teacher&#x27;s preferred free period may be negotiable. Record the distinction before generating or editing the timetable so staff know which conflicts make a schedule impossible and which require discussion.</p>
+          <p>Include room capacity, specialist facilities, required weekly subject periods and part-time availability. Agree who can authorise a preference to be relaxed. Without that decision, the timetable coordinator can spend hours resolving an apparently impossible schedule when the actual issue is that every preference has been treated as mandatory.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-check-the-teacher-view-and-the-section-view-together">Check the teacher view and the section view together</h2>
+          <p>A section timetable can look complete while one teacher is overloaded or assigned distant rooms in consecutive periods. Review the schedule from each teacher&#x27;s perspective as well as each class&#x27;s. Include shared laboratories and visiting staff. A practical timetable accounts for the real movement and availability of people, not just empty cells in a grid.</p>
+          <p>Use a checklist to compare scheduled subject periods with the approved allocation. Pay attention to double periods and shortened days, which can make visual counts misleading. Keep the approved allocation beside the final timetable so later changes can be checked against the same expectations.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-rehearse-a-midweek-substitution">Rehearse a midweek substitution</h2>
+          <ul class="check-list">
+            <li>Select a fictional teacher absence and identify every affected period across sections.</li>
+            <li>Find eligible cover using availability and the school&#x27;s teaching requirements.</li>
+            <li>Check that a replacement does not create a new room or teacher conflict.</li>
+            <li>Publish the revision through the agreed staff and family channels where relevant.</li>
+            <li>Keep the original schedule and the effective dates of the temporary change distinguishable.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-manage-versions-so-everyone-follows-the-same-schedule">Manage versions so everyone follows the same schedule</h2>
+          <p>Assign an effective date to a revised timetable and state whether it replaces the master schedule or applies only for a limited period. Old printed copies and downloaded screenshots can remain in circulation, so tell staff where to find the current version. Give the office a way to answer which schedule applied on a particular date.</p>
+          <p>After a few weeks, collect recurring problems: unworkable transitions, frequent cover requirements or subject allocations repeatedly moved. Use that evidence to revise the constraints for the next planning cycle. A timetable system is most useful when it supports both initial construction and controlled change throughout the term, with a shared current schedule that staff can rely on.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-timetable-acceptance-checks">Timetable acceptance checks</h2>
+          <p>Use these checks when reviewing the process with the people who will operate it. Record what was demonstrated and assign any unresolved issue to an owner before expanding the rollout.</p>
+          <div class="article-table-wrap" role="region" aria-labelledby="article-comparison-caption" tabindex="0">
+            <table class="article-table"><caption id="article-comparison-caption">Timetable acceptance checks: evidence and warning signs</caption>
+              <thead><tr><th scope="col">Checkpoint</th><th scope="col">Evidence to look for</th><th scope="col">What needs attention</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Constraints</th><td>Hard conflicts and negotiable preferences are clearly separated.</td><td>Every preference is treated as mandatory, making the schedule impossible.</td></tr>
+                <tr><th scope="row">Cross-checking</th><td>Teacher, room and section views agree on each scheduled period.</td><td>A complete class grid hides teacher clashes or impractical movement.</td></tr>
+                <tr><th scope="row">Revisions</th><td>The current version has an effective date and a publication route.</td><td>Temporary cover and permanent timetable changes are indistinguishable.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
     </div>
   </section>
 

@@ -43,7 +43,7 @@
   "headline": "Data Privacy Best Practices for Student Information Systems",
   "description": "Practical data privacy best practices for any student information system — what to look for, and what your school should ask about.",
   "datePublished": "2026-08-14",
-  "dateModified": "2026-09-01",
+  "dateModified": "2026-09-10",
   "author": { "@type": "Organization", "name": "Schoolment" },
   "publisher": { "@type": "Organization", "name": "Schoolment", "url": "https://schoolment.com/" },
   "mainEntityOfPage": "https://schoolment.com/blog/data-privacy-best-practices-student-information-systems/"
@@ -119,16 +119,36 @@
     <div class="container">
       <h1>Data Privacy Best Practices for Student Information Systems</h1>
       <p class="lede">Practical data privacy best practices for any student information system — what to look for, and what your school should ask about.</p>
-      <p class="post-date">Published August 14, 2026</p>
+      <p class="post-date">Published August 14, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> Updated September 10, 2026 <span class="article-meta-separator" aria-hidden="true">&middot;</span> 7 min read</p>
     </div>
   </section>
 
   <!-- ===== Article body ===== -->
-  <section class="section" style="padding-top:1rem;">
-    <div class="container">
-      <div class="policy-content blog-policy-content">
+  <section class="section article-section" aria-label="Article" style="padding-top:1rem;">
+    <div class="container article-layout">
+      <aside class="article-sidebar">
+        <details class="article-toc" open>
+          <summary>On this page</summary>
+          <nav aria-label="Article contents"><ol>
+            <li><a href="#article-baseline-practices-worth-expecting-from-any-system">Baseline practices worth expecting from any system</a></li>
+            <li><a href="#article-why-this-matters-more-for-schools-than-most-software">Why this matters more for schools than most software</a></li>
+            <li><a href="#article-how-schoolment-approaches-this">How Schoolment approaches this</a></li>
+            <li><a href="#article-consent-is-a-record-not-an-assumption">Consent is a record, not an assumption</a></li>
+            <li><a href="#article-least-privilege-is-the-control-that-actually-prevents-incidents">Least privilege is the control that actually prevents incidents</a></li>
+            <li><a href="#article-the-categories-that-need-extra-care">The categories that need extra care</a></li>
+            <li><a href="#article-questions-to-put-to-a-vendor-with-the-answers-we-give">Questions to put to a vendor, with the answers we give</a></li>
+            <li><a href="#article-the-habits-that-matter-more-than-the-feature-list">The habits that matter more than the feature list</a></li>
+            <li><a href="#article-map-where-a-student-record-travels">Map where a student record travels</a></li>
+            <li><a href="#article-review-access-when-people-s-jobs-change">Review access when people&#x27;s jobs change</a></li>
+            <li><a href="#article-treat-exports-as-school-records-too">Treat exports as school records too</a></li>
+            <li><a href="#article-prepare-a-response-route-before-an-error-occurs">Prepare a response route before an error occurs</a></li>
+            <li><a href="#article-review-everyday-information-handling">Review everyday information handling</a></li>
+          </ol></nav>
+        </details>
+      </aside>
+      <article class="policy-content blog-policy-content">
         <div class="policy-block">
-          <h2>Baseline practices worth expecting from any system</h2>
+          <h2 id="article-baseline-practices-worth-expecting-from-any-system">Baseline practices worth expecting from any system</h2>
           <ul class="check-list">
             <li><strong>Passwords hashed, never stored in plain text</strong> — even the provider shouldn't be able to read a user's actual password.</li>
             <li><strong>Encrypted traffic (HTTPS) everywhere</strong>, not just on the login page.</li>
@@ -138,26 +158,26 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>Why this matters more for schools than most software</h2>
+          <h2 id="article-why-this-matters-more-for-schools-than-most-software">Why this matters more for schools than most software</h2>
           <p>Student information systems hold data about minors, which raises the stakes above a typical business application — attendance patterns, academic performance, contact details, and sometimes health information, held on behalf of families who never chose the vendor themselves.</p>
         </div>
         <div class="policy-block">
-          <h2>How Schoolment approaches this</h2>
+          <h2 id="article-how-schoolment-approaches-this">How Schoolment approaches this</h2>
           <p>Every school's records live in an isolated database, passwords are hashed with Argon2, all traffic runs over HTTPS, and access inside the portal is role-based and enforced on every request. See <a href="/privacy-and-security/">Privacy &amp; Security</a> for the full picture, including data retention and deletion.</p>
         </div>
         <div class="policy-block">
-          <h2>Consent is a record, not an assumption</h2>
+          <h2 id="article-consent-is-a-record-not-an-assumption">Consent is a record, not an assumption</h2>
           <p>The practices above cover how data is held. The harder question is on what basis it is held at all. Processing a child's personal data generally requires verifiable consent from a parent or guardian, and the school &mdash; not the vendor &mdash; usually carries the burden of showing it was obtained.</p>
           <p>The practical implication is simple: consent needs to be recorded in the system, dated, tied to the student record, and exportable. If it lives in a paper file in a cupboard, the school has the obligation and none of the evidence.</p>
         </div>
         <div class="policy-block">
-          <h2>Least privilege is the control that actually prevents incidents</h2>
+          <h2 id="article-least-privilege-is-the-control-that-actually-prevents-incidents">Least privilege is the control that actually prevents incidents</h2>
           <p>Most real-world data exposure in schools is not an attack. It is a shared login, a spreadsheet emailed to the wrong address, or a member of staff who could see counselling notes because access was never scoped.</p>
           <p>The fix is boring and effective. Build roles around jobs rather than convenience &mdash; an academic coordinator who can manage exams but only view fees, an accountant who never sees counselling notes &mdash; and set every module to no access, view, or manage explicitly. Schoolment enforces those rights on every request rather than hiding options in the interface, offers two-factor authentication, and applies the same rules to the web portal and the mobile app.</p>
           <p>Add the operational habits that go with it: individual accounts rather than shared ones, password reset that does not require anyone to know an existing password, and access reviewed at the start of each academic year when roles change.</p>
         </div>
         <div class="policy-block">
-          <h2>The categories that need extra care</h2>
+          <h2 id="article-the-categories-that-need-extra-care">The categories that need extra care</h2>
           <p>Not all student data carries the same risk. Four categories deserve tighter handling than the rest, and schools rarely separate them:</p>
           <ul class="check-list">
             <li><strong>Counselling records and risk flags</strong> &mdash; pastoral notes that should be visible to the people providing care and nobody else, while still leaving an auditable trail.</li>
@@ -167,7 +187,7 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>Questions to put to a vendor, with the answers we give</h2>
+          <h2 id="article-questions-to-put-to-a-vendor-with-the-answers-we-give">Questions to put to a vendor, with the answers we give</h2>
           <p>Ask these in writing, and compare answers rather than marketing pages:</p>
           <ul class="check-list">
             <li><strong>Is our data isolated?</strong> Each Schoolment school has its own isolated database, so one school's records are not queryable from another.</li>
@@ -179,7 +199,7 @@
           </ul>
         </div>
         <div class="policy-block">
-          <h2>The habits that matter more than the feature list</h2>
+          <h2 id="article-the-habits-that-matter-more-than-the-feature-list">The habits that matter more than the feature list</h2>
           <p>Software sets the ceiling on privacy; daily practice decides where you actually sit under it. Four habits worth writing into your own policy:</p>
           <ul class="check-list">
             <li>No shared logins, ever &mdash; including the "office computer" account everyone uses at the front desk.</li>
@@ -188,7 +208,46 @@
             <li>Decide retention deliberately &mdash; how long records are kept after a student leaves &mdash; and be able to state it to a parent who asks.</li>
           </ul>
         </div>
-      </div>
+        <div class="policy-block">
+          <h2 id="article-map-where-a-student-record-travels">Map where a student record travels</h2>
+          <p>Start with a single fictional student and trace the information used by admissions, the class teacher, accounts and transport. Include exports, printed lists, message attachments and vendor support requests. A carefully restricted portal can still be undermined by a broadly shared spreadsheet. The purpose of the exercise is to identify every place that holds a copy and the person responsible for that copy.</p>
+          <p>For each transfer, ask which fields the recipient needs. A transport roster may need a stop and an operational contact but not an academic history. A fee reconciliation report usually does not need medical information. Reducing unnecessary fields makes everyday sharing easier to control and reduces the amount of material that must later be located or corrected.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-review-access-when-people-s-jobs-change">Review access when people&#x27;s jobs change</h2>
+          <p>Create a simple joiner, role-change and leaver process. New staff should receive the access required for their duties after approval. When a teacher becomes a coordinator, check both the new privileges and the old class assignments. When someone leaves, remove their access and review shared credentials or devices that may still provide a route into school records.</p>
+          <p>Do a periodic review using named accounts and actual roles. Ask department heads whether each person still needs the access shown. Pay attention to temporary staff, support accounts and old administrators. A permissions screen is useful only when someone compares it with the school&#x27;s current staffing and follows through on the discrepancies.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-treat-exports-as-school-records-too">Treat exports as school records too</h2>
+          <ul class="check-list">
+            <li>Use the smallest practical set of columns and rows for a report&#x27;s purpose.</li>
+            <li>Share through an approved destination with a defined recipient, rather than an open link or informal group.</li>
+            <li>Avoid using real student data in demonstrations when fictional examples will answer the question.</li>
+            <li>Record who owns temporary working copies and when they will review whether those copies are still needed.</li>
+            <li>Keep sensitive documents out of general support tickets unless the authorised support process requires them.</li>
+          </ul>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-prepare-a-response-route-before-an-error-occurs">Prepare a response route before an error occurs</h2>
+          <p>If a file goes to the wrong recipient or access appears inappropriate, staff need to know whom to notify immediately. Preserve the details needed to investigate: what was shared, when, by whom and with which recipient. The authorised team should assess containment and any required follow-up under the school&#x27;s applicable policies and current legal obligations. Do not ask individual teachers to improvise a response.</p>
+          <p>Privacy work is more manageable when it is part of normal administration. Add access review to staffing changes, export review to reporting and data-copy review to term closure. This article offers operational practices; it does not establish the legal basis for a particular use of student information. Confirm applicable requirements with the people responsible for the school&#x27;s data-protection decisions.</p>
+        </div>
+        <div class="policy-block">
+          <h2 id="article-review-everyday-information-handling">Review everyday information handling</h2>
+          <p>Use these checks when reviewing the process with the people who will operate it. Record what was demonstrated and assign any unresolved issue to an owner before expanding the rollout.</p>
+          <div class="article-table-wrap" role="region" aria-labelledby="article-comparison-caption" tabindex="0">
+            <table class="article-table"><caption id="article-comparison-caption">Review everyday information handling: evidence and warning signs</caption>
+              <thead><tr><th scope="col">Checkpoint</th><th scope="col">Evidence to look for</th><th scope="col">What needs attention</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Role changes</th><td>Access is reviewed when a person joins, moves roles or leaves.</td><td>Old administrators and temporary staff retain unnecessary access.</td></tr>
+                <tr><th scope="row">Working copies</th><td>Exports have a purpose, recipient and responsible owner.</td><td>Sensitive columns are included by default in broadly shared files.</td></tr>
+                <tr><th scope="row">Error response</th><td>Staff know the authorised reporting and investigation route.</td><td>An accidental disclosure is handled informally without a record.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
     </div>
   </section>
 
