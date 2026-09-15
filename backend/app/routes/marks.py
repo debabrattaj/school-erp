@@ -187,6 +187,12 @@ def normalize_mark_payload(db: Session, mark_data):
     data["max_marks"] = data.get("max_marks") or data.get("total_marks") or 100
     data["total_marks"] = data.get("total_marks") or data["max_marks"]
 
+    assessment_status = data.get("assessment_status", "Scored")
+    if assessment_status != "Scored":
+        data["marks_obtained"] = 0
+        data["percentage"] = 0
+        component_scores = None
+        data["component_scores"] = []
     if component_scores:
         normalized_scores = []
         for index, score in enumerate(component_scores, start=1):
@@ -254,6 +260,8 @@ def compute_exam_ranks(db: Session, exam_id: int, class_id: int | None = None):
     totals_by_student = {}
     for mark in marks:
         key = (mark.class_id, mark.student_id)
+        if mark.assessment_status == "Exempt":
+            continue
         bucket = totals_by_student.setdefault(key, {"total_obtained": 0.0, "total_max": 0.0})
         maximum = float(mark.max_marks or mark.total_marks or 0)
         effective_obtained = (
@@ -482,9 +490,10 @@ def create_mark(
         exam_name_snapshot=data.get("exam_name_snapshot"),
         subject=data["subject_name"],
         marks_obtained=data["marks_obtained"],
+        assessment_status=data.get("assessment_status", "Scored"),
         max_marks=data["max_marks"],
         total_marks=data["total_marks"],
-        grade=grade,
+        grade=data.get("assessment_status") if data.get("assessment_status", "Scored") != "Scored" else grade,
         percentage=percentage,
         remarks=data.get("remarks")
     )
@@ -508,7 +517,7 @@ def student_attendance_percent(db: Session, student_id: int, academic_year: str 
     (routes/dashboard.py), just scoped to one student instead of every
     student on one day. None (not 0) when nothing has been marked yet, so
     the report card can print "-" instead of a misleading 0%."""
-    query = db.query(Attendance).filter(Attendance.student_id == student_id)
+    query = db.query(Attendance).filter(Attendance.student_id == student_id, Attendance.period_no == 0)
     if academic_year:
         query = query.filter(Attendance.academic_year == academic_year)
 
@@ -557,13 +566,15 @@ def build_report_card_data(db: Session, student_id: int, exam_id: int) -> dict:
             (mark.percentage / 100) * maximum
             if mark.percentage is not None else obtained
         )
-        total_obtained += effective_obtained
-        total_max += maximum
+        if mark.assessment_status != "Exempt":
+            total_obtained += effective_obtained
+            total_max += maximum
         rows.append({
             "subject": mark.subject_name or mark.subject or "-",
             "obtained": obtained,
             "max": maximum,
             "grade": mark.grade or "-",
+            "assessment_status": mark.assessment_status,
             "remarks": mark.remarks or "",
         })
 
@@ -573,7 +584,7 @@ def build_report_card_data(db: Session, student_id: int, exam_id: int) -> dict:
         calculate_grade(total_obtained, total_max, db) if total_max else "-"
     )
     pass_percentage = settings.pass_percentage or 40
-    result = "Pass" if percentage >= pass_percentage else "Fail"
+    result = ("Pass" if percentage >= pass_percentage else "Fail") if total_max else "Not assessed"
 
     student_name = (
         f"{student.first_name or ''} {student.last_name or ''}".strip()
@@ -832,6 +843,7 @@ def update_mark(
         "exam_name_snapshot": mark.exam_name_snapshot,
         "subject": mark.subject,
         "marks_obtained": mark.marks_obtained,
+        "assessment_status": mark.assessment_status,
         "max_marks": mark.max_marks,
         "total_marks": mark.total_marks,
         "grade": mark.grade,
@@ -914,6 +926,10 @@ def update_mark(
         },
         db,
     )
+
+    if mark.assessment_status != "Scored":
+        mark.grade = mark.assessment_status
+        mark.percentage = 0
 
     db.commit()
     db.refresh(mark)

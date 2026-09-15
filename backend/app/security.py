@@ -124,6 +124,8 @@ def get_current_user(
             detail="User not found"
         )
 
+    from app.record_controls import configure_session
+    configure_session(db, user)
     return user
 
 

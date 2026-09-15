@@ -178,7 +178,7 @@ def portal_student_attendance(
 ):
     ensure_student_access(db, current_user, student_id)
 
-    query = db.query(models.Attendance).filter(
+    query = db.query(models.Attendance).filter(models.Attendance.period_no == 0).filter(
         models.Attendance.student_id == student_id
     )
     if academic_year:
@@ -271,66 +271,8 @@ def portal_student_marks(
 ):
     ensure_student_access(db, current_user, student_id)
 
-    query = db.query(models.Mark).filter(models.Mark.student_id == student_id)
-    if academic_year:
-        query = query.filter(models.Mark.academic_year == academic_year)
-
-    marks = query.all()
-
-    exam_dates = {
-        exam.id: exam.exam_date
-        for exam in (
-            db.query(models.Exam.id, models.Exam.exam_date)
-            .filter(models.Exam.id.in_({mark.exam_id for mark in marks}))
-            .all()
-        )
-    }
-
-    exams = {}
-    for mark in marks:
-        exam_key = mark.exam_name_snapshot or f"Exam #{mark.exam_id}"
-        group = exams.setdefault(
-            exam_key,
-            {
-                "exam_name": exam_key,
-                "academic_year": mark.academic_year,
-                # First mark for this exam decides which exam's date is used --
-                # only matters for the rare same-name exam across years, which
-                # exam_key already conflates.
-                "exam_date": exam_dates.get(mark.exam_id),
-                "subjects": [],
-                "total_obtained": 0,
-                "total_max": 0,
-            },
-        )
-        max_marks = mark.max_marks or mark.total_marks or 100
-        group["subjects"].append(
-            {
-                "subject": mark.subject_name or mark.subject or "-",
-                "marks_obtained": mark.marks_obtained,
-                "max_marks": max_marks,
-                "grade": mark.grade,
-            }
-        )
-        group["total_obtained"] += mark.marks_obtained or 0
-        group["total_max"] += max_marks
-
-    for group in exams.values():
-        group["percentage"] = (
-            round((group["total_obtained"] / group["total_max"]) * 100, 1)
-            if group["total_max"]
-            else None
-        )
-
-    # Chronological, so a "performance over time" chart can plot this
-    # straight through without re-sorting. Exams with no resolvable date
-    # (orphaned exam_id) sort last rather than crashing the comparison.
-    ordered_exams = sorted(
-        exams.values(),
-        key=lambda group: (group["exam_date"] is None, group["exam_date"]),
-    )
-
-    return {"exams": ordered_exams}
+    from app.workflows import portal_marks
+    return portal_marks(db, student_id, academic_year)
 
 
 @router.get("/students/{student_id}/fees")
@@ -456,8 +398,12 @@ def portal_payment_config(
     """Whether UPI payment is available, for the portal's own fee-payment UI."""
     settings = get_settings(db)
     upi_id = (settings.upi_id or "").strip()
+    from app.payments import is_gateway_enabled
+    gateway_enabled = is_gateway_enabled(db)
     return {
-        "enabled": bool(upi_id),
+        "enabled": bool(upi_id) or gateway_enabled,
+        "upi_enabled": bool(upi_id),
+        "gateway_enabled": gateway_enabled,
         "upi_id": upi_id,
         "payee_name": settings.school_name or "School",
         "currency": (settings.currency or "INR").upper(),
@@ -526,8 +472,7 @@ def portal_confirm_upi_payment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
 ):
-    """Record a completed UPI payment (with its UTR/reference) and settle the
-    balance. Ownership-checked the same way as every other portal route."""
+    """Report a UPI reference for bank verification without crediting the fee."""
     ensure_student_access(db, current_user, student_id)
 
     reference = (payload.reference or "").strip()
@@ -545,35 +490,10 @@ def portal_confirm_upi_payment(
     if not fee:
         raise HTTPException(status_code=404, detail="Fee record not found")
 
-    balance = max((fee.total_amount or 0) - (fee.paid_amount or 0), 0)
-    if balance <= 0:
-        raise HTTPException(status_code=400, detail="This fee has no outstanding balance.")
-
-    fee.paid_amount = fee.total_amount
-    fee.payment_date = datetime.now().date()
-    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
-    fee.due_amount = due_amount
-    fee.payment_status = payment_status
-    if not fee.receipt_no:
-        fee.receipt_no = generate_receipt_no(db)
-
-    upi_note = f"UPI Ref: {reference}"
-    fee.remarks = f"{fee.remarks} | {upi_note}" if fee.remarks else upi_note
-
-    db.commit()
-    db.refresh(fee)
-    return {
-        "id": fee.id,
-        "fee_type": fee.fee_type,
-        "academic_year": fee.academic_year,
-        "total_amount": fee.total_amount,
-        "paid_amount": fee.paid_amount,
-        "due_amount": fee.due_amount,
-        "payment_status": fee.payment_status,
-        "payment_date": fee.payment_date,
-        "receipt_no": fee.receipt_no,
-        "remarks": fee.remarks,
-    }
+    from app.workflows import report_upi, serialize
+    case = report_upi(db, fee, current_user, reference)
+    return {"status": "Pending verification", "case": serialize(case),
+            "message": "Reference received. Your balance changes only after school verification."}
 
 
 @router.get("/students/{student_id}/enrollments")
@@ -618,35 +538,15 @@ def portal_student_timetable(
 ):
     student = ensure_student_access(db, current_user, student_id)
 
-    query = db.query(models.TimetableEntry).filter(
-        models.TimetableEntry.class_name_snapshot == student.class_name,
-        models.TimetableEntry.section_snapshot == student.section,
-    )
-    if academic_year:
-        query = query.filter(models.TimetableEntry.academic_year == academic_year)
-
-    entries = query.all()
-    entries.sort(
-        key=lambda e: (
-            VALID_DAYS.index(e.day_of_week) if e.day_of_week in VALID_DAYS else len(VALID_DAYS),
-            e.period_no,
-        )
-    )
-
-    return [
-        {
-            "day_of_week": entry.day_of_week,
-            "period_no": entry.period_no,
-            "entry_type": entry.entry_type,
-            "label": entry.label,
-            "start_time": entry.start_time,
-            "end_time": entry.end_time,
-            "subject": entry.subject,
-            "teacher_name": entry.teacher_name_snapshot,
-            "room": entry.room,
-        }
-        for entry in entries
-    ]
+    from app.workflows import timetable_on_date
+    cls = db.query(models.SchoolClass).filter(models.SchoolClass.id == student.class_id).first()
+    if not cls:
+        cls = db.query(models.SchoolClass).filter(models.SchoolClass.class_name == student.class_name,
+            models.SchoolClass.section == student.section).first()
+    if not cls: return []
+    result = timetable_on_date(db, cls.id, date.today())
+    return [{**e, "teacher_name": e.get("teacher_name_snapshot"), "version": result["version"]}
+            for e in result["entries"] if not academic_year or e.get("academic_year") == academic_year]
 
 
 def _assignment_targets_student(assignment: models.Assignment, student: models.Student) -> bool:
@@ -717,8 +617,9 @@ def portal_student_homework(
             # portal and the server can never disagree about it.
             item["can_submit"] = bool(
                 a.accepts_submissions
-                and (not overdue or a.allow_late_submission)
-                and (a.id not in submissions or submissions[a.id].status != "Graded")
+                and (not overdue or a.allow_late_submission or
+                     (a.id in submissions and submissions[a.id].status == "Returned"))
+                and (a.id not in submissions or submissions[a.id].status not in {"Graded", "DraftGraded"})
             )
         items.append(item)
 
@@ -752,8 +653,8 @@ def _submission_public(submission: models.AssignmentSubmission | None) -> dict |
         "submitted_at": submission.submitted_at,
         "submitted_by": submission.submitted_by,
         "is_late": submission.is_late,
-        "marks_awarded": submission.marks_awarded,
-        "feedback": submission.feedback,
+        "marks_awarded": submission.marks_awarded if submission.status == "Graded" else None,
+        "feedback": submission.feedback if submission.status in {"Graded", "Returned"} else None,
         "graded_at": submission.graded_at,
     }
 
@@ -900,7 +801,11 @@ def portal_submit_homework(
 
     today = date.today()
     is_late = bool(assignment.due_date and today > assignment.due_date)
-    if is_late and not assignment.allow_late_submission:
+    returning = db.query(models.AssignmentSubmission).filter(
+        models.AssignmentSubmission.assignment_id == assignment_id,
+        models.AssignmentSubmission.student_id == student_id,
+        models.AssignmentSubmission.status == "Returned").first()
+    if is_late and not assignment.allow_late_submission and not returning:
         raise HTTPException(
             status_code=400,
             detail="The due date for this assignment has passed.",
@@ -914,7 +819,7 @@ def portal_submit_homework(
         )
         .first()
     )
-    if submission and submission.status == "Graded":
+    if submission and submission.status in {"Graded", "DraftGraded"}:
         raise HTTPException(
             status_code=400,
             detail="This work has already been graded and can no longer be changed.",
@@ -934,6 +839,10 @@ def portal_submit_homework(
     submission.content = content or None
     submission.attachment_url = attachment_url or None
     submission.status = "Submitted"
+    submission.marks_awarded = None
+    submission.feedback = None
+    submission.graded_at = None
+    submission.graded_by = None
     submission.submitted_at = now
     submission.is_late = is_late
     # A guardian uploading for a younger child is normal, and the teacher
@@ -2641,6 +2550,7 @@ def delete_portal_link(
 @router.get("/students/{student_id}/bus")
 def student_bus(
     student_id: int,
+    direction: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(PORTAL_ROLES)),
     _feature: None = Depends(require_feature("transport")),
@@ -2650,14 +2560,29 @@ def student_bus(
 
     ensure_student_access(db, current_user, student_id)
 
-    assignment = (
+    if direction not in {None, "Morning", "Afternoon"}:
+        raise HTTPException(400, "Choose Morning or Afternoon.")
+    assignments = (
         db.query(models.TransportAssignment)
         .filter(
             models.TransportAssignment.student_id == student_id,
             models.TransportAssignment.status == "Active",
         )
-        .first()
+        .order_by(models.TransportAssignment.id)
+        .all()
     )
+    today = date.today()
+    assignments = [a for a in assignments if (not a.start_date or a.start_date <= today)
+        and (not a.end_date or a.end_date >= today)
+        and (not direction or a.direction in {direction, "Both"})]
+    assignment = assignments[0] if assignments else None
+    if not direction:
+        for candidate in assignments:
+            trip = tracking_logic.current_trip(db, candidate.vehicle_id, today) if candidate.vehicle_id else None
+            journey = "Morning" if trip and trip.direction == "Pickup" else "Afternoon"
+            if trip and candidate.direction in {journey, "Both"}:
+                assignment = candidate
+                break
     if not assignment:
         return {"assigned": False, "reason": "This student does not use school transport."}
 
@@ -2679,6 +2604,7 @@ def student_bus(
 
     body = {
         "assigned": True,
+        "direction": assignment.direction,
         "route": route.route_name if route else None,
         "stop": stop.stop_name if stop else None,
         "vehicle_no": vehicle.vehicle_no if vehicle else None,
@@ -2702,3 +2628,79 @@ def student_bus(
         if trip else None
     )
     return body
+
+
+@router.post("/students/{student_id}/fees/{fee_id}/payment/order")
+def portal_gateway_order(student_id: int, fee_id: int, db: Session = Depends(get_db),
+                         current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    fee = db.query(models.Fee).filter(models.Fee.id == fee_id, models.Fee.student_id == student_id).first()
+    if not fee: raise HTTPException(404, "Fee not found")
+    from app.routes.payments import create_order
+    from app.payment_links import create_payment_link_token
+    return create_order(fee_id, create_payment_link_token(fee_id), db)
+
+
+@router.get("/students/{student_id}/notices")
+def family_notices(student_id: int, db: Session = Depends(get_db),
+                   current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    rows = db.query(models.CommunicationLog).filter(
+        models.CommunicationLog.related_module == "Student",
+        models.CommunicationLog.related_record_id == student_id,
+        models.CommunicationLog.channel == "In App").order_by(models.CommunicationLog.id.desc()).limit(200).all()
+    acknowledged = {r.message_id for r in db.query(models.MessageAcknowledgement).filter(
+        models.MessageAcknowledgement.user_id == current_user.id).all()}
+    return [{"id": r.id, "message": r.message_body, "sent_at": r.sent_at,
+             "acknowledged": r.id in acknowledged} for r in rows]
+
+
+@router.post("/students/{student_id}/notices/{message_id}/acknowledge")
+def acknowledge_notice(student_id: int, message_id: int, db: Session = Depends(get_db),
+                       current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    row = db.query(models.CommunicationLog).filter(models.CommunicationLog.id == message_id,
+        models.CommunicationLog.related_module == "Student", models.CommunicationLog.related_record_id == student_id,
+        models.CommunicationLog.channel == "In App").first()
+    if not row: raise HTTPException(404, "Notice not found")
+    previous = db.query(models.MessageAcknowledgement).filter(models.MessageAcknowledgement.message_id == message_id,
+        models.MessageAcknowledgement.user_id == current_user.id).first()
+    if not previous:
+        db.add(models.MessageAcknowledgement(message_id=message_id, user_id=current_user.id))
+        db.commit()
+    return {"acknowledged": True}
+
+
+@router.get("/students/{student_id}/payment-reports")
+def family_payment_reports(student_id: int, db: Session = Depends(get_db),
+                           current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    rows = db.query(models.PaymentCase).join(models.Fee, models.PaymentCase.fee_id == models.Fee.id).filter(
+        models.Fee.student_id == student_id, models.PaymentCase.kind == "UPI").order_by(models.PaymentCase.id.desc()).all()
+    return [{"id": r.id, "reference": r.reference, "amount": r.amount, "status": r.status} for r in rows]
+
+
+@router.post("/students/{student_id}/fees/{fee_id}/payment/verify")
+def portal_gateway_verify(student_id: int, fee_id: int, payload: dict, db: Session = Depends(get_db),
+                          current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    fee = db.query(models.Fee).filter(models.Fee.id == fee_id, models.Fee.student_id == student_id).first()
+    if not fee: raise HTTPException(404, "Fee not found")
+    from app.routes.payments import verify_checkout
+    from app.payment_links import create_payment_link_token
+    return verify_checkout(fee_id, payload, create_payment_link_token(fee_id), db)
+
+
+@router.get("/students/{student_id}/results/{release_id}/pdf")
+def portal_result_pdf(student_id: int, release_id: int, db: Session = Depends(get_db),
+                      current_user: User = Depends(require_roles(PORTAL_ROLES))):
+    ensure_student_access(db, current_user, student_id)
+    release = db.query(models.ResultRelease).filter(models.ResultRelease.id == release_id,
+        models.ResultRelease.student_id == student_id, models.ResultRelease.status == "Published").first()
+    if not release: raise HTTPException(404, "Published result not found")
+    from app.pdf import report_card_pdf
+    from fastapi.responses import Response
+    data = json.loads(release.data_json)
+    data["exam_name"] += f" (version {release.version})"
+    return Response(report_card_pdf(data), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="report-{student_id}-v{release.version}.pdf"'})

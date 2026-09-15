@@ -182,6 +182,7 @@ def verify_checkout(
     if not order:
         raise HTTPException(status_code=404, detail="Payment order not found for this fee.")
 
+    payments.verify_captured_payment(config, order, payment_id)
     payments.settle_order(db, order, payment_id)
     db.refresh(order)
     return _order_response(order)

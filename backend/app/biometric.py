@@ -245,7 +245,7 @@ def derive_for_punches(db: Session, touched: set) -> dict:
 
         status = _status_for_punches(punches, config)
         existing = (
-            db.query(models.Attendance)
+            db.query(models.Attendance).filter(models.Attendance.period_no == 0)
             .filter(
                 models.Attendance.student_id == student_id,
                 models.Attendance.attendance_date == on_date,
@@ -369,7 +369,7 @@ def derive_attendance_for_date(db: Session, target_date, academic_year: str | No
         status = _status_for_punches(student_punches, config)
 
         existing = (
-            db.query(models.Attendance)
+            db.query(models.Attendance).filter(models.Attendance.period_no == 0)
             .filter(
                 models.Attendance.student_id == student_id,
                 models.Attendance.attendance_date == target_date,
@@ -469,7 +469,7 @@ def _mark_absent_without_punches(db: Session, target_date, present_ids: set[int]
             continue
 
         existing = (
-            db.query(models.Attendance)
+            db.query(models.Attendance).filter(models.Attendance.period_no == 0)
             .filter(
                 models.Attendance.student_id == student_id,
                 models.Attendance.attendance_date == target_date,

@@ -257,6 +257,7 @@ class Attendance(Base):
 
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     attendance_date = Column(Date, nullable=False)
+    period_no = Column(Integer, nullable=False, default=0, server_default="0")
     academic_year = Column(String, nullable=True, index=True)
     class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True, index=True)
     class_name_snapshot = Column(String, nullable=True)
@@ -446,6 +447,7 @@ class Mark(Base):
     subject = Column(String, nullable=True)
 
     marks_obtained = Column(Float, nullable=False)
+    assessment_status = Column(String, nullable=False, default="Scored", server_default="Scored")
     max_marks = Column(Float, default=100)
 
     # keep this if your old backend already uses total_marks
@@ -849,6 +851,7 @@ class TransportAssignment(Base):
         index=True,
     )
     start_date = Column(Date, nullable=True)
+    direction = Column(String, nullable=False, default="Both", server_default="Both")
     end_date = Column(Date, nullable=True)
     status = Column(String, default="Active", index=True)
     remarks = Column(String, nullable=True)
@@ -1434,6 +1437,9 @@ class AdmissionDocument(Base):
         Integer, ForeignKey("admission_inquiries.id", ondelete="CASCADE"), nullable=False, index=True
     )
     document_type = Column(String, nullable=False, index=True)
+    review_status = Column(String, nullable=False, default="Received", server_default="Received")
+    reviewed_by = Column(String, nullable=True)
+    review_note = Column(Text, nullable=True)
     file_name = Column(String, nullable=True)
     file_url = Column(String, nullable=False)
     uploaded_by = Column(String, nullable=True)
@@ -3843,3 +3849,6 @@ class DiscussionPost(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Workflow tables must be registered for both create_all and tenant migrations.
+from app.workflow_models import (RecordRevision, ResultRelease, PaymentCase, SettlementEntry, OperationalSnapshot, AttendanceRegister, MessageAcknowledgement)  # noqa: E402,F401

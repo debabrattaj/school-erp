@@ -233,6 +233,14 @@ export default function Homework() {
     }));
   }
 
+  async function submissionAction(submission, action) {
+    try {
+      await API.post(`/homework/${activeAssignment.id}/submissions/${submission.id}/${action}`, { note: grades[submission.id]?.feedback || "" });
+      await loadBoard(activeAssignment.id);
+      setMessage(action === "publish" ? "Grade published." : "Work returned for resubmission.");
+    } catch (e) { setMessage(getApiErrorMessage(e, "Unable to update this submission.")); }
+  }
+
   async function saveGrade(submission) {
     const entry = grades[submission.id] || {};
     try {
@@ -513,8 +521,10 @@ export default function Homework() {
                         />
                       </td>
                       <td>
+                        {submission.status === "DraftGraded" && <button className="secondary-button" onClick={() => submissionAction(submission, "publish")}>Publish grade</button>}
+                        <button className="secondary-button" onClick={() => submissionAction(submission, "return")}>Return for resubmission</button>
                         <button type="button" className="primary-button" onClick={() => saveGrade(submission)}>
-                          {submission.status === "Graded" ? "Update" : "Grade"}
+                          Save draft
                         </button>
                       </td>
                     </tr>

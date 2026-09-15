@@ -76,14 +76,15 @@ def serialize_vehicle(vehicle: TransportVehicle, db: Session):
     if vehicle.route_id:
         route = db.query(TransportRoute).filter(TransportRoute.id == vehicle.route_id).first()
 
-    assigned = (
+    assigned_rows = (
         db.query(TransportAssignment)
         .filter(
             TransportAssignment.vehicle_id == vehicle.id,
             TransportAssignment.status == "Active",
         )
-        .count()
+        .all()
     )
+    assigned = peak_passengers(assigned_rows)
 
     return {
         "id": vehicle.id,
@@ -100,6 +101,15 @@ def serialize_vehicle(vehicle: TransportVehicle, db: Session):
         "assigned_students": assigned,
         "available_seats": max((vehicle.capacity or 0) - assigned, 0),
     }
+
+
+def peak_passengers(rows):
+    """Seats needed at the busiest overlapping morning or afternoon journey."""
+    from datetime import date
+    checkpoints = {date.min} | {r.start_date for r in rows if r.start_date}
+    return max((sum(r.direction in {direction, "Both"} and
+                     (r.start_date or date.min) <= day <= (r.end_date or date.max) for r in rows)
+                for direction in ("Morning", "Afternoon") for day in checkpoints), default=0)
 
 
 def serialize_stop(stop: TransportStop, db: Session):
@@ -140,6 +150,7 @@ def serialize_assignment(assignment: TransportAssignment, db: Session):
         "route_id": assignment.route_id,
         "vehicle_id": assignment.vehicle_id,
         "stop_id": assignment.stop_id,
+        "direction": assignment.direction,
         "start_date": assignment.start_date,
         "end_date": assignment.end_date,
         "status": assignment.status,
@@ -177,34 +188,26 @@ def validate_assignment_payload(
                 detail="Selected pickup point does not belong to this route",
             )
 
+    if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
+        raise HTTPException(400, "End date must be on or after the start date.")
     if payload.status == "Active":
-        active_student_query = db.query(TransportAssignment).filter(
-            TransportAssignment.student_id == payload.student_id,
-            TransportAssignment.status == "Active",
-        )
-        if assignment_id:
-            active_student_query = active_student_query.filter(
-                TransportAssignment.id != assignment_id
-            )
-
-        if active_student_query.first():
-            raise HTTPException(
-                status_code=400,
-                detail="Student already has an active transport assignment",
-            )
-
-        if vehicle:
-            assigned_query = db.query(TransportAssignment).filter(
-                TransportAssignment.vehicle_id == vehicle.id,
-                TransportAssignment.status == "Active",
-            )
-            if assignment_id:
-                assigned_query = assigned_query.filter(
-                    TransportAssignment.id != assignment_id
-                )
-
-            if assigned_query.count() >= vehicle.capacity:
-                raise HTTPException(status_code=400, detail="Selected vehicle is full")
+        from datetime import date
+        start, end = payload.start_date or date.min, payload.end_date or date.max
+        directions = {"Morning", "Afternoon"} if payload.direction == "Both" else {payload.direction}
+        existing = db.query(TransportAssignment).filter(TransportAssignment.status == "Active").all()
+        active = [r for r in existing if r.id != assignment_id and
+                  (r.start_date or date.min) <= end and (r.end_date or date.max) >= start]
+        for direction in directions:
+            journey = [r for r in active if r.direction in {direction, "Both"}]
+            if any(r.student_id == payload.student_id for r in journey):
+                raise HTTPException(400, "Student already has an active transport assignment for this journey and date range.")
+            if vehicle:
+                passengers = [r for r in journey if r.vehicle_id == vehicle.id]
+                checkpoints = {start} | {r.start_date for r in passengers if r.start_date and r.start_date >= start}
+                peak = max((sum((r.start_date or date.min) <= day <= (r.end_date or date.max)
+                                for r in passengers) for day in checkpoints), default=0)
+                if peak >= vehicle.capacity:
+                    raise HTTPException(400, "Selected vehicle is full for this journey and date range.")
 
 
 @router.get("/routes/", response_model=list[TransportRouteResponse])
@@ -403,14 +406,15 @@ def update_vehicle(
     if payload.route_id:
         get_or_404(db, TransportRoute, payload.route_id, "Transport route")
 
-    assigned = (
+    assigned_rows = (
         db.query(TransportAssignment)
         .filter(
             TransportAssignment.vehicle_id == vehicle_id,
             TransportAssignment.status == "Active",
         )
-        .count()
+        .all()
     )
+    assigned = peak_passengers(assigned_rows)
     if payload.capacity < assigned:
         raise HTTPException(
             status_code=400,

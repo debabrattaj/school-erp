@@ -112,7 +112,7 @@ def approve_request(
     work_dates = leave_logic.working_dates(db, request.from_date, request.to_date)
     existing_by_date = {
         record.attendance_date: record
-        for record in db.query(models.Attendance).filter(
+        for record in db.query(models.Attendance).filter(models.Attendance.period_no == 0).filter(
             models.Attendance.student_id == student.id,
             models.Attendance.attendance_date.in_(work_dates),
         ).all()

@@ -79,7 +79,7 @@ def _attendance_period(message: str):
 
 def answer_attendance(db: Session, student: models.Student, message: str = ""):
     start, end, label = _attendance_period(message)
-    query = db.query(models.Attendance).filter(
+    query = db.query(models.Attendance).filter(models.Attendance.period_no == 0).filter(
         models.Attendance.student_id == student.id
     )
     if start:
@@ -142,6 +142,13 @@ def answer_fees(db: Session, student: models.Student, message: str = ""):
 
 
 def answer_marks(db: Session, student: models.Student, message: str = ""):
+    if db.info.get("user_role") in {"Parent", "Student"}:
+        from app.workflows import published_results
+        results = published_results(db, student.id)
+        if not results:
+            return f"No results have been published for {student_label(student)} yet."
+        return "Published results: " + "; ".join(
+            f"{r['exam_name']}: {r['percentage']:.1f}% (version {r['version']})" for r in results)
     marks = (
         db.query(models.Mark)
         .filter(models.Mark.student_id == student.id)

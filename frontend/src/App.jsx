@@ -21,6 +21,7 @@ import RouteTitle from "./components/RouteTitle";
 // download all ~45 of them (proctoring's on-device face detection model
 // alone was pushing the shared bundle well past Vite's 500kB warning).
 const MasterData = lazy(() => import("./pages/MasterData"));
+const Workflows = lazy(() => import("./pages/Workflows"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Timetable = lazy(() => import("./pages/Timetable"));
@@ -154,6 +155,7 @@ export default function App() {
       <RouteTitle />
       <Suspense fallback={<RouteFallback />}>
       <Routes>
+        <Route path="/workflows" element={<ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher", "Accounts"]}><ProtectedLayout><Workflows /></ProtectedLayout></ProtectedRoute>} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />

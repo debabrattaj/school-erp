@@ -337,10 +337,13 @@ def settle_order(db: Session, order: models.PaymentOrder, payment_id: str, metho
     and the browser callback can arrive for the same payment as well. Crediting
     the fee twice would show a guardian as having overpaid.
     """
-    if order.status == "Paid":
+    changed = db.query(models.PaymentOrder).filter(models.PaymentOrder.id == order.id,
+        models.PaymentOrder.status != "Paid").update({"status": "Paid"}, synchronize_session=False)
+    if not changed:
+        db.refresh(order)
         return False
 
-    fee = db.query(models.Fee).filter(models.Fee.id == order.fee_id).first()
+    fee = db.query(models.Fee).filter(models.Fee.id == order.fee_id).with_for_update().populate_existing().first()
     if not fee:
         raise PaymentError("The fee this payment belongs to no longer exists.")
 
@@ -355,7 +358,8 @@ def settle_order(db: Session, order: models.PaymentOrder, payment_id: str, metho
 
     from app.routes.fees import calculate_fee_status, generate_receipt_no
 
-    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount)
+    due_amount, payment_status = calculate_fee_status(fee.total_amount, fee.paid_amount,
+        fee.concession_amount, fee.late_fee_charged)
     fee.due_amount = due_amount
     fee.payment_status = payment_status
     fee.payment_date = datetime.utcnow().date()
@@ -407,3 +411,20 @@ def handle_webhook(db: Session, raw_body: bytes, signature: str) -> dict:
 
     settled = settle_order(db, order, parsed["payment_id"], parsed.get("method"))
     return {"handled": True, "status": "Paid", "newly_settled": settled}
+
+
+def verify_captured_payment(config, order, payment_id):
+    """A valid checkout signature may still describe an uncaptured payment."""
+    from fastapi import HTTPException
+    if not payment_id.startswith("pay_") or not payment_id.replace("_", "").isalnum():
+        raise HTTPException(400, "Invalid gateway payment identifier.")
+    try:
+        response = httpx.get(f"https://api.razorpay.com/v1/payments/{payment_id}",
+            auth=(config["key_id"], config["key_secret"]), timeout=HTTP_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        payment = response.json()
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(502, "Gateway verification is unavailable. Your balance has not been changed; the verified webhook can complete it.")
+    if (payment.get("status") != "captured" or payment.get("order_id") != order.order_id or
+        payment.get("amount") != to_minor_units(order.amount) or payment.get("currency") != order.currency):
+        raise HTTPException(409, "The gateway has not confirmed capture of this order and amount.")

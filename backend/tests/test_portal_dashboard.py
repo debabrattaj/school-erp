@@ -99,6 +99,14 @@ def test_portal_marks_include_exam_date_sorted_chronologically(client, auth, lin
     # still come back oldest-first.
     _mark(client, auth, student.id, later_exam, "Maths", 90)
     _mark(client, auth, student.id, earlier_exam, "Maths", 70)
+    assert client.get(f"/portal/students/{student.id}/marks", headers=parent_auth).json()["exams"] == []
+    for exam_id in [later_exam, earlier_exam]:
+        release = client.post("/workflows/results", json={"student_id": student.id, "exam_id": exam_id, "note": "Prepared"}, headers=auth)
+        assert release.status_code == 200, release.text
+        for action in ["review", "publish"]:
+            response = client.post(f"/workflows/results/{release.json()['id']}/{action}", json={"note": "Checked"}, headers=auth)
+            assert response.status_code == 200, response.text
+
 
     resp = client.get(f"/portal/students/{student.id}/marks", headers=parent_auth)
     assert resp.status_code == 200, resp.text

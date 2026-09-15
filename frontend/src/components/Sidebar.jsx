@@ -78,6 +78,7 @@ export default function Sidebar({ onNavigate }) {
   ];
 
   const menuItems = [
+    { label: "Reviews & Approvals", icon: ClipboardCheck, path: "/workflows", roles: ["Admin", "Principal", "Teacher", "Accounts"], group: "Reports & Administration" },
     {
       label: "Dashboard",
       icon: LayoutDashboard,

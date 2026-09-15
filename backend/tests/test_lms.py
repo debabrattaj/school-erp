@@ -318,8 +318,17 @@ def test_submit_then_grade(client, auth, learner):
         headers=auth,
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["status"] == "Graded"
+    assert resp.json()["status"] == "DraftGraded"
     assert resp.json()["marks_awarded"] == 17
+
+    draft = client.get(f"/portal/students/{student.id}/homework", headers=student_auth)
+    item = next(a for a in draft.json() if a["id"] == assignment["id"])
+    assert item["submission"]["marks_awarded"] is None
+    assert item["submission"]["feedback"] is None
+    published = client.post(f"/homework/{assignment['id']}/submissions/{submission['id']}/publish",
+                            json={"note": "Checked feedback and score"}, headers=auth)
+    assert published.status_code == 200, published.text
+    assert published.json()["status"] == "Graded"
 
     # The family sees the grade, and the work is now locked.
     resp = client.get(f"/portal/students/{student.id}/homework", headers=student_auth)
@@ -448,7 +457,7 @@ def test_grade_cannot_exceed_assignment_total(client, auth, learner):
         json={"feedback": "See me"}, headers=auth,
     )
     assert resp.status_code == 200
-    assert resp.json()["status"] == "Graded"
+    assert resp.json()["status"] == "DraftGraded"
     assert resp.json()["marks_awarded"] is None
 
 

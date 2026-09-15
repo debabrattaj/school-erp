@@ -313,13 +313,19 @@ def test_verify_endpoint_rejects_a_bad_signature(client, db_session, gateway):
     assert fee.paid_amount == 0
 
 
-def test_verify_endpoint_settles_with_a_good_signature(client, db_session, gateway):
+def test_verify_endpoint_settles_with_a_good_signature(client, db_session, gateway, monkeypatch):
     from app.payment_links import create_payment_link_token
 
     fee = _make_fee(db_session, total=3000.0)
     order = _order_for(db_session, fee, order_id=f"order_{uuid.uuid4().hex[:10]}", amount=3000.0)
     token = create_payment_link_token(fee.id)
     payment_id = "pay_GOOD"
+    import httpx
+    from app import payments
+    monkeypatch.setattr(payments.httpx, "get", lambda *a, **kw: httpx.Response(200,
+        request=httpx.Request("GET", "https://api.razorpay.com/v1/payments/pay_GOOD"),
+        json={"status": "captured", "order_id": order.order_id, "amount": 300000, "currency": "INR"}))
+
     signature = hmac.new(
         KEY_SECRET.encode(), f"{order.order_id}|{payment_id}".encode(), hashlib.sha256
     ).hexdigest()

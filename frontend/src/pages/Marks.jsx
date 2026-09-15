@@ -15,6 +15,7 @@ import StudentPicker from "../components/StudentPicker";
 import ManagedRecordsTable from "../components/ManagedRecordsTable";
 
 const emptyMarkForm = {
+  assessment_status: "Scored",
   student_id: "",
   exam_id: "",
   academic_year: "",
@@ -622,7 +623,8 @@ export default function Marks() {
         // old backend compatibility
         subject: subjectName,
 
-        marks_obtained: obtainedMarks,
+        assessment_status: formData.assessment_status || "Scored",
+        marks_obtained: formData.assessment_status && formData.assessment_status !== "Scored" ? 0 : obtainedMarks,
 
         // new frontend name
         max_marks: maximumMarks,
@@ -636,7 +638,7 @@ export default function Marks() {
         grade: formData.grade || "",
         remarks: formData.remarks || "",
         component_scores:
-          componentScoreRows.length > 0
+          componentScoreRows.length > 0 && (!formData.assessment_status || formData.assessment_status === "Scored")
             ? componentScoreRows
                 .filter((row) => row.component_name)
                 .map((row) => ({
@@ -773,6 +775,7 @@ export default function Marks() {
     }
 
     setFormData({
+      assessment_status: mark.assessment_status || "Scored",
       student_id: studentId,
       exam_id: mark.exam_id || "",
       academic_year: academicYear,
@@ -1153,6 +1156,11 @@ export default function Marks() {
             </div>
 
             <div className="form-field">
+              <label>Assessment outcome</label>
+              <select name="assessment_status" value={formData.assessment_status || "Scored"} onChange={e => setFormData(f => ({ ...f, assessment_status: e.target.value, marks_obtained: e.target.value === "Scored" ? f.marks_obtained : 0 }))}>
+                <option>Scored</option><option>Absent</option><option>Exempt</option>
+              </select>
+              <small>Absent counts as zero. Exempt is excluded from report totals.</small>
               <label>Marks Obtained *</label>
               <input
                 type="number"

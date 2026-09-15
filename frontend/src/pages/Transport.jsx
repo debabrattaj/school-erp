@@ -62,6 +62,7 @@ const emptyStopForm = {
 };
 
 const emptyAssignmentForm = {
+  direction: "Both",
   student_id: "",
   route_id: "",
   vehicle_id: "",
@@ -858,6 +859,7 @@ export default function Transport() {
       route_id: assignment.route_id || "",
       vehicle_id: assignment.vehicle_id || "",
       stop_id: assignment.stop_id || "",
+      direction: assignment.direction || "Both",
       start_date: assignment.start_date || "",
       end_date: assignment.end_date || "",
       status: assignment.status || "Active",
@@ -1161,6 +1163,7 @@ export default function Transport() {
                     {availableStops.map((stop) => <option key={stop.id} value={stop.id}>{stop.stop_name}</option>)}
                   </select>
                 </div>
+                <label className="form-field">Journey<select name="direction" value={assignmentForm.direction || "Both"} onChange={handleAssignmentChange}><option>Both</option><option>Morning</option><option>Afternoon</option></select></label>
                 <TextField label="Start Date" type="date" name="start_date" value={assignmentForm.start_date} onChange={handleAssignmentChange} />
                 <TextField label="End Date" type="date" name="end_date" value={assignmentForm.end_date} onChange={handleAssignmentChange} />
                 <div className="form-field">
@@ -1184,7 +1187,7 @@ export default function Transport() {
                 <td>{assignment.route_name || "-"}</td>
                 <td>{assignment.vehicle_no || "-"}</td>
                 <td>{assignment.stop_name || "-"}</td>
-                <td>{assignment.start_date || "-"}</td>
+                <td>{assignment.start_date || "-"} ? {assignment.direction || "Both"}</td>
                 <td>{assignment.end_date || "-"}</td>
                 <td><span className={assignment.status === "Active" ? "status active" : "status pending"}>{assignment.status}</span></td>
                 <td><RowActions onEdit={() => editAssignment(assignment)} onDelete={() => handleDelete("assignment", assignment.id)} /></td>

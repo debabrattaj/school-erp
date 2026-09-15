@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, QrCode, Trash2, X, Send } from "lucide-react";
 import QRCode from "qrcode";
+import { payPortalFee } from "../utils/checkout";
+import FamilyNotices, { FamilyPaymentReports } from "../components/FamilyNotices";
 
 import API, { API_BASE } from "../api";
 import { getUser, isFeatureEnabled } from "../auth";
@@ -13,6 +15,7 @@ import { TrendArea, CollectionMeter } from "../components/DashboardCharts";
 // the tab alone would leave the endpoints reachable.
 const TABS = [
   ["summary", "Summary"],
+  ["notices", "Notices"],
   ["performance", "Performance"],
   ["attendance", "Attendance"],
   ["marks", "Marks"],
@@ -131,6 +134,8 @@ export default function Portal() {
   const [activeTab, setActiveTab] = useState("summary");
   const [message, setMessage] = useState("");
   const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [payingFee, setPayingFee] = useState(null);
   const [upiPayment, setUpiPayment] = useState(null);
   const [upiReference, setUpiReference] = useState("");
   const [confirmingUpi, setConfirmingUpi] = useState(false);
@@ -1067,9 +1072,28 @@ export default function Portal() {
   useEffect(() => {
     if (!isParent) return;
     API.get("/portal/payment/config")
-      .then((r) => setPaymentEnabled(Boolean(r.data?.enabled)))
+      .then((r) => { setPaymentEnabled(Boolean(r.data?.upi_enabled)); setGatewayEnabled(Boolean(r.data?.gateway_enabled)); })
       .catch(() => setPaymentEnabled(false));
   }, [isParent]);
+
+  async function openGatewayPayment(fee) {
+    setPayingFee(fee.id); setMessage("");
+    try {
+      const verified = await payPortalFee(selectedId, fee.id);
+      setMessage(verified ? "Payment verified." : "Checkout closed. No payment was confirmed.");
+      await loadStudentData(selectedId);
+    } catch (e) { setMessage(getApiErrorMessage(e, e.message || "Verification is pending. Check your bank before retrying.")); }
+    finally { setPayingFee(null); }
+  }
+
+  async function downloadPublishedResult(exam) {
+    try {
+      const { data } = await API.get(`/portal/students/${selectedId}/results/${exam.release_id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(data); const a = document.createElement("a");
+      a.href = url; a.download = `report-v${exam.version}.pdf`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { setMessage("Unable to download this published report."); }
+  }
 
   async function openUpiPayment(fee) {
     setMessage("");
@@ -1110,7 +1134,7 @@ export default function Portal() {
         `/portal/students/${selectedId}/fees/${upiPayment.fee.id}/payment/upi/confirm`,
         { reference }
       );
-      setMessage("UPI payment recorded.");
+      setMessage("Payment reference submitted for bank verification. Your balance changes after approval.");
       closeUpiPayment();
       await loadStudentData(selectedId);
     } catch (error) {
@@ -1384,10 +1408,12 @@ export default function Portal() {
             </>
           )}
 
+          {!loading && activeTab === "notices" && selectedId && <FamilyNotices key={selectedId} studentId={selectedId} />}
           {!loading && activeTab === "marks" && marks && (
             <>
               {marks.exams.map((exam) => (
-                <div key={exam.exam_name} style={{ marginBottom: "1.5rem" }}>
+                <div key={exam.release_id} style={{ marginBottom: "1.5rem" }}>
+                  <button className="secondary-button" onClick={() => downloadPublishedResult(exam)}>Download published report ? v{exam.version}</button>
                   <h4>
                     {exam.exam_name} ({exam.academic_year || "-"}) —{" "}
                     {exam.percentage != null ? `${exam.percentage}%` : "-"}
@@ -1416,12 +1442,13 @@ export default function Portal() {
                   </div>
                 </div>
               ))}
-              {!marks.exams.length && <p>No marks recorded yet.</p>}
+              {!marks.exams.length && <p>No results have been published yet.</p>}
             </>
           )}
 
           {!loading && activeTab === "fees" && fees && (
             <>
+              <FamilyPaymentReports key={`${selectedId}-${fees.totals?.total_paid}`} studentId={selectedId} />
               <div className="message-box">
                 Total: {fees.totals.total_amount} | Paid: {fees.totals.total_paid} |{" "}
                 <strong>Due: {fees.totals.total_due}</strong>
@@ -1452,6 +1479,7 @@ export default function Portal() {
                       <td>{fee.receipt_no || "-"}</td>
                       {isParent && (
                         <td>
+                          {gatewayEnabled && fee.due_amount > 0 && <button className="secondary-button" disabled={payingFee !== null} onClick={() => openGatewayPayment(fee)}>{payingFee === fee.id ? "Verifying?" : "Pay online"}</button>}
                           {paymentEnabled && fee.due_amount > 0 && (
                             <button
                               type="button"
@@ -2493,7 +2521,7 @@ export default function Portal() {
               />
               <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
                 After the payment succeeds in the UPI app, enter its reference
-                number here to record the fee as paid.
+                number here for staff verification. It does not mark the fee as paid.
               </p>
             </div>
 
@@ -2519,7 +2547,7 @@ export default function Portal() {
                 onClick={confirmUpiPayment}
                 disabled={confirmingUpi}
               >
-                {confirmingUpi ? "Recording…" : "Confirm payment"}
+                {confirmingUpi ? "Recording…" : "Submit for verification"}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List, Any
+from pydantic import BaseModel, Field
+from typing import Optional, List, Any, Literal
 from datetime import date, datetime, time
 
 
@@ -307,6 +307,7 @@ class SchoolClassResponse(SchoolClassBase):
 class AttendanceBase(BaseModel):
     student_id: int
     attendance_date: date
+    period_no: int = Field(default=0, ge=0, le=30)
     academic_year: Optional[str] = None
     class_id: Optional[int] = None
     class_name_snapshot: Optional[str] = None
@@ -359,6 +360,7 @@ class AttendanceBulkEntry(BaseModel):
 
 class AttendanceBulkCreate(BaseModel):
     attendance_date: date
+    period_no: int = Field(default=0, ge=0, le=30)
     class_id: Optional[int] = None
     academic_year: Optional[str] = None
     entries: List[AttendanceBulkEntry]
@@ -652,6 +654,7 @@ class MarkBase(BaseModel):
     subject: Optional[str] = None
 
     marks_obtained: float
+    assessment_status: Literal["Scored", "Absent", "Exempt"] = "Scored"
     max_marks: Optional[float] = 100
     total_marks: Optional[float] = 100
 
@@ -707,6 +710,7 @@ class MarkUpdate(BaseModel):
     exam_name_snapshot: Optional[str] = None
     subject: Optional[str] = None
     marks_obtained: Optional[float] = None
+    assessment_status: Optional[Literal["Scored", "Absent", "Exempt"]] = None
     max_marks: Optional[float] = None
     total_marks: Optional[float] = None
     grade: Optional[str] = None
@@ -1212,6 +1216,9 @@ class AdmissionDocumentCreate(AdmissionDocumentBase):
 
 
 class AdmissionDocumentResponse(AdmissionDocumentBase):
+    review_status: str = "Received"
+    reviewed_by: Optional[str] = None
+    review_note: Optional[str] = None
     id: int
     inquiry_id: int
     uploaded_by: Optional[str] = None
@@ -1735,6 +1742,7 @@ class TransportStopResponse(TransportStopBase):
 
 
 class TransportAssignmentBase(BaseModel):
+    direction: Literal["Morning", "Afternoon", "Both"] = "Both"
     student_id: int
     route_id: int
     vehicle_id: Optional[int] = None

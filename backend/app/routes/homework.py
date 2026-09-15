@@ -261,7 +261,7 @@ def grade_submission(
 
     # Feedback with no score is still a graded piece of work -- plenty of
     # homework is returned with comments and no mark.
-    submission.status = "Graded"
+    submission.status = "DraftGraded"
     submission.graded_by = current_user.name
     submission.graded_at = datetime.utcnow()
 
@@ -269,3 +269,26 @@ def grade_submission(
     db.refresh(submission)
     student = db.query(Student).filter(Student.id == submission.student_id).first()
     return _submission_response(submission, student)
+
+
+@router.post("/{assignment_id}/submissions/{submission_id}/{action}")
+def decide_submission(assignment_id: int, submission_id: int, action: str, payload: dict,
+                      db: Session = Depends(get_db),
+                      current_user: User = Depends(require_roles(MANAGERS))):
+    from app.workflows import required_text
+    row = db.query(AssignmentSubmission).filter(AssignmentSubmission.id == submission_id,
+        AssignmentSubmission.assignment_id == assignment_id).first()
+    if not row: raise HTTPException(404, "Submission not found")
+    if action not in {"publish", "return"}: raise HTTPException(400, "Invalid action")
+    note = required_text(payload.get("note"))
+    if action == "publish":
+        if row.status != "DraftGraded": raise HTTPException(409, "Save a draft grade first.")
+        row.status = "Graded"
+    else:
+        if row.status == "Returned": raise HTTPException(409, "Already returned for revision.")
+        row.status = "Returned"
+        row.feedback = note
+        row.marks_awarded = None
+    db.info["change_reason"] = note
+    db.commit(); db.refresh(row)
+    return _submission_response(row, db.query(Student).filter(Student.id == row.student_id).first())

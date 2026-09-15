@@ -73,6 +73,7 @@ export default function Attendance() {
   const [classOptions, setClassOptions] = useState([]);
   const [bulkClassId, setBulkClassId] = useState("");
   const [bulkDate, setBulkDate] = useState("");
+  const [bulkPeriod, setBulkPeriod] = useState(0);
   const [bulkRoster, setBulkRoster] = useState([]);
   const [bulkRosterLoaded, setBulkRosterLoaded] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -170,7 +171,7 @@ export default function Attendance() {
 
     try {
       const response = await API.get("/attendance/roster", {
-        params: { class_id: bulkClassId, attendance_date: bulkDate },
+        params: { class_id: bulkClassId, attendance_date: bulkDate, period_no: bulkPeriod },
       });
 
       setBulkRoster(
@@ -215,6 +216,7 @@ export default function Attendance() {
     try {
       await API.post("/attendance/bulk", {
         attendance_date: bulkDate,
+        period_no: bulkPeriod,
         class_id: Number(bulkClassId),
         entries: bulkRoster.map((row) => ({
           student_id: row.student_id,
@@ -801,7 +803,7 @@ export default function Attendance() {
           <div className="form-grid">
             <div className="form-field">
               <label>Class *</label>
-              <select value={bulkClassId} onChange={(e) => setBulkClassId(e.target.value)}>
+              <select value={bulkClassId} onChange={(e) => { setBulkClassId(e.target.value); setBulkRoster([]); setBulkRosterLoaded(false); }}>
                 <option value="">Select Class</option>
                 {classOptions.map((schoolClass) => (
                   <option key={schoolClass.id} value={schoolClass.id}>
@@ -816,10 +818,11 @@ export default function Attendance() {
               <input
                 type="date"
                 value={bulkDate}
-                onChange={(e) => setBulkDate(e.target.value)}
+                onChange={(e) => { setBulkDate(e.target.value); setBulkRoster([]); setBulkRosterLoaded(false); }}
               />
             </div>
 
+            <div className="form-field"><label>Period (0 = daily)</label><input type="number" min="0" max="30" value={bulkPeriod} onChange={e => { setBulkPeriod(Number(e.target.value)); setBulkRoster([]); setBulkRosterLoaded(false); }} /></div>
             <div className="form-field bulk-roster-load">
               <label>&nbsp;</label>
               <button
@@ -1045,7 +1048,7 @@ export default function Attendance() {
               { key: "student", label: "Student", render: (attendance) => getStudentName(attendance.student_id), value: (attendance) => getStudentName(attendance.student_id) },
               { key: "class", label: "Class", render: (attendance) => getClassLabel(attendance), value: (attendance) => getClassLabel(attendance) },
               { key: "academic_year", label: "Academic Year", render: (attendance) => attendance.academic_year || "-" },
-              { key: "attendance_date", label: "Date", render: (attendance) => attendance.attendance_date || "-" },
+              { key: "attendance_date", label: "Date", render: (attendance) => `${attendance.attendance_date || "-"} ? ${attendance.period_no ? `Period ${attendance.period_no}` : "Daily"}` },
               {
                 key: "status",
                 label: "Status",

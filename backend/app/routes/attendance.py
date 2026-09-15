@@ -73,7 +73,8 @@ def mark_attendance(
 
     existing_attendance = db.query(Attendance).filter(
         Attendance.student_id == attendance.student_id,
-        Attendance.attendance_date == attendance.attendance_date
+        Attendance.attendance_date == attendance.attendance_date,
+        Attendance.period_no == attendance.period_no,
     ).first()
 
     if existing_attendance:
@@ -85,6 +86,7 @@ def mark_attendance(
     new_attendance = Attendance(
         student_id=attendance.student_id,
         attendance_date=attendance.attendance_date,
+        period_no=attendance.period_no,
         academic_year=attendance.academic_year or get_default_academic_year(db),
         class_id=attendance.class_id or student.class_id,
         class_name_snapshot=attendance.class_name_snapshot or student.class_name,
@@ -165,6 +167,7 @@ def get_class_roster(
     class_id: int,
     attendance_date: date,
     section: str | None = None,
+    period_no: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(["Admin", "Principal", "Teacher"])
@@ -193,6 +196,7 @@ def get_class_roster(
         existing_records = db.query(Attendance).filter(
             Attendance.student_id.in_(student_ids),
             Attendance.attendance_date == attendance_date,
+            Attendance.period_no == period_no,
         ).all()
         existing_by_student = {
             record.student_id: record for record in existing_records
@@ -252,6 +256,8 @@ def bulk_mark_attendance(
     student_ids = [entry.student_id for entry in payload.entries]
     students = db.query(Student).filter(Student.id.in_(student_ids)).all()
     student_by_id = {student.id: student for student in students}
+    if payload.class_id and any(s.class_id != payload.class_id for s in students):
+        raise HTTPException(400, "Every student must belong to the selected class.")
 
     missing_ids = [sid for sid in student_ids if sid not in student_by_id]
     if missing_ids:
@@ -263,6 +269,7 @@ def bulk_mark_attendance(
     existing_records = db.query(Attendance).filter(
         Attendance.student_id.in_(student_ids),
         Attendance.attendance_date == payload.attendance_date,
+        Attendance.period_no == payload.period_no,
     ).all()
     existing_by_student = {
         record.student_id: record for record in existing_records
@@ -286,6 +293,7 @@ def bulk_mark_attendance(
             record = Attendance(
                 student_id=entry.student_id,
                 attendance_date=payload.attendance_date,
+                period_no=payload.period_no,
                 academic_year=academic_year,
                 class_id=payload.class_id or student.class_id,
                 class_name_snapshot=student.class_name,

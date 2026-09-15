@@ -1165,6 +1165,8 @@ async def audit_middleware(request, call_next):
     return response
 
 app.include_router(auth.router)
+from app.routes import workflows as workflow_routes
+app.include_router(workflow_routes.router)
 app.include_router(academic_years.router)
 app.include_router(portal.router)
 app.include_router(chatbot.router)

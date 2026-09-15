@@ -76,26 +76,26 @@ def dashboard_summary(
             2
         )
 
-    today_attendance_total = db.query(Attendance).filter(
+    today_attendance_total = db.query(Attendance).filter(Attendance.period_no == 0).filter(
         Attendance.attendance_date == today
     ).count()
 
-    today_present = db.query(Attendance).filter(
+    today_present = db.query(Attendance).filter(Attendance.period_no == 0).filter(
         Attendance.attendance_date == today,
         Attendance.status == "Present"
     ).count()
 
-    today_absent = db.query(Attendance).filter(
+    today_absent = db.query(Attendance).filter(Attendance.period_no == 0).filter(
         Attendance.attendance_date == today,
         Attendance.status == "Absent"
     ).count()
 
-    today_late = db.query(Attendance).filter(
+    today_late = db.query(Attendance).filter(Attendance.period_no == 0).filter(
         Attendance.attendance_date == today,
         Attendance.status == "Late"
     ).count()
 
-    today_excused = db.query(Attendance).filter(
+    today_excused = db.query(Attendance).filter(Attendance.period_no == 0).filter(
         Attendance.attendance_date == today,
         Attendance.status == "Excused"
     ).count()
@@ -223,11 +223,11 @@ def dashboard_trends(
     # ---- Daily attendance % ----
     # Anchor the window to the most recent day that actually has attendance, so
     # the trend always shows real data (in normal use that latest day is today).
-    latest = db.query(func.max(Attendance.attendance_date)).scalar()
+    latest = db.query(func.max(Attendance.attendance_date)).filter(Attendance.period_no == 0).scalar()
     anchor = latest if (latest and latest < today) else today
     start = anchor - timedelta(days=days - 1)
     records = (
-        db.query(Attendance.attendance_date, Attendance.status)
+        db.query(Attendance.attendance_date, Attendance.status).filter(Attendance.period_no == 0)
         .filter(
             Attendance.attendance_date >= start,
             Attendance.attendance_date <= anchor,

@@ -59,6 +59,13 @@ MODULE_KEYS = {key for key, _ in MODULES}
 
 # Map a request path prefix to a feature key. Longest prefix wins.
 PATH_FEATURE_MAP = {
+    "/workflows/payments": "fees",
+    "/workflows/results": "marks",
+    "/workflows/attendance": "attendance",
+    "/workflows/admissions": "admissions",
+    "/workflows/snapshots": "settings",
+    "/workflows/history": "settings",
+    "/workflows/export": "settings",
     "/students": "students",
     "/teachers": "teachers",
     "/classes": "classes",
