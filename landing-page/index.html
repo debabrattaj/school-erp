@@ -1,7 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    try {
+      document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") === "light" ? "light" : "dark");
+    } catch (_) {}
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>School Management System powered by AI for Indian Schools | Schoolment</title>
   <meta name="description" content="Schoolment is an AI powered cloud school management system with 40+ connected modules for admissions, fees, attendance, exams, operations and parent communication." />
@@ -10,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/styles.css?v=footer-grid-2" />
+  <link rel="stylesheet" href="/styles.css?v=light-grid-16" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cg fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4 4)'%3E%3Cpath d='M12 3 3.5 8h17z'/%3E%3Cpath d='M6.5 8v9'/%3E%3Cpath d='M10 8v9'/%3E%3Cpath d='M14 8v9'/%3E%3Cpath d='M17.5 8v9'/%3E%3Cpath d='M4 20h16'/%3E%3C/g%3E%3C/svg%3E" />
 
   <!-- Open Graph / Twitter Card — for link previews when shared on
@@ -123,7 +128,7 @@
     <div class="container hero-grid">
       <div class="hero-copy">
         <span class="eyebrow">Cloud school ERP · 40+ connected modules</span>
-        <h1>School Management System Powered by AI</h1>
+        <h1>School Management System <span class="hero-title-accent">Powered by AI</span></h1>
         <p class="lede">
           Run admissions, fees, accounts, attendance, exams, staff and campus
           operations from one configurable platform. Keep families informed
@@ -145,7 +150,7 @@
         <div class="mock-card mock-main">
           <div class="mock-head">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <em>Principal dashboard</em>
+            <em>Principal dashboard</em><span class="dashboard-preview-label">Preview</span>
           </div>
           <div class="mock-stats">
             <div><b>1,284</b><span>Students</span><i class="trend up">▲ 3.2%</i></div>
@@ -802,6 +807,6 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=dark-default-1"></script>
 </body>
 </html>

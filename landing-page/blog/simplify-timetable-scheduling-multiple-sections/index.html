@@ -1,7 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    try {
+      document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") === "light" ? "light" : "dark");
+    } catch (_) {}
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How to Simplify Timetable Scheduling for Schools with Multiple Sections | Schoolment Blog</title>
   <meta name="description" content="Timetable scheduling gets exponentially harder with every added section or subject. Here's how to keep it manageable without a clash-prone spreadsheet." />
@@ -10,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/styles.css?v=footer-grid-2" />
+  <link rel="stylesheet" href="/styles.css?v=light-grid-16" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cg fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4 4)'%3E%3Cpath d='M12 3 3.5 8h17z'/%3E%3Cpath d='M6.5 8v9'/%3E%3Cpath d='M10 8v9'/%3E%3Cpath d='M14 8v9'/%3E%3Cpath d='M17.5 8v9'/%3E%3Cpath d='M4 20h16'/%3E%3C/g%3E%3C/svg%3E" />
 
   <meta property="og:type" content="article" />
@@ -341,6 +346,6 @@
   </footer>
 
 
-  <script src="/script.js"></script>
+  <script src="/script.js?v=dark-default-1"></script>
 </body>
 </html>

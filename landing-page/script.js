@@ -1,15 +1,15 @@
-// ===== Theme toggle (respects system + saved preference) =====
+// ===== Theme toggle (dark by default; respects an explicit saved choice) =====
 (function () {
   const root = document.documentElement;
-  const saved = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  root.setAttribute("data-theme", saved || (prefersDark ? "dark" : "light"));
+  let saved;
+  try { saved = localStorage.getItem("theme"); } catch (_) {}
+  root.setAttribute("data-theme", saved === "light" ? "light" : "dark");
 
   const toggle = document.getElementById("themeToggle");
   toggle && toggle.addEventListener("click", () => {
     const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
+    try { localStorage.setItem("theme", next); } catch (_) {}
   });
 })();
 
