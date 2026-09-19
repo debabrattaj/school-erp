@@ -223,9 +223,9 @@ p { margin: 0; }
     var(--surface);
 }
 .city-panel-title { display: flex; align-items: center; gap: .75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
-.city-panel-title .card-icon { width: 42px; height: 42px; margin: 0; }
-.city-panel-title b, .city-panel-title span { display: block; }
-.city-panel-title span { color: var(--muted); font-size: .78rem; margin-top: .12rem; }
+.city-panel-title .card-icon { width: 42px; height: 42px; flex-shrink: 0; margin: 0; line-height: 1; }
+.city-panel-title > div > b, .city-panel-title > div > span { display: block; }
+.city-panel-title > div > span { color: var(--muted); font-size: .78rem; margin-top: .12rem; }
 .city-workflows { display: grid; gap: .7rem; margin-top: 1rem; }
 .city-workflow {
   display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: .75rem;
