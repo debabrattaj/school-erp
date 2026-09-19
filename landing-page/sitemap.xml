@@ -182,7 +182,7 @@
   </url>
   <url>
     <loc>https://schoolment.com/blog/</loc>
-    <lastmod>2026-09-01</lastmod>
+    <lastmod>2026-09-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -369,6 +369,12 @@
   <url>
     <loc>https://schoolment.com/blog/secure-online-exam-system-for-schools/</loc>
     <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/top-20-school-erp-management-systems-india/</loc>
+    <lastmod>2026-09-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
