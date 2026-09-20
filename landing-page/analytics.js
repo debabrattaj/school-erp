@@ -73,17 +73,6 @@
     '<button type="button" class="btn btn-ghost" data-analytics-choice="accepted">Accept analytics</button>' +
     '</div>';
   document.body.appendChild(banner);
-  const settings = document.createElement("button");
-  settings.type = "button";
-  settings.className = "analytics-settings";
-  settings.textContent = "Analytics preferences";
-  settings.setAttribute("aria-controls", banner.id);
-  settings.addEventListener("click", () => {
-    banner.hidden = false;
-    banner.querySelector("button").focus();
-  });
-  const footer = document.querySelector(".site-footer .container") || document.body;
-  footer.appendChild(settings);
   banner.addEventListener("click", (event) => {
     const button = event.target.closest("[data-analytics-choice]");
     if (!button) return;
@@ -97,7 +86,6 @@
       // Remove an already-loaded tag and its listeners by reopening without consent.
       if (loaded) { location.reload(); return; }
     }
-    settings.focus({ preventScroll: true });
   });
   window.addEventListener("storage", (event) => {
     if ((event.key === storageKey || event.key === null) && loaded) {
