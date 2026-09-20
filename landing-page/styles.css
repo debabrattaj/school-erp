@@ -1,3 +1,24 @@
+/* Optional public-site analytics consent */
+.analytics-consent {
+  position: fixed; z-index: 100; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  width: min(900px, calc(100% - 2rem)); padding: 1.25rem;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: var(--shadow-lg);
+  display: flex; align-items: center; gap: 1.5rem;
+}
+.analytics-consent[hidden] { display: none; }
+.analytics-consent h2 { font-size: 1rem; margin: 0 0 .4rem; }
+.analytics-consent p { font-size: .85rem; line-height: 1.6; color: var(--muted); margin: 0; }
+.analytics-consent p a { color: var(--brand); text-decoration: underline; }
+.analytics-consent-actions { display: flex; gap: .6rem; flex-shrink: 0; }
+.analytics-consent-actions .btn { font-size: .8rem; }
+.analytics-settings { font: inherit; color: var(--muted); background: none; border: 0; padding: .75rem 0; text-decoration: underline; cursor: pointer; }
+@media (max-width: 760px) {
+  .analytics-consent { flex-direction: column; align-items: stretch; gap: 1rem; max-height: 80dvh; overflow-y: auto; }
+  .analytics-consent-actions { flex-wrap: wrap; }
+  .analytics-consent-actions .btn { flex: 1; white-space: normal; }
+}
+
 /* ===== Design tokens ===== */
 :root {
   color-scheme: light;
@@ -892,8 +913,15 @@ h1, h2, h3 { text-wrap: balance; }
 .card-icon { flex-shrink: 0; border-radius: 13px; }
 .stats-band { background: linear-gradient(115deg, #46338d, #5140ab 55%, #155a70); }
 .module-hero {
-  position: relative; isolation: isolate;
-  padding-block: 3rem 2rem;
+  position: relative; isolation: isolate; overflow: hidden;
+  padding-block: clamp(2.5rem, 5vw, 4.5rem) 3rem;
+}
+.module-hero::before, .module-hero.hero-dots::before {
+  content: ""; display: block; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 82% 30%, color-mix(in srgb, var(--brand-2) 19%, transparent), transparent 55%),
+    radial-gradient(ellipse at 20% 4%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
+  -webkit-mask-image: none; mask-image: none;
 }
 .module-hero::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
@@ -901,11 +929,55 @@ h1, h2, h3 { text-wrap: balance; }
   background-image: linear-gradient(to right, var(--hero-grid-line) 1px, transparent 1px),
                     linear-gradient(to bottom, var(--hero-grid-line) 1px, transparent 1px);
   background-size: 56px 56px;
-  -webkit-mask-image: radial-gradient(ellipse 65% 85% at 50% 40%, #0009 8%, #0005 42%, transparent 85%);
-  mask-image: radial-gradient(ellipse 65% 85% at 50% 40%, #0009 8%, #0005 42%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse 65% 85% at 50% 40%, #000 8%, #0009 42%, transparent 85%);
+  mask-image: radial-gradient(ellipse 65% 85% at 50% 40%, #000 8%, #0009 42%, transparent 85%);
 }
-.module-hero.hero-dots::before { display: none; }
-.module-hero h1 { letter-spacing: -.04em; line-height: 1.15; max-width: 28ch; }
+.module-hero h1 {
+  font-size: clamp(2.15rem, 3.9vw, 3.4rem); font-weight: 800;
+  letter-spacing: -.045em; line-height: 1.12; max-width: 29ch; padding-bottom: .08em;
+  background: linear-gradient(115deg, var(--text) 25%, var(--brand) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.module-hero .lede { line-height: 1.85; max-width: 62ch; }
+.module-hero-icon {
+  color: var(--brand); border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--border));
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  box-shadow: 0 10px 28px -18px var(--brand);
+}
+.module-hero .post-date { color: var(--muted); margin-top: 1.25rem; }
+.breadcrumb a, .breadcrumb span[aria-current] { opacity: 1; }
+.article-toc, .faq details, .faq-item {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 4%, var(--surface)), var(--surface));
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--border));
+}
+.blog-section-head { max-width: none; }
+.blog-hero-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 3.5rem; align-items: center; }
+.blog-index-hero h1 { font-size: clamp(2.15rem, 3.6vw, 3.4rem); }
+.featured-article {
+  display: block; min-width: 0; padding: clamp(1.5rem, 3vw, 2rem); border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, color-mix(in srgb, var(--brand) 12%, var(--surface)), var(--surface) 80%);
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
+  box-shadow: 0 24px 60px -35px #0009, inset 0 1px 0 #ffffff18;
+  transition: transform .2s ease, border-color .2s ease;
+}
+.featured-article:hover { transform: translateY(-3px); border-color: var(--brand); }
+.featured-article-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.1rem; }
+.featured-article-top .eyebrow { margin: 0; font-size: .65rem; }
+.featured-article-number { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -.06em; color: var(--brand); }
+.featured-article h2 { font-size: clamp(1.4rem, 2.1vw, 1.8rem); line-height: 1.25; letter-spacing: -.035em; margin-bottom: 1rem; }
+.featured-article p { color: var(--muted); font-size: .95rem; line-height: 1.75; }
+.featured-article-tags { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.3rem 0; }
+.featured-article-tags li { font-size: .7rem; color: var(--muted); padding: .3rem .6rem; border: 1px solid var(--border); border-radius: 999px; }
+.featured-article-link { display: flex; justify-content: space-between; align-items: center; gap: .75rem; color: var(--brand); font-weight: 700; border-top: 1px solid var(--border); padding-top: 1rem; }
+@media (max-width: 920px) {
+  .blog-hero-layout { grid-template-columns: 1fr; gap: 2rem; }
+  .featured-article { max-width: 680px; }
+}
+@media (max-width: 560px) {
+  .module-hero h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
+  .module-hero .lede { font-size: 1rem; }
+  .featured-article-number { font-size: 2.75rem; }
+}
 .module-cta {
   background: radial-gradient(ellipse at 15% 0%, color-mix(in srgb, var(--brand) 15%, transparent), transparent 65%), var(--surface);
   border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
