@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://schoolment.com/</loc>
-    <lastmod>2026-09-19</lastmod>
+    <lastmod>2026-09-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -50,7 +50,7 @@
   </url>
   <url>
     <loc>https://schoolment.com/modules/learning-management-system-for-schools/</loc>
-    <lastmod>2026-09-02</lastmod>
+    <lastmod>2026-09-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -182,7 +182,7 @@
   </url>
   <url>
     <loc>https://schoolment.com/blog/</loc>
-    <lastmod>2026-09-19</lastmod>
+    <lastmod>2026-09-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -194,13 +194,13 @@
   </url>
   <url>
     <loc>https://schoolment.com/blog/what-does-an-lms-do/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://schoolment.com/blog/best-school-management-system-erp-odisha/</loc>
-    <lastmod>2026-09-10</lastmod>
+    <lastmod>2026-09-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -377,5 +377,57 @@
     <lastmod>2026-09-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-delhi/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-mumbai/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-noida/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-pune/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-jaipur/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-bangalore/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-chennai/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-hyderabad/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-ahmedabad/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-gurugram/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-lms-software-bhopal/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-management-system-bhubaneswar/</loc>
+    <lastmod>2026-09-23</lastmod>
+  </url>
+  <url>
+    <loc>https://schoolment.com/blog/school-erp-and-lms-software-bhubaneswar/</loc>
+    <lastmod>2026-09-23</lastmod>
   </url>
 </urlset>
