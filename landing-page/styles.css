@@ -1225,6 +1225,34 @@ h1, h2, h3 { text-wrap: balance; }
   .city-panel-title b { font-size: .95rem; }
   .module-cta { padding: 1.5rem; }
 }
+/* Mobile: quiet, softly blended colour instead of the desktop square grid. */
+@media (max-width: 760px) {
+  .site-header::before,
+  .site-header + .container:has(> .breadcrumb)::before,
+  .hero::after,
+  .module-hero::after { display: none; }
+
+  .site-header,
+  .site-header + .container:has(> .breadcrumb) {
+    background-image: none;
+    background-color: var(--bg);
+  }
+
+  .hero::before,
+  .module-hero::before,
+  .module-hero.hero-dots::before {
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse at 100% 28%, color-mix(in srgb, var(--brand-2) 16%, transparent), transparent 66%),
+      radial-gradient(ellipse at 0% 48%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 62%);
+    background-size: 100% 100%;
+    background-position: center top;
+    background-attachment: scroll;
+    background-repeat: no-repeat;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 58%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 58%, transparent);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
