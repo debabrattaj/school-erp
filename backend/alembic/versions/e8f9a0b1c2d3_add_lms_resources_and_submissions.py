@@ -91,8 +91,8 @@ def upgrade() -> None:
             sa.Column("due_date", sa.Date(), nullable=True),
             sa.Column("attachment_url", sa.String(), nullable=True),
             sa.Column("max_marks", sa.Float(), nullable=True),
-            sa.Column("accepts_submissions", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-            sa.Column("allow_late_submission", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("accepts_submissions", sa.Boolean(), nullable=False, server_default=sa.true()),
+            sa.Column("allow_late_submission", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("teacher_id", sa.Integer(), nullable=True),
             sa.Column("teacher_name_snapshot", sa.String(), nullable=True),
             sa.Column("created_at", sa.DateTime(), nullable=True),
@@ -117,7 +117,7 @@ def upgrade() -> None:
             sa.Column("attachment_url", sa.String(), nullable=True),
             sa.Column("status", sa.String(), nullable=False, server_default="Submitted"),
             sa.Column("submitted_at", sa.DateTime(), nullable=True),
-            sa.Column("is_late", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("is_late", sa.Boolean(), nullable=False, server_default=sa.false()),
             sa.Column("submitted_by", sa.String(), nullable=True),
             sa.Column("marks_awarded", sa.Float(), nullable=True),
             sa.Column("feedback", sa.Text(), nullable=True),
@@ -144,11 +144,11 @@ def upgrade() -> None:
             # accept work rather than silently closed.
             if "accepts_submissions" not in columns:
                 batch.add_column(sa.Column(
-                    "accepts_submissions", sa.Boolean(), nullable=False, server_default=sa.text("1"),
+                    "accepts_submissions", sa.Boolean(), nullable=False, server_default=sa.true(),
                 ))
             if "allow_late_submission" not in columns:
                 batch.add_column(sa.Column(
-                    "allow_late_submission", sa.Boolean(), nullable=False, server_default=sa.text("1"),
+                    "allow_late_submission", sa.Boolean(), nullable=False, server_default=sa.true(),
                 ))
 
 

@@ -11,14 +11,41 @@ branch_labels = None
 depends_on = None
 
 
+def _add_column(table, column):
+    columns = {c['name'] for c in sa.inspect(op.get_bind()).get_columns(table)}
+    if column.name not in columns:
+        op.add_column(table, column)
+
+
+def _create_table(name, *elements):
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(name):
+        op.create_table(name, *elements)
+        return
+    # App startup may have created these tables before Alembic ran.
+    # Do not silently accept an incomplete pre-existing table.
+    actual = {c['name'] for c in inspector.get_columns(name)}
+    expected = {c.name for c in elements if isinstance(c, sa.Column)}
+    if expected - actual:
+        raise RuntimeError(f"Existing table {name} is missing columns: {sorted(expected - actual)}")
+
+
+def _create_index(name, table, columns):
+    indexes = {i['name']: i for i in sa.inspect(op.get_bind()).get_indexes(table)}
+    if name not in indexes:
+        op.create_index(name, table, columns)
+    elif indexes[name]['column_names'] != columns:
+        raise RuntimeError(f"Existing index {name} has unexpected columns")
+
+
 def upgrade():
-    op.add_column("transport_assignments", sa.Column("direction", sa.String(), nullable=False, server_default="Both"))
-    op.add_column("attendance", sa.Column("period_no", sa.Integer(), nullable=False, server_default="0"))
-    op.add_column("marks", sa.Column("assessment_status", sa.String(), nullable=False, server_default="Scored"))
-    op.add_column("admission_documents", sa.Column("review_status", sa.String(), nullable=False, server_default="Received"))
-    op.add_column("admission_documents", sa.Column("reviewed_by", sa.String(), nullable=True))
-    op.add_column("admission_documents", sa.Column("review_note", sa.Text(), nullable=True))
-    op.create_table('record_revisions',
+    _add_column("transport_assignments", sa.Column("direction", sa.String(), nullable=False, server_default="Both"))
+    _add_column("attendance", sa.Column("period_no", sa.Integer(), nullable=False, server_default="0"))
+    _add_column("marks", sa.Column("assessment_status", sa.String(), nullable=False, server_default="Scored"))
+    _add_column("admission_documents", sa.Column("review_status", sa.String(), nullable=False, server_default="Received"))
+    _add_column("admission_documents", sa.Column("reviewed_by", sa.String(), nullable=True))
+    _add_column("admission_documents", sa.Column("review_note", sa.Text(), nullable=True))
+    _create_table('record_revisions',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('entity', sa.String(), nullable=False),
         sa.Column('entity_id', sa.Integer(), nullable=False),
@@ -29,9 +56,9 @@ def upgrade():
         sa.Column('reason', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
     )
-    op.create_index('ix_record_revisions_entity', 'record_revisions', ['entity'])
-    op.create_index('ix_record_revisions_entity_id', 'record_revisions', ['entity_id'])
-    op.create_table('result_releases',
+    _create_index('ix_record_revisions_entity', 'record_revisions', ['entity'])
+    _create_index('ix_record_revisions_entity_id', 'record_revisions', ['entity_id'])
+    _create_table('result_releases',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('exam_id', sa.Integer(), sa.ForeignKey('exams.id'), nullable=False),
         sa.Column('student_id', sa.Integer(), sa.ForeignKey('students.id'), nullable=False),
@@ -47,9 +74,9 @@ def upgrade():
         sa.Column('published_at', sa.DateTime(), nullable=True),
         sa.UniqueConstraint('exam_id', 'student_id', 'version', name='uq_result_release_version'),
     )
-    op.create_index('ix_result_releases_exam_id', 'result_releases', ['exam_id'])
-    op.create_index('ix_result_releases_student_id', 'result_releases', ['student_id'])
-    op.create_table('payment_cases',
+    _create_index('ix_result_releases_exam_id', 'result_releases', ['exam_id'])
+    _create_index('ix_result_releases_student_id', 'result_releases', ['student_id'])
+    _create_table('payment_cases',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('fee_id', sa.Integer(), sa.ForeignKey('fees.id'), nullable=False),
         sa.Column('kind', sa.String(), nullable=False),
@@ -67,9 +94,9 @@ def upgrade():
         sa.Column('decided_at', sa.DateTime(), nullable=True),
         sa.UniqueConstraint('kind', 'reference', name='uq_payment_case_reference'),
     )
-    op.create_index('ix_payment_cases_fee_id', 'payment_cases', ['fee_id'])
-    op.create_index('ix_payment_cases_status', 'payment_cases', ['status'])
-    op.create_table('settlement_entries',
+    _create_index('ix_payment_cases_fee_id', 'payment_cases', ['fee_id'])
+    _create_index('ix_payment_cases_status', 'payment_cases', ['status'])
+    _create_table('settlement_entries',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('reference', sa.String(), nullable=False, unique=True),
         sa.Column('gross_amount', sa.Float(), nullable=False),
@@ -81,7 +108,7 @@ def upgrade():
         sa.Column('imported_by', sa.String(), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
     )
-    op.create_table('operational_snapshots',
+    _create_table('operational_snapshots',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('kind', sa.String(), nullable=False),
         sa.Column('scope', sa.String(), nullable=False),
@@ -96,9 +123,9 @@ def upgrade():
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.UniqueConstraint('kind', 'scope', 'version', name='uq_operational_snapshot_version'),
     )
-    op.create_index('ix_operational_snapshots_kind', 'operational_snapshots', ['kind'])
-    op.create_index('ix_operational_snapshots_scope', 'operational_snapshots', ['scope'])
-    op.create_table('attendance_registers',
+    _create_index('ix_operational_snapshots_kind', 'operational_snapshots', ['kind'])
+    _create_index('ix_operational_snapshots_scope', 'operational_snapshots', ['scope'])
+    _create_table('attendance_registers',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('class_id', sa.Integer(), sa.ForeignKey('classes.id'), nullable=False),
         sa.Column('attendance_date', sa.Date(), nullable=False),
@@ -108,7 +135,7 @@ def upgrade():
         sa.Column('submitted_at', sa.DateTime(), nullable=False),
         sa.UniqueConstraint('class_id', 'attendance_date', 'period_no', name='uq_attendance_register_slot'),
     )
-    op.create_table('message_acknowledgements',
+    _create_table('message_acknowledgements',
         sa.Column('id', sa.Integer(), nullable=False, primary_key=True),
         sa.Column('message_id', sa.Integer(), sa.ForeignKey('communication_logs.id'), nullable=False),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False),
