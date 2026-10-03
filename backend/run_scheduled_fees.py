@@ -56,7 +56,7 @@ load_dotenv()
 
 from fastapi import HTTPException  # noqa: E402
 
-from app.fee_scheduling import advance, billing_period_label  # noqa: E402
+from app.fee_scheduling import advance, billing_period_label, due_date_after_generation  # noqa: E402
 from app.models import FeeGenerationRun, FeeStructure, Student  # noqa: E402
 from app.routes.fees import assign_class_fee  # noqa: E402
 from app.tenant import (  # noqa: E402
@@ -112,7 +112,7 @@ def distinct_active_classes(db) -> list[str]:
     return [row[0] for row in rows]
 
 
-def run_one_cycle(db, structure: FeeStructure, period: str) -> None:
+def run_one_cycle(db, structure: FeeStructure, period: str, generation_date: date) -> None:
     existing_run = (
         db.query(FeeGenerationRun)
         .filter_by(fee_structure_id=structure.id, billing_period=period)
@@ -130,6 +130,9 @@ def run_one_cycle(db, structure: FeeStructure, period: str) -> None:
     billed = 0
     skipped = 0
     errors = []
+    generated_due_date = due_date_after_generation(
+        generation_date, structure.due_days_after_generation
+    )
 
     for class_name in target_classes:
         try:
@@ -138,9 +141,10 @@ def run_one_cycle(db, structure: FeeStructure, period: str) -> None:
                 class_name=class_name,
                 fee_type=structure.fee_type,
                 academic_year=structure.academic_year,
-                due_date=structure.due_date,
+                due_date=generated_due_date or structure.due_date,
                 billing_period=period,
                 active_only=True,
+                due_date_override=generated_due_date is not None,
             )
             billed += result.created_count
             skipped += result.skipped_count
@@ -192,7 +196,7 @@ def process_structure(db, account_code: str, structure: FeeStructure, today: dat
                 structure.class_name or "All Classes", period,
             )
         else:
-            run_one_cycle(db, structure, period)
+            run_one_cycle(db, structure, period, structure.next_run_date)
 
         next_date = advance(structure.recurrence, structure.next_run_date)
         # In dry-run this only mutates the in-memory object so the catch-up

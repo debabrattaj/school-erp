@@ -337,6 +337,9 @@ class FeeStructure(Base):
 
     amount = Column(Float, nullable=False)
     due_date = Column(Date, nullable=True)
+    # Optional relative deadline for scheduled fees. When set, it takes
+    # precedence over due_date for each newly generated billing cycle.
+    due_days_after_generation = Column(Integer, nullable=True)
 
     remarks = Column(String, nullable=True)
 

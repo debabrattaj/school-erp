@@ -6,7 +6,7 @@ spinning up a database. `run_scheduled_fees.py` and the fee_structures route
 validation both import from here.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 VALID_RECURRENCES = ("monthly", "quarterly", "annually", "once")
 
@@ -51,6 +51,13 @@ def advance(recurrence: str, current: date) -> date | None:
     if months is None:
         return None
     return add_months(current, months)
+
+
+def due_date_after_generation(generation_date: date, days_after: int | None) -> date | None:
+    """Return a relative fee deadline, or None when none is configured."""
+    if days_after is None:
+        return None
+    return generation_date + timedelta(days=days_after)
 
 
 def validate_schedule(auto_generate: bool, recurrence: str | None, next_run_date: date | None) -> None:

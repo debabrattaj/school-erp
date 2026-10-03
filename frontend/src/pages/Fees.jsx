@@ -52,6 +52,7 @@ const emptyStructureForm = {
   fee_type: "",
   amount: "",
   due_date: "",
+  due_days_after_generation: "",
   remarks: "",
   auto_generate: false,
   recurrence: "",
@@ -312,6 +313,7 @@ export default function Fees() {
   const [selectedFee, setSelectedFee] = useState(null);
   const [structureLookupMessage, setStructureLookupMessage] = useState("");
   const [structureFound, setStructureFound] = useState(false);
+  const [dueDateAutoFilled, setDueDateAutoFilled] = useState(false);
   const [classStructureLookup, setClassStructureLookup] = useState(null);
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
@@ -707,6 +709,7 @@ export default function Fees() {
     if (!formData.fee_type || !formData.academic_year) {
       setStructureLookupMessage("");
       setStructureFound(false);
+      setDueDateAutoFilled(false);
       setClassStructureLookup(null);
       return undefined;
     }
@@ -717,6 +720,7 @@ export default function Fees() {
       if (!formData.class_name) {
         setStructureLookupMessage("");
         setStructureFound(false);
+        setDueDateAutoFilled(false);
         setClassStructureLookup(null);
         return undefined;
       }
@@ -731,19 +735,26 @@ export default function Fees() {
         .then((response) => {
           if (cancelled) return;
           const data = response.data;
+          const dueDate = data.mode === "single" ? normalizeDateInput(data.due_date) : "";
           setClassStructureLookup(data);
           setStructureFound(true);
+          setDueDateAutoFilled(
+            data.mode === "single"
+              ? Boolean(dueDate)
+              : Boolean(data.hosteller_due_date && data.day_scholar_due_date)
+          );
           setStructureLookupMessage("");
           setFormData((prev) => ({
             ...prev,
             total_amount: data.mode === "single" ? String(data.amount) : "",
-            due_date: data.mode === "single" ? normalizeDateInput(data.due_date) : "",
+            due_date: dueDate,
           }));
         })
         .catch((error) => {
           if (cancelled) return;
           setClassStructureLookup(null);
           setStructureFound(false);
+          setDueDateAutoFilled(false);
           if (error.response?.status === 404) {
             setStructureLookupMessage(
               `No fee structure configured yet for ${formData.fee_type} / Class ${formData.class_name} in ${formData.academic_year}. Enter the amount manually, or add one under "Fee Structure".`
@@ -769,18 +780,21 @@ export default function Fees() {
       .then((response) => {
         if (cancelled) return;
         const structure = response.data;
+        const dueDate = normalizeDateInput(structure.due_date);
         setClassStructureLookup(null);
         setFormData((prev) => ({
           ...prev,
           total_amount: String(structure.amount),
-          due_date: structure.due_date || "",
+          due_date: dueDate,
         }));
         setStructureFound(true);
+        setDueDateAutoFilled(Boolean(dueDate));
         setStructureLookupMessage("");
       })
       .catch((error) => {
         if (cancelled) return;
         setStructureFound(false);
+        setDueDateAutoFilled(false);
         setClassStructureLookup(null);
         if (error.response?.status === 404) {
           setStructureLookupMessage(
@@ -819,6 +833,7 @@ export default function Fees() {
 
     if (structureLookupFields.includes(name)) {
       setStructureFound(false);
+      setDueDateAutoFilled(false);
       setStructureLookupMessage("");
     }
 
@@ -852,6 +867,7 @@ export default function Fees() {
     if (nextMode === feeMode || editingId) return;
     setFeeMode(nextMode);
     setStructureFound(false);
+    setDueDateAutoFilled(false);
     setStructureLookupMessage("");
     setClassStructureLookup(null);
     setFormData((prev) => ({
@@ -1001,6 +1017,7 @@ export default function Fees() {
     setPageMode("form");
     setFeeMode("student");
     setStructureFound(false);
+    setDueDateAutoFilled(false);
     setStructureLookupMessage("");
     setClassStructureLookup(null);
 
@@ -1067,6 +1084,7 @@ export default function Fees() {
     setMessage("");
     setStructureLookupMessage("");
     setStructureFound(false);
+    setDueDateAutoFilled(false);
     setClassStructureLookup(null);
     setPageMode("list");
   }
@@ -1081,6 +1099,7 @@ export default function Fees() {
     });
     setMessage("");
     setStructureFound(false);
+    setDueDateAutoFilled(false);
     setClassStructureLookup(null);
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1095,6 +1114,7 @@ export default function Fees() {
       if (name === "auto_generate" && !checked) {
         updated.recurrence = "";
         updated.next_run_date = "";
+        updated.due_days_after_generation = "";
       }
 
       return updated;
@@ -1117,6 +1137,7 @@ export default function Fees() {
       fee_type: structure.fee_type || "",
       amount: structure.amount ?? "",
       due_date: normalizeDateInput(structure.due_date),
+      due_days_after_generation: structure.due_days_after_generation ?? "",
       remarks: structure.remarks || "",
       auto_generate: Boolean(structure.auto_generate),
       recurrence: structure.recurrence || "",
@@ -1159,6 +1180,10 @@ export default function Fees() {
       fee_type: structureForm.fee_type,
       amount: Number(structureForm.amount),
       due_date: structureForm.due_date || null,
+      due_days_after_generation:
+        structureForm.auto_generate && structureForm.due_days_after_generation !== ""
+          ? Number(structureForm.due_days_after_generation)
+          : null,
       remarks: structureForm.remarks || null,
       auto_generate: structureForm.auto_generate,
       recurrence: structureForm.auto_generate ? structureForm.recurrence : null,
@@ -1850,10 +1875,14 @@ export default function Fees() {
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleInputChange}
-                disabled={structureFound || Boolean(editingId)}
+                disabled={dueDateAutoFilled || Boolean(editingId)}
               />
               <small>
-                {feeMode === "class" && classStructureLookup?.mode === "split"
+                {editingId
+                  ? "Locked while editing — only Payment Amount can be updated."
+                  : structureFound && !dueDateAutoFilled
+                  ? "No due date is set in this Fee Structure. Choose one here, or add it under Manage Fee Structures."
+                  : feeMode === "class" && classStructureLookup?.mode === "split"
                   ? "Due dates are auto-applied per residential type from Fee Structure."
                   : "Auto-filled from Fee Structure when configured."}
               </small>
@@ -2115,6 +2144,20 @@ export default function Fees() {
                         Day-of-month must be {MAX_SCHEDULE_DAY} or earlier, so
                         every month lines up.
                       </small>
+                    </div>
+
+                    <div className="form-field">
+                      <label>Due Date</label>
+                      <input
+                        type="number"
+                        name="due_days_after_generation"
+                        value={structureForm.due_days_after_generation}
+                        onChange={handleStructureFormChange}
+                        min="0"
+                        step="1"
+                        placeholder="e.g. 10"
+                      />
+                      <small>Days after generation. Leave blank to use the fixed Due Date above.</small>
                     </div>
 
                     {editingStructure?.last_generated_at && (

@@ -250,6 +250,7 @@ def assign_class_fee(
     remarks: str | None = None,
     billing_period: str | None = None,
     active_only: bool = False,
+    due_date_override: bool = False,
 ) -> FeeBulkClassResponse:
     """Bill every student in a class (optionally one section) for a fee type,
     resolving the amount from Fee Structures. Shared by the manual "Bulk
@@ -304,13 +305,15 @@ def assign_class_fee(
         batches.append((None, total_amount, due_date))
     elif set(structures.keys()) == {None}:
         structure = structures[None]
-        batches.append((None, structure.amount, structure.due_date or due_date))
+        resolved_due_date = due_date if due_date_override and due_date is not None else structure.due_date or due_date
+        batches.append((None, structure.amount, resolved_due_date))
     else:
         both = structures.get(None)
         for residential_type in ("Hosteller", "Day Scholar"):
             structure = structures.get(residential_type) or both
             if structure:
-                batches.append((residential_type, structure.amount, structure.due_date or due_date))
+                resolved_due_date = due_date if due_date_override and due_date is not None else structure.due_date or due_date
+                batches.append((residential_type, structure.amount, resolved_due_date))
 
     for _, batch_total_amount, _ in batches:
         validate_fee_amounts(fee_type, batch_total_amount, paid_amount)

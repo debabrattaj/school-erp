@@ -459,6 +459,7 @@ class FeeStructureBase(BaseModel):
     fee_type: str
     amount: float
     due_date: Optional[date] = None
+    due_days_after_generation: Optional[int] = Field(default=None, ge=0)
     remarks: Optional[str] = None
     # Scheduled auto-generation (see app/fee_scheduling.py for validation rules).
     auto_generate: bool = False
@@ -477,6 +478,7 @@ class FeeStructureUpdate(BaseModel):
     fee_type: Optional[str] = None
     amount: Optional[float] = None
     due_date: Optional[date] = None
+    due_days_after_generation: Optional[int] = Field(default=None, ge=0)
     remarks: Optional[str] = None
     auto_generate: Optional[bool] = None
     recurrence: Optional[str] = None

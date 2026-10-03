@@ -61,6 +61,14 @@ def test_advance_once_never_recurs():
     assert advance("bogus", date(2026, 8, 1)) is None
 
 
+def test_due_date_after_generation():
+    from app.fee_scheduling import due_date_after_generation
+
+    assert due_date_after_generation(date(2026, 8, 25), 0) == date(2026, 8, 25)
+    assert due_date_after_generation(date(2026, 8, 25), 10) == date(2026, 9, 4)
+    assert due_date_after_generation(date(2026, 8, 25), None) is None
+
+
 def test_validate_schedule_noop_when_disabled():
     from app.fee_scheduling import validate_schedule
     # Garbage is fine as long as auto_generate is off.
@@ -219,12 +227,14 @@ def test_fee_structure_accepts_valid_schedule(client, auth):
         "auto_generate": True,
         "recurrence": "monthly",
         "next_run_date": "2099-09-01",
+        "due_days_after_generation": 10,
     }, headers=auth)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["auto_generate"] is True
     assert body["recurrence"] == "monthly"
     assert body["next_run_date"] == "2099-09-01"
+    assert body["due_days_after_generation"] == 10
 
 
 def test_generation_runs_endpoint_requires_auth(client):

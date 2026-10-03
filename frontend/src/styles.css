@@ -5955,6 +5955,27 @@ textarea {
   padding: 0 18px;
 }
 
+/* Shared asynchronous-action feedback. The spinner is request-aware, so a
+   button stays responsive for local actions but never looks frozen on saves,
+   submits, deletes, uploads or report generation. */
+button[data-pending="true"] {
+  cursor: wait;
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+button[data-pending="true"]::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex: 0 0 14px;
+}
+
 .primary-button {
   color: var(--surface);
   background: var(--saas-primary);
