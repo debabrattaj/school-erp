@@ -16,10 +16,24 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).with_name(".env"))
 
 from app.database import make_engine  # noqa: E402
-from app.models import Attendance, Fee, LibraryBook, LibraryIssue, Student  # noqa: E402
+from app.models import Attendance, Exam, Fee, LibraryBook, LibraryIssue, Mark, SchoolSettings, Student  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 TAG = "DASHBOARD-DEMO"
+
+
+def demo_grade(score, settings):
+    rules = (settings.grade_rules if settings else None) or "A+:90-100,A:80-89,B:70-79,C:60-69,D:40-59,F:0-39"
+    for rule in rules.split(","):
+        try:
+            label, bounds = rule.split(":")
+            lower, upper = map(float, bounds.split("-"))
+            if lower <= score <= upper:
+                return label.strip()
+        except (ValueError, TypeError):
+            continue
+    threshold = (settings.pass_percentage if settings else None) or 40
+    return "F" if score < threshold else "Pass"
 
 
 def demo_attendance_status(index, day):
@@ -97,6 +111,42 @@ def seed_dashboard(db, today, refresh_attendance=False):
                 payment_date=today if paid else None, due_date=today - timedelta(days=7), remarks=TAG))
             counts["fees"] += 1
 
+    # Completed sample exams power Grade Distribution and Top Performers.
+    # Upcoming exams have no marks; results are never invented for future tests.
+    settings = db.query(SchoolSettings).first()
+    scores = (97, 92, 86, 84, 81, 78, 76, 74, 72, 68, 64, 55, 46, 35, 89, 82)
+    classes = sorted({s.class_name for s in demo_students}, key=int)
+    for class_name in classes:
+        name = f"Demo Completed Assessment - Class {class_name}"
+        exam = db.query(Exam).filter_by(exam_name=name, class_name=class_name,
+            section="A", academic_year=academic_year, remarks=TAG).first()
+        if exam is None:
+            exam = Exam(exam_name=name, class_name=class_name, section="A", academic_year=academic_year,
+                exam_type="Unit Test", exam_date=today - timedelta(days=10), remarks=TAG)
+            db.add(exam)
+            db.flush()
+            counts["completed_exams"] += 1
+        for index, student in enumerate(demo_students):
+            if student.class_name != class_name:
+                continue
+            for subject_index, subject in enumerate(("English", "Mathematics", "Science")):
+                if db.query(Mark.id).filter_by(student_id=student.id, exam_id=exam.id, subject=subject).first():
+                    continue
+                score = scores[(index * 3 + subject_index) % len(scores)]
+                db.add(Mark(student_id=student.id, exam_id=exam.id, subject=subject, subject_name=subject,
+                    academic_year=academic_year, class_name_snapshot=class_name, section_snapshot="A",
+                    exam_name_snapshot=exam.exam_name, assessment_status="Scored", marks_obtained=score,
+                    total_marks=100, max_marks=100, percentage=score, grade=demo_grade(score, settings), remarks=TAG))
+                counts["marks"] += 1
+
+    for index, class_name in enumerate(("5", "8", "10")):
+        name = f"Demo Upcoming Assessment - Class {class_name}"
+        if not db.query(Exam.id).filter_by(exam_name=name, class_name=class_name,
+                section="A", academic_year=academic_year, remarks=TAG).first():
+            db.add(Exam(exam_name=name, class_name=class_name, section="A", academic_year=academic_year,
+                exam_type="Unit Test", exam_date=today + timedelta(days=7 + index * 7), remarks=TAG))
+            counts["upcoming_exams"] += 1
+
     for index in range(8):
         accession = f"{TAG}-BOOK-{index + 1:02d}"
         book = db.query(LibraryBook).filter_by(accession_no=accession).first()
@@ -146,6 +196,7 @@ def main():
                 print(f"Preview only. Date: {today}. Existing sample students: {sample_count}.")
                 print("Will fill missing demo records: up to 24 sample pupils, 14 days of attendance, 24 fees and 8 library loans.")
                 print("Includes 4 international pupils, 8 transport users and 3 overdue loans. Existing records are preserved.")
+                print("Also fills 12 completed demo exams, 72 subject marks and 3 upcoming exams within 30 days.")
                 if args.refresh_attendance:
                     print("Will also refresh statuses on marked demo attendance rows only.")
                 return

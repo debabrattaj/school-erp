@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models import Attendance, Fee, LibraryIssue, Student
+from app.models import Attendance, Exam, Fee, LibraryIssue, Mark, Student
 from seed_dashboard_demo import TAG, demo_attendance_status, seed_dashboard
 
 
@@ -18,11 +18,25 @@ def test_demo_seed_is_repeatable_and_preserves_other_students():
         today = date(2026, 10, 3)
         counts = seed_dashboard(db, today)
         db.commit()
-        assert counts == {"students": 24, "attendance": 336, "fees": 24, "books": 8, "library_issues": 8}
+        assert counts == {"students": 24, "attendance": 336, "fees": 24, "books": 8, "library_issues": 8,
+                          "completed_exams": 12, "marks": 72, "upcoming_exams": 3}
         assert db.query(Attendance).filter_by(student_id=original.id).count() == 0
         assert db.query(Attendance).filter_by(attendance_date=today).count() == 24
         assert db.query(LibraryIssue).filter(LibraryIssue.due_date < today).count() == 3
         assert db.query(Student).filter_by(nationality="Nepali").count() == 4
+        upcoming = db.query(Exam).filter(Exam.exam_date > today, Exam.exam_date <= today + timedelta(days=30)).all()
+        assert len(upcoming) == 3
+        assert db.query(Mark).filter(Mark.exam_id.in_([e.id for e in upcoming])).count() == 0
+        assert {m.grade for m in db.query(Mark)} == {"A+", "A", "B", "C", "D", "F"}
+        assert db.query(Mark).filter_by(student_id=original.id).count() == 0
+        for mark in db.query(Mark):
+            assert 0 <= mark.marks_obtained <= mark.total_marks
+            assert mark.percentage == mark.marks_obtained
+        preserved_mark = db.query(Mark).first()
+        preserved_mark.marks_obtained = 99
+        preserved_mark.percentage = 99
+        preserved_mark.grade = "A+"
+        db.commit()
         for fee in db.query(Fee):
             assert fee.total_amount == fee.paid_amount + fee.due_amount
         assert seed_dashboard(db, today) == {}
@@ -30,6 +44,8 @@ def test_demo_seed_is_repeatable_and_preserves_other_students():
         assert seed_dashboard(db, today + timedelta(days=1)) == {"attendance": 24}
         db.commit()
         assert db.query(Student).count() == 25
+        assert db.query(Mark).count() == 72
+        assert preserved_mark.marks_obtained == 99
     engine.dispose()
 
 
