@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base
 from app.models import Attendance, Fee, LibraryIssue, Student
-from seed_dashboard_demo import seed_dashboard
+from seed_dashboard_demo import TAG, demo_attendance_status, seed_dashboard
 
 
 def test_demo_seed_is_repeatable_and_preserves_other_students():
@@ -30,4 +30,44 @@ def test_demo_seed_is_repeatable_and_preserves_other_students():
         assert seed_dashboard(db, today + timedelta(days=1)) == {"attendance": 24}
         db.commit()
         assert db.query(Student).count() == 25
+    engine.dispose()
+
+
+def test_daily_trend_varies_and_is_stable_by_date():
+    today = date(2026, 10, 3)
+    percentages = []
+    for offset in range(14):
+        day = today - timedelta(days=offset)
+        statuses = [demo_attendance_status(i, day) for i in range(24)]
+        percentages.append(sum(s in ("Present", "Late") for s in statuses) / 24 * 100)
+    assert len(set(percentages)) >= 4
+    assert min(percentages) >= 75
+    assert max(percentages) <= 100
+
+
+def test_refresh_changes_only_marked_demo_rows_and_is_repeatable():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        today = date(2026, 10, 3)
+        seed_dashboard(db, today)
+        # Reproduce the old constant-rate data without adding duplicate rows.
+        for row in db.query(Attendance):
+            row.status = "Absent"
+        protected = db.query(Attendance).first()
+        protected.remarks = "Staff correction"
+        other = Student(admission_no="OTHER", first_name="Other")
+        db.add(other)
+        db.flush()
+        real = Attendance(student_id=other.id, attendance_date=today, period_no=0,
+                          status="Absent", source="Manual", remarks=TAG)
+        lesson = Attendance(student_id=protected.student_id, attendance_date=today, period_no=1,
+                            status="Absent", source="Manual", remarks=TAG)
+        db.add_all([real, lesson])
+        db.commit()
+        assert seed_dashboard(db, today, refresh_attendance=True)["attendance_updated"] > 0
+        db.commit()
+        assert protected.status == real.status == lesson.status == "Absent"
+        assert db.query(Attendance).count() == 338
+        assert seed_dashboard(db, today, refresh_attendance=True) == {}
     engine.dispose()

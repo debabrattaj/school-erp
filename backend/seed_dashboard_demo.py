@@ -2,7 +2,8 @@
 
 Preview: python seed_dashboard_demo.py --account SCHOOL_CODE
 Apply:   python seed_dashboard_demo.py --account SCHOOL_CODE --apply --confirm-demo SCHOOL_CODE
-No existing records are overwritten. Run one instance at a time.
+Use --refresh-attendance to update only marked sample attendance rows.
+Other existing records are preserved. Run one instance at a time.
 """
 import argparse
 from collections import Counter
@@ -21,7 +22,24 @@ from sqlalchemy.orm import Session  # noqa: E402
 TAG = "DASHBOARD-DEMO"
 
 
-def seed_dashboard(db, today):
+def demo_attendance_status(index, day):
+    # Date-based variation stays stable when the 14-day window moves forward.
+    absent_counts = (2, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 1, 3, 2)
+    slot = day.toordinal() % len(absent_counts)
+    absent = absent_counts[slot]
+    excused = slot % 2
+    late = 1 + slot % 3
+    roll = (index * 7 + day.toordinal() * 3) % 24
+    if roll < absent:
+        return "Absent"
+    if roll < absent + excused:
+        return "Excused"
+    if roll < absent + excused + late:
+        return "Late"
+    return "Present"
+
+
+def seed_dashboard(db, today, refresh_attendance=False):
     """Stage changes; the caller commits or rolls back the entire transaction."""
     counts = Counter()
     start_year = today.year if today.month >= 4 else today.year - 1
@@ -46,17 +64,23 @@ def seed_dashboard(db, today):
     # Seed only dedicated sample pupils; never manufacture attendance for other students.
     student_ids = [s.id for s in demo_students]
     start = today - timedelta(days=13)
-    existing = {(row.student_id, row.attendance_date) for row in db.query(Attendance).filter(
+    existing = {}
+    for row in db.query(Attendance).filter(
         Attendance.student_id.in_(student_ids), Attendance.period_no == 0,
         Attendance.attendance_date >= start, Attendance.attendance_date <= today,
-    )}
+    ):
+        existing.setdefault((row.student_id, row.attendance_date), []).append(row)
     for offset in range(14):
         day = start + timedelta(days=offset)
         for index, student in enumerate(demo_students):
-            if (student.id, day) in existing:
+            status = demo_attendance_status(index, day)
+            rows = existing.get((student.id, day), [])
+            if rows:
+                for row in rows:
+                    if refresh_attendance and row.remarks == TAG and row.source == "Manual" and row.status != status:
+                        row.status = status
+                        counts["attendance_updated"] += 1
                 continue
-            roll = (index * 7 + offset * 3) % 24
-            status = "Absent" if roll < 2 else "Late" if roll == 2 else "Excused" if roll == 3 else "Present"
             db.add(Attendance(student_id=student.id, attendance_date=day, period_no=0,
                 academic_year=academic_year, class_name_snapshot=student.class_name,
                 section_snapshot=student.section, status=status, source="Manual", remarks=TAG))
@@ -97,6 +121,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--account", required=True, help="Exact demo school account code")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--refresh-attendance", action="store_true", help="Vary existing marked sample attendance within the last 14 days")
     parser.add_argument("--confirm-demo", help="Repeat the account code to confirm it is a demo tenant")
     args = parser.parse_args()
     if args.apply and args.confirm_demo != args.account:
@@ -121,10 +146,12 @@ def main():
                 print(f"Preview only. Date: {today}. Existing sample students: {sample_count}.")
                 print("Will fill missing demo records: up to 24 sample pupils, 14 days of attendance, 24 fees and 8 library loans.")
                 print("Includes 4 international pupils, 8 transport users and 3 overdue loans. Existing records are preserved.")
+                if args.refresh_attendance:
+                    print("Will also refresh statuses on marked demo attendance rows only.")
                 return
-            counts = seed_dashboard(db, today)
+            counts = seed_dashboard(db, today, refresh_attendance=args.refresh_attendance)
             db.commit()
-            print(f"Added demo records for {today}: {counts or 'none; already seeded'}")
+            print(f"Demo record changes for {today}: {counts or 'none; already seeded'}")
     finally:
         engine.dispose()
 
