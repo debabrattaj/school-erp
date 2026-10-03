@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -124,6 +124,8 @@ function formatDateTime(value) {
 export default function Exams() {
   const t = useT();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedExamId = searchParams.get("exam_id");
 
   const defaultLayout = fallbackExamLayout;
 
@@ -933,13 +935,18 @@ export default function Exams() {
       ? exam.exam_type === examTypeFilter
       : true;
 
-    return matchSearch && matchExamType;
+    return matchSearch && matchExamType && (!linkedExamId || String(exam.id) === linkedExamId);
   });
 
   const customFields = getCustomFields();
 
   return (
     <div className="management-page">
+      {linkedExamId && <p>Showing the exam selected from your dashboard. <button type="button" onClick={() => setSearchParams(previous => {
+        const next = new URLSearchParams(previous);
+        next.delete("exam_id");
+        return next;
+      })}>Show all exams</button></p>}
       <section className="page-heading">
         <div>
           <p className="eyebrow">{t("Exam Management")}</p>

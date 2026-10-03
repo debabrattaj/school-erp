@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Edit,
   Trash2,
@@ -155,6 +155,7 @@ function getResultStatus(mark) {
 }
 
 export default function Marks() {
+  const [searchParams] = useSearchParams();
   const [marks, setMarks] = useState([]);
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
@@ -169,10 +170,10 @@ export default function Marks() {
   const [pageMode, setPageMode] = useState("list");
 
   const [searchText, setSearchText] = useState("");
-  const [studentFilter, setStudentFilter] = useState("");
-  const [examFilter, setExamFilter] = useState("");
+  const [studentFilter, setStudentFilter] = useState(() => searchParams.get("student_id") || "");
+  const [examFilter, setExamFilter] = useState(() => searchParams.get("exam_id") || "");
   const [academicYearFilter, setAcademicYearFilter] = useState("");
-  const [subjectFilter, setSubjectFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState(() => searchParams.get("subject") || "");
 
   const [loading, setLoading] = useState(false);
   const [subjectLoading, setSubjectLoading] = useState(false);

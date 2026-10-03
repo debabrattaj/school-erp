@@ -1,0 +1,63 @@
+/* Dashboard-only presentation; shared module stat cards retain their layout. */
+.international-dashboard .stats-grid { gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.international-dashboard .stat-card.overview-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 22px 24px 18px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 15%, var(--border));
+  background: linear-gradient(125deg, var(--surface) 45%, color-mix(in srgb, var(--card-accent) 8%, var(--surface)));
+  box-shadow: 0 5px 18px rgb(24 39 75 / 4%);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  min-width: 0;
+}
+.international-dashboard .stat-card.overview-stat:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgb(24 39 75 / 9%); }
+.international-dashboard .overview-stat::before,
+.international-dashboard .overview-stat::after { display: none; }
+.overview-stat-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.international-dashboard .overview-stat .overview-stat-category { font: inherit; font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .12em; color: var(--card-accent); }
+.international-dashboard .overview-stat .stat-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: color-mix(in srgb, var(--card-accent) 12%, var(--surface));
+  color: var(--card-accent); border: 1px solid color-mix(in srgb, var(--card-accent) 15%, transparent);
+  box-shadow: none;
+}
+.international-dashboard .overview-stat .stat-card-body h3 { font-size: clamp(25px, 2.3vw, 36px); font-weight: 780; line-height: 1.15; letter-spacing: -.045em; margin: 0 0 8px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.international-dashboard .overview-stat .stat-card-body p { color: var(--text-strong); font-size: 14px; font-weight: 650; }
+.overview-stat-footer { display: flex; align-items: center; gap: 8px; padding-top: 13px; margin-top: auto; border-top: 1px solid color-mix(in srgb, var(--card-accent) 12%, var(--border)); }
+.international-dashboard .overview-stat .overview-stat-footer > span:last-child { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.overview-stat-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--card-accent); flex-shrink: 0; }
+.international-dashboard .stat-card.overview-stat-featured { background: linear-gradient(125deg, #243d87, #485ddd 75%, #7964df); border-color: #4a60cb; box-shadow: 0 8px 22px rgb(57 78 174 / 18%); }
+.international-dashboard .overview-stat-featured .stat-card-body h3,
+.international-dashboard .overview-stat-featured .stat-card-body p { color: #fff; }
+.international-dashboard .overview-stat-featured .overview-stat-category,
+.international-dashboard .overview-stat-featured .overview-stat-footer > span:last-child { color: #e0e8ff; }
+.international-dashboard .overview-stat-featured .stat-icon { color: #fff; background: #ffffff1f; border-color: #ffffff26; }
+.overview-stat-featured .overview-stat-footer { border-color: #ffffff26; }
+.overview-stat-featured .overview-stat-dot { background: #bfcfff; }
+
+.profile-mix-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.profile-metric { padding: 20px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--metric-accent) 18%, var(--border)); background: linear-gradient(150deg, color-mix(in srgb, var(--metric-accent) 7%, var(--surface)), var(--surface)); min-width: 0; }
+.profile-metric-top { display: flex; align-items: center; gap: 10px; color: var(--text-strong); font-size: 13px; font-weight: 650; }
+.profile-metric-icon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; background: color-mix(in srgb, var(--metric-accent) 12%, var(--surface)); color: var(--metric-accent); border-radius: 12px; }
+.profile-metric-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 12px; }
+.profile-metric-main strong { display: block; font-size: 38px; line-height: 1.15; font-weight: 780; letter-spacing: -.04em; color: var(--text-strong); }
+.profile-metric-main > div > span { font-size: 12px; color: var(--text-muted); }
+.profile-ring { width: 88px; height: 88px; position: relative; flex-shrink: 0; }
+.profile-ring svg { width: 100%; height: 100%; fill: none; stroke-width: 8; }
+.profile-ring-track { stroke: color-mix(in srgb, var(--metric-accent) 12%, var(--surface)); }
+.profile-ring-value { stroke: var(--metric-accent); }
+.profile-metric-main .profile-ring > span { position: absolute; inset: 0; display: grid; place-items: center; color: var(--metric-accent); font-size: 15px; font-weight: 750; }
+.profile-metric > p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.profile-mix-footer { display: flex; gap: 8px; align-items: center; margin-top: 18px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.profile-mix-footer svg { flex-shrink: 0; }
+@media (max-width: 1100px) { .profile-mix-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .international-dashboard .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) {
+  .international-dashboard .stats-grid { grid-template-columns: 1fr; gap: 12px; }
+  .international-dashboard .stat-card.overview-stat { padding: 18px 20px; gap: 10px; }
+  .international-dashboard .overview-stat .stat-card-body h3 { font-size: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .international-dashboard .stat-card.overview-stat { transition: none; } .international-dashboard .stat-card.overview-stat:hover { transform: none; } }

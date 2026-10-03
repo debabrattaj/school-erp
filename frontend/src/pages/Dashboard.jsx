@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import "./DashboardLinks.css";
+import "./DashboardOverview.css";
 import {
   Users,
   GraduationCap,
@@ -10,6 +13,8 @@ import {
   Award,
   School,
   Clock,
+  Globe2,
+  Bus,
 } from "lucide-react";
 import API from "../api";
 import { isFeatureEnabled } from "../auth";
@@ -24,6 +29,26 @@ import {
 import DashboardBuilder from "../components/DashboardBuilder";
 
 const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
+const CARD_STYLES = [
+  ["#4665df", "School community"], ["#087f8c", "Enrolment"], ["#7c4dcc", "Our educators"],
+  ["#b16a13", "Academics"], ["#13804c", "Collections"], ["#c13e61", "Receivables"],
+  ["#2673bd", "Daily attendance"], ["#8055c6", "Global community"], ["#bc572b", "Library"],
+];
+
+function ProfileMetric({ title, count, total, icon: Icon, accent, note }) {
+  const percentage = total > 0 ? Math.min(100, Math.max(0, count / total * 100)) : 0;
+  return <article className="profile-metric" style={{ "--metric-accent": accent }}>
+    <div className="profile-metric-top"><span className="profile-metric-icon"><Icon size={22} aria-hidden="true" /></span><span>{title}</span></div>
+    <div className="profile-metric-main">
+      <div><strong>{count.toLocaleString()}</strong><span>students</span></div>
+      <div className="profile-ring" role="img" aria-label={total > 0 ? `${percentage.toFixed(1)}% of all students` : "No student total available"}>
+        <svg viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="39" className="profile-ring-track" /><circle cx="48" cy="48" r="39" className="profile-ring-value" pathLength="100" strokeDasharray={`${percentage} 100`} transform="rotate(-90 48 48)" /></svg>
+        <span>{total > 0 ? `${percentage.toFixed(1)}%` : "—"}</span>
+      </div>
+    </div>
+    <p>{note}</p>
+  </article>;
+}
 
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
@@ -120,9 +145,7 @@ export default function Dashboard() {
       .map((grade) => ({ label: grade, value: counts[grade] }));
   })();
 
-  // Colour carries meaning here rather than decorating: counts take the
-  // brand, money takes green when collected and red when owed. Eight
-  // different hues said nothing and made the page read as a template.
+  // Counts are live values; accent colours distinguish operational areas.
   const cards = [
     {
       title: "Total Students",
@@ -235,27 +258,29 @@ export default function Dashboard() {
       ) : (
         <>
           <section className="stats-grid">
-            {cards.map((card) => {
+            {cards.map((card, index) => {
               const Icon = card.icon;
+              const [accent, category] = CARD_STYLES[index];
 
               return (
                 <div
-                  className="stat-card premium-card"
+                  className={`stat-card premium-card overview-stat${index === 0 ? " overview-stat-featured" : ""}`}
                   key={card.title}
                   style={{
-                    "--card-accent": card.accent,
-                    "--card-accent-2": card.accent2 || card.accent,
+                    "--card-accent": accent,
+                    "--card-accent-2": accent,
                   }}
                 >
-                  <div className="stat-icon">
-                    <Icon size={24} />
+                  <div className="overview-stat-top">
+                    <span className="overview-stat-category">{category}</span>
+                    <div className="stat-icon"><Icon size={23} aria-hidden="true" /></div>
                   </div>
 
                   <div className="stat-card-body">
+                    <h3>{typeof card.value === "number" ? card.value.toLocaleString() : card.value}</h3>
                     <p>{card.title}</p>
-                    <h3>{card.value}</h3>
-                    <span>{card.note}</span>
                   </div>
+                  <div className="overview-stat-footer"><span className="overview-stat-dot" aria-hidden="true" /><span>{card.note}</span></div>
                 </div>
               );
             })}
@@ -321,17 +346,13 @@ export default function Dashboard() {
                 <Users size={22} />
               </div>
 
-              <div className="finance-summary">
-                <div>
-                  <span>International Students</span>
-                  <strong>{summary?.international_students || 0}</strong>
-                </div>
-
-                <div>
-                  <span>Transport Users</span>
-                  <strong>{summary?.transport_users || 0}</strong>
-                </div>
+              <div className="profile-mix-grid">
+                <ProfileMetric title="International Students" count={summary?.international_students || 0}
+                  total={summary?.total_students || 0} icon={Globe2} accent="#7952cc" note="A connected global school community" />
+                <ProfileMetric title="Transport Users" count={summary?.transport_users || 0}
+                  total={summary?.total_students || 0} icon={Bus} accent="#087f8c" note="Students using school transport" />
               </div>
+              <div className="profile-mix-footer"><Users size={16} aria-hidden="true" /><span>Share of {(summary?.total_students || 0).toLocaleString()} total students · Groups may overlap</span></div>
             </div>
 
             <div className="panel large-panel">
@@ -417,8 +438,10 @@ export default function Dashboard() {
                 ) : (
                   summary.upcoming_exams.map((exam) => (
                     <li key={exam.id}>
+                      <Link className="dashboard-record-link" to={`/exams?exam_id=${exam.id}`}>
                       {exam.exam_name} - {exam.class_name}-{exam.section} on{" "}
                       {exam.exam_date}
+                      </Link>
                     </li>
                   ))
                 )}
@@ -440,8 +463,10 @@ export default function Dashboard() {
                 ) : (
                   summary.top_performers.map((mark) => (
                     <li key={mark.id}>
+                      <Link className="dashboard-record-link" to={`/marks?${new URLSearchParams({ student_id: String(mark.student_id), exam_id: String(mark.exam_id), subject: mark.subject || "" })}`}>
                       {getStudentName(mark.student_id)} - {mark.subject}:{" "}
                       {mark.marks_obtained}/{mark.total_marks} ({mark.grade || "-"})
+                      </Link>
                     </li>
                   ))
                 )}
