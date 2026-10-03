@@ -14,6 +14,7 @@ import DiscussionTab from "./tabs/DiscussionTab";
 import MessagesTab from "./tabs/MessagesTab";
 import OnlineTestsTab from "./tabs/OnlineTestsTab";
 import LeaveTab from "./tabs/LeaveTab";
+import NoticesTab from "./tabs/NoticesTab";
 
 const TABS = [
   "Profile",
@@ -27,6 +28,7 @@ const TABS = [
   "Discussion",
   "Tests",
   "Messages",
+  "Notices",
   "Leave",
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -89,6 +91,7 @@ export default function ChildDetailScreen({ route }: { route: any }) {
         {active === "Discussion" && <DiscussionTab studentId={id} />}
         {active === "Tests" && <OnlineTestsTab studentId={id} />}
         {active === "Messages" && <MessagesTab studentId={id} />}
+        {active === "Notices" && <NoticesTab studentId={id} />}
         {active === "Leave" && <LeaveTab studentId={id} />}
       </View>
     </View>

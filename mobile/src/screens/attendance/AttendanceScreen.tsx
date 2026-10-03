@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
-import { Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
+import { AppTextInput, Card, EmptyView, ErrorView, Field, LoadingView, PrimaryButton, SecondaryButton } from "../../components/Common";
 import { DatePicker, OptionPicker } from "../../components/Pickers";
 import { useAuth } from "../../auth/AuthContext";
 import { hasAccess } from "../../auth/types";
@@ -40,6 +40,7 @@ export default function AttendanceScreen() {
   const [classesError, setClassesError] = useState<string | null>(null);
   const [classId, setClassId] = useState("");
   const [date, setDate] = useState(todayISO());
+  const [periodNo, setPeriodNo] = useState("0");
 
   const [roster, setRoster] = useState<RosterEntry[] | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export default function AttendanceScreen() {
       const rows = await api.get<RosterEntry[]>("/attendance/roster", {
         class_id: selected.id,
         attendance_date: date,
+        period_no: Number(periodNo || 0),
         section: selected.section || undefined,
       });
       setRoster(rows);
@@ -92,7 +94,7 @@ export default function AttendanceScreen() {
     } finally {
       setLoadingRoster(false);
     }
-  }, [selected, date]);
+  }, [selected, date, periodNo]);
 
   useFocusEffect(
     useCallback(() => {
@@ -124,6 +126,13 @@ export default function AttendanceScreen() {
 
   function pickDate(next: string) {
     setDate(next);
+    setPending({});
+  }
+
+  function pickPeriod(next: string) {
+    const cleaned = next.replace(/\D/g, "").slice(0, 2);
+    if (cleaned && Number(cleaned) > 30) return;
+    setPeriodNo(cleaned);
     setPending({});
   }
 
@@ -161,6 +170,7 @@ export default function AttendanceScreen() {
       await api.post("/attendance/bulk", {
         attendance_date: date,
         class_id: selected?.id,
+        period_no: Number(periodNo || 0),
         entries: entries.map(([studentId, status]) => ({ student_id: Number(studentId), status })),
       });
       setPending({});
@@ -192,6 +202,9 @@ export default function AttendanceScreen() {
         </Field>
         <Field label="Date">
           <DatePicker label="Date" value={date} onChange={pickDate} required />
+        </Field>
+        <Field label="Period (0 is daily)">
+          <AppTextInput value={periodNo} onChangeText={pickPeriod} keyboardType="number-pad" placeholder="0" />
         </Field>
       </View>
 

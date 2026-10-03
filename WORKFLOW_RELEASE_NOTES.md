@@ -1,6 +1,6 @@
 # Blog and school-workflow alignment
 
-The expanded blogs now distinguish product capabilities from recommended school procedures. The web app adds Reviews & Approvals and connects the family portal to published results, verified checkout, payment-report status and acknowledged notices. See [the feature audit](BLOG_FEATURE_AUDIT.md) for the full scope and remaining limitations.
+The expanded blogs now distinguish product capabilities from recommended school procedures. The web and mobile apps include Reviews & Approvals and connect the family portal to published results, verified checkout, payment-report status and acknowledged notices. See [the feature audit](BLOG_FEATURE_AUDIT.md) for the full scope and remaining limitations.
 
 ## Before running an existing installation
 
@@ -16,6 +16,8 @@ The new tenant-schema head is `b019aa202609`. Run the command for the actual ins
 This work does not apply migrations to a production database or deploy the application.
 
 ## Changes staff will see
+
+The same workflow sections are available from **Reports & Administration → Reviews & Approvals** in the web and mobile apps. Mobile also provides **Homework Review**, period attendance, Absent/Exempt assessment outcomes, family notices and published-result PDF downloads.
 
 1. Open **Reports & Administration → Reviews & Approvals**. Available sections depend on the built-in staff role.
 2. In **Results**, select the student and exam, enter a reason and prepare a draft. Preview and review it; Admin/Principal publishes it. Existing saved marks are not automatically published. Releasing a correction creates another version.

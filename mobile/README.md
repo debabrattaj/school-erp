@@ -21,8 +21,10 @@ Parent/Student portal; this app also covers staff-facing modules.
   (`frontend/src/components/Sidebar.jsx`), with matching module labels.
 - **Bespoke staff screens**: Dashboard (summary stats), Global Search (students,
   teachers, classes, exams — taps through to the record), AI Assistant (chat over
-  `/chatbot/ask` with tappable suggestions), Attendance (mark a whole class for a
-  date), Marks (enter marks by exam + subject), Report Card (pick student + exam →
+  `/chatbot/ask` with tappable suggestions), Attendance (daily or lesson-period
+  class registers), Marks (Scored, Absent and Exempt outcomes by exam + subject),
+  Reviews & Approvals (results, payments, settlement CSV, registers, versions,
+  admissions and history), Homework Review (draft/publish/return), Report Card (pick student + exam →
   PDF), Certificates (bonafide, transfer certificate, transcript, ID card PDFs),
   Portal Access (link parent/student accounts to student records), Payroll
   (generate a month's payslips, mark paid), Reports (catalog-driven builder: pick
@@ -62,10 +64,12 @@ Parent/Student portal; this app also covers staff-facing modules.
     Infirmary Visits, Intl. Documents
   - **Admin** — Master Data, Message Templates
 - **Parent/Student portal**: My Children → per-child **Profile, Attendance, Marks,
-  Fees** (with UPI payment: opens the deep link in any UPI app, then records the
-  reference/UTR back to the school), **Timetable** (day-by-day, breaks included),
+  Fees** (verified Razorpay checkout plus UPI-app handoff and bank-reference
+  reporting), **Timetable** (day-by-day, breaks included),
   **Homework** (with due-date urgency and attachments), **Tests** (status and
-  scores) and **Messages** (two-way thread with the school).
+  scores), **Messages** (two-way thread with the school), and **Notices**
+  (acknowledgements and reported-payment verification status). Published results
+  can be downloaded as versioned PDFs.
 
 ## Known gaps
 
@@ -77,7 +81,8 @@ Parent/Student portal; this app also covers staff-facing modules.
 - **Leads** is a public marketing capture endpoint with no staff-facing page on
   either client.
 - Multi-step flows that stay web-only: admissions **convert-to-student**,
-  academic-year **promotion runs**, and **bulk CSV import/export**.
+  academic-year **promotion runs**, and general-purpose **bulk CSV import/export**
+  (settlement CSV import is available on mobile).
 - The web's list pages additionally offer column show/hide, saved filters and
   bulk selection; mobile lists have search and sorting.
 
@@ -148,11 +153,11 @@ npm install
 npm run android   # or: npm run ios (macOS only) / npm start and scan the QR code with Expo Go
 ```
 
-By default the app points at `http://10.0.2.2:8000` (the Android emulator's alias
-for the host machine's `localhost`), matching `uvicorn ... --port 8000` from
-`backend/SETUP.md`. On a physical device, or for a deployed backend, open
-**Server settings** on the login screen and enter the real API URL (e.g. your
-Render deployment).
+By default the app points at the deployed Schoolment API:
+`https://schoolment.com/school-erp`. For local development on an Android
+emulator, open **Server settings** on the login screen and enter
+`http://10.0.2.2:8000`; on a physical device, enter the HTTPS URL of the backend
+available to that device.
 
 ## Building real Android/iOS binaries
 
@@ -174,6 +179,11 @@ with "could not determine executable to run".)
 The `preview` profile (see `eas.json`) builds a plain `.apk` you can download and
 install directly on an Android phone. The default `production` profile builds an
 `.aab`, which the Play Store requires but which can't be installed by hand.
+
+Razorpay checkout uses its native React Native SDK. It is included by EAS and
+`expo run:android`/`expo run:ios`, but is not present in the stock Expo Go app;
+use a development build when testing gateway checkout. UPI deep links remain
+available without that native checkout module.
 
 Set the production API URL either via `app.json`'s `extra` field + `expo-constants`,
 or keep using the in-app **Server settings** override.

@@ -103,6 +103,35 @@ export interface UploadedFile {
   [key: string]: unknown;
 }
 
+/** Uploads an arbitrary picked document to an authenticated multipart route. */
+export async function uploadDocument<T = unknown>(
+  endpoint: string,
+  asset: { uri: string; name: string; mimeType?: string | null }
+): Promise<T> {
+  const base = await getApiBase();
+  const headers = await authHeaders();
+  const form = new FormData();
+  form.append(
+    "file",
+    {
+      uri: asset.uri,
+      name: asset.name,
+      type: asset.mimeType || "application/octet-stream",
+    } as unknown as Blob
+  );
+
+  const res = await fetch(`${base}${endpoint}`, { method: "POST", headers, body: form });
+  const text = await res.text();
+  let data: any;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined;
+  }
+  if (!res.ok) throw new ApiError(res.status, data?.detail ?? "Could not upload that file.");
+  return data as T;
+}
+
 /**
  * Uploads a local file (e.g. a picked photo) and returns the stored URL. Uses
  * fetch + FormData rather than the File API's upload helper so the JSON error

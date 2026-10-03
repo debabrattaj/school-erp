@@ -54,6 +54,7 @@ export interface SubjectMark {
   marks_obtained?: number;
   max_marks?: number;
   grade?: string;
+  assessment_status?: "Scored" | "Absent" | "Exempt";
 }
 
 export interface ExamResult {
@@ -63,6 +64,9 @@ export interface ExamResult {
   total_obtained?: number;
   total_max?: number;
   percentage?: number;
+  version?: number;
+  release_id?: number;
+  published_at?: string;
 }
 
 export interface MarksResponse {

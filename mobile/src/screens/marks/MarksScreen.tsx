@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { showAlert } from "../../utils/alert";
 import { useFocusEffect } from "@react-navigation/native";
 import { api, ApiError } from "../../api/client";
@@ -41,7 +41,11 @@ interface Mark {
   marks_obtained: number;
   max_marks?: number;
   total_marks?: number;
+  assessment_status?: AssessmentStatus;
 }
+
+type AssessmentStatus = "Scored" | "Absent" | "Exempt";
+const OUTCOMES: AssessmentStatus[] = ["Scored", "Absent", "Exempt"];
 
 function markSubject(m: Mark) {
   return m.subject_name ?? m.subject ?? "";
@@ -69,6 +73,7 @@ export default function MarksScreen() {
   const [loadingSheet, setLoadingSheet] = useState(false);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<number, string>>({});
+  const [pendingStatus, setPendingStatus] = useState<Record<number, AssessmentStatus>>({});
   const [saving, setSaving] = useState(false);
 
   /**
@@ -176,11 +181,13 @@ export default function MarksScreen() {
   function pickExam(next: string) {
     setExamId(next);
     setPending({});
+    setPendingStatus({});
   }
 
   function pickSubject(next: string) {
     setSubject(next);
     setPending({});
+    setPendingStatus({});
   }
 
   async function saveAll() {
@@ -194,7 +201,16 @@ export default function MarksScreen() {
       return;
     }
 
-    const entries = Object.entries(pending).filter(([, v]) => v.trim() !== "");
+    const changedIds = new Set([
+      ...Object.keys(pending).filter((id) => pending[Number(id)].trim() !== ""),
+      ...Object.keys(pendingStatus),
+    ]);
+    const entries = [...changedIds].map((id) => {
+      const studentId = Number(id);
+      const status = pendingStatus[studentId] || marksByStudent[studentId]?.assessment_status || "Scored";
+      const raw = pending[studentId] ?? (marksByStudent[studentId] ? String(marksByStudent[studentId].marks_obtained) : "");
+      return [id, raw, status] as const;
+    });
     if (!entries.length) {
       showAlert("Nothing to save", "Enter marks for at least one student.");
       return;
@@ -202,9 +218,10 @@ export default function MarksScreen() {
 
     // The backend rejects these with a 400 one row at a time; catching them here
     // means the whole sheet isn't half-saved before the first bad row is found.
-    const invalid = entries.filter(([, v]) => {
+    const invalid = entries.filter(([, v, status]) => {
+      if (status !== "Scored") return false;
       const n = Number(v);
-      return !Number.isFinite(n) || n < 0 || n > total;
+      return v.trim() === "" || !Number.isFinite(n) || n < 0 || n > total;
     });
     if (invalid.length) {
       showAlert(
@@ -216,13 +233,13 @@ export default function MarksScreen() {
 
     setSaving(true);
     const failures: string[] = [];
-    for (const [studentIdStr, raw] of entries) {
+    for (const [studentIdStr, raw, status] of entries) {
       const studentId = Number(studentIdStr);
-      const obtained = Number(raw);
+      const obtained = status === "Scored" ? Number(raw) : 0;
       const existing = marksByStudent[studentId];
       try {
         if (existing) {
-          await api.put(`/marks/${existing.id}`, { marks_obtained: obtained, total_marks: total });
+          await api.put(`/marks/${existing.id}`, { marks_obtained: obtained, total_marks: total, assessment_status: status });
         } else {
           await api.post("/marks/", {
             student_id: studentId,
@@ -230,6 +247,7 @@ export default function MarksScreen() {
             subject_name: subject,
             marks_obtained: obtained,
             total_marks: total,
+            assessment_status: status,
           });
         }
       } catch (e) {
@@ -243,6 +261,7 @@ export default function MarksScreen() {
     setSaving(false);
 
     setPending({});
+    setPendingStatus({});
     await loadSheet();
 
     if (failures.length) {
@@ -258,7 +277,10 @@ export default function MarksScreen() {
   if (!exams && !error) return <LoadingView />;
   if (error && !exams) return <ErrorView message={error} onRetry={loadShell} />;
 
-  const pendingCount = Object.keys(pending).filter((k) => (pending[Number(k)] ?? "").trim() !== "").length;
+  const pendingCount = new Set([
+    ...Object.keys(pending).filter((k) => (pending[Number(k)] ?? "").trim() !== ""),
+    ...Object.keys(pendingStatus),
+  ]).size;
 
   return (
     <View style={styles.container}>
@@ -317,20 +339,36 @@ export default function MarksScreen() {
           renderItem={({ item }) => {
             const existing = marksByStudent[item.id];
             const value = pending[item.id] ?? (existing ? String(existing.marks_obtained) : "");
+            const outcome = pendingStatus[item.id] || existing?.assessment_status || "Scored";
             return (
               <Card style={styles.studentRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{studentName(item)}</Text>
                   <Text style={styles.muted}>
                     {item.admission_no}
-                    {existing ? ` · saved ${existing.marks_obtained}/${markTotal(existing) ?? "?"}` : ""}
+                    {existing ? ` · saved ${existing.assessment_status && existing.assessment_status !== "Scored" ? existing.assessment_status : `${existing.marks_obtained}/${markTotal(existing) ?? "?"}`}` : ""}
                   </Text>
+                  <View style={styles.outcomeRow}>
+                    {OUTCOMES.map((status) => (
+                      <Pressable
+                        key={status}
+                        onPress={() => {
+                          setPendingStatus((current) => ({ ...current, [item.id]: status }));
+                          if (status !== "Scored") setPending((current) => ({ ...current, [item.id]: "" }));
+                        }}
+                        style={[styles.outcome, outcome === status && styles.outcomeActive]}
+                      >
+                        <Text style={[styles.outcomeText, outcome === status && styles.outcomeTextActive]}>{status}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
                 <AppTextInput
                   value={value}
                   onChangeText={(v) => setPending((prev) => ({ ...prev, [item.id]: v }))}
                   keyboardType="numeric"
-                  placeholder="—"
+                  placeholder={outcome === "Scored" ? "—" : outcome}
+                  editable={outcome === "Scored"}
                   style={styles.marksInput}
                 />
               </Card>
@@ -357,9 +395,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   filters: { paddingHorizontal: spacing(4), paddingTop: spacing(4) },
   row: { flexDirection: "row", gap: spacing(3) },
-  studentRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing(2.5) },
+  studentRow: { flexDirection: "row", alignItems: "center", gap: spacing(3), marginBottom: spacing(2.5) },
   name: { ...type.body, fontWeight: "700", color: colors.text },
   muted: { ...type.caption, color: colors.textMuted, marginTop: 2 },
   marksInput: { width: 76, textAlign: "center" },
+  outcomeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing(1.5), marginTop: spacing(2) },
+  outcome: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
+  outcomeActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+  outcomeText: { ...type.caption, color: colors.textMuted },
+  outcomeTextActive: { color: colors.primaryDark },
   footer: { padding: spacing(4), borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
 });
