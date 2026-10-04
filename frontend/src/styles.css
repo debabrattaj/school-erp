@@ -546,6 +546,12 @@ input:-webkit-autofill:focus {
   gap: 12px;
 }
 
+.form-action-note {
+  color: #a74800;
+  font-weight: 600;
+  max-width: 420px;
+}
+
 
 
 

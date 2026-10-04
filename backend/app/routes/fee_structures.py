@@ -195,6 +195,7 @@ def lookup_class_fee_structure(
             mode="single",
             amount=structure.amount,
             due_date=structure.due_date,
+            auto_generate=structure.auto_generate,
         )
 
     both = structures.get(None)
@@ -205,8 +206,10 @@ def lookup_class_fee_structure(
         mode="split",
         hosteller_amount=hosteller.amount if hosteller else None,
         hosteller_due_date=hosteller.due_date if hosteller else None,
+        hosteller_auto_generate=bool(hosteller and hosteller.auto_generate),
         day_scholar_amount=day_scholar.amount if day_scholar else None,
         day_scholar_due_date=day_scholar.due_date if day_scholar else None,
+        day_scholar_auto_generate=bool(day_scholar and day_scholar.auto_generate),
     )
 
 

@@ -314,6 +314,7 @@ export default function Fees() {
   const [structureLookupMessage, setStructureLookupMessage] = useState("");
   const [structureFound, setStructureFound] = useState(false);
   const [dueDateAutoFilled, setDueDateAutoFilled] = useState(false);
+  const [autoGenerationSelected, setAutoGenerationSelected] = useState(false);
   const [classStructureLookup, setClassStructureLookup] = useState(null);
 
   const [structureForm, setStructureForm] = useState(emptyStructureForm);
@@ -710,6 +711,7 @@ export default function Fees() {
       setStructureLookupMessage("");
       setStructureFound(false);
       setDueDateAutoFilled(false);
+      setAutoGenerationSelected(false);
       setClassStructureLookup(null);
       return undefined;
     }
@@ -721,6 +723,7 @@ export default function Fees() {
         setStructureLookupMessage("");
         setStructureFound(false);
         setDueDateAutoFilled(false);
+        setAutoGenerationSelected(false);
         setClassStructureLookup(null);
         return undefined;
       }
@@ -743,6 +746,13 @@ export default function Fees() {
               ? Boolean(dueDate)
               : Boolean(data.hosteller_due_date && data.day_scholar_due_date)
           );
+          const automaticGenerationEnabled = Boolean(
+            data.auto_generate || data.hosteller_auto_generate || data.day_scholar_auto_generate
+          );
+          setAutoGenerationSelected(automaticGenerationEnabled);
+          if (automaticGenerationEnabled) {
+            setMessage("Automatic generation is enabled for this fee type. No need to create fees manually.");
+          }
           setStructureLookupMessage("");
           setFormData((prev) => ({
             ...prev,
@@ -755,6 +765,7 @@ export default function Fees() {
           setClassStructureLookup(null);
           setStructureFound(false);
           setDueDateAutoFilled(false);
+          setAutoGenerationSelected(false);
           if (error.response?.status === 404) {
             setStructureLookupMessage(
               `No fee structure configured yet for ${formData.fee_type} / Class ${formData.class_name} in ${formData.academic_year}. Enter the amount manually, or add one under "Fee Structure".`
@@ -789,12 +800,17 @@ export default function Fees() {
         }));
         setStructureFound(true);
         setDueDateAutoFilled(Boolean(dueDate));
+        setAutoGenerationSelected(Boolean(structure.auto_generate));
+        if (structure.auto_generate) {
+          setMessage("Automatic generation is enabled for this fee type. No need to create this fee manually.");
+        }
         setStructureLookupMessage("");
       })
       .catch((error) => {
         if (cancelled) return;
         setStructureFound(false);
         setDueDateAutoFilled(false);
+        setAutoGenerationSelected(false);
         setClassStructureLookup(null);
         if (error.response?.status === 404) {
           setStructureLookupMessage(
@@ -834,7 +850,9 @@ export default function Fees() {
     if (structureLookupFields.includes(name)) {
       setStructureFound(false);
       setDueDateAutoFilled(false);
+      setAutoGenerationSelected(false);
       setStructureLookupMessage("");
+      setMessage("");
     }
 
     setFormData((prev) => {
@@ -868,6 +886,7 @@ export default function Fees() {
     setFeeMode(nextMode);
     setStructureFound(false);
     setDueDateAutoFilled(false);
+    setAutoGenerationSelected(false);
     setStructureLookupMessage("");
     setClassStructureLookup(null);
     setFormData((prev) => ({
@@ -957,6 +976,11 @@ export default function Fees() {
     e.preventDefault();
     setMessage("");
 
+    if (!editingId && autoGenerationSelected) {
+      setMessage("Automatic generation is enabled for this fee type. No need to create fees manually.");
+      return;
+    }
+
     try {
       const payload = buildPayload();
       const validationMessage = validatePayload(payload);
@@ -1018,6 +1042,7 @@ export default function Fees() {
     setFeeMode("student");
     setStructureFound(false);
     setDueDateAutoFilled(false);
+    setAutoGenerationSelected(false);
     setStructureLookupMessage("");
     setClassStructureLookup(null);
 
@@ -1085,6 +1110,7 @@ export default function Fees() {
     setStructureLookupMessage("");
     setStructureFound(false);
     setDueDateAutoFilled(false);
+    setAutoGenerationSelected(false);
     setClassStructureLookup(null);
     setPageMode("list");
   }
@@ -1100,6 +1126,7 @@ export default function Fees() {
     setMessage("");
     setStructureFound(false);
     setDueDateAutoFilled(false);
+    setAutoGenerationSelected(false);
     setClassStructureLookup(null);
     setPageMode("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1956,10 +1983,32 @@ export default function Fees() {
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="primary-button">
-              <PlusCircle size={18} />
-              {editingId ? "Update Fee" : feeMode === "class" ? "Add Fee for Class" : "Add Fee"}
-            </button>
+            <span
+              title={
+                autoGenerationSelected && !editingId
+                  ? "Automatic generation is enabled for this fee type."
+                  : undefined
+              }
+              onClick={() => {
+                if (autoGenerationSelected && !editingId) {
+                  setMessage("Automatic generation is enabled for this fee type. No need to create fees manually.");
+                }
+              }}
+            >
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={autoGenerationSelected && !editingId}
+              >
+                <PlusCircle size={18} />
+                {editingId ? "Update Fee" : feeMode === "class" ? "Add Fee for Class" : "Add Fee"}
+              </button>
+            </span>
+            {autoGenerationSelected && !editingId && (
+              <small className="form-action-note" role="alert">
+                Automatic generation is on for this fee type, so manual creation is disabled.
+              </small>
+            )}
 
             <button
               type="button"

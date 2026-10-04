@@ -145,6 +145,7 @@ def run_one_cycle(db, structure: FeeStructure, period: str, generation_date: dat
                 billing_period=period,
                 active_only=True,
                 due_date_override=generated_due_date is not None,
+                allow_auto_generated_structure=True,
             )
             billed += result.created_count
             skipped += result.skipped_count

@@ -514,10 +514,13 @@ class FeeStructureClassLookupResponse(BaseModel):
     mode: str  # "single" (one amount for the whole class) | "split" (differs by residential type)
     amount: Optional[float] = None
     due_date: Optional[date] = None
+    auto_generate: bool = False
     hosteller_amount: Optional[float] = None
     hosteller_due_date: Optional[date] = None
+    hosteller_auto_generate: bool = False
     day_scholar_amount: Optional[float] = None
     day_scholar_due_date: Optional[date] = None
+    day_scholar_auto_generate: bool = False
 
 
 # =========================

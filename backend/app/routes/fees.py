@@ -14,7 +14,7 @@ from app.models import Fee, ReceiptSequence, Student, SchoolSettings, User
 from app import concessions
 from app.notifications import notify_guardian_fee_added
 from app.payment_links import verify_payment_link_token
-from app.routes.fee_structures import resolve_class_structures
+from app.routes.fee_structures import resolve_class_structures, resolve_structure
 from app.schemas import (
     FeeCreate,
     FeeUpdate,
@@ -190,6 +190,14 @@ def create_fee(
     validate_fee_amounts(fee.fee_type, fee.total_amount, fee.paid_amount)
 
     academic_year = fee.academic_year or get_settings(db).academic_year
+    structure = resolve_structure(
+        db, academic_year, student.class_name, student.residential_type, fee.fee_type
+    )
+    if structure and structure.auto_generate:
+        raise HTTPException(
+            status_code=409,
+            detail="Automatic generation is enabled for this fee type. No need to create this fee manually.",
+        )
     # Any approved concession the student holds is applied at creation, so a
     # scholarship does not depend on someone remembering to discount by hand.
     concession_amount = concessions.discount_for_fee(
@@ -251,6 +259,7 @@ def assign_class_fee(
     billing_period: str | None = None,
     active_only: bool = False,
     due_date_override: bool = False,
+    allow_auto_generated_structure: bool = False,
 ) -> FeeBulkClassResponse:
     """Bill every student in a class (optionally one section) for a fee type,
     resolving the amount from Fee Structures. Shared by the manual "Bulk
@@ -293,6 +302,12 @@ def assign_class_fee(
     # bills just that group, while a "Both" row (or no structure at all,
     # using the manually-entered amount) bills everyone.
     structures = resolve_class_structures(db, academic_year, class_name, fee_type)
+
+    if not allow_auto_generated_structure and any(structure.auto_generate for structure in structures.values()):
+        raise HTTPException(
+            status_code=409,
+            detail="Automatic generation is enabled for this fee type. No need to create fees manually.",
+        )
 
     batches = []  # (residential_type_filter_or_None, total_amount, due_date)
 

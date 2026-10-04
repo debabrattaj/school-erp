@@ -191,6 +191,30 @@ def test_assign_class_fee_active_only_excludes_inactive_students(db_session):
     assert result.created_count == 1
 
 
+def test_manual_class_fee_rejects_an_auto_generated_structure(db_session):
+    from fastapi import HTTPException
+    from app.models import FeeStructure
+    from app.routes.fees import assign_class_fee
+
+    db = db_session
+    _make_student(db, class_name="SchedTest-AutoOnly")
+    db.add(FeeStructure(
+        academic_year="2026-27",
+        class_name="SchedTest-AutoOnly",
+        fee_type="Tuition Fee",
+        amount=500,
+        auto_generate=True,
+    ))
+    db.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        assign_class_fee(
+            db, class_name="SchedTest-AutoOnly", fee_type="Tuition Fee",
+            academic_year="2026-27", total_amount=500,
+        )
+    assert exc_info.value.status_code == 409
+
+
 def test_assign_class_fee_manual_call_still_raises_on_no_match(db_session):
     """billing_period=None (a manual call) must keep the original behavior:
     404 when nothing in the class matches, not a quiet empty success."""

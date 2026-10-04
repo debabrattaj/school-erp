@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# The Bhubaneswar city page now uses the shorter AI-focused URL. Keep the
+# established URL's search signals and visitors flowing to the new canonical.
+RewriteRule ^online-school-management-erp-bhubaneswar/?$ /school-erp-system-powered-by-ai/ [R=301,L]
+
 # Preserve links to the original ten-system comparison.
 RewriteRule ^blog/top-10-school-erp-management-systems-india/?$ /blog/top-20-school-erp-management-systems-india/ [R=301,L]
 
