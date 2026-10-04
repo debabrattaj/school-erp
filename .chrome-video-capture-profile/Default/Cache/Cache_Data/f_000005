@@ -1,0 +1,1953 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/App.jsx");import.meta.env = {"BASE_URL": "/", "DEV": true, "MODE": "development", "PROD": false, "SSR": false, "VITE_API_BASE_URL": "https://schoolment.com/school-erp"};import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=b88c6b24"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=b88c6b24"; const lazy = __vite__cjsImport3_react["lazy"]; const Suspense = __vite__cjsImport3_react["Suspense"]; const useEffect = __vite__cjsImport3_react["useEffect"]; const useState = __vite__cjsImport3_react["useState"];
+import { BrowserRouter, Routes, Route } from "/node_modules/.vite/deps/react-router-dom.js?v=fee6f2b6";
+import { Menu, PanelLeftClose } from "/node_modules/.vite/deps/lucide-react.js?v=b85b2733";
+import Sidebar from "/src/components/Sidebar.jsx";
+import Topbar from "/src/components/Topbar.jsx";
+import ProtectedRoute from "/src/components/ProtectedRoute.jsx";
+import Login from "/src/pages/Login.jsx";
+import ForgotPassword from "/src/pages/ForgotPassword.jsx";
+import ResetPassword from "/src/pages/ResetPassword.jsx";
+import ApplyOnline from "/src/pages/ApplyOnline.jsx";
+import { SettingsProvider } from "/src/SettingsContext.jsx";
+import FloatingAssistant from "/src/components/FloatingAssistant.jsx";
+import PlatformLogin from "/src/pages/PlatformLogin.jsx";
+import { isPlatformLoggedIn } from "/src/platformApi.js";
+import { Navigate } from "/node_modules/.vite/deps/react-router-dom.js?v=fee6f2b6";
+import RouteTitle from "/src/components/RouteTitle.jsx";
+const MasterData = lazy(_c = () => import("/src/pages/MasterData.jsx"));
+_c2 = MasterData;
+const Workflows = lazy(_c3 = () => import("/src/pages/Workflows.jsx"));
+_c4 = Workflows;
+const Dashboard = lazy(_c5 = () => import("/src/pages/Dashboard.jsx"));
+_c6 = Dashboard;
+const Profile = lazy(_c7 = () => import("/src/pages/Profile.jsx"));
+_c8 = Profile;
+const Timetable = lazy(_c9 = () => import("/src/pages/Timetable.jsx"));
+_c0 = Timetable;
+const Roles = lazy(_c1 = () => import("/src/pages/Roles.jsx"));
+_c10 = Roles;
+const Students = lazy(_c11 = () => import("/src/pages/Students.jsx"));
+_c12 = Students;
+const Teachers = lazy(_c13 = () => import("/src/pages/Teachers.jsx"));
+_c14 = Teachers;
+const Fees = lazy(_c15 = () => import("/src/pages/Fees.jsx"));
+_c16 = Fees;
+const Accounts = lazy(_c17 = () => import("/src/pages/Accounts.jsx"));
+_c18 = Accounts;
+const Attendance = lazy(_c19 = () => import("/src/pages/Attendance.jsx"));
+_c20 = Attendance;
+const Exams = lazy(_c21 = () => import("/src/pages/Exams.jsx"));
+_c22 = Exams;
+const Classes = lazy(_c23 = () => import("/src/pages/Classes.jsx"));
+_c24 = Classes;
+const Marks = lazy(_c25 = () => import("/src/pages/Marks.jsx"));
+_c26 = Marks;
+const Reports = lazy(_c27 = () => import("/src/pages/Reports.jsx"));
+_c28 = Reports;
+const Users = lazy(_c29 = () => import("/src/pages/Users.jsx"));
+_c30 = Users;
+const Settings = lazy(_c31 = () => import("/src/pages/Settings.jsx"));
+_c32 = Settings;
+const ModuleLayoutBuilder = lazy(_c33 = () => import("/src/pages/ModuleLayoutBuilder.jsx"));
+_c34 = ModuleLayoutBuilder;
+const StudentDetails = lazy(_c35 = () => import("/src/pages/StudentDetails.jsx"));
+_c36 = StudentDetails;
+const ClassDetails = lazy(_c37 = () => import("/src/pages/ClassDetails.jsx"));
+_c38 = ClassDetails;
+const Subjects = lazy(_c39 = () => import("/src/pages/Subjects.jsx"));
+_c40 = Subjects;
+const StudentEnrollments = lazy(_c41 = () => import("/src/pages/StudentEnrollments.jsx"));
+_c42 = StudentEnrollments;
+const AcademicYears = lazy(_c43 = () => import("/src/pages/AcademicYears.jsx"));
+_c44 = AcademicYears;
+const Portal = lazy(_c45 = () => import("/src/pages/Portal.jsx"));
+_c46 = Portal;
+const PortalAccess = lazy(_c47 = () => import("/src/pages/PortalAccess.jsx"));
+_c48 = PortalAccess;
+const Assistant = lazy(_c49 = () => import("/src/pages/Assistant.jsx"));
+_c50 = Assistant;
+const PlatformConsole = lazy(_c51 = () => import("/src/pages/PlatformConsole.jsx"));
+_c52 = PlatformConsole;
+function PlatformRoute({ children }) {
+  if (!isPlatformLoggedIn()) {
+    return /* @__PURE__ */ jsxDEV(Navigate, { to: "/platform-login", replace: true }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 72,
+      columnNumber: 12
+    }, this);
+  }
+  return children;
+}
+_c53 = PlatformRoute;
+const Hostel = lazy(_c54 = () => import("/src/pages/Hostel.jsx"));
+_c55 = Hostel;
+const Transport = lazy(_c56 = () => import("/src/pages/Transport.jsx"));
+_c57 = Transport;
+const HealthInfirmary = lazy(_c58 = () => import("/src/pages/HealthInfirmary.jsx"));
+_c59 = HealthInfirmary;
+const MessManagement = lazy(_c60 = () => import("/src/pages/MessManagement.jsx"));
+_c61 = MessManagement;
+const Library = lazy(_c62 = () => import("/src/pages/Library.jsx"));
+_c63 = Library;
+const Inventory = lazy(_c64 = () => import("/src/pages/Inventory.jsx"));
+_c65 = Inventory;
+const Admissions = lazy(_c66 = () => import("/src/pages/Admissions.jsx"));
+_c67 = Admissions;
+const InternationalDocuments = lazy(_c68 = () => import("/src/pages/InternationalDocuments.jsx"));
+_c69 = InternationalDocuments;
+const MultiCurriculum = lazy(_c70 = () => import("/src/pages/MultiCurriculum.jsx"));
+_c71 = MultiCurriculum;
+const AdmissionAssessments = lazy(_c72 = () => import("/src/pages/AdmissionAssessments.jsx"));
+_c73 = AdmissionAssessments;
+const Communications = lazy(_c74 = () => import("/src/pages/Communications.jsx"));
+_c75 = Communications;
+const StudentServices = lazy(_c76 = () => import("/src/pages/StudentServices.jsx"));
+_c77 = StudentServices;
+const AlumniWithdrawals = lazy(_c78 = () => import("/src/pages/AlumniWithdrawals.jsx"));
+_c79 = AlumniWithdrawals;
+const Counseling = lazy(_c80 = () => import("/src/pages/Counseling.jsx"));
+_c81 = Counseling;
+const Enrichment = lazy(_c82 = () => import("/src/pages/Enrichment.jsx"));
+_c83 = Enrichment;
+const Compliance = lazy(_c84 = () => import("/src/pages/Compliance.jsx"));
+_c85 = Compliance;
+const ReportCard = lazy(_c86 = () => import("/src/pages/ReportCard.jsx"));
+_c87 = ReportCard;
+const Payroll = lazy(_c88 = () => import("/src/pages/Payroll.jsx"));
+_c89 = Payroll;
+const Homework = lazy(_c90 = () => import("/src/pages/Homework.jsx"));
+_c91 = Homework;
+const LearningResources = lazy(_c92 = () => import("/src/pages/LearningResources.jsx"));
+_c93 = LearningResources;
+const CoursesPage = lazy(_c94 = () => import("/src/pages/Courses.jsx"));
+_c95 = CoursesPage;
+const ScormContent = lazy(_c96 = () => import("/src/pages/ScormContent.jsx"));
+_c97 = ScormContent;
+const DiscussionsPage = lazy(_c98 = () => import("/src/pages/Discussions.jsx"));
+_c99 = DiscussionsPage;
+const OnlineTests = lazy(_c100 = () => import("/src/pages/OnlineTests.jsx"));
+_c101 = OnlineTests;
+const Biometric = lazy(_c102 = () => import("/src/pages/Biometric.jsx"));
+_c103 = Biometric;
+const Leave = lazy(_c104 = () => import("/src/pages/Leave.jsx"));
+_c105 = Leave;
+const Syllabus = lazy(_c106 = () => import("/src/pages/Syllabus.jsx"));
+_c107 = Syllabus;
+const Gate = lazy(_c108 = () => import("/src/pages/Gate.jsx"));
+_c109 = Gate;
+function RouteFallback() {
+  return /* @__PURE__ */ jsxDEV("div", { className: "loading-box", style: { margin: "60px auto", maxWidth: 320 }, children: [
+    /* @__PURE__ */ jsxDEV("span", { className: "spinner", "aria-hidden": "true" }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 108,
+      columnNumber: 7
+    }, this),
+    "Loading..."
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+    lineNumber: 107,
+    columnNumber: 5
+  }, this);
+}
+_c110 = RouteFallback;
+const MOBILE_BREAKPOINT = 900;
+function ProtectedLayout({ children }) {
+  _s();
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > MOBILE_BREAKPOINT
+  );
+  useEffect(() => {
+    let wasMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    function handleResize() {
+      const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+      if (isMobile !== wasMobile) {
+        wasMobile = isMobile;
+        setSidebarOpen(!isMobile);
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  function closeOnMobile() {
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      setSidebarOpen(false);
+    }
+  }
+  return /* @__PURE__ */ jsxDEV(SettingsProvider, { children: /* @__PURE__ */ jsxDEV("div", { className: "app-layout", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: sidebarOpen ? "app-body" : "app-body sidebar-hidden", children: [
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: "sidebar-toggle-button",
+          onClick: () => setSidebarOpen((prev) => !prev),
+          title: sidebarOpen ? "Hide sidebar" : "Show sidebar",
+          children: sidebarOpen ? /* @__PURE__ */ jsxDEV(PanelLeftClose, { size: 18 }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 150,
+            columnNumber: 28
+          }, this) : /* @__PURE__ */ jsxDEV(Menu, { size: 18 }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 150,
+            columnNumber: 59
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 144,
+          columnNumber: 11
+        },
+        this
+      ),
+      sidebarOpen && /* @__PURE__ */ jsxDEV(Sidebar, { onNavigate: closeOnMobile }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 153,
+        columnNumber: 27
+      }, this),
+      sidebarOpen && /* @__PURE__ */ jsxDEV("div", { className: "sidebar-backdrop", onClick: () => setSidebarOpen(false) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 156,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("main", { className: "main-area", children: [
+        /* @__PURE__ */ jsxDEV(Topbar, {}, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 160,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "page-content", children }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 161,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 159,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 143,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV(FloatingAssistant, {}, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 165,
+      columnNumber: 9
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+    lineNumber: 142,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+    lineNumber: 141,
+    columnNumber: 5
+  }, this);
+}
+_s(ProtectedLayout, "dCt+Ol5u97xAOzHfr+Hixj3BLiU=");
+_c111 = ProtectedLayout;
+export default function App() {
+  return /* @__PURE__ */ jsxDEV(BrowserRouter, { basename: import.meta.env.BASE_URL, children: [
+    /* @__PURE__ */ jsxDEV(RouteTitle, {}, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 174,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV(Suspense, { fallback: /* @__PURE__ */ jsxDEV(RouteFallback, {}, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 175,
+      columnNumber: 27
+    }, this), children: /* @__PURE__ */ jsxDEV(Routes, { children: [
+      /* @__PURE__ */ jsxDEV(Route, { path: "/workflows", element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Workflows, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 177,
+        columnNumber: 137
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 177,
+        columnNumber: 120
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 177,
+        columnNumber: 43
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 177,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Route, { path: "/login", element: /* @__PURE__ */ jsxDEV(Login, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 178,
+        columnNumber: 39
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 178,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Route, { path: "/forgot-password", element: /* @__PURE__ */ jsxDEV(ForgotPassword, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 179,
+        columnNumber: 49
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 179,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Route, { path: "/reset-password", element: /* @__PURE__ */ jsxDEV(ResetPassword, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 180,
+        columnNumber: 48
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 180,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Route, { path: "/apply", element: /* @__PURE__ */ jsxDEV(ApplyOnline, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 181,
+        columnNumber: 39
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 181,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Route, { path: "/platform-login", element: /* @__PURE__ */ jsxDEV(PlatformLogin, {}, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 182,
+        columnNumber: 48
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+        lineNumber: 182,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/platform",
+          element: /* @__PURE__ */ jsxDEV(PlatformRoute, { children: /* @__PURE__ */ jsxDEV(PlatformConsole, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 187,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 186,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 183,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/",
+          element: /* @__PURE__ */ jsxDEV(
+            ProtectedRoute,
+            {
+              allowedRoles: ["Admin", "Principal", "Accounts", "Teacher"],
+              children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Dashboard, {}, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+                lineNumber: 199,
+                columnNumber: 17
+              }, this) }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+                lineNumber: 198,
+                columnNumber: 15
+              }, this)
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+              lineNumber: 195,
+              columnNumber: 13
+            },
+            this
+          )
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 192,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/profile",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Profile, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 210,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 209,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 208,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 205,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/students",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Students, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 221,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 220,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 219,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 216,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/teachers",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Teachers, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 232,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 231,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 230,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 227,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/classes",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Classes, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 243,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 242,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 241,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 238,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/attendance",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Attendance, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 254,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 253,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 252,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 249,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/fees",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Fees, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 265,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 264,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 263,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 260,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/accounting",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Accounts, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 276,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 275,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 274,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 271,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/payroll",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Payroll, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 287,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 286,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 285,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 282,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/homework",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Homework, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 298,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 297,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 296,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 293,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/lms",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(LearningResources, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 309,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 308,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 307,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 304,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/courses",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(CoursesPage, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 320,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 319,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 318,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 315,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/scorm-content",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(ScormContent, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 331,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 330,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 329,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 326,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/discussions",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(DiscussionsPage, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 342,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 341,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 340,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 337,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/online-tests",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(OnlineTests, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 353,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 352,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 351,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 348,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/biometric",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Biometric, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 364,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 363,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 362,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 359,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/exams",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Exams, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 375,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 374,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 373,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 370,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/timetable",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Timetable, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 385,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 384,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 383,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 380,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/marks",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Marks, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 395,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 394,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 393,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 390,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/reports",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Reports, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 406,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 405,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 404,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 401,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/report-card",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(ReportCard, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 416,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 415,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 414,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 411,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/users",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Users, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 427,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 426,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 425,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 422,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/roles",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Roles, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 437,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 436,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 435,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 432,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/settings",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Settings, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 447,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 446,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 445,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 442,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/master-data",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(MasterData, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 457,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 456,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 455,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 452,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/:moduleName/layout",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(ModuleLayoutBuilder, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 467,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 466,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 465,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 462,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/students/:studentId",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(StudentDetails, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 477,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 476,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 475,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 472,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/classes/:classId",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(ClassDetails, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 488,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 487,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 486,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 483,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/subjects",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Subjects, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 498,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 497,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 496,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 493,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/assistant",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts", "Teacher", "Parent", "Student"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Assistant, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 508,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 507,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 506,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 503,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/portal",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Parent", "Student", "Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Portal, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 518,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 517,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 516,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 513,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/portal-access",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(PortalAccess, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 528,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 527,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 526,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 523,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/academic-years",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(AcademicYears, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 538,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 537,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 536,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 533,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/student-enrollments",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(StudentEnrollments, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 548,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 547,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 546,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 543,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/admissions",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Admissions, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 558,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 557,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 556,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 553,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/admission-assessments",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(AdmissionAssessments, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 568,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 567,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 566,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 563,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/communications",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Communications, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 578,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 577,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 576,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 573,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/student-services",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(StudentServices, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 588,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 587,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 586,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 583,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/alumni-withdrawals",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(AlumniWithdrawals, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 598,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 597,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 596,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 593,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/counseling",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Counseling, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 608,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 607,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 606,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 603,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/enrichment",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Enrichment, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 618,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 617,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 616,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 613,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/compliance",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Compliance, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 628,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 627,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 626,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 623,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/international-documents",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(InternationalDocuments, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 638,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 637,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 636,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 633,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/multi-curriculum",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(MultiCurriculum, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 648,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 647,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 646,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 643,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/hostel",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Hostel, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 658,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 657,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 656,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 653,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/transport",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Transport, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 668,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 667,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 666,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 663,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/leave",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Leave, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 678,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 677,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 676,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 673,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/gate",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Gate, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 688,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 687,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 686,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 683,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/syllabus",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Syllabus, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 698,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 697,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 696,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 693,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/health-infirmary",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(HealthInfirmary, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 708,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 707,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 706,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 703,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/mess",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(MessManagement, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 718,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 717,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 716,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 713,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/library",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Library, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 728,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 727,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 726,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 723,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        Route,
+        {
+          path: "/inventory",
+          element: /* @__PURE__ */ jsxDEV(ProtectedRoute, { allowedRoles: ["Admin", "Principal", "Accounts", "Teacher"], children: /* @__PURE__ */ jsxDEV(ProtectedLayout, { children: /* @__PURE__ */ jsxDEV(Inventory, {}, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 738,
+            columnNumber: 17
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 737,
+            columnNumber: 15
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+            lineNumber: 736,
+            columnNumber: 13
+          }, this)
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+          lineNumber: 733,
+          columnNumber: 9
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 176,
+      columnNumber: 7
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+      lineNumber: 175,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx",
+    lineNumber: 173,
+    columnNumber: 5
+  }, this);
+}
+_c112 = App;
+var _c, _c2, _c3, _c4, _c5, _c6, _c7, _c8, _c9, _c0, _c1, _c10, _c11, _c12, _c13, _c14, _c15, _c16, _c17, _c18, _c19, _c20, _c21, _c22, _c23, _c24, _c25, _c26, _c27, _c28, _c29, _c30, _c31, _c32, _c33, _c34, _c35, _c36, _c37, _c38, _c39, _c40, _c41, _c42, _c43, _c44, _c45, _c46, _c47, _c48, _c49, _c50, _c51, _c52, _c53, _c54, _c55, _c56, _c57, _c58, _c59, _c60, _c61, _c62, _c63, _c64, _c65, _c66, _c67, _c68, _c69, _c70, _c71, _c72, _c73, _c74, _c75, _c76, _c77, _c78, _c79, _c80, _c81, _c82, _c83, _c84, _c85, _c86, _c87, _c88, _c89, _c90, _c91, _c92, _c93, _c94, _c95, _c96, _c97, _c98, _c99, _c100, _c101, _c102, _c103, _c104, _c105, _c106, _c107, _c108, _c109, _c110, _c111, _c112;
+$RefreshReg$(_c, "MasterData$lazy");
+$RefreshReg$(_c2, "MasterData");
+$RefreshReg$(_c3, "Workflows$lazy");
+$RefreshReg$(_c4, "Workflows");
+$RefreshReg$(_c5, "Dashboard$lazy");
+$RefreshReg$(_c6, "Dashboard");
+$RefreshReg$(_c7, "Profile$lazy");
+$RefreshReg$(_c8, "Profile");
+$RefreshReg$(_c9, "Timetable$lazy");
+$RefreshReg$(_c0, "Timetable");
+$RefreshReg$(_c1, "Roles$lazy");
+$RefreshReg$(_c10, "Roles");
+$RefreshReg$(_c11, "Students$lazy");
+$RefreshReg$(_c12, "Students");
+$RefreshReg$(_c13, "Teachers$lazy");
+$RefreshReg$(_c14, "Teachers");
+$RefreshReg$(_c15, "Fees$lazy");
+$RefreshReg$(_c16, "Fees");
+$RefreshReg$(_c17, "Accounts$lazy");
+$RefreshReg$(_c18, "Accounts");
+$RefreshReg$(_c19, "Attendance$lazy");
+$RefreshReg$(_c20, "Attendance");
+$RefreshReg$(_c21, "Exams$lazy");
+$RefreshReg$(_c22, "Exams");
+$RefreshReg$(_c23, "Classes$lazy");
+$RefreshReg$(_c24, "Classes");
+$RefreshReg$(_c25, "Marks$lazy");
+$RefreshReg$(_c26, "Marks");
+$RefreshReg$(_c27, "Reports$lazy");
+$RefreshReg$(_c28, "Reports");
+$RefreshReg$(_c29, "Users$lazy");
+$RefreshReg$(_c30, "Users");
+$RefreshReg$(_c31, "Settings$lazy");
+$RefreshReg$(_c32, "Settings");
+$RefreshReg$(_c33, "ModuleLayoutBuilder$lazy");
+$RefreshReg$(_c34, "ModuleLayoutBuilder");
+$RefreshReg$(_c35, "StudentDetails$lazy");
+$RefreshReg$(_c36, "StudentDetails");
+$RefreshReg$(_c37, "ClassDetails$lazy");
+$RefreshReg$(_c38, "ClassDetails");
+$RefreshReg$(_c39, "Subjects$lazy");
+$RefreshReg$(_c40, "Subjects");
+$RefreshReg$(_c41, "StudentEnrollments$lazy");
+$RefreshReg$(_c42, "StudentEnrollments");
+$RefreshReg$(_c43, "AcademicYears$lazy");
+$RefreshReg$(_c44, "AcademicYears");
+$RefreshReg$(_c45, "Portal$lazy");
+$RefreshReg$(_c46, "Portal");
+$RefreshReg$(_c47, "PortalAccess$lazy");
+$RefreshReg$(_c48, "PortalAccess");
+$RefreshReg$(_c49, "Assistant$lazy");
+$RefreshReg$(_c50, "Assistant");
+$RefreshReg$(_c51, "PlatformConsole$lazy");
+$RefreshReg$(_c52, "PlatformConsole");
+$RefreshReg$(_c53, "PlatformRoute");
+$RefreshReg$(_c54, "Hostel$lazy");
+$RefreshReg$(_c55, "Hostel");
+$RefreshReg$(_c56, "Transport$lazy");
+$RefreshReg$(_c57, "Transport");
+$RefreshReg$(_c58, "HealthInfirmary$lazy");
+$RefreshReg$(_c59, "HealthInfirmary");
+$RefreshReg$(_c60, "MessManagement$lazy");
+$RefreshReg$(_c61, "MessManagement");
+$RefreshReg$(_c62, "Library$lazy");
+$RefreshReg$(_c63, "Library");
+$RefreshReg$(_c64, "Inventory$lazy");
+$RefreshReg$(_c65, "Inventory");
+$RefreshReg$(_c66, "Admissions$lazy");
+$RefreshReg$(_c67, "Admissions");
+$RefreshReg$(_c68, "InternationalDocuments$lazy");
+$RefreshReg$(_c69, "InternationalDocuments");
+$RefreshReg$(_c70, "MultiCurriculum$lazy");
+$RefreshReg$(_c71, "MultiCurriculum");
+$RefreshReg$(_c72, "AdmissionAssessments$lazy");
+$RefreshReg$(_c73, "AdmissionAssessments");
+$RefreshReg$(_c74, "Communications$lazy");
+$RefreshReg$(_c75, "Communications");
+$RefreshReg$(_c76, "StudentServices$lazy");
+$RefreshReg$(_c77, "StudentServices");
+$RefreshReg$(_c78, "AlumniWithdrawals$lazy");
+$RefreshReg$(_c79, "AlumniWithdrawals");
+$RefreshReg$(_c80, "Counseling$lazy");
+$RefreshReg$(_c81, "Counseling");
+$RefreshReg$(_c82, "Enrichment$lazy");
+$RefreshReg$(_c83, "Enrichment");
+$RefreshReg$(_c84, "Compliance$lazy");
+$RefreshReg$(_c85, "Compliance");
+$RefreshReg$(_c86, "ReportCard$lazy");
+$RefreshReg$(_c87, "ReportCard");
+$RefreshReg$(_c88, "Payroll$lazy");
+$RefreshReg$(_c89, "Payroll");
+$RefreshReg$(_c90, "Homework$lazy");
+$RefreshReg$(_c91, "Homework");
+$RefreshReg$(_c92, "LearningResources$lazy");
+$RefreshReg$(_c93, "LearningResources");
+$RefreshReg$(_c94, "CoursesPage$lazy");
+$RefreshReg$(_c95, "CoursesPage");
+$RefreshReg$(_c96, "ScormContent$lazy");
+$RefreshReg$(_c97, "ScormContent");
+$RefreshReg$(_c98, "DiscussionsPage$lazy");
+$RefreshReg$(_c99, "DiscussionsPage");
+$RefreshReg$(_c100, "OnlineTests$lazy");
+$RefreshReg$(_c101, "OnlineTests");
+$RefreshReg$(_c102, "Biometric$lazy");
+$RefreshReg$(_c103, "Biometric");
+$RefreshReg$(_c104, "Leave$lazy");
+$RefreshReg$(_c105, "Leave");
+$RefreshReg$(_c106, "Syllabus$lazy");
+$RefreshReg$(_c107, "Syllabus");
+$RefreshReg$(_c108, "Gate$lazy");
+$RefreshReg$(_c109, "Gate");
+$RefreshReg$(_c110, "RouteFallback");
+$RefreshReg$(_c111, "ProtectedLayout");
+$RefreshReg$(_c112, "App");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/App.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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QUEsUUFQSjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsTUFRRztBQUFBLE1BR0g7QUFBQSxRQUFDO0FBQUE7QUFBQSxVQUNDLE1BQUs7QUFBQSxVQUNMLFNBQ0UsdUJBQUMsa0JBQWUsY0FBYyxDQUFDLFNBQVMsYUFBYSxTQUFTLEdBQzVELGlDQUFDLG1CQUNDLGlDQUFDLGlCQUFEO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVksS0FEZDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUVBLEtBSEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFJQTtBQUFBO0FBQUEsUUFQSjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsTUFRRztBQUFBLE1BR0g7QUFBQSxRQUFDO0FBQUE7QUFBQSxVQUNDLE1BQUs7QUFBQSxVQUNMLFNBQ0UsdUJBQUMsa0JBQWUsY0FBYyxDQUFDLFNBQVMsYUFBYSxTQUFTLEdBQzVELGlDQUFDLG1CQUNDLGlDQUFDLGtCQUFEO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQWEsS0FEZjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUVBLEtBSEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFJQTtBQUFBO0FBQUEsUUFQSjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsTUFRRztBQUFBLE1BR0g7QUFBQSxRQUFDO0FBQUE7QUFBQSxVQUNDLE1BQUs7QUFBQSxVQUNMLFNBQ0UsdUJBQUMsa0JBQWUsY0FBYyxDQUFDLFNBQVMsYUFBYSxTQUFTLEdBQzVELGlDQUFDLG1CQUNDLGlDQUFDLHFCQUFEO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQWdCLEtBRGxCO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBRUEsS0FIRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUlBO0FBQUE7QUFBQSxRQVBKO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxNQVFHO0FBQUEsTUFHSDtBQUFBLFFBQUM7QUFBQTtBQUFBLFVBQ0Ms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QyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxNQUFBQyxNQUFBRSxPQUFBQyxPQUFBRSxPQUFBQyxPQUFBRSxPQUFBQyxPQUFBRSxPQUFBQyxPQUFBRSxPQUFBQyxPQUFBSSxPQUFBb0IsT0FBQUQ7QUFBQSxhQUFBN0wsSUFBQTtBQUFBLGFBQUFDLEtBQUE7QUFBQSxhQUFBRSxLQUFBO0FBQUEsYUFBQUMsS0FBQTtBQUFBLGFBQUFFLEtBQUE7QUFBQSxhQUFBQyxLQUFBO0FBQUEsYUFBQUUsS0FBQTtBQUFBLGFBQUFDLEtBQUE7QUFBQSxhQUFBRSxLQUFBO0FBQUEsYUFBQUMsS0FBQTtBQUFBLGFBQUFFLEtBQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUcsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxNQUFBO0FBQUEsYUFBQUMsTUFBQTtBQUFBLGFBQUFFLE1BQUE7QUFBQSxhQUFBQyxNQUFBO0FBQUEsYUFBQUUsTUFBQTtBQUFBLGFBQUFDLE1BQUE7QUFBQSxhQUFBRSxPQUFBO0FBQUEsYUFBQUMsT0FBQTtBQUFBLGFBQUFFLE9BQUE7QUFBQSxhQUFBQyxPQUFBO0FBQUEsYUFBQUUsT0FBQTtBQUFBLGFBQUFDLE9BQUE7QUFBQSxhQUFBRSxPQUFBO0FBQUEsYUFBQUMsT0FBQTtBQUFBLGFBQUFFLE9BQUE7QUFBQSxhQUFBQyxPQUFBO0FBQUEsYUFBQUksT0FBQTtBQUFBLGFBQUFvQixPQUFBO0FBQUEsYUFBQUQsT0FBQSIsIm5hbWVzIjpbImxhenkiLCJTdXNwZW5zZSIsInVzZUVmZmVjdCIsInVzZVN0YXRlIiwiQnJvd3NlclJvdXRlciIsIlJvdXRlcyIsIlJvdXRlIiwiTWVudSIsIlBhbmVsTGVmdENsb3NlIiwiU2lkZWJhciIsIlRvcGJhciIsIlByb3RlY3RlZFJvdXRlIiwiTG9naW4iLCJGb3Jnb3RQYXNzd29yZCIsIlJlc2V0UGFzc3dvcmQiLCJBcHBseU9ubGluZSIsIlNldHRpbmdzUHJvdmlkZXIiLCJGbG9hdGluZ0Fzc2lzdGFudCIsIlBsYXRmb3JtTG9naW4iLCJpc1BsYXRmb3JtTG9nZ2VkSW4iLCJOYXZpZ2F0ZSIsIlJvdXRlVGl0bGUiLCJNYXN0ZXJEYXRhIiwiX2MiLCJfYzIiLCJXb3JrZmxvd3MiLCJfYzMiLCJfYzQiLCJEYXNoYm9hcmQiLCJfYzUiLCJfYzYiLCJQcm9maWxlIiwiX2M3IiwiX2M4IiwiVGltZXRhYmxlIiwiX2M5IiwiX2MwIiwiUm9sZXMiLCJfYzEiLCJfYzEwIiwiU3R1ZGVudHMiLCJfYzExIiwiX2MxMiIsIlRlYWNoZXJzIiwiX2MxMyIsIl9jMTQiLCJGZWVzIiwiX2MxNSIsIl9jMTYiLCJBY2NvdW50cyIsIl9jMTciLCJfYzE4IiwiQXR0ZW5kYW5jZSIsIl9jMTkiLCJfYzIwIiwiRXhhbXMiLCJfYzIxIiwiX2MyMiIsIkNsYXNzZXMiLCJfYzIzIiwiX2MyNCIsIk1hcmtzIiwiX2MyNSIsIl9jMjYiLCJSZXBvcnRzIiwiX2MyNyIsIl9jMjgiLCJVc2VycyIsIl9jMjkiLCJfYzMwIiwiU2V0dGluZ3MiLCJfYzMxIiwiX2MzMiIsIk1vZHVsZUxheW91dEJ1aWxkZXIiLCJfYzMzIiwiX2MzNCIsIlN0dWRlbnREZXRhaWxzIiwiX2MzNSIsIl9jMzYiLCJDbGFzc0RldGFpbHMiLCJfYzM3IiwiX2MzOCIsIlN1YmplY3RzIiwiX2MzOSIsIl9jNDAiLCJTdHVkZW50RW5yb2xsbWVudHMiLCJfYzQxIiwiX2M0MiIsIkFjYWRlbWljWWVhcnMiLCJfYzQzIiwiX2M0NCIsIlBvcnRhbCIsIl9jNDUiLCJfYzQ2IiwiUG9ydGFsQWNjZXNzIiwiX2M0NyIsIl9jNDgiLCJBc3Npc3RhbnQiLCJfYzQ5IiwiX2M1MCIsIlBsYXRmb3JtQ29uc29sZSIsIl9jNTEiLCJfYzUyIiwiUGxhdGZvcm1Sb3V0ZSIsImNoaWxkcmVuIiwiX2M1MyIsIkhvc3RlbCIsIl9jNTQiLCJfYzU1IiwiVHJhbnNwb3J0IiwiX2M1NiIsIl9jNTciLCJIZWFsdGhJbmZpcm1hcnkiLCJfYzU4IiwiX2M1OSIsIk1lc3NNYW5hZ2VtZW50IiwiX2M2MCIsIl9jNjEiLCJMaWJyYXJ5IiwiX2M2MiIsIl9jNjMiLCJJbnZlbnRvcnkiLCJfYzY0IiwiX2M2NSIsIkFkbWlzc2lvbnMiLCJfYzY2IiwiX2M2NyIsIkludGVybmF0aW9uYWxEb2N1bWVudHMiLCJfYzY4IiwiX2M2OSIsIk11bHRpQ3VycmljdWx1bSIsIl9jNzAiLCJfYzcxIiwiQWRtaXNzaW9uQXNzZXNzbWVudHMiLCJfYzcyIiwiX2M3MyIsIkNvbW11bmljYXRpb25zIiwiX2M3NCIsIl9jNzUiLCJTdHVkZW50U2VydmljZXMiLCJfYzc2IiwiX2M3NyIsIkFsdW1uaVdpdGhkcmF3YWxzIiwiX2M3OCIsIl9jNzkiLCJDb3Vuc2VsaW5nIiwiX2M4MCIsIl9jODEiLCJFbnJpY2htZW50IiwiX2M4MiIsIl9jODMiLCJDb21wbGlhbmNlIiwiX2M4NCIsIl9jODUiLCJSZXBvcnRDYXJkIiwiX2M4NiIsIl9jODciLCJQYXlyb2xsIiwiX2M4OCIsIl9jODkiLCJIb21ld29yayIsIl9jOTAiLCJfYzkxIiwiTGVhcm5pbmdSZXNvdXJjZXMiLCJfYzkyIiwiX2M5MyIsIkNvdXJzZXNQYWdlIiwiX2M5NCIsIl9jOTUiLCJTY29ybUNvbnRlbnQiLCJfYzk2IiwiX2M5NyIsIkRpc2N1c3Npb25zUGFnZSIsIl9jOTgiLCJfYzk5IiwiT25saW5lVGVzdHMiLCJfYzEwMCIsIl9jMTAxIiwiQmlvbWV0cmljIiwiX2MxMDIiLCJfYzEwMyIsIkxlYXZlIiwiX2MxMDQiLCJfYzEwNSIsIlN5bGxhYnVzIiwiX2MxMDYiLCJfYzEwNyIsIkdhdGUiLCJfYzEwOCIsIl9jMTA5IiwiUm91dGVGYWxsYmFjayIsIm1hcmdpbiIsIm1heFdpZHRoIiwiX2MxMTAiLCJNT0JJTEVfQlJFQUtQT0lOVCIsIlByb3RlY3RlZExheW91dCIsIl9zIiwic2lkZWJhck9wZW4iLCJzZXRTaWRlYmFyT3BlbiIsIndpbmRvdyIsImlubmVyV2lkdGgiLCJ3YXNNb2JpbGUiLCJoYW5kbGVSZXNpemUiLCJpc01vYmlsZSIsImFkZEV2ZW50TGlzdGVuZXIiLCJyZW1vdmVFdmVudExpc3RlbmVyIiwiY2xvc2VPbk1vYmlsZSIsInByZXYiLCJBcHAiLCJpbXBvcnQiLCJlbnYiLCJCQVNFX1VSTCIsIl9jMTEyIiwiX2MxMTEiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiQXBwLmpzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBsYXp5LCBTdXNwZW5zZSwgdXNlRWZmZWN0LCB1c2VTdGF0ZSB9IGZyb20gXCJyZWFjdFwiO1xyXG5pbXBvcnQgeyBCcm93c2VyUm91dGVyLCBSb3V0ZXMsIFJvdXRlIH0gZnJvbSBcInJlYWN0LXJvdXRlci1kb21cIjtcclxuaW1wb3J0IHsgTWVudSwgUGFuZWxMZWZ0Q2xvc2UgfSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcbmltcG9ydCBTaWRlYmFyIGZyb20gXCIuL2NvbXBvbmVudHMvU2lkZWJhclwiO1xyXG5pbXBvcnQgVG9wYmFyIGZyb20gXCIuL2NvbXBvbmVudHMvVG9wYmFyXCI7XHJcbmltcG9ydCBQcm90ZWN0ZWRSb3V0ZSBmcm9tIFwiLi9jb21wb25lbnRzL1Byb3RlY3RlZFJvdXRlXCI7XHJcbmltcG9ydCBMb2dpbiBmcm9tIFwiLi9wYWdlcy9Mb2dpblwiO1xyXG5pbXBvcnQgRm9yZ290UGFzc3dvcmQgZnJvbSBcIi4vcGFnZXMvRm9yZ290UGFzc3dvcmRcIjtcclxuaW1wb3J0IFJlc2V0UGFzc3dvcmQgZnJvbSBcIi4vcGFnZXMvUmVzZXRQYXNzd29yZFwiO1xyXG5pbXBvcnQgQXBwbHlPbmxpbmUgZnJvbSBcIi4vcGFnZXMvQXBwbHlPbmxpbmVcIjtcclxuaW1wb3J0IHsgU2V0dGluZ3NQcm92aWRlciB9IGZyb20gXCIuL1NldHRpbmdzQ29udGV4dFwiO1xyXG5pbXBvcnQgRmxvYXRpbmdBc3Npc3RhbnQgZnJvbSBcIi4vY29tcG9uZW50cy9GbG9hdGluZ0Fzc2lzdGFudFwiO1xyXG5pbXBvcnQgUGxhdGZvcm1Mb2dpbiBmcm9tIFwiLi9wYWdlcy9QbGF0Zm9ybUxvZ2luXCI7XHJcbmltcG9ydCB7IGlzUGxhdGZvcm1Mb2dnZWRJbiB9IGZyb20gXCIuL3BsYXRmb3JtQXBpXCI7XHJcbmltcG9ydCB7IE5hdmlnYXRlIH0gZnJvbSBcInJlYWN0LXJvdXRlci1kb21cIjtcclxuaW1wb3J0IFJvdXRlVGl0bGUgZnJvbSBcIi4vY29tcG9uZW50cy9Sb3V0ZVRpdGxlXCI7XHJcblxyXG4vLyBFdmVyeXRoaW5nIHBhc3QgdGhlIGxvZ2luIHNjcmVlbiBpcyBsYXp5LWxvYWRlZCBwZXIgcm91dGUgaW5zdGVhZCBvZlxyXG4vLyBidW5kbGVkIGludG8gb25lIHNoYXJlZCBjaHVuayAtLSBhIHNjaG9vbCdzIGRhaWx5IHVzZXJzIG9ubHkgZXZlciB0b3VjaCBhXHJcbi8vIGhhbmRmdWwgb2YgdGhlc2UgcGFnZXMsIHNvIHRoZXJlIGlzIG5vIHJlYXNvbiB0byBtYWtlIGV2ZXJ5IHZpc2l0b3JcclxuLy8gZG93bmxvYWQgYWxsIH40NSBvZiB0aGVtIChwcm9jdG9yaW5nJ3Mgb24tZGV2aWNlIGZhY2UgZGV0ZWN0aW9uIG1vZGVsXHJcbi8vIGFsb25lIHdhcyBwdXNoaW5nIHRoZSBzaGFyZWQgYnVuZGxlIHdlbGwgcGFzdCBWaXRlJ3MgNTAwa0Igd2FybmluZykuXHJcbmNvbnN0IE1hc3RlckRhdGEgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvTWFzdGVyRGF0YVwiKSk7XG5jb25zdCBXb3JrZmxvd3MgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvV29ya2Zsb3dzXCIpKTtcbmNvbnN0IERhc2hib2FyZCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9EYXNoYm9hcmRcIikpO1xyXG5jb25zdCBQcm9maWxlID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1Byb2ZpbGVcIikpO1xyXG5jb25zdCBUaW1ldGFibGUgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvVGltZXRhYmxlXCIpKTtcclxuY29uc3QgUm9sZXMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvUm9sZXNcIikpO1xyXG5jb25zdCBTdHVkZW50cyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9TdHVkZW50c1wiKSk7XHJcbmNvbnN0IFRlYWNoZXJzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1RlYWNoZXJzXCIpKTtcclxuY29uc3QgRmVlcyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9GZWVzXCIpKTtcclxuY29uc3QgQWNjb3VudHMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvQWNjb3VudHNcIikpO1xyXG5jb25zdCBBdHRlbmRhbmNlID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0F0dGVuZGFuY2VcIikpO1xyXG5jb25zdCBFeGFtcyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9FeGFtc1wiKSk7XHJcbmNvbnN0IENsYXNzZXMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvQ2xhc3Nlc1wiKSk7XHJcbmNvbnN0IE1hcmtzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL01hcmtzXCIpKTtcclxuY29uc3QgUmVwb3J0cyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9SZXBvcnRzXCIpKTtcclxuY29uc3QgVXNlcnMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvVXNlcnNcIikpO1xyXG5jb25zdCBTZXR0aW5ncyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9TZXR0aW5nc1wiKSk7XHJcbmNvbnN0IE1vZHVsZUxheW91dEJ1aWxkZXIgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvTW9kdWxlTGF5b3V0QnVpbGRlclwiKSk7XHJcbmNvbnN0IFN0dWRlbnREZXRhaWxzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1N0dWRlbnREZXRhaWxzXCIpKTtcclxuY29uc3QgQ2xhc3NEZXRhaWxzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0NsYXNzRGV0YWlsc1wiKSk7XHJcbmNvbnN0IFN1YmplY3RzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1N1YmplY3RzXCIpKTtcclxuY29uc3QgU3R1ZGVudEVucm9sbG1lbnRzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1N0dWRlbnRFbnJvbGxtZW50c1wiKSk7XHJcbmNvbnN0IEFjYWRlbWljWWVhcnMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvQWNhZGVtaWNZZWFyc1wiKSk7XHJcbmNvbnN0IFBvcnRhbCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9Qb3J0YWxcIikpO1xyXG5jb25zdCBQb3J0YWxBY2Nlc3MgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvUG9ydGFsQWNjZXNzXCIpKTtcclxuY29uc3QgQXNzaXN0YW50ID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0Fzc2lzdGFudFwiKSk7XHJcbmNvbnN0IFBsYXRmb3JtQ29uc29sZSA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9QbGF0Zm9ybUNvbnNvbGVcIikpO1xyXG5cclxuZnVuY3Rpb24gUGxhdGZvcm1Sb3V0ZSh7IGNoaWxkcmVuIH0pIHtcclxuICBpZiAoIWlzUGxhdGZvcm1Mb2dnZWRJbigpKSB7XHJcbiAgICByZXR1cm4gPE5hdmlnYXRlIHRvPVwiL3BsYXRmb3JtLWxvZ2luXCIgcmVwbGFjZSAvPjtcclxuICB9XHJcbiAgcmV0dXJuIGNoaWxkcmVuO1xyXG59XHJcbmNvbnN0IEhvc3RlbCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9Ib3N0ZWxcIikpO1xyXG5jb25zdCBUcmFuc3BvcnQgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvVHJhbnNwb3J0XCIpKTtcclxuY29uc3QgSGVhbHRoSW5maXJtYXJ5ID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0hlYWx0aEluZmlybWFyeVwiKSk7XHJcbmNvbnN0IE1lc3NNYW5hZ2VtZW50ID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL01lc3NNYW5hZ2VtZW50XCIpKTtcclxuY29uc3QgTGlicmFyeSA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9MaWJyYXJ5XCIpKTtcclxuY29uc3QgSW52ZW50b3J5ID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0ludmVudG9yeVwiKSk7XHJcbmNvbnN0IEFkbWlzc2lvbnMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvQWRtaXNzaW9uc1wiKSk7XHJcbmNvbnN0IEludGVybmF0aW9uYWxEb2N1bWVudHMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvSW50ZXJuYXRpb25hbERvY3VtZW50c1wiKSk7XHJcbmNvbnN0IE11bHRpQ3VycmljdWx1bSA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9NdWx0aUN1cnJpY3VsdW1cIikpO1xyXG5jb25zdCBBZG1pc3Npb25Bc3Nlc3NtZW50cyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9BZG1pc3Npb25Bc3Nlc3NtZW50c1wiKSk7XHJcbmNvbnN0IENvbW11bmljYXRpb25zID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0NvbW11bmljYXRpb25zXCIpKTtcclxuY29uc3QgU3R1ZGVudFNlcnZpY2VzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL1N0dWRlbnRTZXJ2aWNlc1wiKSk7XHJcbmNvbnN0IEFsdW1uaVdpdGhkcmF3YWxzID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0FsdW1uaVdpdGhkcmF3YWxzXCIpKTtcclxuY29uc3QgQ291bnNlbGluZyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9Db3Vuc2VsaW5nXCIpKTtcclxuY29uc3QgRW5yaWNobWVudCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9FbnJpY2htZW50XCIpKTtcclxuY29uc3QgQ29tcGxpYW5jZSA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9Db21wbGlhbmNlXCIpKTtcclxuY29uc3QgUmVwb3J0Q2FyZCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9SZXBvcnRDYXJkXCIpKTtcclxuY29uc3QgUGF5cm9sbCA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9QYXlyb2xsXCIpKTtcclxuY29uc3QgSG9tZXdvcmsgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvSG9tZXdvcmtcIikpO1xyXG5jb25zdCBMZWFybmluZ1Jlc291cmNlcyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9MZWFybmluZ1Jlc291cmNlc1wiKSk7XHJcbmNvbnN0IENvdXJzZXNQYWdlID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0NvdXJzZXNcIikpO1xyXG5jb25zdCBTY29ybUNvbnRlbnQgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvU2Nvcm1Db250ZW50XCIpKTtcclxuY29uc3QgRGlzY3Vzc2lvbnNQYWdlID0gbGF6eSgoKSA9PiBpbXBvcnQoXCIuL3BhZ2VzL0Rpc2N1c3Npb25zXCIpKTtcclxuY29uc3QgT25saW5lVGVzdHMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvT25saW5lVGVzdHNcIikpO1xyXG5jb25zdCBCaW9tZXRyaWMgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvQmlvbWV0cmljXCIpKTtcclxuY29uc3QgTGVhdmUgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvTGVhdmVcIikpO1xyXG5jb25zdCBTeWxsYWJ1cyA9IGxhenkoKCkgPT4gaW1wb3J0KFwiLi9wYWdlcy9TeWxsYWJ1c1wiKSk7XHJcbmNvbnN0IEdhdGUgPSBsYXp5KCgpID0+IGltcG9ydChcIi4vcGFnZXMvR2F0ZVwiKSk7XHJcblxyXG5mdW5jdGlvbiBSb3V0ZUZhbGxiYWNrKCkge1xyXG4gIHJldHVybiAoXHJcbiAgICA8ZGl2IGNsYXNzTmFtZT1cImxvYWRpbmctYm94XCIgc3R5bGU9e3sgbWFyZ2luOiBcIjYwcHggYXV0b1wiLCBtYXhXaWR0aDogMzIwIH19PlxyXG4gICAgICA8c3BhbiBjbGFzc05hbWU9XCJzcGlubmVyXCIgYXJpYS1oaWRkZW49XCJ0cnVlXCIgLz5cclxuICAgICAgTG9hZGluZy4uLlxyXG4gICAgPC9kaXY+XHJcbiAgKTtcclxufVxyXG5cclxuY29uc3QgTU9CSUxFX0JSRUFLUE9JTlQgPSA5MDA7XHJcblxyXG5mdW5jdGlvbiBQcm90ZWN0ZWRMYXlvdXQoeyBjaGlsZHJlbiB9KSB7XHJcbiAgY29uc3QgW3NpZGViYXJPcGVuLCBzZXRTaWRlYmFyT3Blbl0gPSB1c2VTdGF0ZShcclxuICAgICgpID0+IHR5cGVvZiB3aW5kb3cgPT09IFwidW5kZWZpbmVkXCIgfHwgd2luZG93LmlubmVyV2lkdGggPiBNT0JJTEVfQlJFQUtQT0lOVFxyXG4gICk7XHJcblxyXG4gIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICBsZXQgd2FzTW9iaWxlID0gd2luZG93LmlubmVyV2lkdGggPD0gTU9CSUxFX0JSRUFLUE9JTlQ7XHJcbiAgICBmdW5jdGlvbiBoYW5kbGVSZXNpemUoKSB7XHJcbiAgICAgIGNvbnN0IGlzTW9iaWxlID0gd2luZG93LmlubmVyV2lkdGggPD0gTU9CSUxFX0JSRUFLUE9JTlQ7XHJcbiAgICAgIGlmIChpc01vYmlsZSAhPT0gd2FzTW9iaWxlKSB7XHJcbiAgICAgICAgd2FzTW9iaWxlID0gaXNNb2JpbGU7XHJcbiAgICAgICAgc2V0U2lkZWJhck9wZW4oIWlzTW9iaWxlKTtcclxuICAgICAgfVxyXG4gICAgfVxyXG4gICAgd2luZG93LmFkZEV2ZW50TGlzdGVuZXIoXCJyZXNpemVcIiwgaGFuZGxlUmVzaXplKTtcclxuICAgIHJldHVybiAoKSA9PiB3aW5kb3cucmVtb3ZlRXZlbnRMaXN0ZW5lcihcInJlc2l6ZVwiLCBoYW5kbGVSZXNpemUpO1xyXG4gIH0sIFtdKTtcclxuXHJcbiAgZnVuY3Rpb24gY2xvc2VPbk1vYmlsZSgpIHtcclxuICAgIGlmICh3aW5kb3cuaW5uZXJXaWR0aCA8PSBNT0JJTEVfQlJFQUtQT0lOVCkge1xyXG4gICAgICBzZXRTaWRlYmFyT3BlbihmYWxzZSk7XHJcbiAgICB9XHJcbiAgfVxyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPFNldHRpbmdzUHJvdmlkZXI+XHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYXBwLWxheW91dFwiPlxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPXtzaWRlYmFyT3BlbiA/IFwiYXBwLWJvZHlcIiA6IFwiYXBwLWJvZHkgc2lkZWJhci1oaWRkZW5cIn0+XHJcbiAgICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJzaWRlYmFyLXRvZ2dsZS1idXR0b25cIlxyXG4gICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRTaWRlYmFyT3BlbigocHJldikgPT4gIXByZXYpfVxyXG4gICAgICAgICAgICB0aXRsZT17c2lkZWJhck9wZW4gPyBcIkhpZGUgc2lkZWJhclwiIDogXCJTaG93IHNpZGViYXJcIn1cclxuICAgICAgICAgID5cclxuICAgICAgICAgICAge3NpZGViYXJPcGVuID8gPFBhbmVsTGVmdENsb3NlIHNpemU9ezE4fSAvPiA6IDxNZW51IHNpemU9ezE4fSAvPn1cclxuICAgICAgICAgIDwvYnV0dG9uPlxyXG5cclxuICAgICAgICAgIHtzaWRlYmFyT3BlbiAmJiA8U2lkZWJhciBvbk5hdmlnYXRlPXtjbG9zZU9uTW9iaWxlfSAvPn1cclxuXHJcbiAgICAgICAgICB7c2lkZWJhck9wZW4gJiYgKFxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNpZGViYXItYmFja2Ryb3BcIiBvbkNsaWNrPXsoKSA9PiBzZXRTaWRlYmFyT3BlbihmYWxzZSl9IC8+XHJcbiAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgIDxtYWluIGNsYXNzTmFtZT1cIm1haW4tYXJlYVwiPlxyXG4gICAgICAgICAgICA8VG9wYmFyIC8+XHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGFnZS1jb250ZW50XCI+e2NoaWxkcmVufTwvZGl2PlxyXG4gICAgICAgICAgPC9tYWluPlxyXG4gICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICA8RmxvYXRpbmdBc3Npc3RhbnQgLz5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L1NldHRpbmdzUHJvdmlkZXI+XHJcbiAgKTtcclxufVxyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gQXBwKCkge1xyXG4gIHJldHVybiAoXHJcbiAgICA8QnJvd3NlclJvdXRlciBiYXNlbmFtZT17aW1wb3J0Lm1ldGEuZW52LkJBU0VfVVJMfT5cclxuICAgICAgPFJvdXRlVGl0bGUgLz5cclxuICAgICAgPFN1c3BlbnNlIGZhbGxiYWNrPXs8Um91dGVGYWxsYmFjayAvPn0+XHJcbiAgICAgIDxSb3V0ZXM+XG4gICAgICAgIDxSb3V0ZSBwYXRoPVwiL3dvcmtmbG93c1wiIGVsZW1lbnQ9ezxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiLCBcIkFjY291bnRzXCJdfT48UHJvdGVjdGVkTGF5b3V0PjxXb3JrZmxvd3MgLz48L1Byb3RlY3RlZExheW91dD48L1Byb3RlY3RlZFJvdXRlPn0gLz5cbiAgICAgICAgPFJvdXRlIHBhdGg9XCIvbG9naW5cIiBlbGVtZW50PXs8TG9naW4gLz59IC8+XHJcbiAgICAgICAgPFJvdXRlIHBhdGg9XCIvZm9yZ290LXBhc3N3b3JkXCIgZWxlbWVudD17PEZvcmdvdFBhc3N3b3JkIC8+fSAvPlxyXG4gICAgICAgIDxSb3V0ZSBwYXRoPVwiL3Jlc2V0LXBhc3N3b3JkXCIgZWxlbWVudD17PFJlc2V0UGFzc3dvcmQgLz59IC8+XHJcbiAgICAgICAgPFJvdXRlIHBhdGg9XCIvYXBwbHlcIiBlbGVtZW50PXs8QXBwbHlPbmxpbmUgLz59IC8+XHJcbiAgICAgICAgPFJvdXRlIHBhdGg9XCIvcGxhdGZvcm0tbG9naW5cIiBlbGVtZW50PXs8UGxhdGZvcm1Mb2dpbiAvPn0gLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvcGxhdGZvcm1cIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQbGF0Zm9ybVJvdXRlPlxyXG4gICAgICAgICAgICAgIDxQbGF0Zm9ybUNvbnNvbGUgLz5cclxuICAgICAgICAgICAgPC9QbGF0Zm9ybVJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9cIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZVxyXG4gICAgICAgICAgICAgIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJBY2NvdW50c1wiLCBcIlRlYWNoZXJcIl19XHJcbiAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPERhc2hib2FyZCAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9wcm9maWxlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxQcm9maWxlIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuXHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL3N0dWRlbnRzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxTdHVkZW50cyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi90ZWFjaGVyc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8VGVhY2hlcnMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvY2xhc3Nlc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8Q2xhc3NlcyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9hdHRlbmRhbmNlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8QXR0ZW5kYW5jZSAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9mZWVzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEZlZXMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvYWNjb3VudGluZ1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJBY2NvdW50c1wiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxBY2NvdW50cyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9wYXlyb2xsXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFBheXJvbGwgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvaG9tZXdvcmtcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxIb21ld29yayAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9sbXNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxMZWFybmluZ1Jlc291cmNlcyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9jb3Vyc2VzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8Q291cnNlc1BhZ2UgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvc2Nvcm0tY29udGVudFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFNjb3JtQ29udGVudCAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9kaXNjdXNzaW9uc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPERpc2N1c3Npb25zUGFnZSAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9vbmxpbmUtdGVzdHNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxPbmxpbmVUZXN0cyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9iaW9tZXRyaWNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEJpb21ldHJpYyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9leGFtc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEV4YW1zIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvdGltZXRhYmxlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8VGltZXRhYmxlIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvbWFya3NcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxNYXJrcyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcblxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9yZXBvcnRzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFJlcG9ydHMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9yZXBvcnQtY2FyZFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFJlcG9ydENhcmQgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvdXNlcnNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFVzZXJzIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvcm9sZXNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFJvbGVzIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvc2V0dGluZ3NcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFNldHRpbmdzIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvbWFzdGVyLWRhdGFcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPE1hc3RlckRhdGEgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi86bW9kdWxlTmFtZS9sYXlvdXRcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPE1vZHVsZUxheW91dEJ1aWxkZXIgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9zdHVkZW50cy86c3R1ZGVudElkXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8U3R1ZGVudERldGFpbHMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvY2xhc3Nlcy86Y2xhc3NJZFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPENsYXNzRGV0YWlscyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlIFxyXG4gICAgICAgICAgcGF0aD1cIi9zdWJqZWN0c1wiIFxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8U3ViamVjdHMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2Fzc2lzdGFudFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJBY2NvdW50c1wiLCBcIlRlYWNoZXJcIiwgXCJQYXJlbnRcIiwgXCJTdHVkZW50XCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEFzc2lzdGFudCAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL3BvcnRhbFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiUGFyZW50XCIsIFwiU3R1ZGVudFwiLCBcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFBvcnRhbCAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL3BvcnRhbC1hY2Nlc3NcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFBvcnRhbEFjY2VzcyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2FjYWRlbWljLXllYXJzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxBY2FkZW1pY1llYXJzIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvc3R1ZGVudC1lbnJvbGxtZW50c1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFN0dWRlbnRFbnJvbGxtZW50cyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2FkbWlzc2lvbnNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEFkbWlzc2lvbnMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9hZG1pc3Npb24tYXNzZXNzbWVudHNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxBZG1pc3Npb25Bc3Nlc3NtZW50cyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2NvbW11bmljYXRpb25zXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIiwgXCJBY2NvdW50c1wiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxDb21tdW5pY2F0aW9ucyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL3N0dWRlbnQtc2VydmljZXNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFN0dWRlbnRTZXJ2aWNlcyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2FsdW1uaS13aXRoZHJhd2Fsc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCIsIFwiQWNjb3VudHNcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8QWx1bW5pV2l0aGRyYXdhbHMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9jb3Vuc2VsaW5nXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8Q291bnNlbGluZyAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2VucmljaG1lbnRcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPEVucmljaG1lbnQgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9jb21wbGlhbmNlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxDb21wbGlhbmNlIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvaW50ZXJuYXRpb25hbC1kb2N1bWVudHNcIlxyXG4gICAgICAgICAgZWxlbWVudD17XHJcbiAgICAgICAgICAgIDxQcm90ZWN0ZWRSb3V0ZSBhbGxvd2VkUm9sZXM9e1tcIkFkbWluXCIsIFwiUHJpbmNpcGFsXCIsIFwiVGVhY2hlclwiXX0+XHJcbiAgICAgICAgICAgICAgPFByb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgICAgIDxJbnRlcm5hdGlvbmFsRG9jdW1lbnRzIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvbXVsdGktY3VycmljdWx1bVwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJUZWFjaGVyXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPE11bHRpQ3VycmljdWx1bSAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2hvc3RlbFwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8SG9zdGVsIC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvdHJhbnNwb3J0XCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIkFjY291bnRzXCJdfT5cclxuICAgICAgICAgICAgICA8UHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICAgICAgPFRyYW5zcG9ydCAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2xlYXZlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8TGVhdmUgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9nYXRlXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8R2F0ZSAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL3N5bGxhYnVzXCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8U3lsbGFidXMgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9oZWFsdGgtaW5maXJtYXJ5XCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8SGVhbHRoSW5maXJtYXJ5IC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgICA8Um91dGVcclxuICAgICAgICAgIHBhdGg9XCIvbWVzc1wiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJBY2NvdW50c1wiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8TWVzc01hbmFnZW1lbnQgLz5cclxuICAgICAgICAgICAgICA8L1Byb3RlY3RlZExheW91dD5cclxuICAgICAgICAgICAgPC9Qcm90ZWN0ZWRSb3V0ZT5cclxuICAgICAgICAgIH1cclxuICAgICAgICAvPlxyXG4gICAgICAgIDxSb3V0ZVxyXG4gICAgICAgICAgcGF0aD1cIi9saWJyYXJ5XCJcclxuICAgICAgICAgIGVsZW1lbnQ9e1xyXG4gICAgICAgICAgICA8UHJvdGVjdGVkUm91dGUgYWxsb3dlZFJvbGVzPXtbXCJBZG1pblwiLCBcIlByaW5jaXBhbFwiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8TGlicmFyeSAvPlxyXG4gICAgICAgICAgICAgIDwvUHJvdGVjdGVkTGF5b3V0PlxyXG4gICAgICAgICAgICA8L1Byb3RlY3RlZFJvdXRlPlxyXG4gICAgICAgICAgfVxyXG4gICAgICAgIC8+XHJcbiAgICAgICAgPFJvdXRlXHJcbiAgICAgICAgICBwYXRoPVwiL2ludmVudG9yeVwiXHJcbiAgICAgICAgICBlbGVtZW50PXtcclxuICAgICAgICAgICAgPFByb3RlY3RlZFJvdXRlIGFsbG93ZWRSb2xlcz17W1wiQWRtaW5cIiwgXCJQcmluY2lwYWxcIiwgXCJBY2NvdW50c1wiLCBcIlRlYWNoZXJcIl19PlxyXG4gICAgICAgICAgICAgIDxQcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgICAgICA8SW52ZW50b3J5IC8+XHJcbiAgICAgICAgICAgICAgPC9Qcm90ZWN0ZWRMYXlvdXQ+XHJcbiAgICAgICAgICAgIDwvUHJvdGVjdGVkUm91dGU+XHJcbiAgICAgICAgICB9XHJcbiAgICAgICAgLz5cclxuICAgICAgPC9Sb3V0ZXM+XHJcbiAgICAgIDwvU3VzcGVuc2U+XHJcbiAgICA8L0Jyb3dzZXJSb3V0ZXI+XHJcbiAgKTtcclxufVxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL0RlYmFicmF0YSBKZW5hL3NjaG9vbG1lbnQvc2Nob29sLWVycC9mcm9udGVuZC9zcmMvQXBwLmpzeCJ9

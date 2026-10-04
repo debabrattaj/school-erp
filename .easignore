@@ -1,0 +1,16 @@
+# EAS resolves this repository as its archive root. Keep the mobile app source
+# while excluding generated files and unrelated web/server projects.
+.git/
+.github/
+backend/
+frontend/
+landing-page/
+marketing/
+zoho-widgets/
+
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/

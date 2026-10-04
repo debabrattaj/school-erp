@@ -1,0 +1,1177 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/Dashboard.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=b88c6b24"; const Fragment = __vite__cjsImport0_react_jsxDevRuntime["Fragment"]; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=b88c6b24"; const useEffect = __vite__cjsImport3_react["useEffect"]; const useState = __vite__cjsImport3_react["useState"];
+import { Link } from "/node_modules/.vite/deps/react-router-dom.js?v=fee6f2b6";
+import "/src/pages/DashboardLinks.css";
+import "/src/pages/DashboardOverview.css";
+import {
+  Users,
+  GraduationCap,
+  BookOpen,
+  ClipboardCheck,
+  Wallet,
+  TrendingUp,
+  CalendarDays,
+  Award,
+  School,
+  Clock,
+  Globe2,
+  Bus
+} from "/node_modules/.vite/deps/lucide-react.js?v=b85b2733";
+import API from "/src/api.js";
+import { isFeatureEnabled } from "/src/auth.js";
+import { useSchoolSettings } from "/src/SettingsContext.jsx";
+import { formatMoney as formatMoneyUtil } from "/src/utils/money.js";
+import {
+  AttendanceDonut,
+  RadialGauge,
+  TrendArea,
+  CategoryBarChart
+} from "/src/components/DashboardCharts.jsx";
+import DashboardBuilder from "/src/components/DashboardBuilder.jsx";
+const GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"];
+const CARD_STYLES = [
+  ["#4665df", "School community"],
+  ["#087f8c", "Enrolment"],
+  ["#7c4dcc", "Our educators"],
+  ["#b16a13", "Academics"],
+  ["#13804c", "Collections"],
+  ["#c13e61", "Receivables"],
+  ["#2673bd", "Daily attendance"],
+  ["#8055c6", "Global community"],
+  ["#bc572b", "Library"]
+];
+function ProfileMetric({ title, count, total, icon: Icon, accent, note }) {
+  const percentage = total > 0 ? Math.min(100, Math.max(0, count / total * 100)) : 0;
+  return /* @__PURE__ */ jsxDEV("article", { className: "profile-metric", style: { "--metric-accent": accent }, children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "profile-metric-top", children: [
+      /* @__PURE__ */ jsxDEV("span", { className: "profile-metric-icon", children: /* @__PURE__ */ jsxDEV(Icon, { size: 22, "aria-hidden": "true" }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 60,
+        columnNumber: 79
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 60,
+        columnNumber: 41
+      }, this),
+      /* @__PURE__ */ jsxDEV("span", { children: title }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 60,
+        columnNumber: 123
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 60,
+      columnNumber: 5
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "profile-metric-main", children: [
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("strong", { children: count.toLocaleString() }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 62,
+          columnNumber: 12
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { children: "students" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 62,
+          columnNumber: 53
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 62,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "profile-ring", role: "img", "aria-label": total > 0 ? `${percentage.toFixed(1)}% of all students` : "No student total available", children: [
+        /* @__PURE__ */ jsxDEV("svg", { viewBox: "0 0 96 96", "aria-hidden": "true", children: [
+          /* @__PURE__ */ jsxDEV("circle", { cx: "48", cy: "48", r: "39", className: "profile-ring-track" }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 64,
+            columnNumber: 53
+          }, this),
+          /* @__PURE__ */ jsxDEV("circle", { cx: "48", cy: "48", r: "39", className: "profile-ring-value", pathLength: "100", strokeDasharray: `${percentage} 100`, transform: "rotate(-90 48 48)" }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 64,
+            columnNumber: 117
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 64,
+          columnNumber: 9
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { children: total > 0 ? `${percentage.toFixed(1)}%` : "—" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 65,
+          columnNumber: 9
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 63,
+        columnNumber: 7
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 61,
+      columnNumber: 5
+    }, this),
+    /* @__PURE__ */ jsxDEV("p", { children: note }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 68,
+      columnNumber: 5
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+    lineNumber: 59,
+    columnNumber: 10
+  }, this);
+}
+_c = ProfileMetric;
+export default function Dashboard() {
+  _s();
+  const { settings } = useSchoolSettings();
+  const canUseHouse = isFeatureEnabled("house_system");
+  const [view, setView] = useState("overview");
+  const [summary, setSummary] = useState(null);
+  const [trends, setTrends] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [marks, setMarks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  function formatMoney(value) {
+    return formatMoneyUtil(value, settings?.currency);
+  }
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+      const [summaryRes, studentsRes, examsRes, marksRes] = await Promise.all(
+        [
+          API.get("/dashboard/summary"),
+          API.get("/students/"),
+          API.get("/exams/"),
+          API.get("/marks/")
+        ]
+      );
+      setSummary(summaryRes.data);
+      setStudents(studentsRes.data);
+      setExams(examsRes.data);
+      setMarks(marksRes.data);
+      try {
+        const trendsRes = await API.get("/dashboard/trends", { params: { days: 14 } });
+        setTrends(trendsRes.data);
+      } catch {
+        setTrends(null);
+      }
+    } catch (error) {
+      console.error("Dashboard load error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+  function getStudent(studentId) {
+    return students.find((student) => student.id === Number(studentId));
+  }
+  function getStudentName(studentId) {
+    const student = getStudent(studentId);
+    if (!student) return "Unknown Student";
+    return `${student.first_name} ${student.last_name || ""}`.trim();
+  }
+  function getStudentClass(studentId) {
+    const student = getStudent(studentId);
+    if (!student) return "-";
+    return `${student.class_name || "-"}-${student.section || "-"}`;
+  }
+  function getExamName(examId) {
+    return exams.find((exam) => exam.id === Number(examId))?.exam_name || "-";
+  }
+  const studentsByClass = (() => {
+    const counts = {};
+    students.forEach((student) => {
+      const label = student.class_name || "Unassigned";
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label, void 0, { numeric: true })).slice(0, 14);
+  })();
+  const gradeDistribution = (() => {
+    const counts = {};
+    marks.forEach((mark) => {
+      const grade = mark.grade && mark.grade !== "-" ? mark.grade : "Ungraded";
+      counts[grade] = (counts[grade] || 0) + 1;
+    });
+    const order = [...GRADE_ORDER, "Ungraded"];
+    return order.filter((grade) => counts[grade]).map((grade) => ({ label: grade, value: counts[grade] }));
+  })();
+  const cards = [
+    {
+      title: "Total Students",
+      value: summary?.total_students || 0,
+      note: "Complete student records",
+      icon: Users,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "Active Students",
+      value: summary?.active_students || 0,
+      note: "Currently enrolled",
+      icon: Users,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "Faculty Strength",
+      value: summary?.total_teachers || 0,
+      note: "Registered faculty",
+      icon: GraduationCap,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "Class Sections",
+      value: summary?.total_classes || 0,
+      note: "Academic sections",
+      icon: BookOpen,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "Fee Collection",
+      value: formatMoney(summary?.total_collection),
+      note: `${summary?.collection_percentage || 0}% collected`,
+      icon: Wallet,
+      accent: "var(--success-600)",
+      accent2: "var(--success-600)"
+    },
+    {
+      title: "Outstanding Due",
+      value: formatMoney(summary?.total_due),
+      note: "Pending receivables",
+      icon: TrendingUp,
+      accent: "var(--danger-600)",
+      accent2: "var(--danger-600)"
+    },
+    {
+      title: "Today Attendance",
+      value: `${summary?.attendance_percentage || 0}%`,
+      note: "Present percentage",
+      icon: ClipboardCheck,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "International Students",
+      value: summary?.international_students || 0,
+      note: "Non-local nationality records",
+      icon: School,
+      accent: "var(--brand-600)",
+      accent2: "var(--brand-500)"
+    },
+    {
+      title: "Library Overdue",
+      value: summary?.library_overdue_count || 0,
+      note: `${summary?.library_issued_count || 0} book(s) currently issued`,
+      icon: Clock,
+      accent: "var(--danger-600)",
+      accent2: "var(--danger-600)"
+    }
+  ];
+  return /* @__PURE__ */ jsxDEV("div", { className: "dashboard international-dashboard", children: [
+    /* @__PURE__ */ jsxDEV("header", { className: "page-head", children: /* @__PURE__ */ jsxDEV("div", { className: "page-head-text", children: [
+      /* @__PURE__ */ jsxDEV("h1", { children: settings?.school_name || "Dashboard" }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 247,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { children: [settings?.board_affiliation, settings?.campus_name, settings?.academic_year].filter(Boolean).join(" · ") || "Today at a glance" }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 248,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 246,
+      columnNumber: 9
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 245,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "dashboard-tabs", children: [
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: view === "overview" ? "active" : "",
+          onClick: () => setView("overview"),
+          children: "Overview"
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 257,
+          columnNumber: 9
+        },
+        this
+      ),
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: view === "builder" ? "active" : "",
+          onClick: () => setView("builder"),
+          children: "My Dashboard"
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 264,
+          columnNumber: 9
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 256,
+      columnNumber: 7
+    }, this),
+    view === "builder" ? /* @__PURE__ */ jsxDEV(DashboardBuilder, { formatMoney }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 274,
+      columnNumber: 7
+    }, this) : loading ? /* @__PURE__ */ jsxDEV("div", { className: "loading-box", children: "Loading dashboard..." }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 276,
+      columnNumber: 7
+    }, this) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV("section", { className: "stats-grid", children: cards.map((card, index) => {
+        const Icon = card.icon;
+        const [accent, category] = CARD_STYLES[index];
+        return /* @__PURE__ */ jsxDEV(
+          "div",
+          {
+            className: `stat-card premium-card overview-stat${index === 0 ? " overview-stat-featured" : ""}`,
+            style: {
+              "--card-accent": accent,
+              "--card-accent-2": accent
+            },
+            children: [
+              /* @__PURE__ */ jsxDEV("div", { className: "overview-stat-top", children: [
+                /* @__PURE__ */ jsxDEV("span", { className: "overview-stat-category", children: category }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 294,
+                  columnNumber: 21
+                }, this),
+                /* @__PURE__ */ jsxDEV("div", { className: "stat-icon", children: /* @__PURE__ */ jsxDEV(Icon, { size: 23, "aria-hidden": "true" }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 295,
+                  columnNumber: 48
+                }, this) }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 295,
+                  columnNumber: 21
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 293,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { className: "stat-card-body", children: [
+                /* @__PURE__ */ jsxDEV("h3", { children: typeof card.value === "number" ? card.value.toLocaleString() : card.value }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 299,
+                  columnNumber: 21
+                }, this),
+                /* @__PURE__ */ jsxDEV("p", { children: card.title }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 300,
+                  columnNumber: 21
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 298,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { className: "overview-stat-footer", children: [
+                /* @__PURE__ */ jsxDEV("span", { className: "overview-stat-dot", "aria-hidden": "true" }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 302,
+                  columnNumber: 57
+                }, this),
+                /* @__PURE__ */ jsxDEV("span", { children: card.note }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 302,
+                  columnNumber: 114
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 302,
+                columnNumber: 19
+              }, this)
+            ]
+          },
+          card.title,
+          true,
+          {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 285,
+            columnNumber: 15
+          },
+          this
+        );
+      }) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 279,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("section", { className: "panel trend-panel", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+          /* @__PURE__ */ jsxDEV("div", { children: [
+            /* @__PURE__ */ jsxDEV("h3", { children: "Attendance Trend" }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 311,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("p", { children: "Daily present rate over the last 14 days" }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 312,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 310,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(TrendingUp, { size: 22 }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 314,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 309,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(
+          TrendArea,
+          {
+            data: trends?.attendance_trend || [],
+            color: "var(--primary)",
+            unit: "%",
+            emptyText: "No attendance recorded in this window yet."
+          },
+          void 0,
+          false,
+          {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 316,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 308,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("section", { className: "dashboard-grid", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "panel large-panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Attendance Today" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 328,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Daily attendance snapshot" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 329,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 327,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(ClipboardCheck, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 331,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 326,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            AttendanceDonut,
+            {
+              present: summary?.today_present || 0,
+              absent: summary?.today_absent || 0,
+              late: summary?.today_late || 0,
+              excused: summary?.today_excused || 0
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 334,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 325,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Finance Health" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 345,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Collection and dues" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 346,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 344,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(Wallet, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 348,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 343,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            RadialGauge,
+            {
+              percentage: summary?.collection_percentage || 0,
+              collected: summary?.total_collection,
+              due: summary?.total_due,
+              formatMoney
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 351,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 342,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Student Profile Mix" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 362,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "International and transport indicators" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 363,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 361,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(Users, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 365,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 360,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "profile-mix-grid", children: [
+            /* @__PURE__ */ jsxDEV(
+              ProfileMetric,
+              {
+                title: "International Students",
+                count: summary?.international_students || 0,
+                total: summary?.total_students || 0,
+                icon: Globe2,
+                accent: "#7952cc",
+                note: "A connected global school community"
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 369,
+                columnNumber: 17
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV(
+              ProfileMetric,
+              {
+                title: "Transport Users",
+                count: summary?.transport_users || 0,
+                total: summary?.total_students || 0,
+                icon: Bus,
+                accent: "#087f8c",
+                note: "Students using school transport"
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 371,
+                columnNumber: 17
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 368,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "profile-mix-footer", children: [
+            /* @__PURE__ */ jsxDEV(Users, { size: 16, "aria-hidden": "true" }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 374,
+              columnNumber: 51
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { children: [
+              "Share of ",
+              (summary?.total_students || 0).toLocaleString(),
+              " total students · Groups may overlap"
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 374,
+              columnNumber: 89
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 374,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 359,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel large-panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Students by Class" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 380,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Enrollment across class sections" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 381,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 379,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(BookOpen, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 383,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 378,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(CategoryBarChart, { data: studentsByClass, emptyText: "No students recorded yet." }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 386,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 377,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel large-panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Grade Distribution" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 392,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Marks recorded across all exams" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 393,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 391,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(Award, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 395,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 390,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(CategoryBarChart, { data: gradeDistribution, emptyText: "No marks recorded yet." }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 398,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 389,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel large-panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Recent Admissions" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 404,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Latest student records" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 405,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 403,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(Users, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 407,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 402,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("table", { className: "classic-table", children: [
+            /* @__PURE__ */ jsxDEV("thead", { children: /* @__PURE__ */ jsxDEV("tr", { children: [
+              /* @__PURE__ */ jsxDEV("th", { children: "Admission No" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 413,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Student" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 414,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Class" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 415,
+                columnNumber: 21
+              }, this),
+              canUseHouse && /* @__PURE__ */ jsxDEV("th", { children: "House" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 416,
+                columnNumber: 37
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Admission Date" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 417,
+                columnNumber: 21
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 412,
+              columnNumber: 19
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 411,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("tbody", { children: (summary?.recent_admissions || []).length === 0 ? /* @__PURE__ */ jsxDEV("tr", { children: /* @__PURE__ */ jsxDEV("td", { colSpan: canUseHouse ? 5 : 4, className: "empty-table", children: "No recent admissions." }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 424,
+              columnNumber: 23
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 423,
+              columnNumber: 17
+            }, this) : summary.recent_admissions.map(
+              (student) => /* @__PURE__ */ jsxDEV("tr", { children: [
+                /* @__PURE__ */ jsxDEV("td", { children: student.admission_no }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 431,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: student.student_name }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 432,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: [
+                  student.class_name || "-",
+                  "-",
+                  student.section || "-"
+                ] }, void 0, true, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 433,
+                  columnNumber: 25
+                }, this),
+                canUseHouse && /* @__PURE__ */ jsxDEV("td", { children: student.house || "-" }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 436,
+                  columnNumber: 41
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: student.admission_date || "-" }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 437,
+                  columnNumber: 25
+                }, this)
+              ] }, student.id, true, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 430,
+                columnNumber: 17
+              }, this)
+            ) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 421,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 410,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 401,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Upcoming Exams" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 448,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Next 30 days" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 449,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 447,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(CalendarDays, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 451,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 446,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("ul", { className: "task-list", children: (summary?.upcoming_exams || []).length === 0 ? /* @__PURE__ */ jsxDEV("li", { children: "No upcoming exams" }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 456,
+            columnNumber: 15
+          }, this) : summary.upcoming_exams.map(
+            (exam) => /* @__PURE__ */ jsxDEV("li", { children: /* @__PURE__ */ jsxDEV(Link, { className: "dashboard-record-link", to: `/exams?exam_id=${exam.id}`, children: [
+              exam.exam_name,
+              " - ",
+              exam.class_name,
+              "-",
+              exam.section,
+              " on",
+              " ",
+              exam.exam_date
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 460,
+              columnNumber: 23
+            }, this) }, exam.id, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 459,
+              columnNumber: 15
+            }, this)
+          ) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 454,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 445,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Top Performers" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 473,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Highest marks records" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 474,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 472,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(Award, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 476,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 471,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("ul", { className: "task-list", children: (summary?.top_performers || []).length === 0 ? /* @__PURE__ */ jsxDEV("li", { children: "No marks records yet" }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 481,
+            columnNumber: 15
+          }, this) : summary.top_performers.map(
+            (mark) => /* @__PURE__ */ jsxDEV("li", { children: /* @__PURE__ */ jsxDEV(Link, { className: "dashboard-record-link", to: `/marks?${new URLSearchParams({ student_id: String(mark.student_id), exam_id: String(mark.exam_id), subject: mark.subject || "" })}`, children: [
+              getStudentName(mark.student_id),
+              " - ",
+              mark.subject,
+              ":",
+              " ",
+              mark.marks_obtained,
+              "/",
+              mark.total_marks,
+              " (",
+              mark.grade || "-",
+              ")"
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 485,
+              columnNumber: 23
+            }, this) }, mark.id, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 484,
+              columnNumber: 15
+            }, this)
+          ) }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 479,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 470,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "panel large-panel", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "panel-header", children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("h3", { children: "Fee Defaulters" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 498,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: "Top outstanding dues" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 499,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 497,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV(TrendingUp, { size: 22 }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 501,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 496,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("table", { className: "classic-table", children: [
+            /* @__PURE__ */ jsxDEV("thead", { children: /* @__PURE__ */ jsxDEV("tr", { children: [
+              /* @__PURE__ */ jsxDEV("th", { children: "Student" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 507,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Class" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 508,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Fee Type" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 509,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Due" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 510,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("th", { children: "Status" }, void 0, false, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 511,
+                columnNumber: 21
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 506,
+              columnNumber: 19
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 505,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("tbody", { children: (summary?.fee_defaulters || []).length === 0 ? /* @__PURE__ */ jsxDEV("tr", { children: /* @__PURE__ */ jsxDEV("td", { colSpan: "5", className: "empty-table", children: "No fee defaulters." }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 518,
+              columnNumber: 23
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 517,
+              columnNumber: 17
+            }, this) : summary.fee_defaulters.map(
+              (fee) => /* @__PURE__ */ jsxDEV("tr", { children: [
+                /* @__PURE__ */ jsxDEV("td", { children: getStudentName(fee.student_id) }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 525,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: getStudentClass(fee.student_id) }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 526,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: fee.fee_type }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 527,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: formatMoney(fee.due_amount) }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 528,
+                  columnNumber: 25
+                }, this),
+                /* @__PURE__ */ jsxDEV("td", { children: /* @__PURE__ */ jsxDEV("span", { className: "status danger", children: fee.payment_status }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 530,
+                  columnNumber: 27
+                }, this) }, void 0, false, {
+                  fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                  lineNumber: 529,
+                  columnNumber: 25
+                }, this)
+              ] }, fee.id, true, {
+                fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+                lineNumber: 524,
+                columnNumber: 17
+              }, this)
+            ) }, void 0, false, {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+              lineNumber: 515,
+              columnNumber: 17
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+            lineNumber: 504,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+          lineNumber: 495,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+        lineNumber: 324,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+      lineNumber: 278,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx",
+    lineNumber: 244,
+    columnNumber: 5
+  }, this);
+}
+_s(Dashboard, "3zIO6a8v2sISXJQrz7Chlt9u83E=", false, function() {
+  return [useSchoolSettings];
+});
+_c2 = Dashboard;
+var _c, _c2;
+$RefreshReg$(_c, "ProfileMetric");
+$RefreshReg$(_c2, "Dashboard");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/Dashboard.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBd0M4RSxTQTBOdEUsVUExTnNFOzs7Ozs7Ozs7Ozs7Ozs7OztBQXhDOUUsU0FBU0EsV0FBV0MsZ0JBQWdCO0FBQ3BDLFNBQVNDLFlBQVk7QUFDckIsT0FBTztBQUNQLE9BQU87QUFDUDtBQUFBLEVBQ0VDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLEVBQ0FDO0FBQUFBLE9BQ0s7QUFDUCxPQUFPQyxTQUFTO0FBQ2hCLFNBQVNDLHdCQUF3QjtBQUNqQyxTQUFTQyx5QkFBeUI7QUFDbEMsU0FBU0MsZUFBZUMsdUJBQXVCO0FBQy9DO0FBQUEsRUFDRUM7QUFBQUEsRUFDQUM7QUFBQUEsRUFDQUM7QUFBQUEsRUFDQUM7QUFBQUEsT0FDSztBQUNQLE9BQU9DLHNCQUFzQjtBQUU3QixNQUFNQyxjQUFjLENBQUMsTUFBTSxLQUFLLEtBQUssS0FBSyxLQUFLLEdBQUc7QUFDbEQsTUFBTUMsY0FBYztBQUFBLEVBQ2xCLENBQUMsV0FBVyxrQkFBa0I7QUFBQSxFQUFHLENBQUMsV0FBVyxXQUFXO0FBQUEsRUFBRyxDQUFDLFdBQVcsZUFBZTtBQUFBLEVBQ3RGLENBQUMsV0FBVyxXQUFXO0FBQUEsRUFBRyxDQUFDLFdBQVcsYUFBYTtBQUFBLEVBQUcsQ0FBQyxXQUFXLGFBQWE7QUFBQSxFQUMvRSxDQUFDLFdBQVcsa0JBQWtCO0FBQUEsRUFBRyxDQUFDLFdBQVcsa0JBQWtCO0FBQUEsRUFBRyxDQUFDLFdBQVcsU0FBUztBQUFDO0FBRzFGLFNBQVNDLGNBQWMsRUFBRUMsT0FBT0MsT0FBT0MsT0FBT0MsTUFBTUMsTUFBTUMsUUFBUUMsS0FBSyxHQUFHO0FBQ3hFLFFBQU1DLGFBQWFMLFFBQVEsSUFBSU0sS0FBS0MsSUFBSSxLQUFLRCxLQUFLRSxJQUFJLEdBQUdULFFBQVFDLFFBQVEsR0FBRyxDQUFDLElBQUk7QUFDakYsU0FBTyx1QkFBQyxhQUFRLFdBQVUsa0JBQWlCLE9BQU8sRUFBRSxtQkFBbUJHLE9BQU8sR0FDNUU7QUFBQSwyQkFBQyxTQUFJLFdBQVUsc0JBQXFCO0FBQUEsNkJBQUMsVUFBSyxXQUFVLHVCQUFzQixpQ0FBQyxRQUFLLE1BQU0sSUFBSSxlQUFZLFVBQTVCO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBa0MsS0FBeEU7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUEyRTtBQUFBLE1BQU8sdUJBQUMsVUFBTUwsbUJBQVA7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUFhO0FBQUEsU0FBbkk7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUEwSTtBQUFBLElBQzFJLHVCQUFDLFNBQUksV0FBVSx1QkFDYjtBQUFBLDZCQUFDLFNBQUk7QUFBQSwrQkFBQyxZQUFRQyxnQkFBTVUsZUFBZSxLQUE5QjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQWdDO0FBQUEsUUFBUyx1QkFBQyxVQUFLLHdCQUFOO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBYztBQUFBLFdBQTVEO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBbUU7QUFBQSxNQUNuRSx1QkFBQyxTQUFJLFdBQVUsZ0JBQWUsTUFBSyxPQUFNLGNBQVlULFFBQVEsSUFBSSxHQUFHSyxXQUFXSyxRQUFRLENBQUMsQ0FBQyxzQkFBc0IsOEJBQzdHO0FBQUEsK0JBQUMsU0FBSSxTQUFRLGFBQVksZUFBWSxRQUFPO0FBQUEsaUNBQUMsWUFBTyxJQUFHLE1BQUssSUFBRyxNQUFLLEdBQUUsTUFBSyxXQUFVLHdCQUF6QztBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUE2RDtBQUFBLFVBQUcsdUJBQUMsWUFBTyxJQUFHLE1BQUssSUFBRyxNQUFLLEdBQUUsTUFBSyxXQUFVLHNCQUFxQixZQUFXLE9BQU0saUJBQWlCLEdBQUdMLFVBQVUsUUFBUSxXQUFVLHVCQUEvSDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFrSjtBQUFBLGFBQTlQO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBaVE7QUFBQSxRQUNqUSx1QkFBQyxVQUFNTCxrQkFBUSxJQUFJLEdBQUdLLFdBQVdLLFFBQVEsQ0FBQyxDQUFDLE1BQU0sT0FBakQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUFxRDtBQUFBLFdBRnZEO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFHQTtBQUFBLFNBTEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQU1BO0FBQUEsSUFDQSx1QkFBQyxPQUFHTixrQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQVM7QUFBQSxPQVRKO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0FVUDtBQUNGO0FBQUNPLEtBYlFkO0FBZVQsd0JBQXdCZSxZQUFZO0FBQUFDLEtBQUE7QUFDbEMsUUFBTSxFQUFFQyxTQUFTLElBQUkzQixrQkFBa0I7QUFDdkMsUUFBTTRCLGNBQWM3QixpQkFBaUIsY0FBYztBQUVuRCxRQUFNLENBQUM4QixNQUFNQyxPQUFPLElBQUk5QyxTQUFTLFVBQVU7QUFDM0MsUUFBTSxDQUFDK0MsU0FBU0MsVUFBVSxJQUFJaEQsU0FBUyxJQUFJO0FBQzNDLFFBQU0sQ0FBQ2lELFFBQVFDLFNBQVMsSUFBSWxELFNBQVMsSUFBSTtBQUN6QyxRQUFNLENBQUNtRCxVQUFVQyxXQUFXLElBQUlwRCxTQUFTLEVBQUU7QUFDM0MsUUFBTSxDQUFDcUQsT0FBT0MsUUFBUSxJQUFJdEQsU0FBUyxFQUFFO0FBQ3JDLFFBQU0sQ0FBQ3VELE9BQU9DLFFBQVEsSUFBSXhELFNBQVMsRUFBRTtBQUNyQyxRQUFNLENBQUN5RCxTQUFTQyxVQUFVLElBQUkxRCxTQUFTLEtBQUs7QUFFNUMsV0FBU2lCLFlBQVkwQyxPQUFPO0FBQzFCLFdBQU96QyxnQkFBZ0J5QyxPQUFPaEIsVUFBVWlCLFFBQVE7QUFBQSxFQUNsRDtBQUVBLGlCQUFlQyxnQkFBZ0I7QUFDN0IsUUFBSTtBQUNGSCxpQkFBVyxJQUFJO0FBRWYsWUFBTSxDQUFDSSxZQUFZQyxhQUFhQyxVQUFVQyxRQUFRLElBQUksTUFBTUMsUUFBUUM7QUFBQUEsUUFBSTtBQUFBLFVBQ3RFckQsSUFBSXNELElBQUksb0JBQW9CO0FBQUEsVUFDNUJ0RCxJQUFJc0QsSUFBSSxZQUFZO0FBQUEsVUFDcEJ0RCxJQUFJc0QsSUFBSSxTQUFTO0FBQUEsVUFDakJ0RCxJQUFJc0QsSUFBSSxTQUFTO0FBQUEsUUFBQztBQUFBLE1BQ25CO0FBRURwQixpQkFBV2MsV0FBV08sSUFBSTtBQUMxQmpCLGtCQUFZVyxZQUFZTSxJQUFJO0FBQzVCZixlQUFTVSxTQUFTSyxJQUFJO0FBQ3RCYixlQUFTUyxTQUFTSSxJQUFJO0FBSXRCLFVBQUk7QUFDRixjQUFNQyxZQUFZLE1BQU14RCxJQUFJc0QsSUFBSSxxQkFBcUIsRUFBRUcsUUFBUSxFQUFFQyxNQUFNLEdBQUcsRUFBRSxDQUFDO0FBQzdFdEIsa0JBQVVvQixVQUFVRCxJQUFJO0FBQUEsTUFDMUIsUUFBUTtBQUNObkIsa0JBQVUsSUFBSTtBQUFBLE1BQ2hCO0FBQUEsSUFDRixTQUFTdUIsT0FBTztBQUNkQyxjQUFRRCxNQUFNLHlCQUF5QkEsS0FBSztBQUFBLElBQzlDLFVBQUM7QUFDQ2YsaUJBQVcsS0FBSztBQUFBLElBQ2xCO0FBQUEsRUFDRjtBQUVBM0QsWUFBVSxNQUFNO0FBQ2Q4RCxrQkFBYztBQUFBLEVBQ2hCLEdBQUcsRUFBRTtBQUVMLFdBQVNjLFdBQVdDLFdBQVc7QUFDN0IsV0FBT3pCLFNBQVMwQixLQUFLLENBQUNDLFlBQVlBLFFBQVFDLE9BQU9DLE9BQU9KLFNBQVMsQ0FBQztBQUFBLEVBQ3BFO0FBRUEsV0FBU0ssZUFBZUwsV0FBVztBQUNqQyxVQUFNRSxVQUFVSCxXQUFXQyxTQUFTO0FBQ3BDLFFBQUksQ0FBQ0UsUUFBUyxRQUFPO0FBQ3JCLFdBQU8sR0FBR0EsUUFBUUksVUFBVSxJQUFJSixRQUFRSyxhQUFhLEVBQUUsR0FBR0MsS0FBSztBQUFBLEVBQ2pFO0FBRUEsV0FBU0MsZ0JBQWdCVCxXQUFXO0FBQ2xDLFVBQU1FLFVBQVVILFdBQVdDLFNBQVM7QUFDcEMsUUFBSSxDQUFDRSxRQUFTLFFBQU87QUFDckIsV0FBTyxHQUFHQSxRQUFRUSxjQUFjLEdBQUcsSUFBSVIsUUFBUVMsV0FBVyxHQUFHO0FBQUEsRUFDL0Q7QUFFQSxXQUFTQyxZQUFZQyxRQUFRO0FBQzNCLFdBQU9wQyxNQUFNd0IsS0FBSyxDQUFDYSxTQUFTQSxLQUFLWCxPQUFPQyxPQUFPUyxNQUFNLENBQUMsR0FBR0UsYUFBYTtBQUFBLEVBQ3hFO0FBRUEsUUFBTUMsbUJBQW1CLE1BQU07QUFDN0IsVUFBTUMsU0FBUyxDQUFDO0FBQ2hCMUMsYUFBUzJDLFFBQVEsQ0FBQ2hCLFlBQVk7QUFDNUIsWUFBTWlCLFFBQVFqQixRQUFRUSxjQUFjO0FBQ3BDTyxhQUFPRSxLQUFLLEtBQUtGLE9BQU9FLEtBQUssS0FBSyxLQUFLO0FBQUEsSUFDekMsQ0FBQztBQUNELFdBQU9DLE9BQU9DLFFBQVFKLE1BQU0sRUFDekJLLElBQUksQ0FBQyxDQUFDSCxPQUFPcEMsS0FBSyxPQUFPLEVBQUVvQyxPQUFPcEMsTUFBTSxFQUFFLEVBQzFDd0MsS0FBSyxDQUFDQyxHQUFHQyxNQUFNRCxFQUFFTCxNQUFNTyxjQUFjRCxFQUFFTixPQUFPUSxRQUFXLEVBQUVDLFNBQVMsS0FBSyxDQUFDLENBQUMsRUFDM0VDLE1BQU0sR0FBRyxFQUFFO0FBQUEsRUFDaEIsR0FBRztBQUVILFFBQU1DLHFCQUFxQixNQUFNO0FBQy9CLFVBQU1iLFNBQVMsQ0FBQztBQUNoQnRDLFVBQU11QyxRQUFRLENBQUNhLFNBQVM7QUFDdEIsWUFBTUMsUUFBUUQsS0FBS0MsU0FBU0QsS0FBS0MsVUFBVSxNQUFNRCxLQUFLQyxRQUFRO0FBQzlEZixhQUFPZSxLQUFLLEtBQUtmLE9BQU9lLEtBQUssS0FBSyxLQUFLO0FBQUEsSUFDekMsQ0FBQztBQUNELFVBQU1DLFFBQVEsQ0FBQyxHQUFHckYsYUFBYSxVQUFVO0FBQ3pDLFdBQU9xRixNQUNKQyxPQUFPLENBQUNGLFVBQVVmLE9BQU9lLEtBQUssQ0FBQyxFQUMvQlYsSUFBSSxDQUFDVSxXQUFXLEVBQUViLE9BQU9hLE9BQU9qRCxPQUFPa0MsT0FBT2UsS0FBSyxFQUFFLEVBQUU7QUFBQSxFQUM1RCxHQUFHO0FBR0gsUUFBTUcsUUFBUTtBQUFBLElBQ1o7QUFBQSxNQUNFcEYsT0FBTztBQUFBLE1BQ1BnQyxPQUFPWixTQUFTaUUsa0JBQWtCO0FBQUEsTUFDbEMvRSxNQUFNO0FBQUEsTUFDTkgsTUFBTTVCO0FBQUFBLE1BQ044QixRQUFRO0FBQUEsTUFDUmlGLFNBQVM7QUFBQSxJQUNYO0FBQUEsSUFDQTtBQUFBLE1BQ0V0RixPQUFPO0FBQUEsTUFDUGdDLE9BQU9aLFNBQVNtRSxtQkFBbUI7QUFBQSxNQUNuQ2pGLE1BQU07QUFBQSxNQUNOSCxNQUFNNUI7QUFBQUEsTUFDTjhCLFFBQVE7QUFBQSxNQUNSaUYsU0FBUztBQUFBLElBQ1g7QUFBQSxJQUNBO0FBQUEsTUFDRXRGLE9BQU87QUFBQSxNQUNQZ0MsT0FBT1osU0FBU29FLGtCQUFrQjtBQUFBLE1BQ2xDbEYsTUFBTTtBQUFBLE1BQ05ILE1BQU0zQjtBQUFBQSxNQUNONkIsUUFBUTtBQUFBLE1BQ1JpRixTQUFTO0FBQUEsSUFDWDtBQUFBLElBQ0E7QUFBQSxNQUNFdEYsT0FBTztBQUFBLE1BQ1BnQyxPQUFPWixTQUFTcUUsaUJBQWlCO0FBQUEsTUFDakNuRixNQUFNO0FBQUEsTUFDTkgsTUFBTTFCO0FBQUFBLE1BQ040QixRQUFRO0FBQUEsTUFDUmlGLFNBQVM7QUFBQSxJQUNYO0FBQUEsSUFDQTtBQUFBLE1BQ0V0RixPQUFPO0FBQUEsTUFDUGdDLE9BQU8xQyxZQUFZOEIsU0FBU3NFLGdCQUFnQjtBQUFBLE1BQzVDcEYsTUFBTSxHQUFHYyxTQUFTdUUseUJBQXlCLENBQUM7QUFBQSxNQUM1Q3hGLE1BQU14QjtBQUFBQSxNQUNOMEIsUUFBUTtBQUFBLE1BQ1JpRixTQUFTO0FBQUEsSUFDWDtBQUFBLElBQ0E7QUFBQSxNQUNFdEYsT0FBTztBQUFBLE1BQ1BnQyxPQUFPMUMsWUFBWThCLFNBQVN3RSxTQUFTO0FBQUEsTUFDckN0RixNQUFNO0FBQUEsTUFDTkgsTUFBTXZCO0FBQUFBLE1BQ055QixRQUFRO0FBQUEsTUFDUmlGLFNBQVM7QUFBQSxJQUNYO0FBQUEsSUFDQTtBQUFBLE1BQ0V0RixPQUFPO0FBQUEsTUFDUGdDLE9BQU8sR0FBR1osU0FBU3lFLHlCQUF5QixDQUFDO0FBQUEsTUFDN0N2RixNQUFNO0FBQUEsTUFDTkgsTUFBTXpCO0FBQUFBLE1BQ04yQixRQUFRO0FBQUEsTUFDUmlGLFNBQVM7QUFBQSxJQUNYO0FBQUEsSUFDQTtBQUFBLE1BQ0V0RixPQUFPO0FBQUEsTUFDUGdDLE9BQU9aLFNBQVMwRSwwQkFBMEI7QUFBQSxNQUMxQ3hGLE1BQU07QUFBQSxNQUNOSCxNQUFNcEI7QUFBQUEsTUFDTnNCLFFBQVE7QUFBQSxNQUNSaUYsU0FBUztBQUFBLElBQ1g7QUFBQSxJQUNBO0FBQUEsTUFDRXRGLE9BQU87QUFBQSxNQUNQZ0MsT0FBT1osU0FBUzJFLHlCQUF5QjtBQUFBLE1BQ3pDekYsTUFBTSxHQUFHYyxTQUFTNEUsd0JBQXdCLENBQUM7QUFBQSxNQUMzQzdGLE1BQU1uQjtBQUFBQSxNQUNOcUIsUUFBUTtBQUFBLE1BQ1JpRixTQUFTO0FBQUEsSUFDWDtBQUFBLEVBQUM7QUFHSCxTQUNFLHVCQUFDLFNBQUksV0FBVSxxQ0FDYjtBQUFBLDJCQUFDLFlBQU8sV0FBVSxhQUNoQixpQ0FBQyxTQUFJLFdBQVUsa0JBQ2I7QUFBQSw2QkFBQyxRQUFJdEUsb0JBQVVpRixlQUFlLGVBQTlCO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBMEM7QUFBQSxNQUMxQyx1QkFBQyxPQUNFLFdBQUNqRixVQUFVa0YsbUJBQW1CbEYsVUFBVW1GLGFBQWFuRixVQUFVb0YsYUFBYSxFQUMxRWpCLE9BQU9rQixPQUFPLEVBQ2RDLEtBQUssS0FBSyxLQUFLLHVCQUhwQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBSUE7QUFBQSxTQU5GO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FPQSxLQVJGO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FTQTtBQUFBLElBRUEsdUJBQUMsU0FBSSxXQUFVLGtCQUNiO0FBQUE7QUFBQSxRQUFDO0FBQUE7QUFBQSxVQUNDLE1BQUs7QUFBQSxVQUNMLFdBQVdwRixTQUFTLGFBQWEsV0FBVztBQUFBLFVBQzVDLFNBQVMsTUFBTUMsUUFBUSxVQUFVO0FBQUEsVUFBRTtBQUFBO0FBQUEsUUFIckM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLE1BTUE7QUFBQSxNQUNBO0FBQUEsUUFBQztBQUFBO0FBQUEsVUFDQyxNQUFLO0FBQUEsVUFDTCxXQUFXRCxTQUFTLFlBQVksV0FBVztBQUFBLFVBQzNDLFNBQVMsTUFBTUMsUUFBUSxTQUFTO0FBQUEsVUFBRTtBQUFBO0FBQUEsUUFIcEM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLE1BTUE7QUFBQSxTQWRGO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FlQTtBQUFBLElBRUNELFNBQVMsWUFDUix1QkFBQyxvQkFBaUIsZUFBbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUEyQyxJQUN6Q1ksVUFDRix1QkFBQyxTQUFJLFdBQVUsZUFBYyxvQ0FBN0I7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUFpRCxJQUVqRCxtQ0FDRTtBQUFBLDZCQUFDLGFBQVEsV0FBVSxjQUNoQnNELGdCQUFNYixJQUFJLENBQUNnQyxNQUFNQyxVQUFVO0FBQzFCLGNBQU1wRyxPQUFPbUcsS0FBS3BHO0FBQ2xCLGNBQU0sQ0FBQ0UsUUFBUW9HLFFBQVEsSUFBSTNHLFlBQVkwRyxLQUFLO0FBRTVDLGVBQ0U7QUFBQSxVQUFDO0FBQUE7QUFBQSxZQUNDLFdBQVcsdUNBQXVDQSxVQUFVLElBQUksNEJBQTRCLEVBQUU7QUFBQSxZQUU5RixPQUFPO0FBQUEsY0FDTCxpQkFBaUJuRztBQUFBQSxjQUNqQixtQkFBbUJBO0FBQUFBLFlBQ3JCO0FBQUEsWUFFQTtBQUFBLHFDQUFDLFNBQUksV0FBVSxxQkFDYjtBQUFBLHVDQUFDLFVBQUssV0FBVSwwQkFBMEJvRyxzQkFBMUM7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFBbUQ7QUFBQSxnQkFDbkQsdUJBQUMsU0FBSSxXQUFVLGFBQVksaUNBQUMsUUFBSyxNQUFNLElBQUksZUFBWSxVQUE1QjtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFrQyxLQUE3RDtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFnRTtBQUFBLG1CQUZsRTtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUdBO0FBQUEsY0FFQSx1QkFBQyxTQUFJLFdBQVUsa0JBQ2I7QUFBQSx1Q0FBQyxRQUFJLGlCQUFPRixLQUFLdkUsVUFBVSxXQUFXdUUsS0FBS3ZFLE1BQU1yQixlQUFlLElBQUk0RixLQUFLdkUsU0FBekU7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFBK0U7QUFBQSxnQkFDL0UsdUJBQUMsT0FBR3VFLGVBQUt2RyxTQUFUO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQWU7QUFBQSxtQkFGakI7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFHQTtBQUFBLGNBQ0EsdUJBQUMsU0FBSSxXQUFVLHdCQUF1QjtBQUFBLHVDQUFDLFVBQUssV0FBVSxxQkFBb0IsZUFBWSxVQUFoRDtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFzRDtBQUFBLGdCQUFHLHVCQUFDLFVBQU11RyxlQUFLakcsUUFBWjtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFpQjtBQUFBLG1CQUFoSDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUF1SDtBQUFBO0FBQUE7QUFBQSxVQWZsSGlHLEtBQUt2RztBQUFBQSxVQUZaO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsUUFrQkE7QUFBQSxNQUVKLENBQUMsS0ExQkg7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQTJCQTtBQUFBLE1BRUEsdUJBQUMsYUFBUSxXQUFVLHFCQUNqQjtBQUFBLCtCQUFDLFNBQUksV0FBVSxnQkFDYjtBQUFBLGlDQUFDLFNBQ0M7QUFBQSxtQ0FBQyxRQUFHLGdDQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQW9CO0FBQUEsWUFDcEIsdUJBQUMsT0FBRSx3REFBSDtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUEyQztBQUFBLGVBRjdDO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBR0E7QUFBQSxVQUNBLHVCQUFDLGNBQVcsTUFBTSxNQUFsQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFxQjtBQUFBLGFBTHZCO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFNQTtBQUFBLFFBQ0E7QUFBQSxVQUFDO0FBQUE7QUFBQSxZQUNDLE1BQU1zQixRQUFRb0Ysb0JBQW9CO0FBQUEsWUFDbEMsT0FBTTtBQUFBLFlBQ04sTUFBSztBQUFBLFlBQ0wsV0FBVTtBQUFBO0FBQUEsVUFKWjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsUUFJd0Q7QUFBQSxXQVoxRDtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBY0E7QUFBQSxNQUVBLHVCQUFDLGFBQVEsV0FBVSxrQkFDakI7QUFBQSwrQkFBQyxTQUFJLFdBQVUscUJBQ2I7QUFBQSxpQ0FBQyxTQUFJLFdBQVUsZ0JBQ2I7QUFBQSxtQ0FBQyxTQUNDO0FBQUEscUNBQUMsUUFBRyxnQ0FBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFvQjtBQUFBLGNBQ3BCLHVCQUFDLE9BQUUseUNBQUg7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBNEI7QUFBQSxpQkFGOUI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFHQTtBQUFBLFlBQ0EsdUJBQUMsa0JBQWUsTUFBTSxNQUF0QjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUF5QjtBQUFBLGVBTDNCO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBTUE7QUFBQSxVQUVBO0FBQUEsWUFBQztBQUFBO0FBQUEsY0FDQyxTQUFTdEYsU0FBU3VGLGlCQUFpQjtBQUFBLGNBQ25DLFFBQVF2RixTQUFTd0YsZ0JBQWdCO0FBQUEsY0FDakMsTUFBTXhGLFNBQVN5RixjQUFjO0FBQUEsY0FDN0IsU0FBU3pGLFNBQVMwRixpQkFBaUI7QUFBQTtBQUFBLFlBSnJDO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxVQUl1QztBQUFBLGFBYnpDO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFlQTtBQUFBLFFBRUEsdUJBQUMsU0FBSSxXQUFVLFNBQ2I7QUFBQSxpQ0FBQyxTQUFJLFdBQVUsZ0JBQ2I7QUFBQSxtQ0FBQyxTQUNDO0FBQUEscUNBQUMsUUFBRyw4QkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFrQjtBQUFBLGNBQ2xCLHVCQUFDLE9BQUUsbUNBQUg7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBc0I7QUFBQSxpQkFGeEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFHQTtBQUFBLFlBQ0EsdUJBQUMsVUFBTyxNQUFNLE1BQWQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBaUI7QUFBQSxlQUxuQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQU1BO0FBQUEsVUFFQTtBQUFBLFlBQUM7QUFBQTtBQUFBLGNBQ0MsWUFBWTFGLFNBQVN1RSx5QkFBeUI7QUFBQSxjQUM5QyxXQUFXdkUsU0FBU3NFO0FBQUFBLGNBQ3BCLEtBQUt0RSxTQUFTd0U7QUFBQUEsY0FDZDtBQUFBO0FBQUEsWUFKRjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsVUFJMkI7QUFBQSxhQWI3QjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBZUE7QUFBQSxRQUVBLHVCQUFDLFNBQUksV0FBVSxTQUNiO0FBQUEsaUNBQUMsU0FBSSxXQUFVLGdCQUNiO0FBQUEsbUNBQUMsU0FDQztBQUFBLHFDQUFDLFFBQUcsbUNBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBdUI7QUFBQSxjQUN2Qix1QkFBQyxPQUFFLHNEQUFIO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQXlDO0FBQUEsaUJBRjNDO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBR0E7QUFBQSxZQUNBLHVCQUFDLFNBQU0sTUFBTSxNQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWdCO0FBQUEsZUFMbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFNQTtBQUFBLFVBRUEsdUJBQUMsU0FBSSxXQUFVLG9CQUNiO0FBQUE7QUFBQSxjQUFDO0FBQUE7QUFBQSxnQkFBYyxPQUFNO0FBQUEsZ0JBQXlCLE9BQU94RSxTQUFTMEUsMEJBQTBCO0FBQUEsZ0JBQ3RGLE9BQU8xRSxTQUFTaUUsa0JBQWtCO0FBQUEsZ0JBQUcsTUFBTXBHO0FBQUFBLGdCQUFRLFFBQU87QUFBQSxnQkFBVSxNQUFLO0FBQUE7QUFBQSxjQUQzRTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsWUFDZ0g7QUFBQSxZQUNoSDtBQUFBLGNBQUM7QUFBQTtBQUFBLGdCQUFjLE9BQU07QUFBQSxnQkFBa0IsT0FBT21DLFNBQVMyRixtQkFBbUI7QUFBQSxnQkFDeEUsT0FBTzNGLFNBQVNpRSxrQkFBa0I7QUFBQSxnQkFBRyxNQUFNbkc7QUFBQUEsZ0JBQUssUUFBTztBQUFBLGdCQUFVLE1BQUs7QUFBQTtBQUFBLGNBRHhFO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxZQUN5RztBQUFBLGVBSjNHO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBS0E7QUFBQSxVQUNBLHVCQUFDLFNBQUksV0FBVSxzQkFBcUI7QUFBQSxtQ0FBQyxTQUFNLE1BQU0sSUFBSSxlQUFZLFVBQTdCO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQW1DO0FBQUEsWUFBRyx1QkFBQyxVQUFLO0FBQUE7QUFBQSxlQUFXa0MsU0FBU2lFLGtCQUFrQixHQUFHMUUsZUFBZTtBQUFBLGNBQUU7QUFBQSxpQkFBaEU7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBb0c7QUFBQSxlQUE5SztBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFxTDtBQUFBLGFBZnZMO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFnQkE7QUFBQSxRQUVBLHVCQUFDLFNBQUksV0FBVSxxQkFDYjtBQUFBLGlDQUFDLFNBQUksV0FBVSxnQkFDYjtBQUFBLG1DQUFDLFNBQ0M7QUFBQSxxQ0FBQyxRQUFHLGlDQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQXFCO0FBQUEsY0FDckIsdUJBQUMsT0FBRSxnREFBSDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFtQztBQUFBLGlCQUZyQztBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUdBO0FBQUEsWUFDQSx1QkFBQyxZQUFTLE1BQU0sTUFBaEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBbUI7QUFBQSxlQUxyQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQU1BO0FBQUEsVUFFQSx1QkFBQyxvQkFBaUIsTUFBTXNELGlCQUFpQixXQUFVLCtCQUFuRDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUE4RTtBQUFBLGFBVGhGO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFVQTtBQUFBLFFBRUEsdUJBQUMsU0FBSSxXQUFVLHFCQUNiO0FBQUEsaUNBQUMsU0FBSSxXQUFVLGdCQUNiO0FBQUEsbUNBQUMsU0FDQztBQUFBLHFDQUFDLFFBQUcsa0NBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBc0I7QUFBQSxjQUN0Qix1QkFBQyxPQUFFLCtDQUFIO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQWtDO0FBQUEsaUJBRnBDO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBR0E7QUFBQSxZQUNBLHVCQUFDLFNBQU0sTUFBTSxNQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWdCO0FBQUEsZUFMbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFNQTtBQUFBLFVBRUEsdUJBQUMsb0JBQWlCLE1BQU1jLG1CQUFtQixXQUFVLDRCQUFyRDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUE2RTtBQUFBLGFBVC9FO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFVQTtBQUFBLFFBRUEsdUJBQUMsU0FBSSxXQUFVLHFCQUNiO0FBQUEsaUNBQUMsU0FBSSxXQUFVLGdCQUNiO0FBQUEsbUNBQUMsU0FDQztBQUFBLHFDQUFDLFFBQUcsaUNBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBcUI7QUFBQSxjQUNyQix1QkFBQyxPQUFFLHNDQUFIO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQXlCO0FBQUEsaUJBRjNCO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBR0E7QUFBQSxZQUNBLHVCQUFDLFNBQU0sTUFBTSxNQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWdCO0FBQUEsZUFMbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFNQTtBQUFBLFVBRUEsdUJBQUMsV0FBTSxXQUFVLGlCQUNmO0FBQUEsbUNBQUMsV0FDQyxpQ0FBQyxRQUNDO0FBQUEscUNBQUMsUUFBRyw0QkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFnQjtBQUFBLGNBQ2hCLHVCQUFDLFFBQUcsdUJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBVztBQUFBLGNBQ1gsdUJBQUMsUUFBRyxxQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFTO0FBQUEsY0FDUjlELGVBQWUsdUJBQUMsUUFBRyxxQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFTO0FBQUEsY0FDekIsdUJBQUMsUUFBRyw4QkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFrQjtBQUFBLGlCQUxwQjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQU1BLEtBUEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFRQTtBQUFBLFlBRUEsdUJBQUMsV0FDR0csb0JBQVM0RixxQkFBcUIsSUFBSUMsV0FBVyxJQUM3Qyx1QkFBQyxRQUNDLGlDQUFDLFFBQUcsU0FBU2hHLGNBQWMsSUFBSSxHQUFHLFdBQVUsZUFBYyxxQ0FBMUQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFFQSxLQUhGO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBSUEsSUFFQUcsUUFBUTRGLGtCQUFrQnpDO0FBQUFBLGNBQUksQ0FBQ3BCLFlBQzdCLHVCQUFDLFFBQ0M7QUFBQSx1Q0FBQyxRQUFJQSxrQkFBUStELGdCQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQTBCO0FBQUEsZ0JBQzFCLHVCQUFDLFFBQUkvRCxrQkFBUWdFLGdCQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQTBCO0FBQUEsZ0JBQzFCLHVCQUFDLFFBQ0VoRTtBQUFBQSwwQkFBUVEsY0FBYztBQUFBLGtCQUFJO0FBQUEsa0JBQUVSLFFBQVFTLFdBQVc7QUFBQSxxQkFEbEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFFQTtBQUFBLGdCQUNDM0MsZUFBZSx1QkFBQyxRQUFJa0Msa0JBQVFpRSxTQUFTLE9BQXRCO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQTBCO0FBQUEsZ0JBQzFDLHVCQUFDLFFBQUlqRSxrQkFBUWtFLGtCQUFrQixPQUEvQjtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFtQztBQUFBLG1CQVA1QmxFLFFBQVFDLElBQWpCO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBUUE7QUFBQSxZQUNELEtBbEJMO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBb0JBO0FBQUEsZUEvQkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFnQ0E7QUFBQSxhQXpDRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBMENBO0FBQUEsUUFFQSx1QkFBQyxTQUFJLFdBQVUsU0FDYjtBQUFBLGlDQUFDLFNBQUksV0FBVSxnQkFDYjtBQUFBLG1DQUFDLFNBQ0M7QUFBQSxxQ0FBQyxRQUFHLDhCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQWtCO0FBQUEsY0FDbEIsdUJBQUMsT0FBRSw0QkFBSDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFlO0FBQUEsaUJBRmpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBR0E7QUFBQSxZQUNBLHVCQUFDLGdCQUFhLE1BQU0sTUFBcEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBdUI7QUFBQSxlQUx6QjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQU1BO0FBQUEsVUFFQSx1QkFBQyxRQUFHLFdBQVUsYUFDVmhDLG9CQUFTa0csa0JBQWtCLElBQUlMLFdBQVcsSUFDMUMsdUJBQUMsUUFBRyxpQ0FBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFxQixJQUVyQjdGLFFBQVFrRyxlQUFlL0M7QUFBQUEsWUFBSSxDQUFDUixTQUMxQix1QkFBQyxRQUNDLGlDQUFDLFFBQUssV0FBVSx5QkFBd0IsSUFBSSxrQkFBa0JBLEtBQUtYLEVBQUUsSUFDcEVXO0FBQUFBLG1CQUFLQztBQUFBQSxjQUFVO0FBQUEsY0FBSUQsS0FBS0o7QUFBQUEsY0FBVztBQUFBLGNBQUVJLEtBQUtIO0FBQUFBLGNBQVE7QUFBQSxjQUFJO0FBQUEsY0FDdERHLEtBQUt3RDtBQUFBQSxpQkFGTjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUdBLEtBSk94RCxLQUFLWCxJQUFkO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBS0E7QUFBQSxVQUNELEtBWEw7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFhQTtBQUFBLGFBdEJGO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUF1QkE7QUFBQSxRQUVBLHVCQUFDLFNBQUksV0FBVSxTQUNiO0FBQUEsaUNBQUMsU0FBSSxXQUFVLGdCQUNiO0FBQUEsbUNBQUMsU0FDQztBQUFBLHFDQUFDLFFBQUcsOEJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBa0I7QUFBQSxjQUNsQix1QkFBQyxPQUFFLHFDQUFIO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQXdCO0FBQUEsaUJBRjFCO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBR0E7QUFBQSxZQUNBLHVCQUFDLFNBQU0sTUFBTSxNQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWdCO0FBQUEsZUFMbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFNQTtBQUFBLFVBRUEsdUJBQUMsUUFBRyxXQUFVLGFBQ1ZoQyxvQkFBU29HLGtCQUFrQixJQUFJUCxXQUFXLElBQzFDLHVCQUFDLFFBQUcsb0NBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBd0IsSUFFeEI3RixRQUFRb0csZUFBZWpEO0FBQUFBLFlBQUksQ0FBQ1MsU0FDMUIsdUJBQUMsUUFDQyxpQ0FBQyxRQUFLLFdBQVUseUJBQXdCLElBQUksVUFBVSxJQUFJeUMsZ0JBQWdCLEVBQUVDLFlBQVlDLE9BQU8zQyxLQUFLMEMsVUFBVSxHQUFHRSxTQUFTRCxPQUFPM0MsS0FBSzRDLE9BQU8sR0FBR0MsU0FBUzdDLEtBQUs2QyxXQUFXLEdBQUcsQ0FBQyxDQUFDLElBQzdLdkU7QUFBQUEsNkJBQWUwQixLQUFLMEMsVUFBVTtBQUFBLGNBQUU7QUFBQSxjQUFJMUMsS0FBSzZDO0FBQUFBLGNBQVE7QUFBQSxjQUFFO0FBQUEsY0FDbkQ3QyxLQUFLOEM7QUFBQUEsY0FBZTtBQUFBLGNBQUU5QyxLQUFLK0M7QUFBQUEsY0FBWTtBQUFBLGNBQUcvQyxLQUFLQyxTQUFTO0FBQUEsY0FBSTtBQUFBLGlCQUY3RDtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUdBLEtBSk9ELEtBQUs1QixJQUFkO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBS0E7QUFBQSxVQUNELEtBWEw7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFhQTtBQUFBLGFBdEJGO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUF1QkE7QUFBQSxRQUVBLHVCQUFDLFNBQUksV0FBVSxxQkFDYjtBQUFBLGlDQUFDLFNBQUksV0FBVSxnQkFDYjtBQUFBLG1DQUFDLFNBQ0M7QUFBQSxxQ0FBQyxRQUFHLDhCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQWtCO0FBQUEsY0FDbEIsdUJBQUMsT0FBRSxvQ0FBSDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUF1QjtBQUFBLGlCQUZ6QjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUdBO0FBQUEsWUFDQSx1QkFBQyxjQUFXLE1BQU0sTUFBbEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBcUI7QUFBQSxlQUx2QjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQU1BO0FBQUEsVUFFQSx1QkFBQyxXQUFNLFdBQVUsaUJBQ2Y7QUFBQSxtQ0FBQyxXQUNDLGlDQUFDLFFBQ0M7QUFBQSxxQ0FBQyxRQUFHLHVCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQVc7QUFBQSxjQUNYLHVCQUFDLFFBQUcscUJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBUztBQUFBLGNBQ1QsdUJBQUMsUUFBRyx3QkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFZO0FBQUEsY0FDWix1QkFBQyxRQUFHLG1CQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQU87QUFBQSxjQUNQLHVCQUFDLFFBQUcsc0JBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBVTtBQUFBLGlCQUxaO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBTUEsS0FQRjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQVFBO0FBQUEsWUFFQSx1QkFBQyxXQUNHaEMsb0JBQVM0RyxrQkFBa0IsSUFBSWYsV0FBVyxJQUMxQyx1QkFBQyxRQUNDLGlDQUFDLFFBQUcsU0FBUSxLQUFJLFdBQVUsZUFBYyxrQ0FBeEM7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFFQSxLQUhGO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBSUEsSUFFQTdGLFFBQVE0RyxlQUFlekQ7QUFBQUEsY0FBSSxDQUFDMEQsUUFDMUIsdUJBQUMsUUFDQztBQUFBLHVDQUFDLFFBQUkzRSx5QkFBZTJFLElBQUlQLFVBQVUsS0FBbEM7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFBb0M7QUFBQSxnQkFDcEMsdUJBQUMsUUFBSWhFLDBCQUFnQnVFLElBQUlQLFVBQVUsS0FBbkM7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFBcUM7QUFBQSxnQkFDckMsdUJBQUMsUUFBSU8sY0FBSUMsWUFBVDtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUFrQjtBQUFBLGdCQUNsQix1QkFBQyxRQUFJNUksc0JBQVkySSxJQUFJRSxVQUFVLEtBQS9CO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQWlDO0FBQUEsZ0JBQ2pDLHVCQUFDLFFBQ0MsaUNBQUMsVUFBSyxXQUFVLGlCQUNiRixjQUFJRyxrQkFEUDtBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQUVBLEtBSEY7QUFBQTtBQUFBO0FBQUE7QUFBQSx1QkFJQTtBQUFBLG1CQVRPSCxJQUFJN0UsSUFBYjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQVVBO0FBQUEsWUFDRCxLQXBCTDtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQXNCQTtBQUFBLGVBakNGO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBa0NBO0FBQUEsYUEzQ0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQTRDQTtBQUFBLFdBdk5GO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUF3TkE7QUFBQSxTQXRRRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBdVFBO0FBQUEsT0F6U0o7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTJTQTtBQUVKO0FBQUNyQyxHQXpkdUJELFdBQVM7QUFBQSxVQUNWekIsaUJBQWlCO0FBQUE7QUFBQSxNQURoQnlCO0FBQVMsSUFBQUQsSUFBQXdIO0FBQUEsYUFBQXhILElBQUE7QUFBQSxhQUFBd0gsS0FBQSIsIm5hbWVzIjpbInVzZUVmZmVjdCIsInVzZVN0YXRlIiwiTGluayIsIlVzZXJzIiwiR3JhZHVhdGlvbkNhcCIsIkJvb2tPcGVuIiwiQ2xpcGJvYXJkQ2hlY2siLCJXYWxsZXQiLCJUcmVuZGluZ1VwIiwiQ2FsZW5kYXJEYXlzIiwiQXdhcmQiLCJTY2hvb2wiLCJDbG9jayIsIkdsb2JlMiIsIkJ1cyIsIkFQSSIsImlzRmVhdHVyZUVuYWJsZWQiLCJ1c2VTY2hvb2xTZXR0aW5ncyIsImZvcm1hdE1vbmV5IiwiZm9ybWF0TW9uZXlVdGlsIiwiQXR0ZW5kYW5jZURvbnV0IiwiUmFkaWFsR2F1Z2UiLCJUcmVuZEFyZWEiLCJDYXRlZ29yeUJhckNoYXJ0IiwiRGFzaGJvYXJkQnVpbGRlciIsIkdSQURFX09SREVSIiwiQ0FSRF9TVFlMRVMiLCJQcm9maWxlTWV0cmljIiwidGl0bGUiLCJjb3VudCIsInRvdGFsIiwiaWNvbiIsIkljb24iLCJhY2NlbnQiLCJub3RlIiwicGVyY2VudGFnZSIsIk1hdGgiLCJtaW4iLCJtYXgiLCJ0b0xvY2FsZVN0cmluZyIsInRvRml4ZWQiLCJfYyIsIkRhc2hib2FyZCIsIl9zIiwic2V0dGluZ3MiLCJjYW5Vc2VIb3VzZSIsInZpZXciLCJzZXRWaWV3Iiwic3VtbWFyeSIsInNldFN1bW1hcnkiLCJ0cmVuZHMiLCJzZXRUcmVuZHMiLCJzdHVkZW50cyIsInNldFN0dWRlbnRzIiwiZXhhbXMiLCJzZXRFeGFtcyIsIm1hcmtzIiwic2V0TWFya3MiLCJsb2FkaW5nIiwic2V0TG9hZGluZyIsInZhbHVlIiwiY3VycmVuY3kiLCJsb2FkRGFzaGJvYXJkIiwic3VtbWFyeVJlcyIsInN0dWRlbnRzUmVzIiwiZXhhbXNSZXMiLCJtYXJrc1JlcyIsIlByb21pc2UiLCJhbGwiLCJnZXQiLCJkYXRhIiwidHJlbmRzUmVzIiwicGFyYW1zIiwiZGF5cyIsImVycm9yIiwiY29uc29sZSIsImdldFN0dWRlbnQiLCJzdHVkZW50SWQiLCJmaW5kIiwic3R1ZGVudCIsImlkIiwiTnVtYmVyIiwiZ2V0U3R1ZGVudE5hbWUiLCJmaXJzdF9uYW1lIiwibGFzdF9uYW1lIiwidHJpbSIsImdldFN0dWRlbnRDbGFzcyIsImNsYXNzX25hbWUiLCJzZWN0aW9uIiwiZ2V0RXhhbU5hbWUiLCJleGFtSWQiLCJleGFtIiwiZXhhbV9uYW1lIiwic3R1ZGVudHNCeUNsYXNzIiwiY291bnRzIiwiZm9yRWFjaCIsImxhYmVsIiwiT2JqZWN0IiwiZW50cmllcyIsIm1hcCIsInNvcnQiLCJhIiwiYiIsImxvY2FsZUNvbXBhcmUiLCJ1bmRlZmluZWQiLCJudW1lcmljIiwic2xpY2UiLCJncmFkZURpc3RyaWJ1dGlvbiIsIm1hcmsiLCJncmFkZSIsIm9yZGVyIiwiZmlsdGVyIiwiY2FyZHMiLCJ0b3RhbF9zdHVkZW50cyIsImFjY2VudDIiLCJhY3RpdmVfc3R1ZGVudHMiLCJ0b3RhbF90ZWFjaGVycyIsInRvdGFsX2NsYXNzZXMiLCJ0b3RhbF9jb2xsZWN0aW9uIiwiY29sbGVjdGlvbl9wZXJjZW50YWdlIiwidG90YWxfZHVlIiwiYXR0ZW5kYW5jZV9wZXJjZW50YWdlIiwiaW50ZXJuYXRpb25hbF9zdHVkZW50cyIsImxpYnJhcnlfb3ZlcmR1ZV9jb3VudCIsImxpYnJhcnlfaXNzdWVkX2NvdW50Iiwic2Nob29sX25hbWUiLCJib2FyZF9hZmZpbGlhdGlvbiIsImNhbXB1c19uYW1lIiwiYWNhZGVtaWNfeWVhciIsIkJvb2xlYW4iLCJqb2luIiwiY2FyZCIsImluZGV4IiwiY2F0ZWdvcnkiLCJhdHRlbmRhbmNlX3RyZW5kIiwidG9kYXlfcHJlc2VudCIsInRvZGF5X2Fic2VudCIsInRvZGF5X2xhdGUiLCJ0b2RheV9leGN1c2VkIiwidHJhbnNwb3J0X3VzZXJzIiwicmVjZW50X2FkbWlzc2lvbnMiLCJsZW5ndGgiLCJhZG1pc3Npb25fbm8iLCJzdHVkZW50X25hbWUiLCJob3VzZSIsImFkbWlzc2lvbl9kYXRlIiwidXBjb21pbmdfZXhhbXMiLCJleGFtX2RhdGUiLCJ0b3BfcGVyZm9ybWVycyIsIlVSTFNlYXJjaFBhcmFtcyIsInN0dWRlbnRfaWQiLCJTdHJpbmciLCJleGFtX2lkIiwic3ViamVjdCIsIm1hcmtzX29idGFpbmVkIiwidG90YWxfbWFya3MiLCJmZWVfZGVmYXVsdGVycyIsImZlZSIsImZlZV90eXBlIiwiZHVlX2Ftb3VudCIsInBheW1lbnRfc3RhdHVzIiwiX2MyIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkRhc2hib2FyZC5qc3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgdXNlRWZmZWN0LCB1c2VTdGF0ZSB9IGZyb20gXCJyZWFjdFwiO1xuaW1wb3J0IHsgTGluayB9IGZyb20gXCJyZWFjdC1yb3V0ZXItZG9tXCI7XG5pbXBvcnQgXCIuL0Rhc2hib2FyZExpbmtzLmNzc1wiO1xuaW1wb3J0IFwiLi9EYXNoYm9hcmRPdmVydmlldy5jc3NcIjtcbmltcG9ydCB7XHJcbiAgVXNlcnMsXHJcbiAgR3JhZHVhdGlvbkNhcCxcclxuICBCb29rT3BlbixcclxuICBDbGlwYm9hcmRDaGVjayxcclxuICBXYWxsZXQsXHJcbiAgVHJlbmRpbmdVcCxcclxuICBDYWxlbmRhckRheXMsXHJcbiAgQXdhcmQsXHJcbiAgU2Nob29sLFxyXG4gIENsb2NrLFxuICBHbG9iZTIsXG4gIEJ1cyxcbn0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQgQVBJIGZyb20gXCIuLi9hcGlcIjtcclxuaW1wb3J0IHsgaXNGZWF0dXJlRW5hYmxlZCB9IGZyb20gXCIuLi9hdXRoXCI7XHJcbmltcG9ydCB7IHVzZVNjaG9vbFNldHRpbmdzIH0gZnJvbSBcIi4uL1NldHRpbmdzQ29udGV4dFwiO1xyXG5pbXBvcnQgeyBmb3JtYXRNb25leSBhcyBmb3JtYXRNb25leVV0aWwgfSBmcm9tIFwiLi4vdXRpbHMvbW9uZXlcIjtcclxuaW1wb3J0IHtcclxuICBBdHRlbmRhbmNlRG9udXQsXHJcbiAgUmFkaWFsR2F1Z2UsXHJcbiAgVHJlbmRBcmVhLFxyXG4gIENhdGVnb3J5QmFyQ2hhcnQsXHJcbn0gZnJvbSBcIi4uL2NvbXBvbmVudHMvRGFzaGJvYXJkQ2hhcnRzXCI7XHJcbmltcG9ydCBEYXNoYm9hcmRCdWlsZGVyIGZyb20gXCIuLi9jb21wb25lbnRzL0Rhc2hib2FyZEJ1aWxkZXJcIjtcclxuXHJcbmNvbnN0IEdSQURFX09SREVSID0gW1wiQStcIiwgXCJBXCIsIFwiQlwiLCBcIkNcIiwgXCJEXCIsIFwiRlwiXTtcbmNvbnN0IENBUkRfU1RZTEVTID0gW1xuICBbXCIjNDY2NWRmXCIsIFwiU2Nob29sIGNvbW11bml0eVwiXSwgW1wiIzA4N2Y4Y1wiLCBcIkVucm9sbWVudFwiXSwgW1wiIzdjNGRjY1wiLCBcIk91ciBlZHVjYXRvcnNcIl0sXG4gIFtcIiNiMTZhMTNcIiwgXCJBY2FkZW1pY3NcIl0sIFtcIiMxMzgwNGNcIiwgXCJDb2xsZWN0aW9uc1wiXSwgW1wiI2MxM2U2MVwiLCBcIlJlY2VpdmFibGVzXCJdLFxuICBbXCIjMjY3M2JkXCIsIFwiRGFpbHkgYXR0ZW5kYW5jZVwiXSwgW1wiIzgwNTVjNlwiLCBcIkdsb2JhbCBjb21tdW5pdHlcIl0sIFtcIiNiYzU3MmJcIiwgXCJMaWJyYXJ5XCJdLFxuXTtcblxuZnVuY3Rpb24gUHJvZmlsZU1ldHJpYyh7IHRpdGxlLCBjb3VudCwgdG90YWwsIGljb246IEljb24sIGFjY2VudCwgbm90ZSB9KSB7XG4gIGNvbnN0IHBlcmNlbnRhZ2UgPSB0b3RhbCA+IDAgPyBNYXRoLm1pbigxMDAsIE1hdGgubWF4KDAsIGNvdW50IC8gdG90YWwgKiAxMDApKSA6IDA7XG4gIHJldHVybiA8YXJ0aWNsZSBjbGFzc05hbWU9XCJwcm9maWxlLW1ldHJpY1wiIHN0eWxlPXt7IFwiLS1tZXRyaWMtYWNjZW50XCI6IGFjY2VudCB9fT5cbiAgICA8ZGl2IGNsYXNzTmFtZT1cInByb2ZpbGUtbWV0cmljLXRvcFwiPjxzcGFuIGNsYXNzTmFtZT1cInByb2ZpbGUtbWV0cmljLWljb25cIj48SWNvbiBzaXplPXsyMn0gYXJpYS1oaWRkZW49XCJ0cnVlXCIgLz48L3NwYW4+PHNwYW4+e3RpdGxlfTwvc3Bhbj48L2Rpdj5cbiAgICA8ZGl2IGNsYXNzTmFtZT1cInByb2ZpbGUtbWV0cmljLW1haW5cIj5cbiAgICAgIDxkaXY+PHN0cm9uZz57Y291bnQudG9Mb2NhbGVTdHJpbmcoKX08L3N0cm9uZz48c3Bhbj5zdHVkZW50czwvc3Bhbj48L2Rpdj5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwicHJvZmlsZS1yaW5nXCIgcm9sZT1cImltZ1wiIGFyaWEtbGFiZWw9e3RvdGFsID4gMCA/IGAke3BlcmNlbnRhZ2UudG9GaXhlZCgxKX0lIG9mIGFsbCBzdHVkZW50c2AgOiBcIk5vIHN0dWRlbnQgdG90YWwgYXZhaWxhYmxlXCJ9PlxuICAgICAgICA8c3ZnIHZpZXdCb3g9XCIwIDAgOTYgOTZcIiBhcmlhLWhpZGRlbj1cInRydWVcIj48Y2lyY2xlIGN4PVwiNDhcIiBjeT1cIjQ4XCIgcj1cIjM5XCIgY2xhc3NOYW1lPVwicHJvZmlsZS1yaW5nLXRyYWNrXCIgLz48Y2lyY2xlIGN4PVwiNDhcIiBjeT1cIjQ4XCIgcj1cIjM5XCIgY2xhc3NOYW1lPVwicHJvZmlsZS1yaW5nLXZhbHVlXCIgcGF0aExlbmd0aD1cIjEwMFwiIHN0cm9rZURhc2hhcnJheT17YCR7cGVyY2VudGFnZX0gMTAwYH0gdHJhbnNmb3JtPVwicm90YXRlKC05MCA0OCA0OClcIiAvPjwvc3ZnPlxuICAgICAgICA8c3Bhbj57dG90YWwgPiAwID8gYCR7cGVyY2VudGFnZS50b0ZpeGVkKDEpfSVgIDogXCLigJRcIn08L3NwYW4+XG4gICAgICA8L2Rpdj5cbiAgICA8L2Rpdj5cbiAgICA8cD57bm90ZX08L3A+XG4gIDwvYXJ0aWNsZT47XG59XG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gRGFzaGJvYXJkKCkge1xyXG4gIGNvbnN0IHsgc2V0dGluZ3MgfSA9IHVzZVNjaG9vbFNldHRpbmdzKCk7XHJcbiAgY29uc3QgY2FuVXNlSG91c2UgPSBpc0ZlYXR1cmVFbmFibGVkKFwiaG91c2Vfc3lzdGVtXCIpO1xyXG5cclxuICBjb25zdCBbdmlldywgc2V0Vmlld10gPSB1c2VTdGF0ZShcIm92ZXJ2aWV3XCIpO1xyXG4gIGNvbnN0IFtzdW1tYXJ5LCBzZXRTdW1tYXJ5XSA9IHVzZVN0YXRlKG51bGwpO1xyXG4gIGNvbnN0IFt0cmVuZHMsIHNldFRyZW5kc10gPSB1c2VTdGF0ZShudWxsKTtcclxuICBjb25zdCBbc3R1ZGVudHMsIHNldFN0dWRlbnRzXSA9IHVzZVN0YXRlKFtdKTtcclxuICBjb25zdCBbZXhhbXMsIHNldEV4YW1zXSA9IHVzZVN0YXRlKFtdKTtcclxuICBjb25zdCBbbWFya3MsIHNldE1hcmtzXSA9IHVzZVN0YXRlKFtdKTtcclxuICBjb25zdCBbbG9hZGluZywgc2V0TG9hZGluZ10gPSB1c2VTdGF0ZShmYWxzZSk7XHJcblxyXG4gIGZ1bmN0aW9uIGZvcm1hdE1vbmV5KHZhbHVlKSB7XHJcbiAgICByZXR1cm4gZm9ybWF0TW9uZXlVdGlsKHZhbHVlLCBzZXR0aW5ncz8uY3VycmVuY3kpO1xyXG4gIH1cclxuXHJcbiAgYXN5bmMgZnVuY3Rpb24gbG9hZERhc2hib2FyZCgpIHtcclxuICAgIHRyeSB7XHJcbiAgICAgIHNldExvYWRpbmcodHJ1ZSk7XHJcblxyXG4gICAgICBjb25zdCBbc3VtbWFyeVJlcywgc3R1ZGVudHNSZXMsIGV4YW1zUmVzLCBtYXJrc1Jlc10gPSBhd2FpdCBQcm9taXNlLmFsbChbXHJcbiAgICAgICAgQVBJLmdldChcIi9kYXNoYm9hcmQvc3VtbWFyeVwiKSxcclxuICAgICAgICBBUEkuZ2V0KFwiL3N0dWRlbnRzL1wiKSxcclxuICAgICAgICBBUEkuZ2V0KFwiL2V4YW1zL1wiKSxcclxuICAgICAgICBBUEkuZ2V0KFwiL21hcmtzL1wiKSxcclxuICAgICAgXSk7XHJcblxyXG4gICAgICBzZXRTdW1tYXJ5KHN1bW1hcnlSZXMuZGF0YSk7XHJcbiAgICAgIHNldFN0dWRlbnRzKHN0dWRlbnRzUmVzLmRhdGEpO1xyXG4gICAgICBzZXRFeGFtcyhleGFtc1Jlcy5kYXRhKTtcclxuICAgICAgc2V0TWFya3MobWFya3NSZXMuZGF0YSk7XHJcblxyXG4gICAgICAvLyBUcmVuZHMgYXJlIG9wdGlvbmFsIOKAlCBhbiBvbGRlciBiYWNrZW5kIG1heSBub3QgZXhwb3NlIHRoaXMgZW5kcG9pbnQsIHNvXHJcbiAgICAgIC8vIGZldGNoIHNlcGFyYXRlbHkgYW5kIG5ldmVyIGxldCBpdCBmYWlsIHRoZSByZXN0IG9mIHRoZSBkYXNoYm9hcmQuXHJcbiAgICAgIHRyeSB7XHJcbiAgICAgICAgY29uc3QgdHJlbmRzUmVzID0gYXdhaXQgQVBJLmdldChcIi9kYXNoYm9hcmQvdHJlbmRzXCIsIHsgcGFyYW1zOiB7IGRheXM6IDE0IH0gfSk7XHJcbiAgICAgICAgc2V0VHJlbmRzKHRyZW5kc1Jlcy5kYXRhKTtcclxuICAgICAgfSBjYXRjaCB7XHJcbiAgICAgICAgc2V0VHJlbmRzKG51bGwpO1xyXG4gICAgICB9XHJcbiAgICB9IGNhdGNoIChlcnJvcikge1xyXG4gICAgICBjb25zb2xlLmVycm9yKFwiRGFzaGJvYXJkIGxvYWQgZXJyb3I6XCIsIGVycm9yKTtcclxuICAgIH0gZmluYWxseSB7XHJcbiAgICAgIHNldExvYWRpbmcoZmFsc2UpO1xyXG4gICAgfVxyXG4gIH1cclxuXHJcbiAgdXNlRWZmZWN0KCgpID0+IHtcclxuICAgIGxvYWREYXNoYm9hcmQoKTtcclxuICB9LCBbXSk7XHJcblxyXG4gIGZ1bmN0aW9uIGdldFN0dWRlbnQoc3R1ZGVudElkKSB7XHJcbiAgICByZXR1cm4gc3R1ZGVudHMuZmluZCgoc3R1ZGVudCkgPT4gc3R1ZGVudC5pZCA9PT0gTnVtYmVyKHN0dWRlbnRJZCkpO1xyXG4gIH1cclxuXHJcbiAgZnVuY3Rpb24gZ2V0U3R1ZGVudE5hbWUoc3R1ZGVudElkKSB7XHJcbiAgICBjb25zdCBzdHVkZW50ID0gZ2V0U3R1ZGVudChzdHVkZW50SWQpO1xyXG4gICAgaWYgKCFzdHVkZW50KSByZXR1cm4gXCJVbmtub3duIFN0dWRlbnRcIjtcclxuICAgIHJldHVybiBgJHtzdHVkZW50LmZpcnN0X25hbWV9ICR7c3R1ZGVudC5sYXN0X25hbWUgfHwgXCJcIn1gLnRyaW0oKTtcclxuICB9XHJcblxyXG4gIGZ1bmN0aW9uIGdldFN0dWRlbnRDbGFzcyhzdHVkZW50SWQpIHtcclxuICAgIGNvbnN0IHN0dWRlbnQgPSBnZXRTdHVkZW50KHN0dWRlbnRJZCk7XHJcbiAgICBpZiAoIXN0dWRlbnQpIHJldHVybiBcIi1cIjtcclxuICAgIHJldHVybiBgJHtzdHVkZW50LmNsYXNzX25hbWUgfHwgXCItXCJ9LSR7c3R1ZGVudC5zZWN0aW9uIHx8IFwiLVwifWA7XHJcbiAgfVxyXG5cclxuICBmdW5jdGlvbiBnZXRFeGFtTmFtZShleGFtSWQpIHtcclxuICAgIHJldHVybiBleGFtcy5maW5kKChleGFtKSA9PiBleGFtLmlkID09PSBOdW1iZXIoZXhhbUlkKSk/LmV4YW1fbmFtZSB8fCBcIi1cIjtcclxuICB9XHJcblxyXG4gIGNvbnN0IHN0dWRlbnRzQnlDbGFzcyA9ICgoKSA9PiB7XHJcbiAgICBjb25zdCBjb3VudHMgPSB7fTtcclxuICAgIHN0dWRlbnRzLmZvckVhY2goKHN0dWRlbnQpID0+IHtcclxuICAgICAgY29uc3QgbGFiZWwgPSBzdHVkZW50LmNsYXNzX25hbWUgfHwgXCJVbmFzc2lnbmVkXCI7XHJcbiAgICAgIGNvdW50c1tsYWJlbF0gPSAoY291bnRzW2xhYmVsXSB8fCAwKSArIDE7XHJcbiAgICB9KTtcclxuICAgIHJldHVybiBPYmplY3QuZW50cmllcyhjb3VudHMpXHJcbiAgICAgIC5tYXAoKFtsYWJlbCwgdmFsdWVdKSA9PiAoeyBsYWJlbCwgdmFsdWUgfSkpXHJcbiAgICAgIC5zb3J0KChhLCBiKSA9PiBhLmxhYmVsLmxvY2FsZUNvbXBhcmUoYi5sYWJlbCwgdW5kZWZpbmVkLCB7IG51bWVyaWM6IHRydWUgfSkpXHJcbiAgICAgIC5zbGljZSgwLCAxNCk7XHJcbiAgfSkoKTtcclxuXHJcbiAgY29uc3QgZ3JhZGVEaXN0cmlidXRpb24gPSAoKCkgPT4ge1xyXG4gICAgY29uc3QgY291bnRzID0ge307XHJcbiAgICBtYXJrcy5mb3JFYWNoKChtYXJrKSA9PiB7XHJcbiAgICAgIGNvbnN0IGdyYWRlID0gbWFyay5ncmFkZSAmJiBtYXJrLmdyYWRlICE9PSBcIi1cIiA/IG1hcmsuZ3JhZGUgOiBcIlVuZ3JhZGVkXCI7XHJcbiAgICAgIGNvdW50c1tncmFkZV0gPSAoY291bnRzW2dyYWRlXSB8fCAwKSArIDE7XHJcbiAgICB9KTtcclxuICAgIGNvbnN0IG9yZGVyID0gWy4uLkdSQURFX09SREVSLCBcIlVuZ3JhZGVkXCJdO1xyXG4gICAgcmV0dXJuIG9yZGVyXHJcbiAgICAgIC5maWx0ZXIoKGdyYWRlKSA9PiBjb3VudHNbZ3JhZGVdKVxyXG4gICAgICAubWFwKChncmFkZSkgPT4gKHsgbGFiZWw6IGdyYWRlLCB2YWx1ZTogY291bnRzW2dyYWRlXSB9KSk7XHJcbiAgfSkoKTtcclxuXHJcbiAgLy8gQ291bnRzIGFyZSBsaXZlIHZhbHVlczsgYWNjZW50IGNvbG91cnMgZGlzdGluZ3Vpc2ggb3BlcmF0aW9uYWwgYXJlYXMuXG4gIGNvbnN0IGNhcmRzID0gW1xyXG4gICAge1xyXG4gICAgICB0aXRsZTogXCJUb3RhbCBTdHVkZW50c1wiLFxyXG4gICAgICB2YWx1ZTogc3VtbWFyeT8udG90YWxfc3R1ZGVudHMgfHwgMCxcclxuICAgICAgbm90ZTogXCJDb21wbGV0ZSBzdHVkZW50IHJlY29yZHNcIixcclxuICAgICAgaWNvbjogVXNlcnMsXHJcbiAgICAgIGFjY2VudDogXCJ2YXIoLS1icmFuZC02MDApXCIsXHJcbiAgICAgIGFjY2VudDI6IFwidmFyKC0tYnJhbmQtNTAwKVwiLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAgdGl0bGU6IFwiQWN0aXZlIFN0dWRlbnRzXCIsXHJcbiAgICAgIHZhbHVlOiBzdW1tYXJ5Py5hY3RpdmVfc3R1ZGVudHMgfHwgMCxcclxuICAgICAgbm90ZTogXCJDdXJyZW50bHkgZW5yb2xsZWRcIixcclxuICAgICAgaWNvbjogVXNlcnMsXHJcbiAgICAgIGFjY2VudDogXCJ2YXIoLS1icmFuZC02MDApXCIsXHJcbiAgICAgIGFjY2VudDI6IFwidmFyKC0tYnJhbmQtNTAwKVwiLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAgdGl0bGU6IFwiRmFjdWx0eSBTdHJlbmd0aFwiLFxyXG4gICAgICB2YWx1ZTogc3VtbWFyeT8udG90YWxfdGVhY2hlcnMgfHwgMCxcclxuICAgICAgbm90ZTogXCJSZWdpc3RlcmVkIGZhY3VsdHlcIixcclxuICAgICAgaWNvbjogR3JhZHVhdGlvbkNhcCxcclxuICAgICAgYWNjZW50OiBcInZhcigtLWJyYW5kLTYwMClcIixcclxuICAgICAgYWNjZW50MjogXCJ2YXIoLS1icmFuZC01MDApXCIsXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICB0aXRsZTogXCJDbGFzcyBTZWN0aW9uc1wiLFxyXG4gICAgICB2YWx1ZTogc3VtbWFyeT8udG90YWxfY2xhc3NlcyB8fCAwLFxyXG4gICAgICBub3RlOiBcIkFjYWRlbWljIHNlY3Rpb25zXCIsXHJcbiAgICAgIGljb246IEJvb2tPcGVuLFxyXG4gICAgICBhY2NlbnQ6IFwidmFyKC0tYnJhbmQtNjAwKVwiLFxyXG4gICAgICBhY2NlbnQyOiBcInZhcigtLWJyYW5kLTUwMClcIixcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIHRpdGxlOiBcIkZlZSBDb2xsZWN0aW9uXCIsXHJcbiAgICAgIHZhbHVlOiBmb3JtYXRNb25leShzdW1tYXJ5Py50b3RhbF9jb2xsZWN0aW9uKSxcclxuICAgICAgbm90ZTogYCR7c3VtbWFyeT8uY29sbGVjdGlvbl9wZXJjZW50YWdlIHx8IDB9JSBjb2xsZWN0ZWRgLFxyXG4gICAgICBpY29uOiBXYWxsZXQsXHJcbiAgICAgIGFjY2VudDogXCJ2YXIoLS1zdWNjZXNzLTYwMClcIixcclxuICAgICAgYWNjZW50MjogXCJ2YXIoLS1zdWNjZXNzLTYwMClcIixcclxuICAgIH0sXHJcbiAgICB7XHJcbiAgICAgIHRpdGxlOiBcIk91dHN0YW5kaW5nIER1ZVwiLFxyXG4gICAgICB2YWx1ZTogZm9ybWF0TW9uZXkoc3VtbWFyeT8udG90YWxfZHVlKSxcclxuICAgICAgbm90ZTogXCJQZW5kaW5nIHJlY2VpdmFibGVzXCIsXHJcbiAgICAgIGljb246IFRyZW5kaW5nVXAsXHJcbiAgICAgIGFjY2VudDogXCJ2YXIoLS1kYW5nZXItNjAwKVwiLFxyXG4gICAgICBhY2NlbnQyOiBcInZhcigtLWRhbmdlci02MDApXCIsXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICB0aXRsZTogXCJUb2RheSBBdHRlbmRhbmNlXCIsXHJcbiAgICAgIHZhbHVlOiBgJHtzdW1tYXJ5Py5hdHRlbmRhbmNlX3BlcmNlbnRhZ2UgfHwgMH0lYCxcclxuICAgICAgbm90ZTogXCJQcmVzZW50IHBlcmNlbnRhZ2VcIixcclxuICAgICAgaWNvbjogQ2xpcGJvYXJkQ2hlY2ssXHJcbiAgICAgIGFjY2VudDogXCJ2YXIoLS1icmFuZC02MDApXCIsXHJcbiAgICAgIGFjY2VudDI6IFwidmFyKC0tYnJhbmQtNTAwKVwiLFxyXG4gICAgfSxcclxuICAgIHtcclxuICAgICAgdGl0bGU6IFwiSW50ZXJuYXRpb25hbCBTdHVkZW50c1wiLFxyXG4gICAgICB2YWx1ZTogc3VtbWFyeT8uaW50ZXJuYXRpb25hbF9zdHVkZW50cyB8fCAwLFxyXG4gICAgICBub3RlOiBcIk5vbi1sb2NhbCBuYXRpb25hbGl0eSByZWNvcmRzXCIsXHJcbiAgICAgIGljb246IFNjaG9vbCxcclxuICAgICAgYWNjZW50OiBcInZhcigtLWJyYW5kLTYwMClcIixcclxuICAgICAgYWNjZW50MjogXCJ2YXIoLS1icmFuZC01MDApXCIsXHJcbiAgICB9LFxyXG4gICAge1xyXG4gICAgICB0aXRsZTogXCJMaWJyYXJ5IE92ZXJkdWVcIixcclxuICAgICAgdmFsdWU6IHN1bW1hcnk/LmxpYnJhcnlfb3ZlcmR1ZV9jb3VudCB8fCAwLFxyXG4gICAgICBub3RlOiBgJHtzdW1tYXJ5Py5saWJyYXJ5X2lzc3VlZF9jb3VudCB8fCAwfSBib29rKHMpIGN1cnJlbnRseSBpc3N1ZWRgLFxyXG4gICAgICBpY29uOiBDbG9jayxcclxuICAgICAgYWNjZW50OiBcInZhcigtLWRhbmdlci02MDApXCIsXHJcbiAgICAgIGFjY2VudDI6IFwidmFyKC0tZGFuZ2VyLTYwMClcIixcclxuICAgIH0sXHJcbiAgXTtcclxuXHJcbiAgcmV0dXJuIChcclxuICAgIDxkaXYgY2xhc3NOYW1lPVwiZGFzaGJvYXJkIGludGVybmF0aW9uYWwtZGFzaGJvYXJkXCI+XHJcbiAgICAgIDxoZWFkZXIgY2xhc3NOYW1lPVwicGFnZS1oZWFkXCI+XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYWdlLWhlYWQtdGV4dFwiPlxyXG4gICAgICAgICAgPGgxPntzZXR0aW5ncz8uc2Nob29sX25hbWUgfHwgXCJEYXNoYm9hcmRcIn08L2gxPlxyXG4gICAgICAgICAgPHA+XHJcbiAgICAgICAgICAgIHtbc2V0dGluZ3M/LmJvYXJkX2FmZmlsaWF0aW9uLCBzZXR0aW5ncz8uY2FtcHVzX25hbWUsIHNldHRpbmdzPy5hY2FkZW1pY195ZWFyXVxyXG4gICAgICAgICAgICAgIC5maWx0ZXIoQm9vbGVhbilcclxuICAgICAgICAgICAgICAuam9pbihcIiDCtyBcIikgfHwgXCJUb2RheSBhdCBhIGdsYW5jZVwifVxyXG4gICAgICAgICAgPC9wPlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICA8L2hlYWRlcj5cclxuXHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZGFzaGJvYXJkLXRhYnNcIj5cclxuICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgIGNsYXNzTmFtZT17dmlldyA9PT0gXCJvdmVydmlld1wiID8gXCJhY3RpdmVcIiA6IFwiXCJ9XHJcbiAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRWaWV3KFwib3ZlcnZpZXdcIil9XHJcbiAgICAgICAgPlxyXG4gICAgICAgICAgT3ZlcnZpZXdcclxuICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgIGNsYXNzTmFtZT17dmlldyA9PT0gXCJidWlsZGVyXCIgPyBcImFjdGl2ZVwiIDogXCJcIn1cclxuICAgICAgICAgIG9uQ2xpY2s9eygpID0+IHNldFZpZXcoXCJidWlsZGVyXCIpfVxyXG4gICAgICAgID5cclxuICAgICAgICAgIE15IERhc2hib2FyZFxyXG4gICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICA8L2Rpdj5cclxuXHJcbiAgICAgIHt2aWV3ID09PSBcImJ1aWxkZXJcIiA/IChcclxuICAgICAgICA8RGFzaGJvYXJkQnVpbGRlciBmb3JtYXRNb25leT17Zm9ybWF0TW9uZXl9IC8+XHJcbiAgICAgICkgOiBsb2FkaW5nID8gKFxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibG9hZGluZy1ib3hcIj5Mb2FkaW5nIGRhc2hib2FyZC4uLjwvZGl2PlxyXG4gICAgICApIDogKFxyXG4gICAgICAgIDw+XHJcbiAgICAgICAgICA8c2VjdGlvbiBjbGFzc05hbWU9XCJzdGF0cy1ncmlkXCI+XHJcbiAgICAgICAgICAgIHtjYXJkcy5tYXAoKGNhcmQsIGluZGV4KSA9PiB7XG4gICAgICAgICAgICAgIGNvbnN0IEljb24gPSBjYXJkLmljb247XG4gICAgICAgICAgICAgIGNvbnN0IFthY2NlbnQsIGNhdGVnb3J5XSA9IENBUkRfU1RZTEVTW2luZGV4XTtcblxyXG4gICAgICAgICAgICAgIHJldHVybiAoXHJcbiAgICAgICAgICAgICAgICA8ZGl2XHJcbiAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT17YHN0YXQtY2FyZCBwcmVtaXVtLWNhcmQgb3ZlcnZpZXctc3RhdCR7aW5kZXggPT09IDAgPyBcIiBvdmVydmlldy1zdGF0LWZlYXR1cmVkXCIgOiBcIlwifWB9XG4gICAgICAgICAgICAgICAgICBrZXk9e2NhcmQudGl0bGV9XHJcbiAgICAgICAgICAgICAgICAgIHN0eWxlPXt7XHJcbiAgICAgICAgICAgICAgICAgICAgXCItLWNhcmQtYWNjZW50XCI6IGFjY2VudCxcbiAgICAgICAgICAgICAgICAgICAgXCItLWNhcmQtYWNjZW50LTJcIjogYWNjZW50LFxuICAgICAgICAgICAgICAgICAgfX1cclxuICAgICAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJvdmVydmlldy1zdGF0LXRvcFwiPlxuICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJvdmVydmlldy1zdGF0LWNhdGVnb3J5XCI+e2NhdGVnb3J5fTwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzdGF0LWljb25cIj48SWNvbiBzaXplPXsyM30gYXJpYS1oaWRkZW49XCJ0cnVlXCIgLz48L2Rpdj5cbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzdGF0LWNhcmQtYm9keVwiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxoMz57dHlwZW9mIGNhcmQudmFsdWUgPT09IFwibnVtYmVyXCIgPyBjYXJkLnZhbHVlLnRvTG9jYWxlU3RyaW5nKCkgOiBjYXJkLnZhbHVlfTwvaDM+XG4gICAgICAgICAgICAgICAgICAgIDxwPntjYXJkLnRpdGxlfTwvcD5cbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJvdmVydmlldy1zdGF0LWZvb3RlclwiPjxzcGFuIGNsYXNzTmFtZT1cIm92ZXJ2aWV3LXN0YXQtZG90XCIgYXJpYS1oaWRkZW49XCJ0cnVlXCIgLz48c3Bhbj57Y2FyZC5ub3RlfTwvc3Bhbj48L2Rpdj5cbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICApO1xyXG4gICAgICAgICAgICB9KX1cclxuICAgICAgICAgIDwvc2VjdGlvbj5cclxuXHJcbiAgICAgICAgICA8c2VjdGlvbiBjbGFzc05hbWU9XCJwYW5lbCB0cmVuZC1wYW5lbFwiPlxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsLWhlYWRlclwiPlxyXG4gICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICA8aDM+QXR0ZW5kYW5jZSBUcmVuZDwvaDM+XHJcbiAgICAgICAgICAgICAgICA8cD5EYWlseSBwcmVzZW50IHJhdGUgb3ZlciB0aGUgbGFzdCAxNCBkYXlzPC9wPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxUcmVuZGluZ1VwIHNpemU9ezIyfSAvPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPFRyZW5kQXJlYVxyXG4gICAgICAgICAgICAgIGRhdGE9e3RyZW5kcz8uYXR0ZW5kYW5jZV90cmVuZCB8fCBbXX1cclxuICAgICAgICAgICAgICBjb2xvcj1cInZhcigtLXByaW1hcnkpXCJcclxuICAgICAgICAgICAgICB1bml0PVwiJVwiXHJcbiAgICAgICAgICAgICAgZW1wdHlUZXh0PVwiTm8gYXR0ZW5kYW5jZSByZWNvcmRlZCBpbiB0aGlzIHdpbmRvdyB5ZXQuXCJcclxuICAgICAgICAgICAgLz5cclxuICAgICAgICAgIDwvc2VjdGlvbj5cclxuXHJcbiAgICAgICAgICA8c2VjdGlvbiBjbGFzc05hbWU9XCJkYXNoYm9hcmQtZ3JpZFwiPlxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsIGxhcmdlLXBhbmVsXCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbC1oZWFkZXJcIj5cclxuICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxoMz5BdHRlbmRhbmNlIFRvZGF5PC9oMz5cclxuICAgICAgICAgICAgICAgICAgPHA+RGFpbHkgYXR0ZW5kYW5jZSBzbmFwc2hvdDwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPENsaXBib2FyZENoZWNrIHNpemU9ezIyfSAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8QXR0ZW5kYW5jZURvbnV0XHJcbiAgICAgICAgICAgICAgICBwcmVzZW50PXtzdW1tYXJ5Py50b2RheV9wcmVzZW50IHx8IDB9XHJcbiAgICAgICAgICAgICAgICBhYnNlbnQ9e3N1bW1hcnk/LnRvZGF5X2Fic2VudCB8fCAwfVxyXG4gICAgICAgICAgICAgICAgbGF0ZT17c3VtbWFyeT8udG9kYXlfbGF0ZSB8fCAwfVxyXG4gICAgICAgICAgICAgICAgZXhjdXNlZD17c3VtbWFyeT8udG9kYXlfZXhjdXNlZCB8fCAwfVxyXG4gICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbFwiPlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGFuZWwtaGVhZGVyXCI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgICA8aDM+RmluYW5jZSBIZWFsdGg8L2gzPlxyXG4gICAgICAgICAgICAgICAgICA8cD5Db2xsZWN0aW9uIGFuZCBkdWVzPC9wPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8V2FsbGV0IHNpemU9ezIyfSAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8UmFkaWFsR2F1Z2VcclxuICAgICAgICAgICAgICAgIHBlcmNlbnRhZ2U9e3N1bW1hcnk/LmNvbGxlY3Rpb25fcGVyY2VudGFnZSB8fCAwfVxyXG4gICAgICAgICAgICAgICAgY29sbGVjdGVkPXtzdW1tYXJ5Py50b3RhbF9jb2xsZWN0aW9ufVxyXG4gICAgICAgICAgICAgICAgZHVlPXtzdW1tYXJ5Py50b3RhbF9kdWV9XHJcbiAgICAgICAgICAgICAgICBmb3JtYXRNb25leT17Zm9ybWF0TW9uZXl9XHJcbiAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsXCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbC1oZWFkZXJcIj5cclxuICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxoMz5TdHVkZW50IFByb2ZpbGUgTWl4PC9oMz5cclxuICAgICAgICAgICAgICAgICAgPHA+SW50ZXJuYXRpb25hbCBhbmQgdHJhbnNwb3J0IGluZGljYXRvcnM8L3A+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgIDxVc2VycyBzaXplPXsyMn0gLz5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwcm9maWxlLW1peC1ncmlkXCI+XG4gICAgICAgICAgICAgICAgPFByb2ZpbGVNZXRyaWMgdGl0bGU9XCJJbnRlcm5hdGlvbmFsIFN0dWRlbnRzXCIgY291bnQ9e3N1bW1hcnk/LmludGVybmF0aW9uYWxfc3R1ZGVudHMgfHwgMH1cbiAgICAgICAgICAgICAgICAgIHRvdGFsPXtzdW1tYXJ5Py50b3RhbF9zdHVkZW50cyB8fCAwfSBpY29uPXtHbG9iZTJ9IGFjY2VudD1cIiM3OTUyY2NcIiBub3RlPVwiQSBjb25uZWN0ZWQgZ2xvYmFsIHNjaG9vbCBjb21tdW5pdHlcIiAvPlxuICAgICAgICAgICAgICAgIDxQcm9maWxlTWV0cmljIHRpdGxlPVwiVHJhbnNwb3J0IFVzZXJzXCIgY291bnQ9e3N1bW1hcnk/LnRyYW5zcG9ydF91c2VycyB8fCAwfVxuICAgICAgICAgICAgICAgICAgdG90YWw9e3N1bW1hcnk/LnRvdGFsX3N0dWRlbnRzIHx8IDB9IGljb249e0J1c30gYWNjZW50PVwiIzA4N2Y4Y1wiIG5vdGU9XCJTdHVkZW50cyB1c2luZyBzY2hvb2wgdHJhbnNwb3J0XCIgLz5cbiAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicHJvZmlsZS1taXgtZm9vdGVyXCI+PFVzZXJzIHNpemU9ezE2fSBhcmlhLWhpZGRlbj1cInRydWVcIiAvPjxzcGFuPlNoYXJlIG9mIHsoc3VtbWFyeT8udG90YWxfc3R1ZGVudHMgfHwgMCkudG9Mb2NhbGVTdHJpbmcoKX0gdG90YWwgc3R1ZGVudHMgwrcgR3JvdXBzIG1heSBvdmVybGFwPC9zcGFuPjwvZGl2PlxuICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsIGxhcmdlLXBhbmVsXCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbC1oZWFkZXJcIj5cclxuICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxoMz5TdHVkZW50cyBieSBDbGFzczwvaDM+XHJcbiAgICAgICAgICAgICAgICAgIDxwPkVucm9sbG1lbnQgYWNyb3NzIGNsYXNzIHNlY3Rpb25zPC9wPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8Qm9va09wZW4gc2l6ZT17MjJ9IC8+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgIDxDYXRlZ29yeUJhckNoYXJ0IGRhdGE9e3N0dWRlbnRzQnlDbGFzc30gZW1wdHlUZXh0PVwiTm8gc3R1ZGVudHMgcmVjb3JkZWQgeWV0LlwiIC8+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbCBsYXJnZS1wYW5lbFwiPlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGFuZWwtaGVhZGVyXCI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgICA8aDM+R3JhZGUgRGlzdHJpYnV0aW9uPC9oMz5cclxuICAgICAgICAgICAgICAgICAgPHA+TWFya3MgcmVjb3JkZWQgYWNyb3NzIGFsbCBleGFtczwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPEF3YXJkIHNpemU9ezIyfSAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8Q2F0ZWdvcnlCYXJDaGFydCBkYXRhPXtncmFkZURpc3RyaWJ1dGlvbn0gZW1wdHlUZXh0PVwiTm8gbWFya3MgcmVjb3JkZWQgeWV0LlwiIC8+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbCBsYXJnZS1wYW5lbFwiPlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGFuZWwtaGVhZGVyXCI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgICA8aDM+UmVjZW50IEFkbWlzc2lvbnM8L2gzPlxyXG4gICAgICAgICAgICAgICAgICA8cD5MYXRlc3Qgc3R1ZGVudCByZWNvcmRzPC9wPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8VXNlcnMgc2l6ZT17MjJ9IC8+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgIDx0YWJsZSBjbGFzc05hbWU9XCJjbGFzc2ljLXRhYmxlXCI+XHJcbiAgICAgICAgICAgICAgICA8dGhlYWQ+XHJcbiAgICAgICAgICAgICAgICAgIDx0cj5cclxuICAgICAgICAgICAgICAgICAgICA8dGg+QWRtaXNzaW9uIE5vPC90aD5cclxuICAgICAgICAgICAgICAgICAgICA8dGg+U3R1ZGVudDwvdGg+XHJcbiAgICAgICAgICAgICAgICAgICAgPHRoPkNsYXNzPC90aD5cclxuICAgICAgICAgICAgICAgICAgICB7Y2FuVXNlSG91c2UgJiYgPHRoPkhvdXNlPC90aD59XHJcbiAgICAgICAgICAgICAgICAgICAgPHRoPkFkbWlzc2lvbiBEYXRlPC90aD5cclxuICAgICAgICAgICAgICAgICAgPC90cj5cclxuICAgICAgICAgICAgICAgIDwvdGhlYWQ+XHJcblxyXG4gICAgICAgICAgICAgICAgPHRib2R5PlxyXG4gICAgICAgICAgICAgICAgICB7KHN1bW1hcnk/LnJlY2VudF9hZG1pc3Npb25zIHx8IFtdKS5sZW5ndGggPT09IDAgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgPHRyPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPHRkIGNvbFNwYW49e2NhblVzZUhvdXNlID8gNSA6IDR9IGNsYXNzTmFtZT1cImVtcHR5LXRhYmxlXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIE5vIHJlY2VudCBhZG1pc3Npb25zLlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC90ZD5cclxuICAgICAgICAgICAgICAgICAgICA8L3RyPlxyXG4gICAgICAgICAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICAgICAgICAgIHN1bW1hcnkucmVjZW50X2FkbWlzc2lvbnMubWFwKChzdHVkZW50KSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICA8dHIga2V5PXtzdHVkZW50LmlkfT5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPntzdHVkZW50LmFkbWlzc2lvbl9ub308L3RkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8dGQ+e3N0dWRlbnQuc3R1ZGVudF9uYW1lfTwvdGQ+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICB7c3R1ZGVudC5jbGFzc19uYW1lIHx8IFwiLVwifS17c3R1ZGVudC5zZWN0aW9uIHx8IFwiLVwifVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L3RkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICB7Y2FuVXNlSG91c2UgJiYgPHRkPntzdHVkZW50LmhvdXNlIHx8IFwiLVwifTwvdGQ+fVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8dGQ+e3N0dWRlbnQuYWRtaXNzaW9uX2RhdGUgfHwgXCItXCJ9PC90ZD5cclxuICAgICAgICAgICAgICAgICAgICAgIDwvdHI+XHJcbiAgICAgICAgICAgICAgICAgICAgKSlcclxuICAgICAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgICAgIDwvdGJvZHk+XHJcbiAgICAgICAgICAgICAgPC90YWJsZT5cclxuICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsXCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbC1oZWFkZXJcIj5cclxuICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxoMz5VcGNvbWluZyBFeGFtczwvaDM+XHJcbiAgICAgICAgICAgICAgICAgIDxwPk5leHQgMzAgZGF5czwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPENhbGVuZGFyRGF5cyBzaXplPXsyMn0gLz5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAgPHVsIGNsYXNzTmFtZT1cInRhc2stbGlzdFwiPlxyXG4gICAgICAgICAgICAgICAgeyhzdW1tYXJ5Py51cGNvbWluZ19leGFtcyB8fCBbXSkubGVuZ3RoID09PSAwID8gKFxyXG4gICAgICAgICAgICAgICAgICA8bGk+Tm8gdXBjb21pbmcgZXhhbXM8L2xpPlxyXG4gICAgICAgICAgICAgICAgKSA6IChcclxuICAgICAgICAgICAgICAgICAgc3VtbWFyeS51cGNvbWluZ19leGFtcy5tYXAoKGV4YW0pID0+IChcclxuICAgICAgICAgICAgICAgICAgICA8bGkga2V5PXtleGFtLmlkfT5cbiAgICAgICAgICAgICAgICAgICAgICA8TGluayBjbGFzc05hbWU9XCJkYXNoYm9hcmQtcmVjb3JkLWxpbmtcIiB0bz17YC9leGFtcz9leGFtX2lkPSR7ZXhhbS5pZH1gfT5cbiAgICAgICAgICAgICAgICAgICAgICB7ZXhhbS5leGFtX25hbWV9IC0ge2V4YW0uY2xhc3NfbmFtZX0te2V4YW0uc2VjdGlvbn0gb257XCIgXCJ9XG4gICAgICAgICAgICAgICAgICAgICAge2V4YW0uZXhhbV9kYXRlfVxuICAgICAgICAgICAgICAgICAgICAgIDwvTGluaz5cbiAgICAgICAgICAgICAgICAgICAgPC9saT5cclxuICAgICAgICAgICAgICAgICAgKSlcclxuICAgICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgPC91bD5cclxuICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBhbmVsXCI+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbC1oZWFkZXJcIj5cclxuICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgIDxoMz5Ub3AgUGVyZm9ybWVyczwvaDM+XHJcbiAgICAgICAgICAgICAgICAgIDxwPkhpZ2hlc3QgbWFya3MgcmVjb3JkczwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPEF3YXJkIHNpemU9ezIyfSAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8dWwgY2xhc3NOYW1lPVwidGFzay1saXN0XCI+XHJcbiAgICAgICAgICAgICAgICB7KHN1bW1hcnk/LnRvcF9wZXJmb3JtZXJzIHx8IFtdKS5sZW5ndGggPT09IDAgPyAoXHJcbiAgICAgICAgICAgICAgICAgIDxsaT5ObyBtYXJrcyByZWNvcmRzIHlldDwvbGk+XHJcbiAgICAgICAgICAgICAgICApIDogKFxyXG4gICAgICAgICAgICAgICAgICBzdW1tYXJ5LnRvcF9wZXJmb3JtZXJzLm1hcCgobWFyaykgPT4gKFxyXG4gICAgICAgICAgICAgICAgICAgIDxsaSBrZXk9e21hcmsuaWR9PlxuICAgICAgICAgICAgICAgICAgICAgIDxMaW5rIGNsYXNzTmFtZT1cImRhc2hib2FyZC1yZWNvcmQtbGlua1wiIHRvPXtgL21hcmtzPyR7bmV3IFVSTFNlYXJjaFBhcmFtcyh7IHN0dWRlbnRfaWQ6IFN0cmluZyhtYXJrLnN0dWRlbnRfaWQpLCBleGFtX2lkOiBTdHJpbmcobWFyay5leGFtX2lkKSwgc3ViamVjdDogbWFyay5zdWJqZWN0IHx8IFwiXCIgfSl9YH0+XG4gICAgICAgICAgICAgICAgICAgICAge2dldFN0dWRlbnROYW1lKG1hcmsuc3R1ZGVudF9pZCl9IC0ge21hcmsuc3ViamVjdH06e1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgIHttYXJrLm1hcmtzX29idGFpbmVkfS97bWFyay50b3RhbF9tYXJrc30gKHttYXJrLmdyYWRlIHx8IFwiLVwifSlcbiAgICAgICAgICAgICAgICAgICAgICA8L0xpbms+XG4gICAgICAgICAgICAgICAgICAgIDwvbGk+XHJcbiAgICAgICAgICAgICAgICAgICkpXHJcbiAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgIDwvdWw+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYW5lbCBsYXJnZS1wYW5lbFwiPlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGFuZWwtaGVhZGVyXCI+XHJcbiAgICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgICA8aDM+RmVlIERlZmF1bHRlcnM8L2gzPlxyXG4gICAgICAgICAgICAgICAgICA8cD5Ub3Agb3V0c3RhbmRpbmcgZHVlczwvcD5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPFRyZW5kaW5nVXAgc2l6ZT17MjJ9IC8+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgIDx0YWJsZSBjbGFzc05hbWU9XCJjbGFzc2ljLXRhYmxlXCI+XHJcbiAgICAgICAgICAgICAgICA8dGhlYWQ+XHJcbiAgICAgICAgICAgICAgICAgIDx0cj5cclxuICAgICAgICAgICAgICAgICAgICA8dGg+U3R1ZGVudDwvdGg+XHJcbiAgICAgICAgICAgICAgICAgICAgPHRoPkNsYXNzPC90aD5cclxuICAgICAgICAgICAgICAgICAgICA8dGg+RmVlIFR5cGU8L3RoPlxyXG4gICAgICAgICAgICAgICAgICAgIDx0aD5EdWU8L3RoPlxyXG4gICAgICAgICAgICAgICAgICAgIDx0aD5TdGF0dXM8L3RoPlxyXG4gICAgICAgICAgICAgICAgICA8L3RyPlxyXG4gICAgICAgICAgICAgICAgPC90aGVhZD5cclxuXHJcbiAgICAgICAgICAgICAgICA8dGJvZHk+XHJcbiAgICAgICAgICAgICAgICAgIHsoc3VtbWFyeT8uZmVlX2RlZmF1bHRlcnMgfHwgW10pLmxlbmd0aCA9PT0gMCA/IChcclxuICAgICAgICAgICAgICAgICAgICA8dHI+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8dGQgY29sU3Bhbj1cIjVcIiBjbGFzc05hbWU9XCJlbXB0eS10YWJsZVwiPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICBObyBmZWUgZGVmYXVsdGVycy5cclxuICAgICAgICAgICAgICAgICAgICAgIDwvdGQ+XHJcbiAgICAgICAgICAgICAgICAgICAgPC90cj5cclxuICAgICAgICAgICAgICAgICAgKSA6IChcclxuICAgICAgICAgICAgICAgICAgICBzdW1tYXJ5LmZlZV9kZWZhdWx0ZXJzLm1hcCgoZmVlKSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICA8dHIga2V5PXtmZWUuaWR9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8dGQ+e2dldFN0dWRlbnROYW1lKGZlZS5zdHVkZW50X2lkKX08L3RkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8dGQ+e2dldFN0dWRlbnRDbGFzcyhmZWUuc3R1ZGVudF9pZCl9PC90ZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPntmZWUuZmVlX3R5cGV9PC90ZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPntmb3JtYXRNb25leShmZWUuZHVlX2Ftb3VudCl9PC90ZD5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInN0YXR1cyBkYW5nZXJcIj5cclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtmZWUucGF5bWVudF9zdGF0dXN9XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L3RkPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC90cj5cclxuICAgICAgICAgICAgICAgICAgICApKVxyXG4gICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgPC90Ym9keT5cclxuICAgICAgICAgICAgICA8L3RhYmxlPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDwvc2VjdGlvbj5cclxuICAgICAgICA8Lz5cclxuICAgICAgKX1cclxuICAgIDwvZGl2PlxyXG4gICk7XHJcbn1cbiJdLCJmaWxlIjoiQzovVXNlcnMvRGViYWJyYXRhIEplbmEvc2Nob29sbWVudC9zY2hvb2wtZXJwL2Zyb250ZW5kL3NyYy9wYWdlcy9EYXNoYm9hcmQuanN4In0=

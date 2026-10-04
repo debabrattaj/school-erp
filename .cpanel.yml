@@ -22,11 +22,10 @@
 #
 # The marketing site (landing-page/) is plain static HTML/CSS/JS — no build
 # step, no Node process. It deploys by mirroring landing-page/ straight into
-# the domain's document root with rsync --delete, so the docroot always ends
-# up an exact copy of what's in git (anything removed from landing-page/ is
-# removed from the live docroot too). PUBLIC_HTML below MUST be changed to
+# the domain's document root with rsync. Existing files are never deleted by
+# this deployment. PUBLIC_HTML below MUST be changed to
 # schoolment.com's real document root before this runs — see SETUP.md
-# "Marketing site deployment" for how to find it and for the --delete caveat.
+# "Marketing site deployment" for how to find it.
 #
 # CRITICAL: PUBLIC_HTML is NOT exclusive to the marketing site. Known
 # subdirectories/files that must stay excluded:
@@ -46,12 +45,8 @@
 #   - banner.png     — the login page's background photo (see styles.css's
 #                      .login-page rule), uploaded by hand straight into this
 #                      docroot since it's a licensed image, not a repo asset.
-# --delete will erase any of these the next time this runs if they're not
-# excluded (this has already happened once to school-admin — see git
-# history / SETUP.md §16 — and once to banner.png before this exclude was
-# added). If anything else ever gets added under $PUBLIC_HTML outside of
-# landing-page/'s own files, add it to --exclude here BEFORE the next
-# deploy, not after.
+# The exclusions also prevent these locations from being overwritten by a
+# same-named path added to landing-page/ in the future.
 #
 # THE FRONTEND IS NOT BUILT HERE. This deploy covers the backend and the
 # marketing site only; frontend/ (the admin app) is built off-server and its
@@ -95,4 +90,4 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/backend/tmp
     - /bin/touch $DEPLOYPATH/backend/tmp/restart.txt
     - export PUBLIC_HTML=/home/schoolm1/public_html
-    - /usr/bin/rsync -a --delete --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' --exclude='nodebuild' --exclude='school-erp' --exclude='banner.png' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/
+    - /usr/bin/rsync -a --exclude='.well-known' --exclude='cgi-bin' --exclude='school-admin' --exclude='nodebuild' --exclude='school-erp' --exclude='banner.png' $DEPLOYPATH/landing-page/ $PUBLIC_HTML/

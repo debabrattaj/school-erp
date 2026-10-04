@@ -1,0 +1,245 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/ResetPassword.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=b88c6b24"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=b88c6b24"; const useState = __vite__cjsImport3_react["useState"];
+import { useNavigate, useSearchParams } from "/node_modules/.vite/deps/react-router-dom.js?v=fee6f2b6";
+import { Lock, School } from "/node_modules/.vite/deps/lucide-react.js?v=b85b2733";
+import API from "/src/api.js";
+const MIN_LENGTH = 8;
+export default function ResetPassword() {
+  _s();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [done, setDone] = useState(false);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+    if (!token) {
+      setMessage("This reset link is missing its token.");
+      return;
+    }
+    if (password.length < MIN_LENGTH) {
+      setMessage(`Password must be at least ${MIN_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirm) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await API.post("/auth/reset-password", {
+        token,
+        new_password: password
+      });
+      setDone(true);
+      setMessage(
+        response?.data?.message || "Your password has been reset. You can now sign in."
+      );
+    } catch (error) {
+      setMessage(
+        error.response?.data?.detail || "This reset link is invalid or has expired."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  return /* @__PURE__ */ jsxDEV("div", { className: "login-page", children: /* @__PURE__ */ jsxDEV("div", { className: "login-card", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "login-brand", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "login-logo", children: /* @__PURE__ */ jsxDEV(School, { size: 34 }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 81,
+        columnNumber: 13
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 80,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("h1", { children: "School ERP" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 84,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("p", { children: "Secure Management Portal" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 85,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 83,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+      lineNumber: 79,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV("h2", { children: "Choose a new password" }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+      lineNumber: 89,
+      columnNumber: 9
+    }, this),
+    message && /* @__PURE__ */ jsxDEV("div", { className: "toast-notification", children: message }, void 0, false, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+      lineNumber: 91,
+      columnNumber: 21
+    }, this),
+    !done ? /* @__PURE__ */ jsxDEV("form", { onSubmit: handleSubmit, children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "login-field", children: [
+        /* @__PURE__ */ jsxDEV("label", { children: "New Password" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 96,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "login-input", children: [
+          /* @__PURE__ */ jsxDEV(Lock, { size: 18 }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+            lineNumber: 98,
+            columnNumber: 17
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "input",
+            {
+              type: "password",
+              value: password,
+              onChange: (e) => setPassword(e.target.value),
+              placeholder: `At least ${MIN_LENGTH} characters`,
+              required: true
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+              lineNumber: 99,
+              columnNumber: 17
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 97,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 95,
+        columnNumber: 13
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "login-field", children: [
+        /* @__PURE__ */ jsxDEV("label", { children: "Confirm Password" }, void 0, false, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 110,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "login-input", children: [
+          /* @__PURE__ */ jsxDEV(Lock, { size: 18 }, void 0, false, {
+            fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+            lineNumber: 112,
+            columnNumber: 17
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "input",
+            {
+              type: "password",
+              value: confirm,
+              onChange: (e) => setConfirm(e.target.value),
+              required: true
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+              lineNumber: 113,
+              columnNumber: 17
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+          lineNumber: 111,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 109,
+        columnNumber: 13
+      }, this),
+      /* @__PURE__ */ jsxDEV("button", { className: "login-button", type: "submit", disabled: loading, children: loading ? "Resetting..." : "Reset password" }, void 0, false, {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 122,
+        columnNumber: 13
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+      lineNumber: 94,
+      columnNumber: 9
+    }, this) : /* @__PURE__ */ jsxDEV(
+      "button",
+      {
+        type: "button",
+        className: "login-button",
+        onClick: () => navigate("/login"),
+        children: "Go to login"
+      },
+      void 0,
+      false,
+      {
+        fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+        lineNumber: 127,
+        columnNumber: 9
+      },
+      this
+    )
+  ] }, void 0, true, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+    lineNumber: 78,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx",
+    lineNumber: 77,
+    columnNumber: 5
+  }, this);
+}
+_s(ResetPassword, "KJcv8+ZsfFNmGrdr+PbjcRBLkI8=", false, function() {
+  return [useNavigate, useSearchParams];
+});
+_c = ResetPassword;
+var _c;
+$RefreshReg$(_c, "ResetPassword");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/Debabrata Jena/schoolment/school-erp/frontend/src/pages/ResetPassword.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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SHBDO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxJQU1BO0FBQUEsT0F2REo7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQXlEQSxLQTFERjtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBMkRBO0FBRUo7QUFBQ0QsR0EvR3VCRCxlQUFhO0FBQUEsVUFDbEJOLGFBQ01DLGVBQWU7QUFBQTtBQUFBLEtBRmhCSztBQUFhLElBQUE0QjtBQUFBLGFBQUFBLElBQUEiLCJuYW1lcyI6WyJ1c2VTdGF0ZSIsInVzZU5hdmlnYXRlIiwidXNlU2VhcmNoUGFyYW1zIiwiTG9jayIsIlNjaG9vbCIsIkFQSSIsIk1JTl9MRU5HVEgiLCJSZXNldFBhc3N3b3JkIiwiX3MiLCJuYXZpZ2F0ZSIsInNlYXJjaFBhcmFtcyIsInRva2VuIiwiZ2V0IiwicGFzc3dvcmQiLCJzZXRQYXNzd29yZCIsImNvbmZpcm0iLCJzZXRDb25maXJtIiwibG9hZGluZyIsInNldExvYWRpbmciLCJtZXNzYWdlIiwic2V0TWVzc2FnZSIsImRvbmUiLCJzZXREb25lIiwiaGFuZGxlU3VibWl0IiwiZSIsInByZXZlbnREZWZhdWx0IiwibGVuZ3RoIiwicmVzcG9uc2UiLCJwb3N0IiwibmV3X3Bhc3N3b3JkIiwiZGF0YSIsImVycm9yIiwiZGV0YWlsIiwidGFyZ2V0IiwidmFsdWUiLCJfYyJdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJSZXNldFBhc3N3b3JkLmpzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSB9IGZyb20gXCJyZWFjdFwiO1xyXG5pbXBvcnQgeyB1c2VOYXZpZ2F0ZSwgdXNlU2VhcmNoUGFyYW1zIH0gZnJvbSBcInJlYWN0LXJvdXRlci1kb21cIjtcclxuaW1wb3J0IHsgTG9jaywgU2Nob29sIH0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQgQVBJIGZyb20gXCIuLi9hcGlcIjtcclxuXHJcbmNvbnN0IE1JTl9MRU5HVEggPSA4O1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gUmVzZXRQYXNzd29yZCgpIHtcclxuICBjb25zdCBuYXZpZ2F0ZSA9IHVzZU5hdmlnYXRlKCk7XHJcbiAgY29uc3QgW3NlYXJjaFBhcmFtc10gPSB1c2VTZWFyY2hQYXJhbXMoKTtcclxuICBjb25zdCB0b2tlbiA9IHNlYXJjaFBhcmFtcy5nZXQoXCJ0b2tlblwiKSB8fCBcIlwiO1xyXG5cclxuICBjb25zdCBbcGFzc3dvcmQsIHNldFBhc3N3b3JkXSA9IHVzZVN0YXRlKFwiXCIpO1xyXG4gIGNvbnN0IFtjb25maXJtLCBzZXRDb25maXJtXSA9IHVzZVN0YXRlKFwiXCIpO1xyXG4gIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKGZhbHNlKTtcclxuICBjb25zdCBbbWVzc2FnZSwgc2V0TWVzc2FnZV0gPSB1c2VTdGF0ZShcIlwiKTtcclxuICBjb25zdCBbZG9uZSwgc2V0RG9uZV0gPSB1c2VTdGF0ZShmYWxzZSk7XHJcblxyXG4gIGFzeW5jIGZ1bmN0aW9uIGhhbmRsZVN1Ym1pdChlKSB7XHJcbiAgICBlLnByZXZlbnREZWZhdWx0KCk7XHJcbiAgICBzZXRNZXNzYWdlKFwiXCIpO1xyXG5cclxuICAgIGlmICghdG9rZW4pIHtcclxuICAgICAgc2V0TWVzc2FnZShcIlRoaXMgcmVzZXQgbGluayBpcyBtaXNzaW5nIGl0cyB0b2tlbi5cIik7XHJcbiAgICAgIHJldHVybjtcclxuICAgIH1cclxuICAgIGlmIChwYXNzd29yZC5sZW5ndGggPCBNSU5fTEVOR1RIKSB7XHJcbiAgICAgIHNldE1lc3NhZ2UoYFBhc3N3b3JkIG11c3QgYmUgYXQgbGVhc3QgJHtNSU5fTEVOR1RIfSBjaGFyYWN0ZXJzLmApO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcbiAgICBpZiAocGFzc3dvcmQgIT09IGNvbmZpcm0pIHtcclxuICAgICAgc2V0TWVzc2FnZShcIlBhc3N3b3JkcyBkbyBub3QgbWF0Y2guXCIpO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgc2V0TG9hZGluZyh0cnVlKTtcclxuICAgIHRyeSB7XHJcbiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgQVBJLnBvc3QoXCIvYXV0aC9yZXNldC1wYXNzd29yZFwiLCB7XHJcbiAgICAgICAgdG9rZW4sXHJcbiAgICAgICAgbmV3X3Bhc3N3b3JkOiBwYXNzd29yZCxcclxuICAgICAgfSk7XHJcbiAgICAgIHNldERvbmUodHJ1ZSk7XHJcbiAgICAgIHNldE1lc3NhZ2UoXHJcbiAgICAgICAgcmVzcG9uc2U/LmRhdGE/Lm1lc3NhZ2UgfHxcclxuICAgICAgICAgIFwiWW91ciBwYXNzd29yZCBoYXMgYmVlbiByZXNldC4gWW91IGNhbiBub3cgc2lnbiBpbi5cIlxyXG4gICAgICApO1xyXG4gICAgfSBjYXRjaCAoZXJyb3IpIHtcclxuICAgICAgc2V0TWVzc2FnZShcclxuICAgICAgICBlcnJvci5yZXNwb25zZT8uZGF0YT8uZGV0YWlsIHx8XHJcbiAgICAgICAgICBcIlRoaXMgcmVzZXQgbGluayBpcyBpbnZhbGlkIG9yIGhhcyBleHBpcmVkLlwiXHJcbiAgICAgICk7XHJcbiAgICB9IGZpbmFsbHkge1xyXG4gICAgICBzZXRMb2FkaW5nKGZhbHNlKTtcclxuICAgIH1cclxuICB9XHJcblxyXG4gIHJldHVybiAoXHJcbiAgICA8ZGl2IGNsYXNzTmFtZT1cImxvZ2luLXBhZ2VcIj5cclxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2dpbi1jYXJkXCI+XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2dpbi1icmFuZFwiPlxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2dpbi1sb2dvXCI+XHJcbiAgICAgICAgICAgIDxTY2hvb2wgc2l6ZT17MzR9IC8+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgIDxoMT5TY2hvb2wgRVJQPC9oMT5cclxuICAgICAgICAgICAgPHA+U2VjdXJlIE1hbmFnZW1lbnQgUG9ydGFsPC9wPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgIDxoMj5DaG9vc2UgYSBuZXcgcGFzc3dvcmQ8L2gyPlxyXG5cclxuICAgICAgICB7bWVzc2FnZSAmJiA8ZGl2IGNsYXNzTmFtZT1cInRvYXN0LW5vdGlmaWNhdGlvblwiPnttZXNzYWdlfTwvZGl2Pn1cclxuXHJcbiAgICAgICAgeyFkb25lID8gKFxyXG4gICAgICAgICAgPGZvcm0gb25TdWJtaXQ9e2hhbmRsZVN1Ym1pdH0+XHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibG9naW4tZmllbGRcIj5cclxuICAgICAgICAgICAgICA8bGFiZWw+TmV3IFBhc3N3b3JkPC9sYWJlbD5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImxvZ2luLWlucHV0XCI+XHJcbiAgICAgICAgICAgICAgICA8TG9jayBzaXplPXsxOH0gLz5cclxuICAgICAgICAgICAgICAgIDxpbnB1dFxyXG4gICAgICAgICAgICAgICAgICB0eXBlPVwicGFzc3dvcmRcIlxyXG4gICAgICAgICAgICAgICAgICB2YWx1ZT17cGFzc3dvcmR9XHJcbiAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0UGFzc3dvcmQoZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgICAgICBwbGFjZWhvbGRlcj17YEF0IGxlYXN0ICR7TUlOX0xFTkdUSH0gY2hhcmFjdGVyc2B9XHJcbiAgICAgICAgICAgICAgICAgIHJlcXVpcmVkXHJcbiAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibG9naW4tZmllbGRcIj5cclxuICAgICAgICAgICAgICA8bGFiZWw+Q29uZmlybSBQYXNzd29yZDwvbGFiZWw+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2dpbi1pbnB1dFwiPlxyXG4gICAgICAgICAgICAgICAgPExvY2sgc2l6ZT17MTh9IC8+XHJcbiAgICAgICAgICAgICAgICA8aW5wdXRcclxuICAgICAgICAgICAgICAgICAgdHlwZT1cInBhc3N3b3JkXCJcclxuICAgICAgICAgICAgICAgICAgdmFsdWU9e2NvbmZpcm19XHJcbiAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZSkgPT4gc2V0Q29uZmlybShlLnRhcmdldC52YWx1ZSl9XHJcbiAgICAgICAgICAgICAgICAgIHJlcXVpcmVkXHJcbiAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPVwibG9naW4tYnV0dG9uXCIgdHlwZT1cInN1Ym1pdFwiIGRpc2FibGVkPXtsb2FkaW5nfT5cclxuICAgICAgICAgICAgICB7bG9hZGluZyA/IFwiUmVzZXR0aW5nLi4uXCIgOiBcIlJlc2V0IHBhc3N3b3JkXCJ9XHJcbiAgICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgICAgPC9mb3JtPlxyXG4gICAgICAgICkgOiAoXHJcbiAgICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJsb2dpbi1idXR0b25cIlxyXG4gICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBuYXZpZ2F0ZShcIi9sb2dpblwiKX1cclxuICAgICAgICAgID5cclxuICAgICAgICAgICAgR28gdG8gbG9naW5cclxuICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgICl9XHJcbiAgICAgIDwvZGl2PlxyXG4gICAgPC9kaXY+XHJcbiAgKTtcclxufVxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL0RlYmFicmF0YSBKZW5hL3NjaG9vbG1lbnQvc2Nob29sLWVycC9mcm9udGVuZC9zcmMvcGFnZXMvUmVzZXRQYXNzd29yZC5qc3gifQ==
