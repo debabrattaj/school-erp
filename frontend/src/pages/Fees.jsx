@@ -2004,12 +2004,6 @@ export default function Fees() {
                 {editingId ? "Update Fee" : feeMode === "class" ? "Add Fee for Class" : "Add Fee"}
               </button>
             </span>
-            {autoGenerationSelected && !editingId && (
-              <small className="form-action-note" role="alert">
-                Automatic generation is on for this fee type, so manual creation is disabled.
-              </small>
-            )}
-
             <button
               type="button"
               className="light-button"
