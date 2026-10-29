@@ -1129,6 +1129,9 @@ h1, h2, h3 { text-wrap: balance; }
   box-shadow: 0 10px 28px -18px var(--brand);
 }
 .module-hero .post-date { color: var(--muted); margin-top: 1.25rem; }
+.fee-guide-hero { padding-block: clamp(2rem, 3.5vw, 3rem) 1.75rem; }
+.fee-guide-hero h1 { max-width: 25ch; font-size: clamp(2rem, 3.1vw, 2.85rem); line-height: 1.14; }
+.fee-guide-hero .lede { max-width: 58ch; }
 .article-credibility {
   max-width: 72ch; margin: .75rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.65;
 }
