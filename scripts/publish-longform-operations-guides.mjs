@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDrafts, renderForAudit, requiredDraftWords } from './verify-blog-drafts.mjs';
 import { auditDocuments, readExistingBlogs } from './audit-blog-content.mjs';
+import keywordGuides from '../content/seo-guides/fees-and-attendance.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const landing = path.join(root, 'landing-page');
@@ -23,6 +24,8 @@ const selectedSlugs = new Set([
   'role-based-school-software-training',
   'school-data-migration-count-reconciliation',
   'student-import-field-mapping-workbook',
+  'school-fee-defaulter-follow-up-guide',
+  'student-attendance-reporting-guide',
 ]);
 
 const template = fs.readFileSync(path.join(blogRoot, 'guide-to-online-fee-payment-systems', 'index.html'), 'utf8');
@@ -86,7 +89,7 @@ function updateBlogIndex(drafts) {
 }
 
 async function selectedDrafts() {
-  const drafts = (await loadDrafts()).filter((draft) => selectedSlugs.has(draft.slug));
+  const drafts = [...await loadDrafts(), ...keywordGuides].filter((draft) => selectedSlugs.has(draft.slug));
   if (drafts.length !== selectedSlugs.size) throw new Error(`Expected ${selectedSlugs.size} selected drafts, found ${drafts.length}`);
   const underLength = drafts.filter((draft) => auditDocuments([renderForAudit(draft)]).documents[0].wordCount < requiredDraftWords);
   if (underLength.length) throw new Error(`Refusing to publish under-length drafts: ${underLength.map((draft) => draft.slug).join(', ')}`);
