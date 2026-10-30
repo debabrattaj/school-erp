@@ -26,6 +26,10 @@ const selectedSlugs = new Set([
   'student-import-field-mapping-workbook',
   'school-fee-defaulter-follow-up-guide',
   'student-attendance-reporting-guide',
+  'school-erp-renewal-scope-review',
+  'school-erp-service-handover-directory',
+  'school-software-accessibility-task-review',
+  'school-system-cutover-freeze-plan',
 ]);
 
 const template = fs.readFileSync(path.join(blogRoot, 'guide-to-online-fee-payment-systems', 'index.html'), 'utf8');
