@@ -1,5 +1,13 @@
 RewriteEngine On
 
+# Versioned static assets can be safely reused on repeat visits. HTML remains
+# uncached so content updates are still discovered immediately.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
 # The Bhubaneswar location page and AI platform overview are separate pages.
 # Each directory serves its own index.html and self-referencing canonical.
 
