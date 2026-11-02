@@ -9,7 +9,7 @@ from app.security import require_roles
 
 router = APIRouter(prefix="/compliance", tags=["Compliance & Accreditation"])
 
-VALID_BODIES = ["IB", "Cambridge", "CBSE", "ICSE", "State", "Local Authority", "Internal", "Other"]
+VALID_BODIES = ["IB", "Cambridge", "CBSE", "ICSE", "State", "AICTE", "PCI", "NBA", "NAAC", "Local Authority", "Internal", "Other"]
 VALID_RISK_LEVELS = ["Low", "Medium", "High", "Critical"]
 VALID_STATUSES = ["Open", "In Progress", "Evidence Ready", "Reviewed", "Completed", "Deferred"]
 

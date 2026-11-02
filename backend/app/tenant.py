@@ -149,6 +149,12 @@ DEFAULT_FEATURES = {
     # Courses: sections, lessons, enrollment, sequencing and progress. The
     # structured half of the LMS, on by default with the rest of it.
     "courses": True,
+    # Internships, capstone projects and pharmacy clinical/industrial
+    # rotations. Platform administrators can still switch it off for a
+    # school-only account in the Platform Console.
+    "experiential_learning": True,
+    "college_outcomes": True,
+    "faculty_workload": True,
     # SCORM runtime and package storage. Off by default: it accepts uploaded
     # web content and serves it back, which is a real storage and hosting
     # commitment a school should opt into rather than inherit.

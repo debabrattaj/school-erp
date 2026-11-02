@@ -19,6 +19,10 @@ const emptySubjectForm = {
   subject_code: "",
   subject_name: "",
   subject_type: "Scholastic",
+  department: "",
+  credits: "",
+  theory_hours: "",
+  practical_hours: "",
   is_active: true,
 };
 
@@ -138,6 +142,10 @@ export default function Subjects() {
       subject_code: formData.subject_code.trim().toUpperCase(),
       subject_name: formData.subject_name.trim(),
       subject_type: formData.subject_type || "Scholastic",
+      department: formData.department.trim() || null,
+      credits: formData.credits === "" ? null : Number(formData.credits),
+      theory_hours: formData.theory_hours === "" ? null : Number(formData.theory_hours),
+      practical_hours: formData.practical_hours === "" ? null : Number(formData.practical_hours),
       is_active: Boolean(formData.is_active),
     };
   }
@@ -187,6 +195,10 @@ export default function Subjects() {
       subject_code: subject.subject_code || "",
       subject_name: subject.subject_name || "",
       subject_type: subject.subject_type || "Scholastic",
+      department: subject.department || "",
+      credits: subject.credits ?? "",
+      theory_hours: subject.theory_hours ?? "",
+      practical_hours: subject.practical_hours ?? "",
       is_active: Boolean(subject.is_active),
     });
 
@@ -257,6 +269,7 @@ export default function Subjects() {
       ${subject.subject_code}
       ${subject.subject_name}
       ${subject.subject_type}
+      ${subject.department || ""}
       ${subject.is_active ? "Active" : "Inactive"}
     `.toLowerCase();
 
@@ -332,6 +345,26 @@ export default function Subjects() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="form-field">
+            <label>Department</label>
+            <input name="department" value={formData.department} onChange={handleChange} placeholder="e.g. Computer Science" />
+          </div>
+
+          <div className="form-field">
+            <label>Credits</label>
+            <input type="number" min="0" step="0.5" name="credits" value={formData.credits} onChange={handleChange} placeholder="e.g. 4" />
+          </div>
+
+          <div className="form-field">
+            <label>Theory Hours / Week</label>
+            <input type="number" min="0" name="theory_hours" value={formData.theory_hours} onChange={handleChange} placeholder="e.g. 3" />
+          </div>
+
+          <div className="form-field">
+            <label>Practical Hours / Week</label>
+            <input type="number" min="0" name="practical_hours" value={formData.practical_hours} onChange={handleChange} placeholder="e.g. 2" />
           </div>
 
           <div className="form-field">
@@ -524,6 +557,8 @@ export default function Subjects() {
           { key: "subject_code", label: "Subject Code", render: (subject) => subject.subject_code || "-" },
           { key: "subject_name", label: "Subject Name", render: (subject) => subject.subject_name || "-" },
           { key: "subject_type", label: "Subject Type", render: (subject) => subject.subject_type || "-" },
+          { key: "department", label: "Department", render: (subject) => subject.department || "-" },
+          { key: "credits", label: "Credits", render: (subject) => subject.credits ?? "-" },
           {
             key: "status",
             label: "Status",

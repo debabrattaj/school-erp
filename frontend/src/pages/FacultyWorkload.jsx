@@ -1,0 +1,16 @@
+import { useEffect, useMemo, useState } from "react";
+import { BriefcaseBusiness, Clock3, Users } from "lucide-react";
+import API from "../api";
+import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+
+export default function FacultyWorkload() {
+  const [year, setYear] = useState(""); const [faculty, setFaculty] = useState([]); const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [searchText, setSearchText] = useState("");
+  async function load(selectedYear = year) { try { setLoading(true); const response = await API.get("/faculty-workload/", { params: selectedYear ? { academic_year: selectedYear } : {} }); setFaculty(response.data.faculty || []); } catch (error) { setMessage(error.response?.data?.detail || "Unable to load faculty workload."); } finally { setLoading(false); } }
+  useEffect(() => { load(); }, []);
+  const totals = useMemo(() => ({ faculty: faculty.filter((f) => f.teacher_id).length, hours: faculty.reduce((sum, f) => sum + f.weekly_hours, 0), practical: faculty.reduce((sum, f) => sum + f.practical_hours, 0) }), [faculty]);
+  return <div className="management-page"><section className="page-heading"><div><p className="eyebrow">College Academics</p><h2>Faculty Workload</h2><p>Review active theory and practical teaching load by faculty, course and batch.</p></div></section>{message && <div className="toast-notification">{message}</div>}
+    <section className="table-panel module-filter-panel"><div className="filter-row sis-filter-row"><div className="form-field"><label>Academic year</label><input value={year} onChange={(e) => setYear(e.target.value)} placeholder="e.g. 2026-27"/></div><button type="button" className="primary-button" onClick={() => load()}>Apply</button><button type="button" className="light-button" onClick={() => { setYear(""); load(""); }}>Clear</button></div></section>
+    <section className="summary-strip report-summary-grid"><div className="summary-card"><Users size={22}/><div><span>Faculty assigned</span><strong>{totals.faculty}</strong></div></div><div className="summary-card"><Clock3 size={22}/><div><span>Weekly teaching hours</span><strong>{totals.hours}</strong></div></div><div className="summary-card"><BriefcaseBusiness size={22}/><div><span>Practical hours</span><strong>{totals.practical}</strong></div></div></section>
+    <EnhancedRecordsTable data={faculty} loading={loading} emptyText="No active course mappings found. Assign faculty to course-batch mappings first." searchPlaceholder="Search faculty or department..." searchText={searchText} setSearchText={setSearchText} columns={[{key:"teacher_name",label:"Faculty"},{key:"department",label:"Department"},{key:"course_count",label:"Courses"},{key:"theory_hours",label:"Theory hrs/week"},{key:"practical_hours",label:"Practical hrs/week"},{key:"weekly_hours",label:"Total hrs/week"},{key:"credits",label:"Credits"},{key:"courses",label:"Course & batch",render:r=><div>{r.courses.map((c,i)=><div key={`${c.course_name}-${i}`}>{c.course_code ? `${c.course_code} · ` : ""}{c.course_name} <span className="hint-text">({c.batch})</span></div>)}</div>,value:r=>r.courses.map(c=>`${c.course_name} ${c.batch}`).join(" ")}]} />
+  </div>;
+}

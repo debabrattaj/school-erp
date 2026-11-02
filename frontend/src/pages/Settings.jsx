@@ -25,6 +25,10 @@ const REPORT_CARD_TEMPLATE_OPTIONS = [
 const emptyForm = {
   school_name: "",
   tagline: "",
+  institution_type: "School",
+  board_affiliation: "",
+  school_code: "",
+  website: "",
   logo_url: "",
   address: "",
   phone: "",
@@ -83,6 +87,9 @@ const featureGroups = [
       ["compliance", "Compliance & Accreditation"],
       ["library", "Library"],
       ["multi_curriculum", "Multi Curriculum"],
+      ["experiential_learning", "Internships, Projects & Clinical Training"],
+      ["college_outcomes", "Semester Results & Placement Cell"],
+      ["faculty_workload", "Faculty Workload"],
     ],
   },
   {
@@ -162,6 +169,10 @@ export default function Settings() {
       setFormData({
         school_name: settingsResponse.data.school_name || "",
         tagline: settingsResponse.data.tagline || "",
+        institution_type: settingsResponse.data.institution_type || "School",
+        board_affiliation: settingsResponse.data.board_affiliation || "",
+        school_code: settingsResponse.data.school_code || "",
+        website: settingsResponse.data.website || "",
         logo_url: settingsResponse.data.logo_url || "",
         address: settingsResponse.data.address || "",
         phone: settingsResponse.data.phone || "",
@@ -238,7 +249,7 @@ export default function Settings() {
         late_fee_frequency: formData.late_fee_frequency || null,
       });
 
-      setMessage("School settings saved successfully.");
+      setMessage("Institution settings saved successfully.");
       await loadSettings();
       await reloadGlobalSettings();
     } catch (error) {
@@ -261,9 +272,9 @@ export default function Settings() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">System Configuration</p>
-          <h2>School Settings</h2>
+          <h2>Institution Settings</h2>
           <p>
-            Configure school profile, academic year, fee receipt settings, and exam rules.
+            Configure the institution profile, academic structure, fee settings, and assessment rules.
           </p>
         </div>
 
@@ -281,15 +292,15 @@ export default function Settings() {
             <div className="panel-header">
               <div>
                 <h3>
-                  <School size={20} /> School Profile
+                  <School size={20} /> Institution Profile
                 </h3>
-                <p>Basic school identity used in reports and PDFs.</p>
+                <p>Choose the institution type so school and college teams share one platform.</p>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
-                <label>School Logo</label>
+                <label>Institution Logo</label>
                 <PhotoUploadField
                   value={formData.logo_url}
                   onChange={(url) => setFormData((prev) => ({ ...prev, logo_url: url }))}
@@ -297,7 +308,7 @@ export default function Settings() {
               </div>
 
               <div className="form-field">
-                <label>School Name *</label>
+                <label>Institution Name *</label>
                 <input
                   type="text"
                   name="school_name"
@@ -306,6 +317,32 @@ export default function Settings() {
                   required
                   disabled={user?.role !== "Admin"}
                 />
+              </div>
+
+              <div className="form-field">
+                <label>Institution Type</label>
+                <select name="institution_type" value={formData.institution_type} onChange={handleChange} disabled={user?.role !== "Admin"}>
+                  <option value="School">School</option>
+                  <option value="Engineering College">Engineering / BTech College</option>
+                  <option value="Pharmacy College">Pharmacy College</option>
+                  <option value="University">University</option>
+                  <option value="Other College">Other College</option>
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Board / University / Regulator</label>
+                <input type="text" name="board_affiliation" value={formData.board_affiliation} onChange={handleChange} placeholder="e.g. AICTE, PCI, university affiliation" disabled={user?.role !== "Admin"} />
+              </div>
+
+              <div className="form-field">
+                <label>Institution Code</label>
+                <input type="text" name="school_code" value={formData.school_code} onChange={handleChange} placeholder="Approval or affiliation code" disabled={user?.role !== "Admin"} />
+              </div>
+
+              <div className="form-field">
+                <label>Website</label>
+                <input type="url" name="website" value={formData.website} onChange={handleChange} placeholder="https://..." disabled={user?.role !== "Admin"} />
               </div>
 
               <div className="form-field">
@@ -321,7 +358,7 @@ export default function Settings() {
               </div>
 
               <div className="form-field">
-                <label>Principal Name</label>
+                <label>Principal / Head of Institution</label>
                 <input
                   type="text"
                   name="principal_name"
@@ -372,7 +409,7 @@ export default function Settings() {
                 <h3>
                   <CalendarDays size={20} /> Academic Settings
                 </h3>
-                <p>Academic year and default school operating rules.</p>
+                <p>Academic year and default operating rules. For colleges, use classes for programme-semester-batch groups.</p>
               </div>
             </div>
 
@@ -390,7 +427,7 @@ export default function Settings() {
               </div>
 
               <div className="form-field">
-                <label>Default Sections</label>
+                <label>Default Sections / Batches</label>
                 <input
                   type="text"
                   name="default_sections"

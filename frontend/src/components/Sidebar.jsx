@@ -38,14 +38,18 @@ import {
   Route as RouteIcon,
   PlayCircle,
   MessagesSquare,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { getUser } from "../auth";
 import { useI18n } from "../i18n";
+import { useSchoolSettings } from "../SettingsContext";
 
 
 export default function Sidebar({ onNavigate }) {
   const location = useLocation();
   const { t } = useI18n();
+  const { settings } = useSchoolSettings();
+  const isCollege = ["Engineering College", "Pharmacy College", "University", "Other College"].includes(settings?.institution_type);
   const [user, setUser] = useState(getUser());
   const [expandedGroups, setExpandedGroups] = useState(null);
 
@@ -89,6 +93,7 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Classes",
+      collegeLabel: "Program Batches",
       icon: BookOpen,
       path: "/classes",
       roles: ["Admin", "Principal"],
@@ -97,6 +102,7 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Subjects",
+      collegeLabel: "Course Catalogue",
       icon: Book,
       path: "/subjects",
       roles: ["Admin", "Principal", "Teacher"],
@@ -144,6 +150,7 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Report Card",
+      audience: "school",
       icon: Layers,
       path: "/report-card",
       roles: ["Admin", "Principal", "Teacher"],
@@ -173,6 +180,33 @@ export default function Sidebar({ onNavigate }) {
       roles: ["Admin", "Principal", "Teacher"],
       feature: "courses",
       group: "Learning (LMS)",
+    },
+    {
+      label: "Internships & Clinical Training",
+      icon: BriefcaseBusiness,
+      path: "/experiential-learning",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "experiential_learning",
+      group: "Academics",
+      audience: "college",
+    },
+    {
+      label: "Results & Placement Cell",
+      icon: Award,
+      path: "/college-outcomes",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "college_outcomes",
+      group: "Academics",
+      audience: "college",
+    },
+    {
+      label: "Faculty Workload",
+      icon: Users,
+      path: "/faculty-workload",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "faculty_workload",
+      group: "Academics",
+      audience: "college",
     },
     {
       label: "Learning Resources",
@@ -224,6 +258,7 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Student Enrollments",
+      collegeLabel: "Semester Enrollments",
       icon: Layers,
       path: "/student-enrollments",
       roles: ["Admin", "Principal", "Teacher"],
@@ -304,6 +339,7 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Teachers",
+      collegeLabel: "Faculty",
       icon: GraduationCap,
       path: "/teachers",
       roles: ["Admin", "Principal"],
@@ -457,13 +493,18 @@ export default function Sidebar({ onNavigate }) {
   ];
 
   const perms = user?.permissions || {};
-  const allowedMenuItems = menuItems.filter((item) => {
+  const institutionMenuItems = menuItems.map((item) => ({
+    ...item,
+    label: isCollege && item.collegeLabel ? item.collegeLabel : item.label,
+  }));
+  const allowedMenuItems = institutionMenuItems.filter((item) => {
     const featureEnabled = !item.feature || user?.features?.[item.feature] !== false;
+    const audienceMatches = !item.audience || item.audience === (isCollege ? "college" : "school");
     // Built-in roles: keep role-list gating. Custom roles: gate by the role's
     // permission map (or "*" for full access).
     const byRole = item.roles.includes(user?.role);
     const byPerm = perms["*"] || (item.feature && perms[item.feature]);
-    return featureEnabled && (byRole || byPerm);
+    return audienceMatches && featureEnabled && (byRole || byPerm);
   });
 
   const menuGroups = GROUP_ORDER.map((group) => ({

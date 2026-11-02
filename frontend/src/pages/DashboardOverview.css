@@ -38,6 +38,14 @@
 .overview-stat-featured .overview-stat-footer { border-color: #ffffff26; }
 .overview-stat-featured .overview-stat-dot { background: #bfcfff; }
 
+.college-command-panel { margin: 20px 0; padding: 22px; border: 1px solid color-mix(in srgb, var(--brand-600) 18%, var(--border)); border-radius: 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--brand-600) 7%, var(--surface)), var(--surface)); }
+.college-command-panel .panel-header { margin-bottom: 18px; }
+.college-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.college-metric-grid article { padding: 18px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.college-metric-grid span { display: block; color: var(--text-muted); font-size: 12px; font-weight: 650; }
+.college-metric-grid strong { display: block; margin: 9px 0 5px; color: var(--text-strong); font-size: 27px; line-height: 1; letter-spacing: -.04em; }
+.college-metric-grid small { color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+
 .profile-mix-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .profile-metric { padding: 20px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--metric-accent) 18%, var(--border)); background: linear-gradient(150deg, color-mix(in srgb, var(--metric-accent) 7%, var(--surface)), var(--surface)); min-width: 0; }
 .profile-metric-top { display: flex; align-items: center; gap: 10px; color: var(--text-strong); font-size: 13px; font-weight: 650; }
@@ -54,10 +62,13 @@
 .profile-mix-footer { display: flex; gap: 8px; align-items: center; margin-top: 18px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
 .profile-mix-footer svg { flex-shrink: 0; }
 @media (max-width: 1100px) { .profile-mix-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .college-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .international-dashboard .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 540px) {
   .international-dashboard .stats-grid { grid-template-columns: 1fr; gap: 12px; }
   .international-dashboard .stat-card.overview-stat { padding: 18px 20px; gap: 10px; }
   .international-dashboard .overview-stat .stat-card-body h3 { font-size: 32px; }
+  .college-command-panel { padding: 18px; }
+  .college-metric-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .international-dashboard .stat-card.overview-stat { transition: none; } .international-dashboard .stat-card.overview-stat:hover { transform: none; } }

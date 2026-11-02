@@ -839,6 +839,10 @@ class SubjectBase(BaseModel):
     subject_code: str
     subject_name: str
     subject_type: Optional[str] = "Scholastic"
+    department: Optional[str] = None
+    credits: Optional[float] = Field(default=None, ge=0)
+    theory_hours: Optional[int] = Field(default=None, ge=0)
+    practical_hours: Optional[int] = Field(default=None, ge=0)
     is_active: Optional[bool] = True
 
 
@@ -860,6 +864,8 @@ class ClassSubjectBase(BaseModel):
     academic_year: str = "2026-27"
     teacher_id: Optional[int] = None
     weekly_periods: Optional[int] = 0
+    credits: Optional[float] = Field(default=None, ge=0)
+    practical_hours: Optional[int] = Field(default=None, ge=0)
     is_active: Optional[bool] = True
 
 
@@ -870,6 +876,130 @@ class ClassSubjectCreate(ClassSubjectBase):
 class ClassSubjectResponse(ClassSubjectBase):
     id: int
 
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# College experiential learning
+# =========================
+
+class ExperientialLearningBase(BaseModel):
+    student_id: int
+    academic_year: Optional[str] = None
+    experience_type: str = "Internship"
+    title: str
+    organization: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    supervisor_email: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    required_hours: Optional[float] = Field(default=None, ge=0)
+    completed_hours: float = Field(default=0, ge=0)
+    status: str = "Planned"
+    evaluation: Optional[str] = None
+    score: Optional[float] = Field(default=None, ge=0)
+    evidence_url: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class ExperientialLearningCreate(ExperientialLearningBase):
+    pass
+
+
+class ExperientialLearningUpdate(BaseModel):
+    academic_year: Optional[str] = None
+    experience_type: Optional[str] = None
+    title: Optional[str] = None
+    organization: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    supervisor_email: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    required_hours: Optional[float] = Field(default=None, ge=0)
+    completed_hours: Optional[float] = Field(default=None, ge=0)
+    status: Optional[str] = None
+    evaluation: Optional[str] = None
+    score: Optional[float] = Field(default=None, ge=0)
+    evidence_url: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class ExperientialLearningResponse(ExperientialLearningBase):
+    id: int
+    student_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ExperientialLogEntryBase(BaseModel):
+    log_date: date
+    activity: str
+    learning_outcome: Optional[str] = None
+    hours: float = Field(default=0, ge=0)
+    supervisor_name: Optional[str] = None
+    verification_status: str = "Pending"
+    remarks: Optional[str] = None
+
+class ExperientialLogEntryResponse(ExperientialLogEntryBase):
+    id: int
+    experience_id: int
+    verified_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class SemesterResultBase(BaseModel):
+    student_id: int
+    academic_year: str
+    semester: str
+    sgpa: Optional[float] = Field(default=None, ge=0, le=10)
+    cgpa: Optional[float] = Field(default=None, ge=0, le=10)
+    credits_registered: Optional[float] = Field(default=None, ge=0)
+    credits_earned: Optional[float] = Field(default=None, ge=0)
+    backlog_count: int = Field(default=0, ge=0)
+    result_status: str = "Published"
+    remarks: Optional[str] = None
+
+class SemesterResultResponse(SemesterResultBase):
+    id: int
+    student_name: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class PlacementRecruiterBase(BaseModel):
+    company_name: str
+    industry: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    website: Optional[str] = None
+    status: str = "Active"
+    remarks: Optional[str] = None
+
+class PlacementRecruiterResponse(PlacementRecruiterBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class PlacementOfferBase(BaseModel):
+    student_id: int
+    recruiter_id: Optional[int] = None
+    academic_year: Optional[str] = None
+    role_title: str
+    offer_type: str = "Placement"
+    ctc_lpa: Optional[float] = Field(default=None, ge=0)
+    location: Optional[str] = None
+    drive_date: Optional[date] = None
+    status: str = "Applied"
+    offer_letter_url: Optional[str] = None
+    remarks: Optional[str] = None
+
+class PlacementOfferResponse(PlacementOfferBase):
+    id: int
+    student_name: Optional[str] = None
+    recruiter_name: Optional[str] = None
     class Config:
         from_attributes = True
 

@@ -22,7 +22,7 @@ const emptyTaskForm = {
   remarks: "",
 };
 
-const accreditationBodies = ["IB", "Cambridge", "CBSE", "ICSE", "State", "Local Authority", "Internal", "Other"];
+const accreditationBodies = ["IB", "Cambridge", "CBSE", "ICSE", "State", "AICTE", "PCI", "NBA", "NAAC", "Local Authority", "Internal", "Other"];
 const riskLevels = ["Low", "Medium", "High", "Critical"];
 const statuses = ["Open", "In Progress", "Evidence Ready", "Reviewed", "Completed", "Deferred"];
 

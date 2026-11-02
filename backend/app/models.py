@@ -562,6 +562,12 @@ class SubjectMaster(Base):
     subject_name = Column(String, nullable=False, index=True)
 
     subject_type = Column(String, default="Scholastic")
+    # Colleges use a course catalogue rather than a simple subject list.  The
+    # fields remain optional so every existing school subject remains valid.
+    department = Column(String, nullable=True, index=True)
+    credits = Column(Float, nullable=True)
+    theory_hours = Column(Integer, nullable=True)
+    practical_hours = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -596,6 +602,9 @@ class ClassSubject(Base):
     )
 
     weekly_periods = Column(Integer, default=0)
+    # A mapping can override catalogue values for a specific semester/batch.
+    credits = Column(Float, nullable=True)
+    practical_hours = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -609,6 +618,110 @@ class ClassSubject(Base):
             name="uq_class_subject_name"
         ),
     )
+
+
+class ExperientialLearning(Base):
+    """An internship, BTech project, industrial visit, or pharmacy rotation.
+
+    This deliberately works alongside (rather than replaces) classes and
+    subjects: a department can attach its own course code in the title, while
+    the record is centred on the student's supervised experience and evidence.
+    """
+    __tablename__ = "experiential_learning"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    experience_type = Column(String, nullable=False, default="Internship", index=True)
+    title = Column(String, nullable=False)
+    organization = Column(String, nullable=True)
+    supervisor_name = Column(String, nullable=True)
+    supervisor_email = Column(String, nullable=True)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    required_hours = Column(Float, nullable=True)
+    completed_hours = Column(Float, nullable=False, default=0)
+    status = Column(String, nullable=False, default="Planned", index=True)
+    evaluation = Column(String, nullable=True)
+    score = Column(Float, nullable=True)
+    evidence_url = Column(String, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ExperientialLogEntry(Base):
+    """A supervisor-verifiable daily clinical, lab or industrial logbook entry."""
+    __tablename__ = "experiential_log_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    experience_id = Column(Integer, ForeignKey("experiential_learning.id", ondelete="CASCADE"), nullable=False, index=True)
+    log_date = Column(Date, nullable=False, index=True)
+    activity = Column(String, nullable=False)
+    learning_outcome = Column(Text, nullable=True)
+    hours = Column(Float, nullable=False, default=0)
+    supervisor_name = Column(String, nullable=True)
+    verification_status = Column(String, nullable=False, default="Pending")
+    verified_at = Column(DateTime, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("experience_id", "log_date", "activity", name="uq_experience_log_activity"),)
+
+
+class SemesterResult(Base):
+    """Approved semester outcome; values are controlled by the examination cell."""
+    __tablename__ = "semester_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    academic_year = Column(String, nullable=False, index=True)
+    semester = Column(String, nullable=False, index=True)
+    sgpa = Column(Float, nullable=True)
+    cgpa = Column(Float, nullable=True)
+    credits_registered = Column(Float, nullable=True)
+    credits_earned = Column(Float, nullable=True)
+    backlog_count = Column(Integer, nullable=False, default=0)
+    result_status = Column(String, nullable=False, default="Published")
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("student_id", "academic_year", "semester", name="uq_student_semester_result"),)
+
+
+class PlacementRecruiter(Base):
+    __tablename__ = "placement_recruiters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_name = Column(String, nullable=False, unique=True, index=True)
+    industry = Column(String, nullable=True)
+    contact_name = Column(String, nullable=True)
+    contact_email = Column(String, nullable=True)
+    contact_phone = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="Active")
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlacementOffer(Base):
+    __tablename__ = "placement_offers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    recruiter_id = Column(Integer, ForeignKey("placement_recruiters.id", ondelete="SET NULL"), nullable=True, index=True)
+    academic_year = Column(String, nullable=True, index=True)
+    role_title = Column(String, nullable=False)
+    offer_type = Column(String, nullable=False, default="Placement")
+    ctc_lpa = Column(Float, nullable=True)
+    location = Column(String, nullable=True)
+    drive_date = Column(Date, nullable=True)
+    status = Column(String, nullable=False, default="Applied", index=True)
+    offer_letter_url = Column(String, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class ClassExamMapping(Base):

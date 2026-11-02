@@ -18,7 +18,7 @@ router = APIRouter(
 # Online Tests, Timetable, Syllabus, Report Card, Class Exam Mappings).
 SUBJECT_ROLES = ["Admin", "Principal", "Teacher"]
 
-BULK_IMPORT_COLUMNS = ["subject_code", "subject_name", "subject_type", "is_active"]
+BULK_IMPORT_COLUMNS = ["subject_code", "subject_name", "subject_type", "department", "credits", "theory_hours", "practical_hours", "is_active"]
 
 
 def commit_or_400(db: Session, message: str):
@@ -76,6 +76,10 @@ def bulk_import_subjects_template(
             "subject_code": "PHY101",
             "subject_name": "Physics",
             "subject_type": "Scholastic",
+            "department": "Computer Science",
+            "credits": "4",
+            "theory_hours": "3",
+            "practical_hours": "2",
             "is_active": "true",
         },
         "subjects_import_template.csv",
@@ -106,6 +110,14 @@ def bulk_import_subjects(
 
         if cleaned.get("is_active") is not None:
             cleaned["is_active"] = cleaned["is_active"].strip().lower() in ("true", "1", "yes")
+
+        for field, caster in (("credits", float), ("theory_hours", int), ("practical_hours", int)):
+            if cleaned.get(field) not in (None, ""):
+                try:
+                    cleaned[field] = caster(cleaned[field])
+                except ValueError:
+                    errors.append({"row": row_index, "error": f"{field} must be a number"})
+                    continue
 
         if subject_code in seen_codes:
             errors.append({"row": row_index, "error": f"Duplicate subject_code in file: {subject_code}"})

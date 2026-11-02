@@ -53,6 +53,7 @@ function ProfileMetric({ title, count, total, icon: Icon, accent, note }) {
 export default function Dashboard() {
   const { settings } = useSchoolSettings();
   const canUseHouse = isFeatureEnabled("house_system");
+  const isCollege = ["Engineering College", "Pharmacy College", "University", "Other College"].includes(settings?.institution_type);
 
   const [view, setView] = useState("overview");
   const [summary, setSummary] = useState(null);
@@ -60,6 +61,7 @@ export default function Dashboard() {
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
   const [marks, setMarks] = useState([]);
+  const [collegeInsights, setCollegeInsights] = useState(null);
   const [loading, setLoading] = useState(false);
 
   function formatMoney(value) {
@@ -82,6 +84,25 @@ export default function Dashboard() {
       setExams(examsRes.data);
       setMarks(marksRes.data);
 
+      if (isCollege) {
+        // College add-ons can be individually disabled by the platform owner.
+        // A missing add-on must not prevent the core dashboard from loading.
+        const [results, experiences, outcomes, workload] = await Promise.allSettled([
+          API.get("/college-outcomes/semester-results"),
+          API.get("/experiential-learning/"),
+          API.get("/college-outcomes/offers"),
+          API.get("/faculty-workload/"),
+        ]);
+        setCollegeInsights({
+          results: results.status === "fulfilled" ? results.value.data || [] : [],
+          experiences: experiences.status === "fulfilled" ? experiences.value.data || [] : [],
+          outcomes: outcomes.status === "fulfilled" ? outcomes.value.data || [] : [],
+          faculty: workload.status === "fulfilled" ? workload.value.data?.faculty || [] : [],
+        });
+      } else {
+        setCollegeInsights(null);
+      }
+
       // Trends are optional — an older backend may not expose this endpoint, so
       // fetch separately and never let it fail the rest of the dashboard.
       try {
@@ -99,7 +120,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [isCollege]);
+
+  const collegeMetrics = isCollege && collegeInsights ? {
+    publishedResults: collegeInsights.results.filter((row) => row.result_status === "Published").length,
+    backlogStudents: collegeInsights.results.filter((row) => Number(row.backlog_count) > 0).length,
+    activeExperience: collegeInsights.experiences.filter((row) => row.status === "In Progress").length,
+    verifiedHours: collegeInsights.experiences.reduce((total, row) => total + Number(row.completed_hours || 0), 0),
+    acceptedOffers: collegeInsights.outcomes.filter((row) => row.status === "Accepted").length,
+    facultyHours: collegeInsights.faculty.reduce((total, row) => total + Number(row.weekly_hours || 0), 0),
+  } : null;
 
   function getStudent(studentId) {
     return students.find((student) => student.id === Number(studentId));
@@ -164,7 +194,7 @@ export default function Dashboard() {
       accent2: "var(--brand-500)",
     },
     {
-      title: "Faculty Strength",
+      title: isCollege ? "Faculty Strength" : "Faculty Strength",
       value: summary?.total_teachers || 0,
       note: "Registered faculty",
       icon: GraduationCap,
@@ -172,7 +202,7 @@ export default function Dashboard() {
       accent2: "var(--brand-500)",
     },
     {
-      title: "Class Sections",
+      title: isCollege ? "Program Batches" : "Class Sections",
       value: summary?.total_classes || 0,
       note: "Academic sections",
       icon: BookOpen,
@@ -204,9 +234,9 @@ export default function Dashboard() {
       accent2: "var(--brand-500)",
     },
     {
-      title: "International Students",
+      title: isCollege ? "Campus Students" : "International Students",
       value: summary?.international_students || 0,
-      note: "Non-local nationality records",
+      note: isCollege ? "Enrolled across active programs" : "Non-local nationality records",
       icon: School,
       accent: "var(--brand-600)",
       accent2: "var(--brand-500)",
@@ -285,6 +315,24 @@ export default function Dashboard() {
               );
             })}
           </section>
+
+          {collegeMetrics && (
+            <section className="college-command-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>College Academic Command Center</h3>
+                  <p>Current academic outcomes, supervised learning, placement and faculty capacity.</p>
+                </div>
+                <GraduationCap size={22} />
+              </div>
+              <div className="college-metric-grid">
+                <article><span>Published Semester Results</span><strong>{collegeMetrics.publishedResults}</strong><small>{collegeMetrics.backlogStudents} student-semester record(s) with backlogs</small></article>
+                <article><span>Active Training & Rotations</span><strong>{collegeMetrics.activeExperience}</strong><small>{collegeMetrics.verifiedHours.toLocaleString()} logged practical hours</small></article>
+                <article><span>Accepted Outcomes</span><strong>{collegeMetrics.acceptedOffers}</strong><small>Placement, internship and higher-study records</small></article>
+                <article><span>Faculty Teaching Load</span><strong>{collegeMetrics.facultyHours.toLocaleString()} hrs</strong><small>Across {collegeInsights.faculty.length} assigned faculty record(s)</small></article>
+              </div>
+            </section>
+          )}
 
           <section className="panel trend-panel">
             <div className="panel-header">

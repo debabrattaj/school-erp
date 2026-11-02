@@ -75,6 +75,9 @@ const Payroll = lazy(() => import("./pages/Payroll"));
 const Homework = lazy(() => import("./pages/Homework"));
 const LearningResources = lazy(() => import("./pages/LearningResources"));
 const CoursesPage = lazy(() => import("./pages/Courses"));
+const ExperientialLearning = lazy(() => import("./pages/ExperientialLearning"));
+const CollegeOutcomes = lazy(() => import("./pages/CollegeOutcomes"));
+const FacultyWorkload = lazy(() => import("./pages/FacultyWorkload"));
 const ScormContent = lazy(() => import("./pages/ScormContent"));
 const DiscussionsPage = lazy(() => import("./pages/Discussions"));
 const OnlineTests = lazy(() => import("./pages/OnlineTests"));
@@ -183,6 +186,19 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/experiential-learning"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout><ExperientialLearning /></ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/college-outcomes"
+          element={<ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}><ProtectedLayout><CollegeOutcomes /></ProtectedLayout></ProtectedRoute>}
+        />
+        <Route path="/faculty-workload" element={<ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}><ProtectedLayout><FacultyWorkload /></ProtectedLayout></ProtectedRoute>} />
         <Route
           path="/profile"
           element={
