@@ -12,6 +12,7 @@ feature and the HTTP method to an action.
 
 # Grantable modules (feature keys) shown in the role editor.
 MODULES = [
+    ("academic_activities", "Academic Projects & Practicals"),
     ("dashboard", "Dashboard"),
     ("students", "Students"),
     ("teachers", "Teachers"),
@@ -59,6 +60,7 @@ MODULE_KEYS = {key for key, _ in MODULES}
 
 # Map a request path prefix to a feature key. Longest prefix wins.
 PATH_FEATURE_MAP = {
+    "/academic-activities": "academic_activities",
     "/workflows/payments": "fees",
     "/workflows/results": "marks",
     "/workflows/attendance": "attendance",

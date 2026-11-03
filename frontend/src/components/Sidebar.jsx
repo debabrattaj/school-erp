@@ -191,6 +191,15 @@ export default function Sidebar({ onNavigate }) {
       audience: "college",
     },
     {
+      label: "Academic Projects & Practicals",
+      icon: ClipboardCheck,
+      path: "/academic-activities",
+      roles: ["Admin", "Principal", "Teacher"],
+      feature: "academic_activities",
+      group: "Academics",
+      audience: "college",
+    },
+    {
       label: "Results & Placement Cell",
       icon: Award,
       path: "/college-outcomes",

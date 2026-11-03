@@ -28,6 +28,7 @@ const ROUTE_TITLES = [
   { path: "/courses", title: "Courses" },
   { path: "/experiential-learning", title: "Internships & Clinical Training" },
   { path: "/college-outcomes", title: "Results & Placement Cell" },
+  { path: "/academic-activities", title: "Academic Projects & Practicals" },
   { path: "/faculty-workload", title: "Faculty Workload" },
   { path: "/scorm-content", title: "SCORM Content" },
   { path: "/discussions", title: "Discussion Forums" },

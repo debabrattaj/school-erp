@@ -43,6 +43,7 @@ export function isCustomRole() {
 // sync. Maps a frontend route prefix to the feature key a custom role's
 // permission map is keyed by. Longest prefix wins, matching feature_for_path().
 const PATH_FEATURE_MAP = {
+  "/academic-activities": "academic_activities",
   "/students": "students",
   "/teachers": "teachers",
   "/classes": "classes",

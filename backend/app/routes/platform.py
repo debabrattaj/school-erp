@@ -95,6 +95,7 @@ FEATURE_LABELS = {
     "experiential_learning": "Internships, Projects & Clinical Training",
     "college_outcomes": "Semester Results & Placement Cell",
     "faculty_workload": "Faculty Workload",
+    "academic_activities": "Academic Projects & Practicals",
     "scorm": "SCORM Content (add-on)",
     "discussions": "Course Discussion Forums",
     "timetable_auto_generation": "Automatic Timetable Generation",

@@ -3,6 +3,33 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, Uniqu
 from datetime import datetime
 
 
+class AcademicActivity(Base):
+    __tablename__ = "academic_activities"
+    __table_args__ = (UniqueConstraint("student_id", "academic_year", "semester", "activity_type", "title", name="uq_academic_activity_assignment"),)
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    academic_year = Column(String(30), nullable=False)
+    semester = Column(String(50), nullable=False)
+    activity_type = Column(String(40), nullable=False)
+    title = Column(String(200), nullable=False)
+    programme = Column(String(120), nullable=False)
+    course_code = Column(String(50), nullable=True)
+    supervisor = Column(String(120), nullable=False)
+    laboratory = Column(String(120), nullable=True)
+    due_date = Column(Date, nullable=True)
+    status = Column(String(30), nullable=False, default="Planned")
+    progress = Column(Integer, nullable=False, default=0)
+    score = Column(Float, nullable=True)
+    max_score = Column(Float, nullable=False, default=100)
+    objective = Column(Text, nullable=True)
+    feedback = Column(Text, nullable=True)
+    version = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    __mapper_args__ = {"version_id_col": version}
+
+
 class User(Base):
     __tablename__ = "users"
 

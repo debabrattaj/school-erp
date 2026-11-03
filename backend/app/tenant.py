@@ -155,6 +155,7 @@ DEFAULT_FEATURES = {
     "experiential_learning": True,
     "college_outcomes": True,
     "faculty_workload": True,
+    "academic_activities": True,
     # SCORM runtime and package storage. Off by default: it accepts uploaded
     # web content and serves it back, which is a real storage and hosting
     # commitment a school should opt into rather than inherit.

@@ -77,6 +77,7 @@ const LearningResources = lazy(() => import("./pages/LearningResources"));
 const CoursesPage = lazy(() => import("./pages/Courses"));
 const ExperientialLearning = lazy(() => import("./pages/ExperientialLearning"));
 const CollegeOutcomes = lazy(() => import("./pages/CollegeOutcomes"));
+const AcademicActivities = lazy(() => import("./pages/AcademicActivities"));
 const FacultyWorkload = lazy(() => import("./pages/FacultyWorkload"));
 const ScormContent = lazy(() => import("./pages/ScormContent"));
 const DiscussionsPage = lazy(() => import("./pages/Discussions"));
@@ -193,6 +194,10 @@ export default function App() {
               <ProtectedLayout><ExperientialLearning /></ProtectedLayout>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/academic-activities"
+          element={<ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}><ProtectedLayout><AcademicActivities /></ProtectedLayout></ProtectedRoute>}
         />
         <Route
           path="/college-outcomes"
