@@ -3,6 +3,7 @@ import { ClipboardCheck, Edit, PlusCircle, Trash2 } from "lucide-react";
 import API from "../api";
 import { hasAccess } from "../auth";
 import EnhancedRecordsTable from "../components/EnhancedRecordsTable";
+import AcademicMilestones from "./AcademicMilestones";
 
 const types = ["Capstone Project", "Research Dissertation", "Engineering Practical", "Pharmacy Practical"];
 const statuses = ["Planned", "In Progress", "Submitted", "Completed"];
@@ -37,6 +38,10 @@ export default function AcademicActivities() {
   const [message, setMessage] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [programmeFilter, setProgrammeFilter] = useState("");
+  const [supervisorFilter, setSupervisorFilter] = useState("");
+  const [milestoneActivity, setMilestoneActivity] = useState(null);
   const requestPending = useRef(false);
   const canManage = hasAccess(["Admin", "Principal", "Teacher"], "manage");
   const canDelete = hasAccess(["Admin", "Principal"], "manage");
@@ -126,10 +131,32 @@ export default function AcademicActivities() {
     }
   }
 
-  const visible = records.filter((record) => (!typeFilter || record.activity_type === typeFilter) && (!statusFilter || record.status === statusFilter));
   const today = new Date();
   const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const overdue = records.filter((record) => record.due_date && record.due_date < dateKey && record.status !== "Completed").length;
+  const visible = records.filter((record) =>
+    (!typeFilter || record.activity_type === typeFilter) &&
+    (!statusFilter || record.status === statusFilter) &&
+    (!programmeFilter || record.programme === programmeFilter) &&
+    (!supervisorFilter || record.supervisor === supervisorFilter) &&
+    (!overdueOnly || (record.due_date && record.due_date < dateKey && record.status !== "Completed"))
+  );
+
+  function exportCsv() {
+    const keys = ["student_name", "title", "activity_type", "programme", "academic_year", "semester", "supervisor", "due_date", "status", "progress", "score", "max_score"];
+    function cell(value) {
+      let text = String(value ?? "");
+      if (/^[\s]*[=+@-]/.test(text)) text = `'${text}`;
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+    const rows = [keys, ...visible.map((row) => keys.map((key) => row[key]))];
+    const url = URL.createObjectURL(new Blob(["\uFEFF", rows.map((row) => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `academic-activities-${dateKey}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   const columns = [
     { key: "student_name", label: "Student" },
     { key: "title", label: "Activity" },
@@ -145,11 +172,14 @@ export default function AcademicActivities() {
     {
       key: "actions", label: "Actions", hideable: false, actions: false, value: () => "",
       render: (row) => <div className="form-actions">
+        <button type="button" className="secondary-button" disabled={busy} onClick={() => setMilestoneActivity(row)}>Milestones</button>
         {canManage && <button type="button" className="secondary-button" disabled={busy} onClick={() => openForm(row)} aria-label={`Edit ${row.title}`}><Edit size={16} /> Edit</button>}
         {canDelete && <button type="button" className="delete-button" disabled={busy} onClick={() => remove(row)} aria-label={`Delete ${row.title}`}><Trash2 size={16} /></button>}
       </div>,
     },
   ];
+
+  if (milestoneActivity) return <AcademicMilestones key={milestoneActivity.id} activity={milestoneActivity} canManage={canManage} canDelete={canDelete} onBack={() => { setMilestoneActivity(null); load(); }} />;
 
   return <div className="management-page">
     <section className="page-heading">
@@ -189,7 +219,11 @@ export default function AcademicActivities() {
     </section> : <>
       <section className="form-panel">
         <p>{records.length} assigned · {records.filter((record) => record.status === "Submitted").length} awaiting review · {records.filter((record) => record.status === "Completed").length} completed · {overdue} overdue</p>
+        <div className="form-actions"><label><input type="checkbox" checked={overdueOnly} onChange={(event) => setOverdueOnly(event.target.checked)} /> Show overdue only</label><button type="button" className="secondary-button" disabled={loading || !visible.length} onClick={exportCsv}>Export activity list (CSV)</button></div>
+        <p>Export includes activities matching the programme, supervisor, type, status and overdue filters.</p>
         <div className="form-grid">
+          <div className="form-field"><label htmlFor="filter-programme">Programme</label><select id="filter-programme" value={programmeFilter} onChange={(event) => setProgrammeFilter(event.target.value)}><option value="">All programmes</option>{[...new Set(records.map((record) => record.programme))].sort().map((programme) => <option key={programme}>{programme}</option>)}</select></div>
+          <div className="form-field"><label htmlFor="filter-supervisor">Supervisor</label><select id="filter-supervisor" value={supervisorFilter} onChange={(event) => setSupervisorFilter(event.target.value)}><option value="">All supervisors</option>{[...new Set(records.map((record) => record.supervisor))].sort().map((supervisor) => <option key={supervisor}>{supervisor}</option>)}</select></div>
           <div className="form-field"><label htmlFor="filter-activity-type">Activity type</label><select id="filter-activity-type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">All activities</option>{types.map((type) => <option key={type}>{type}</option>)}</select></div>
           <div className="form-field"><label htmlFor="filter-activity-status">Status</label><select id="filter-activity-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select></div>
         </div>

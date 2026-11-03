@@ -34,7 +34,8 @@ def upgrade() -> None:
             batch.add_column(sa.Column("credits", sa.Float(), nullable=True))
         if "practical_hours" not in class_subject_columns:
             batch.add_column(sa.Column("practical_hours", sa.Integer(), nullable=True))
-    op.create_table(
+    if not sa.inspect(bind).has_table("experiential_learning"):
+        op.create_table(
         "experiential_learning",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("student_id", sa.Integer(), sa.ForeignKey("students.id", ondelete="CASCADE"), nullable=False),
@@ -56,8 +57,11 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
     )
+    indexes = {index["name"] for index in sa.inspect(bind).get_indexes("experiential_learning")}
     for name in ("student_id", "academic_year", "experience_type", "status"):
-        op.create_index(f"ix_experiential_learning_{name}", "experiential_learning", [name])
+        index_name = f"ix_experiential_learning_{name}"
+        if index_name not in indexes:
+            op.create_index(index_name, "experiential_learning", [name])
 
 
 def downgrade() -> None:

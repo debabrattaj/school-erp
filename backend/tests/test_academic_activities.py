@@ -122,4 +122,58 @@ def test_academic_migration_is_single_head():
     from alembic.script import ScriptDirectory
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["fc1d2e3f4a5b"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["fd2e3f4a5b6c"]
+
+
+def test_milestone_review_and_completion(client, auth, activity_payload):
+    activity = client.post("/academic-activities", headers=auth, json=activity_payload).json()
+    endpoint = f"/academic-activities/{activity['id']}"
+    milestone = {"title": "Prototype review", "due_date": "2026-11-30"}
+    created = client.post(f"{endpoint}/milestones", headers=auth, json=milestone)
+    assert created.status_code == 201, created.text
+    row = created.json()
+    assert client.post(f"{endpoint}/milestones", headers=auth, json=milestone).status_code == 409
+    completion = {**activity_payload, "version": activity["version"], "status": "Completed", "progress": 100, "score": 45}
+    assert client.put(endpoint, headers=auth, json=completion).status_code == 400
+    approved = client.put(f"{endpoint}/milestones/{row['id']}", headers=auth, json={**milestone, "version": row["version"], "status": "Approved", "feedback": "Review accepted"})
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["reviewed_by"]
+    assert approved.json()["reviewed_at"]
+    assert client.put(f"{endpoint}/milestones/{row['id']}", headers=auth, json={**milestone, "version": row["version"]}).status_code == 409
+    assert client.put(endpoint, headers=auth, json=completion).status_code == 200
+    assert client.post(f"{endpoint}/milestones", headers=auth, json={"title": "Extra"}).status_code == 409
+    assert client.get(f"{endpoint}/milestones", headers=auth).json()[0]["feedback"] == "Review accepted"
+    assert client.delete(endpoint, headers=auth).status_code == 200
+    from app.database import SessionLocal
+    from app.models import AcademicMilestone
+    with SessionLocal() as db:
+        assert db.query(AcademicMilestone).filter_by(activity_id=activity["id"]).count() == 0
+
+
+def test_milestone_rejects_wrong_parent_and_invalid_status(client, auth, activity_payload):
+    first = client.post("/academic-activities", headers=auth, json=activity_payload).json()
+    second = client.post("/academic-activities", headers=auth, json={**activity_payload, "title": "Second activity"}).json()
+    row = client.post(f"/academic-activities/{first['id']}/milestones", headers=auth, json={"title": "Review"}).json()
+    wrong_parent = f"/academic-activities/{second['id']}/milestones/{row['id']}"
+    assert client.put(wrong_parent, headers=auth, json={"title": "Review", "version": row["version"]}).status_code == 404
+    assert client.delete(wrong_parent, headers=auth).status_code == 404
+    assert client.post(f"/academic-activities/{first['id']}/milestones", headers=auth, json={"title": "Review", "status": "Unknown"}).status_code == 422
+
+
+def test_milestone_evidence_and_review_attribution(client, auth, activity_payload):
+    activity = client.post("/academic-activities", headers=auth, json=activity_payload).json()
+    endpoint = f"/academic-activities/{activity['id']}/milestones"
+    invalid = client.post(endpoint, headers=auth, json={"title": "Evidence", "evidence_url": "javascript:alert(1)"})
+    assert invalid.status_code == 422
+    result = client.post(endpoint, headers=auth, json={
+        "title": "Evidence", "evidence_url": "https://example.com/report.pdf", "status": "Approved",
+        "reviewed_by": "Spoofed reviewer",
+    })
+    assert result.status_code == 201, result.text
+    row = result.json()
+    assert row["reviewed_by"] != "Spoofed reviewer"
+    assert row["reviewed_at"]
+    changed = client.put(f"{endpoint}/{row['id']}", headers=auth, json={"title": "Evidence", "status": "Pending", "version": row["version"]})
+    assert changed.status_code == 200
+    assert changed.json()["reviewed_by"] is None
+    assert changed.json()["reviewed_at"] is None

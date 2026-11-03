@@ -30,6 +30,23 @@ class AcademicActivity(Base):
     __mapper_args__ = {"version_id_col": version}
 
 
+class AcademicMilestone(Base):
+    __tablename__ = "academic_milestones"
+    __table_args__ = (UniqueConstraint("activity_id", "title", name="uq_activity_milestone_title"),)
+
+    id = Column(Integer, primary_key=True)
+    activity_id = Column(Integer, ForeignKey("academic_activities.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(200), nullable=False)
+    due_date = Column(Date, nullable=True)
+    status = Column(String(30), nullable=False, default="Pending")
+    feedback = Column(Text, nullable=True)
+    evidence_url = Column(String(2000), nullable=True)
+    reviewed_by = Column(String(200), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    version = Column(Integer, nullable=False, default=1)
+    __mapper_args__ = {"version_id_col": version}
+
+
 class User(Base):
     __tablename__ = "users"
 

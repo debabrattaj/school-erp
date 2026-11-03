@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
@@ -76,12 +76,12 @@ def find_student(db, student_id):
     return student
 
 
-def commit_activity(db):
+def commit_activity(db, duplicate_message="This student already has an activity with that title, type, year and semester"):
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(409, "This student already has an activity with that title, type, year and semester")
+        raise HTTPException(409, duplicate_message)
     except StaleDataError:
         db.rollback()
         raise HTTPException(409, "This activity changed. Reload it before saving again")
@@ -113,11 +113,16 @@ def create_activity(payload: ActivityInput, db: Session = Depends(get_db), user=
 
 @router.put("/{activity_id}", response_model=ActivityResponse)
 def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Depends(get_db), user=Depends(staff_access)):
-    row = db.get(models.AcademicActivity, activity_id)
+    row = db.query(models.AcademicActivity).filter_by(id=activity_id).with_for_update().first()
     if row is None:
         raise HTTPException(404, "Activity not found")
     if row.version != payload.version:
         raise HTTPException(409, "This activity changed. Reload it before saving again")
+    if payload.status == "Completed" and db.query(models.AcademicMilestone).filter(
+        models.AcademicMilestone.activity_id == activity_id,
+        models.AcademicMilestone.status != "Approved",
+    ).first():
+        raise HTTPException(400, "Approve all milestones before completing this activity")
     student = find_student(db, payload.student_id)
     for key, value in payload.model_dump(exclude={"version"}).items():
         setattr(row, key, value)
@@ -128,9 +133,100 @@ def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Dep
 
 @router.delete("/{activity_id}")
 def delete_activity(activity_id: int, db: Session = Depends(get_db), user=Depends(require_roles(["Admin", "Principal"]))):
-    row = db.get(models.AcademicActivity, activity_id)
+    row = db.query(models.AcademicActivity).filter_by(id=activity_id).with_for_update().first()
     if row is None:
         raise HTTPException(404, "Activity not found")
+    db.query(models.AcademicMilestone).filter_by(activity_id=activity_id).delete(synchronize_session=False)
     db.delete(row)
     commit_activity(db)
     return {"message": "Activity deleted"}
+
+
+class MilestoneInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    title: str = Field(min_length=1, max_length=200)
+    due_date: date | None = None
+    status: Literal["Pending", "Submitted", "Changes Requested", "Approved"] = "Pending"
+    feedback: str | None = Field(default=None, max_length=5000)
+    evidence_url: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("evidence_url")
+    @classmethod
+    def validate_evidence_url(cls, value):
+        return str(HttpUrl(value)) if value else None
+
+
+class MilestoneUpdate(MilestoneInput):
+    version: int = Field(gt=0)
+
+
+class MilestoneResponse(MilestoneInput):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    activity_id: int
+    version: int
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+
+
+def record_review(row, user):
+    if row.status in {"Approved", "Changes Requested"}:
+        row.reviewed_by = user.name or user.email
+        row.reviewed_at = datetime.utcnow()
+    else:
+        row.reviewed_by = None
+        row.reviewed_at = None
+
+
+def editable_activity(db, activity_id):
+    activity = db.query(models.AcademicActivity).filter_by(id=activity_id).with_for_update().first()
+    if activity is None:
+        raise HTTPException(404, "Activity not found")
+    if activity.status == "Completed":
+        raise HTTPException(409, "Reopen the activity before changing its milestones")
+    return activity
+
+
+@router.get("/{activity_id}/milestones", response_model=list[MilestoneResponse])
+def list_milestones(activity_id: int, db: Session = Depends(get_db), user=Depends(staff_access)):
+    if db.get(models.AcademicActivity, activity_id) is None:
+        raise HTTPException(404, "Activity not found")
+    return db.query(models.AcademicMilestone).filter_by(activity_id=activity_id).order_by(models.AcademicMilestone.id).all()
+
+
+@router.post("/{activity_id}/milestones", response_model=MilestoneResponse, status_code=201)
+def create_milestone(activity_id: int, payload: MilestoneInput, db: Session = Depends(get_db), user=Depends(staff_access)):
+    editable_activity(db, activity_id)
+    row = models.AcademicMilestone(activity_id=activity_id, **payload.model_dump())
+    record_review(row, user)
+    db.add(row)
+    commit_activity(db, "A milestone with this title already exists in this activity")
+    db.refresh(row)
+    return row
+
+
+@router.put("/{activity_id}/milestones/{milestone_id}", response_model=MilestoneResponse)
+def update_milestone(activity_id: int, milestone_id: int, payload: MilestoneUpdate, db: Session = Depends(get_db), user=Depends(staff_access)):
+    editable_activity(db, activity_id)
+    row = db.query(models.AcademicMilestone).filter_by(id=milestone_id, activity_id=activity_id).first()
+    if row is None:
+        raise HTTPException(404, "Milestone not found")
+    if row.version != payload.version:
+        raise HTTPException(409, "This milestone changed. Reload it before saving again")
+    for key, value in payload.model_dump(exclude={"version"}).items():
+        setattr(row, key, value)
+    record_review(row, user)
+    commit_activity(db, "A milestone with this title already exists in this activity")
+    db.refresh(row)
+    return row
+
+
+@router.delete("/{activity_id}/milestones/{milestone_id}")
+def delete_milestone(activity_id: int, milestone_id: int, db: Session = Depends(get_db), user=Depends(require_roles(["Admin", "Principal"]))):
+    editable_activity(db, activity_id)
+    row = db.query(models.AcademicMilestone).filter_by(id=milestone_id, activity_id=activity_id).first()
+    if row is None:
+        raise HTTPException(404, "Milestone not found")
+    db.delete(row)
+    commit_activity(db)
+    return {"message": "Milestone deleted"}
