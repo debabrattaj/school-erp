@@ -1,5 +1,10 @@
 RewriteEngine On
 
+# Browser modules used by the free public teaching tools.
+<IfModule mod_mime.c>
+  AddType text/javascript .mjs
+</IfModule>
+
 # Versioned static assets can be safely reused on repeat visits. HTML remains
 # uncached so content updates are still discovered immediately.
 <IfModule mod_headers.c>

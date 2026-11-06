@@ -50,6 +50,7 @@ backend/uploads/
 # Proctoring webcam snapshots -- private, never served statically (see
 # backend/app/proctoring_storage.py)
 backend/uploads_private/
+backend/private_data/
 
 # Passenger's restart-trigger file/directory (touched by .cpanel.yml on
 # deploy; pure runtime state, nothing to track)
