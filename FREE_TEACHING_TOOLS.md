@@ -1,4 +1,34 @@
-# Free School Timetable Generator
+# Free School Tools
+
+Directory: `/free-tools/`, linked from the Product footer and sitemap.
+
+## Document generators
+
+Ten browser-only tools cover fee receipts, transfer certificates, notices and
+circulars, attendance sheets, fee challans, bonafide certificates, character
+certificates, study certificates, no-dues certificates and admission forms.
+Every tool offers Classic formal, Modern school and Minimal ink templates.
+
+Enter school details, optionally select a logo, complete the document fields,
+then review the live preview. Print / Save PDF uses the browser print dialog;
+disable its headers and footers for clean output. Editable HTML downloads embed
+their styles and logo and can be opened offline. Attendance uses landscape A4;
+other documents use portrait A4. Blank fields remain writing spaces.
+
+Drafts are saved only when requested, in this browser's local storage, separately
+for each tool. Clear drafts on shared computers. Document details and logos are
+not submitted to the backend. Fee amounts use exact minor-unit totals; no-dues
+clearance defaults to pending. Schools must verify and authorise issued documents.
+
+```powershell
+node scripts/build-document-tools.mjs
+node --test scripts/document-tools.test.mjs scripts/free-tools.test.mjs
+```
+
+The document builder refreshes all ten pages, the directory, footer links and
+sitemap entries. These are static landing-page assets; no migration is needed.
+
+## Free School Timetable Generator
 
 Public route: `/free-school-timetable-generator/`.
 
