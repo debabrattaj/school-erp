@@ -150,7 +150,6 @@ export default function Sidebar({ onNavigate }) {
     },
     {
       label: "Report Card",
-      audience: "school",
       icon: Layers,
       path: "/report-card",
       roles: ["Admin", "Principal", "Teacher"],
