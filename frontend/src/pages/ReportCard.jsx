@@ -5,11 +5,9 @@ import API from "../api";
 import CustomSelect from "../components/CustomSelect";
 import { useSchoolSettings } from "../SettingsContext";
 
-const REPORT_CARD_TEMPLATE_OPTIONS = [
-  { value: "classic", label: "Classic" },
-  { value: "modern", label: "Modern" },
-  { value: "compact", label: "Compact" },
-];
+import { REPORT_CARD_TEMPLATE_OPTIONS, NEW_REPORT_CARD_TEMPLATES } from "../config/reportCardTemplates";
+import "./ReportCardTemplates.css";
+import { DEFAULT_MARK_COLORS, MARK_BAND_LABELS, scoreBand, contrastingText } from "../config/reportCardColors";
 
 function getApiErrorMessage(error, fallbackMessage) {
   const detail = error.response?.data?.detail;
@@ -193,6 +191,9 @@ export default function ReportCard() {
     loadMarksAndReportData();
   }, [selectedStudentId, selectedExamId, academicYear]);
 
+  const [markColors, setMarkColors] = useState(DEFAULT_MARK_COLORS);
+  const passPercentage = reportData?.pass_percentage ?? (settings?.pass_percentage || 40);
+  const [downloading, setDownloading] = useState(false);
   const template = templateOverride || settings?.report_card_template || "classic";
 
   const selectedStudent = students.find((student) => String(student.id) === String(selectedStudentId));
@@ -264,9 +265,10 @@ export default function ReportCard() {
       setMessage("Select a student and exam first.");
       return;
     }
+    setDownloading(true);
     try {
       const response = await API.get("/marks/report-card", {
-        params: { student_id: selectedStudentId, exam_id: selectedExamId, template },
+        params: { student_id: selectedStudentId, exam_id: selectedExamId, template, ...Object.fromEntries(Object.entries(markColors).map(([key,value]) => [`${key}_color`,value])) },
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(
@@ -274,14 +276,19 @@ export default function ReportCard() {
       );
       const link = document.createElement("a");
       link.href = url;
-      link.download = `report_card_${selectedStudent?.admission_no || selectedStudentId}.pdf`;
+      link.download = `report_card_${selectedStudent?.admission_no || selectedStudentId}_${template}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      const detail = error.response?.data?.detail;
+      let detail = error.response?.data?.detail;
+      if (error.response?.data instanceof Blob) {
+        try { detail = JSON.parse(await error.response.data.text()).detail; } catch { /* Non-JSON response. */ }
+      }
       setMessage(typeof detail === "string" ? detail : "Unable to download report card.");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -302,9 +309,9 @@ export default function ReportCard() {
               options={REPORT_CARD_TEMPLATE_OPTIONS}
             />
           </div>
-          <button type="button" className="secondary-button" onClick={handleDownloadPdf}>
-            <Download size={18} />
-            Download PDF
+          <button type="button" className="secondary-button" onClick={handleDownloadPdf} disabled={downloading || loading || !marks.length} aria-busy={downloading}>
+            {downloading ? <span className="spinner" aria-hidden="true" /> : <Download size={18} />}
+            {downloading ? "Preparing PDF…" : "Download PDF"}
           </button>
           <button type="button" className="primary-button" onClick={handlePrint}>
             <Printer size={18} />
@@ -314,6 +321,27 @@ export default function ReportCard() {
       </section>
 
       {message && <div className="toast-notification no-print">{message}</div>}
+
+      <section className="report-template-gallery no-print" aria-label="Report card designs">
+        <div><h3>Choose your report card design</h3><p>Select a design, preview it below, then download. Your institution's default stays unchanged.</p></div>
+        <div className="report-template-options">
+          {NEW_REPORT_CARD_TEMPLATES.map((option) => (
+            <button type="button" key={option.value} className={`report-template-option design-${option.value}`}
+              aria-pressed={template === option.value} onClick={() => setTemplateOverride(option.value)}>
+              <span className="report-template-mini" aria-hidden="true"><i /><b>ACADEMIC REPORT</b><em /><em /><em /><small>RESULTS · ATTENDANCE</small></span>
+              <strong>{option.label}</strong><span>{option.description}</span>
+              <small>{template === option.value ? "Selected design" : "Preview design"}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="report-color-panel no-print" aria-label="Marks highlight colours">
+        <div><h3>Make the marks easy to read</h3><p>Choose colours for this download. Text contrast adjusts automatically.</p></div>
+        <div className="report-color-options">{Object.entries(MARK_BAND_LABELS).map(([key,label]) => (
+          <label key={key}>{label}<input type="color" aria-label={`${label} colour`} value={markColors[key]} onChange={(event) => setMarkColors((prev) => ({...prev,[key]:event.target.value}))} /><span>{markColors[key].toUpperCase()}</span></label>
+        ))}<button type="button" className="light-button" onClick={() => setMarkColors(DEFAULT_MARK_COLORS)}>Reset colours</button></div>
+      </section>
 
       <section className="table-panel module-filter-panel no-print">
         <div className="filter-row sis-filter-row">
@@ -353,7 +381,7 @@ export default function ReportCard() {
         </div>
       </section>
 
-      <section className={`report-card-paper print-area template-${template}`}>
+      <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`}>
         <header className="report-card-header">
           <div className="school-logo-box">
             {settings?.logo_url ? <img src={settings.logo_url} alt="School logo" /> : <FileText size={34} />}
@@ -432,7 +460,9 @@ export default function ReportCard() {
                   {marks.map((mark) => {
                     const obtained = Number(mark.marks_obtained || 0);
                     const maximum = Number(mark.max_marks || mark.total_marks || 0);
-                    const percentage = calculatePercentage(obtained, maximum);
+                    const percentage = mark.percentage ?? calculatePercentage(obtained, maximum);
+                    const band = scoreBand(mark, passPercentage);
+                    const highlight = band ? { backgroundColor: markColors[band], color: contrastingText(markColors[band]) } : {};
 
                     return (
                       <tr key={mark.id}>
@@ -445,10 +475,10 @@ export default function ReportCard() {
                             </td>
                           );
                         })}
-                        <td>{formatScore(obtained)}</td>
+                        <td style={highlight} className="mark-highlight" title={band ? MARK_BAND_LABELS[band] : "Not assessed"}>{formatScore(obtained)}{band && <small>{MARK_BAND_LABELS[band]}</small>}</td>
                         <td>{formatScore(maximum)}</td>
                         <td>{percentage.toFixed(2)}%</td>
-                        <td>{mark.grade || "-"}</td>
+                        <td style={highlight} className="mark-highlight">{mark.grade || "-"}</td>
                         <td>{mark.remarks || "-"}</td>
                       </tr>
                     );
@@ -515,6 +545,11 @@ export default function ReportCard() {
           </>
         )}
 
+        <div className="report-mark-legend">{Object.entries(MARK_BAND_LABELS).map(([key,label]) => <span key={key}><i style={{backgroundColor:markColors[key]}} />{label}</span>)}</div>
+        <p className="report-mark-key">Top: 90% and above. Passed: 75–89.99%. Average band: passing scores below 75% (not the class average). Failed: below {passPercentage}% or grade F. Failure rules take priority; absent and exempt subjects are not colour-coded.</p>
+        {NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) && (
+          <section className="report-card-feedback"><h3>Teacher feedback &amp; next steps</h3><p>Strengths, areas to develop and agreed learning goals</p><div /><div /></section>
+        )}
         <div className="report-card-signatures">
           <div>Class Teacher</div>
           <div>Exam Coordinator</div>

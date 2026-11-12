@@ -218,7 +218,7 @@ def test_report_card_succeeds_and_reflects_weighted_total(client, auth):
     assert report_resp.headers["content-type"] == "application/pdf"
 
 
-def test_report_card_pdf_accepts_all_three_templates(client, auth):
+def test_report_card_pdf_accepts_all_templates(client, auth):
     class_id = _create_class(client, auth, "Grading-Templates")
     student_id = _create_student(client, auth, class_id, "GRADE-210", "Templated")
     exam_id = _create_exam(client, auth, "Grading-Templates-Exam")
@@ -232,13 +232,20 @@ def test_report_card_pdf_accepts_all_three_templates(client, auth):
     }, headers=auth)
     assert resp.status_code == 200, resp.text
 
-    for template in ("classic", "modern", "compact"):
+    for template in ("classic", "modern", "compact", "heritage", "scholar", "horizon", "ledger", "studio"):
         report_resp = client.get("/marks/report-card", params={
             "student_id": student_id, "exam_id": exam_id, "template": template,
+            "top_color": "#7030a0", "passed_color": "#00ff00",
+            "average_color": "#ffff00", "failed_color": "#000000",
         }, headers=auth)
         assert report_resp.status_code == 200, (template, report_resp.text)
         assert report_resp.headers["content-type"] == "application/pdf"
         assert len(report_resp.content) > 0
+
+    invalid = client.get("/marks/report-card", params={
+        "student_id": student_id, "exam_id": exam_id, "top_color": "red;bad",
+    }, headers=auth)
+    assert invalid.status_code == 422
 
 
 def test_report_card_rejects_unknown_template(client, auth):

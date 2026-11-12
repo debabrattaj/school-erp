@@ -237,7 +237,7 @@ def _report_card_facts(data: dict) -> list[tuple[str, str]]:
 
 
 def report_card_pdf(data: dict, template: str = "classic") -> bytes:
-    """Render an academic report card to PDF bytes, in one of three built-in
+    """Render an academic report card to PDF bytes, in one of eight built-in
     layouts a school can choose between (SchoolSettings.report_card_template,
     or overridden per download).
 
@@ -246,6 +246,9 @@ def report_card_pdf(data: dict, template: str = "classic") -> bytes:
     max, grade, remarks}), total_obtained, total_max, percentage,
     overall_grade, result, rank, out_of, attendance_percent.
     """
+    from app.report_card_designs import DESIGN_THEMES, designed_report_card
+    if template in DESIGN_THEMES:
+        return designed_report_card(data, template)
     renderers = {
         "classic": _report_card_classic,
         "modern": _report_card_modern,
@@ -315,6 +318,8 @@ def _report_card_classic(data: dict) -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
+    from app.report_card_colors import table_mark_styles
+    table.setStyle(TableStyle(table_mark_styles(data)))
     tw, th = table.wrap(right - left, y)
     table.drawOn(c, left, y - th)
     y = y - th - 10 * mm
@@ -399,6 +404,8 @@ def _report_card_modern(data: dict) -> bytes:
     for i, row in enumerate(data.get("rows", []), start=1):
         style.append(("TEXTCOLOR", (grade_col, i), (grade_col, i), _grade_badge_color(row.get("grade"))))
     table.setStyle(TableStyle(style))
+    from app.report_card_colors import table_mark_styles
+    table.setStyle(TableStyle(table_mark_styles(data)))
     tw, th = table.wrap(right - left, y)
     table.drawOn(c, left, y - th)
     y = y - th - 10 * mm
@@ -482,6 +489,8 @@ def _report_card_compact(data: dict) -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 2.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
+    from app.report_card_colors import table_mark_styles
+    table.setStyle(TableStyle(table_mark_styles(data)))
     tw, th = table.wrap(right - left, y)
     table.drawOn(c, left, y - th)
     y = y - th - 6 * mm

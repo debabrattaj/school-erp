@@ -1,6 +1,6 @@
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -508,7 +508,7 @@ def create_mark(
     return attach_component_scores(db, new_mark)
 
 
-REPORT_CARD_TEMPLATES = ("classic", "modern", "compact")
+REPORT_CARD_TEMPLATES = ("classic", "modern", "compact", "heritage", "scholar", "horizon", "ledger", "studio")
 
 
 def student_attendance_percent(db: Session, student_id: int, academic_year: str | None) -> float | None:
@@ -575,6 +575,7 @@ def build_report_card_data(db: Session, student_id: int, exam_id: int) -> dict:
             "max": maximum,
             "grade": mark.grade or "-",
             "assessment_status": mark.assessment_status,
+            "percentage": mark.percentage,
             "remarks": mark.remarks or "",
         })
 
@@ -617,6 +618,7 @@ def build_report_card_data(db: Session, student_id: int, exam_id: int) -> dict:
         "total_max": total_max,
         "percentage": percentage,
         "overall_grade": overall_grade,
+        "pass_percentage": pass_percentage,
         "result": result,
         "rank": rank_info["rank"] if rank_info else None,
         "out_of": rank_info["out_of"] if rank_info else None,
@@ -643,6 +645,10 @@ def report_card(
     student_id: int,
     exam_id: int,
     template: str = "classic",
+    top_color: str = Query("#2563eb", pattern=r"^#[0-9a-fA-F]{6}$"),
+    passed_color: str = Query("#15803d", pattern=r"^#[0-9a-fA-F]{6}$"),
+    average_color: str = Query("#fbbf24", pattern=r"^#[0-9a-fA-F]{6}$"),
+    failed_color: str = Query("#dc2626", pattern=r"^#[0-9a-fA-F]{6}$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["Admin", "Principal", "Teacher"])),
 ):
@@ -656,6 +662,7 @@ def report_card(
     data = build_report_card_data(db, student_id, exam_id)
     student = db.query(Student).filter(Student.id == student_id).first()
 
+    data["mark_colors"] = {"top": top_color, "passed": passed_color, "average": average_color, "failed": failed_color}
     pdf_bytes = report_card_pdf(data, template=template)
 
     filename = f"report_card_{student.admission_no or student.id}.pdf"

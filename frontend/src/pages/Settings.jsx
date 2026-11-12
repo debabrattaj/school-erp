@@ -16,11 +16,7 @@ import CustomSelect from "../components/CustomSelect";
 import MfaCard from "../components/MfaCard";
 import PhotoUploadField from "../components/PhotoUploadField";
 
-const REPORT_CARD_TEMPLATE_OPTIONS = [
-  { value: "classic", label: "Classic — familiar, plain layout" },
-  { value: "modern", label: "Modern — brand-colored header, grade badges" },
-  { value: "compact", label: "Compact — smaller fonts, fits more per page" },
-];
+import { REPORT_CARD_TEMPLATE_OPTIONS } from "../config/reportCardTemplates";
 
 const emptyForm = {
   school_name: "",
