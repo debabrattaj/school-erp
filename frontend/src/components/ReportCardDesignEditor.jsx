@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import API from "../api";
-import ReportTextToolbar from "./ReportTextToolbar";
+
 
 export const DEFAULT_REPORT_DESIGN = {
   title: "Report Card", accent_color: null, font_family: "default",
   feedback_title: "Teacher feedback & next steps",
   feedback_prompt: "Strengths, areas to develop and agreed learning goals",
   teacher_label: "Class Teacher", coordinator_label: "Exam Coordinator", principal_label: "Principal",
-  text_styles: {}, show_rank: true, show_attendance: true, show_feedback: true,
+  document_json: null, text_styles: {}, show_rank: true, show_attendance: true, show_feedback: true,
 };
 
 
-export default function ReportCardDesignEditor({ design, template, markColors, onChange, onOpen, accent }) {
+export default function ReportCardDesignEditor({ design, template, markColors, onChange, onOpen, accent, selectedId, onUse }) {
   const [saved, setSaved] = useState([]);
   const [selection, setSelection] = useState("");
   const [opened, setOpened] = useState(null);
@@ -27,7 +27,7 @@ export default function ReportCardDesignEditor({ design, template, markColors, o
     setSaved(response.data);
     return response.data;
   }
-  useEffect(() => { refresh().catch(() => setNotice("Saved designs could not be loaded. Try reopening a saved template after the backend update.")); }, []);
+  useEffect(() => { refresh().then(rows => {const row = rows.find(item=>String(item.id)===selectedId);if(row){setOpened(row);setName(row.name);setSelection(String(row.id));}}).catch(() => setNotice("Saved designs could not be loaded. Try again after the backend update.")); }, [selectedId]);
 
   async function openSaved() {
     setBusy(true);
@@ -69,17 +69,18 @@ export default function ReportCardDesignEditor({ design, template, markColors, o
     </div>
     {dirty && <p className="report-design-dirty">You have unsaved edits. Opening another template replaces the current draft; save it first to keep your changes.</p>}
     {editable ? <>
-      <ReportTextToolbar key={opened ? `${opened.id}-${opened.revision}` : "new"} design={design} onChange={onChange} />
+      <p><a href="#report-document-editor">Go to the document canvas</a>. Edit the entire page below, then save it here.</p>
       <div className="report-design-fields">
         <label>Template name<input value={name} maxLength={100} onChange={(event) => setName(event.target.value)} placeholder="e.g. Senior school term report" /></label>
 
-        <label>Heading font<select value={design.font_family} onChange={(event) => onChange({...design,font_family:event.target.value})}><option value="default">Design default</option><option value="sans">Modern sans serif</option><option value="serif">Traditional serif</option></select></label>
-        <label>Design accent<input type="color" value={design.accent_color || accent} onChange={(event) => onChange({...design,accent_color:event.target.value})} /><button type="button" className="light-button" onClick={() => onChange({...design,accent_color:null})}>Use design colour</button></label>
+        {!design.document_json && <><label>Heading font<select value={design.font_family} onChange={(event) => onChange({...design,font_family:event.target.value})}><option value="default">Design default</option><option value="sans">Modern sans serif</option><option value="serif">Traditional serif</option></select></label>
+        <label>Design accent<input type="color" value={design.accent_color || accent} onChange={(event) => onChange({...design,accent_color:event.target.value})} /><button type="button" className="light-button" onClick={() => onChange({...design,accent_color:null})}>Use design colour</button></label></>}
       </div>
-      <div className="report-design-toggles">{[["show_rank","Show class rank"],["show_attendance","Show attendance"],["show_feedback","Show feedback area"]].map(([key,label]) => <label key={key}><input type="checkbox" checked={design[key]} onChange={(event) => onChange({...design,[key]:event.target.checked})} />{label}</label>)}</div>
+      {!design.document_json && <div className="report-design-toggles">{[["show_rank","Show class rank"],["show_attendance","Show attendance"],["show_feedback","Show feedback area"]].map(([key,label]) => <label key={key}><input type="checkbox" checked={design[key]} onChange={(event) => onChange({...design,[key]:event.target.checked})} />{label}</label>)}</div>}
       <div className="module-header-actions">
         <button type="button" className="primary-button" disabled={busy || !opened} onClick={() => save(false)}>{busy ? "Saving / opening…" : "Save changes"}</button>
         <button type="button" className="secondary-button" disabled={busy} onClick={() => save(true)}>{opened ? "Save as new template" : "Save school template"}</button>
+        <button type="button" className="primary-button" disabled={busy || !opened || dirty} onClick={()=>onUse(opened.id)}>Use saved template for reports</button>
       </div>
       <p>Your preview and PDF use the current edits. Save to reuse them later. Student marks and school identity are not changed by this editor.</p>
     </> : <p>Choose Heritage, Scholar, Horizon, Ledger or Studio above to create an editable school template. Original layouts remain available for download.</p>}

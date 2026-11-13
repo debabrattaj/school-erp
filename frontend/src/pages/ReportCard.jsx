@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import ReportDocumentEditor from "../components/ReportDocumentEditor";
+import { createReportDocument } from "../components/reportDocument";
 import { Download, FileText, Printer } from "lucide-react";
 
 import API from "../api";
@@ -79,7 +82,9 @@ function formatComponentScore(score) {
   return `${formatScore(score.marks_obtained)} / ${formatScore(score.max_marks)}`;
 }
 
-export default function ReportCard() {
+export default function ReportCard({ designer = false }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { settings } = useSchoolSettings();
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
@@ -126,15 +131,15 @@ export default function ReportCard() {
       setClassExamMappings(nextMappings);
 
       if (!selectedStudentId && nextStudents[0]?.id) {
-        setSelectedStudentId(String(nextStudents[0].id));
+        setSelectedStudentId(searchParams.get("student") || String(nextStudents[0].id));
       }
 
       if (!selectedExamId && nextExams[0]?.id) {
-        setSelectedExamId(String(nextExams[0].id));
+        setSelectedExamId(searchParams.get("exam") || String(nextExams[0].id));
       }
 
       if (!academicYear) {
-        setAcademicYear(settings?.academic_year || nextExams[0]?.academic_year || "2026-27");
+        setAcademicYear(searchParams.get("year") || settings?.academic_year || nextExams[0]?.academic_year || "2026-27");
       }
     } catch (error) {
       console.error(error);
@@ -193,6 +198,16 @@ export default function ReportCard() {
     loadMarksAndReportData();
   }, [selectedStudentId, selectedExamId, academicYear]);
 
+  useEffect(() => {
+    const id = searchParams.get("template");
+    if (id) API.get("/marks/templates").then(({data}) => {
+      const row = data.find(item => String(item.id) === id);
+      if (row) openSavedDesign(row.configuration); else setMessage("Saved template was not found.");
+    }).catch(() => setMessage("Unable to load the saved report template."));
+    if (searchParams.get("student")) setSelectedStudentId(searchParams.get("student"));
+    if (searchParams.get("exam")) setSelectedExamId(searchParams.get("exam"));
+    if (searchParams.get("year")) setAcademicYear(searchParams.get("year"));
+  }, [searchParams]);
   const [design, setDesign] = useState(DEFAULT_REPORT_DESIGN);
   const [markColors, setMarkColors] = useState(DEFAULT_MARK_COLORS);
   const passPercentage = reportData?.pass_percentage ?? (settings?.pass_percentage || 40);
@@ -303,23 +318,33 @@ export default function ReportCard() {
     }
   }
 
+  function reportLink(path, id=searchParams.get("template")) {
+    const query = new URLSearchParams();
+    if (id) query.set("template",id);
+    if (selectedStudentId) query.set("student",selectedStudentId);
+    if (selectedExamId) query.set("exam",selectedExamId);
+    if (academicYear) query.set("year",academicYear);
+    return `${path}?${query}`;
+  }
+  const previewData = {...reportData, school_name:settings?.school_name || "School",student_name:selectedStudent ? getStudentName(selectedStudent) : null,admission_no:selectedStudent?.admission_no,class_label:reportClassSection,exam_name:reportExamName,academic_year:academicYear};
   return (
     <div className="management-page report-card-page">
       <section className="page-heading no-print">
         <div>
           <p className="eyebrow">Assessments</p>
-          <h2 style={editableDesign ? reportTextStyle(design,"title") : undefined}>{editableDesign ? design.title : "Report Card"}</h2>
+          <h2>{designer ? "Report Card Template Designer" : "Report Card"}</h2>
           <p>Generate a printable academic report by student, exam, and academic year.</p>
         </div>
 
         <div className="module-header-actions">
-          <div className="form-field report-card-template-picker">
+          {designer && <div className="form-field report-card-template-picker">
             <CustomSelect
               value={template}
               onChange={setTemplateOverride}
               options={REPORT_CARD_TEMPLATE_OPTIONS}
             />
-          </div>
+          </div>}
+          <Link className="secondary-button" to={reportLink(designer ? "/report-card" : "/report-card/designer")}>{designer ? "Back to report" : "Template Designer"}</Link>
           <button type="button" className="secondary-button" onClick={handleDownloadPdf} disabled={downloading || loading || !marks.length} aria-busy={downloading}>
             {downloading ? <span className="spinner" aria-hidden="true" /> : <Download size={18} />}
             {downloading ? "Preparing PDF…" : "Download PDF"}
@@ -333,6 +358,7 @@ export default function ReportCard() {
 
       {message && <div className="toast-notification no-print">{message}</div>}
 
+      {designer && <>
       <section className="report-template-gallery no-print" aria-label="Report card designs">
         <div><h3>Choose your report card design</h3><p>Select a design, preview it below, then download. Your institution's default stays unchanged.</p></div>
         <div className="report-template-options">
@@ -354,7 +380,8 @@ export default function ReportCard() {
         ))}<div className="report-color-reset"><button type="button" className="light-button" onClick={() => setMarkColors(DEFAULT_MARK_COLORS)}>Reset colours</button></div></div>
       </section>
 
-      <ReportCardDesignEditor design={design} template={template} markColors={markColors} onChange={setDesign} onOpen={openSavedDesign} accent={accent} />
+      <ReportCardDesignEditor design={design} template={template} markColors={markColors} onChange={setDesign} onOpen={openSavedDesign} accent={accent} selectedId={searchParams.get("template")} onUse={id=>navigate(reportLink("/report-card",id))} />
+      </>}
 
       <section className="table-panel module-filter-panel no-print">
         <div className="filter-row sis-filter-row">
@@ -394,7 +421,8 @@ export default function ReportCard() {
         </div>
       </section>
 
-      {editableDesign && <a className="secondary-button no-print" href="#report-template-editor">Edit template text and formatting</a>}
+      {designer && editableDesign && !design.document_json && <button type="button" className="primary-button no-print" onClick={()=>setDesign({...design,document_json:createReportDocument(design,template)})}>Edit entire report as a document</button>}
+      {editableDesign && design.document_json ? <ReportDocumentEditor document={design.document_json} onChange={document_json=>setDesign(prev=>({...prev,document_json}))} data={previewData} colours={markColors} readOnly={!designer}/> : (
       <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`} style={editableDesign ? {
         "--rc-ink":accent, "--rc-tint":`${accent}12`, "--rc-header-text":contrastingText(accent),
         "--rc-heading-font":design.font_family === "serif" ? "Georgia, serif" : design.font_family === "sans" ? "Arial, sans-serif" : undefined,
@@ -572,7 +600,7 @@ export default function ReportCard() {
           <div style={editableDesign ? reportTextStyle(design,"coordinator_label") : undefined}>{editableDesign ? design.coordinator_label : "Exam Coordinator"}</div>
           <div style={editableDesign ? reportTextStyle(design,"principal_label") : undefined}>{editableDesign ? design.principal_label : "Principal"}</div>
         </div>
-      </section>
+      </section>)}
 
       <div className="form-actions no-print">
         <button type="button" className="light-button" onClick={handlePrint}>

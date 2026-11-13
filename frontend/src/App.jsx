@@ -420,6 +420,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/report-card/designer"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Principal", "Teacher"]}>
+              <ProtectedLayout>
+                <ReportCard designer />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/users"

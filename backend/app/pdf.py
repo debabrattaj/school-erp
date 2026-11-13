@@ -247,6 +247,9 @@ def report_card_pdf(data: dict, template: str = "classic") -> bytes:
     overall_grade, result, rank, out_of, attendance_percent.
     """
     from app.report_card_designs import DESIGN_THEMES, designed_report_card
+    if (data.get("design") or {}).get("document_json") is not None:
+        from app.report_document import document_pdf
+        return document_pdf(data, data["design"]["document_json"])
     if template in DESIGN_THEMES:
         return designed_report_card(data, template)
     renderers = {

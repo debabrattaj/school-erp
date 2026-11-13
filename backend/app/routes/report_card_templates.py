@@ -36,6 +36,7 @@ class TextFormat(BaseModel):
 
 class ReportDesign(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    document_json: dict | None = None
     template: Literal["heritage", "scholar", "horizon", "ledger", "studio"] = "heritage"
     text_styles: dict[Literal["title", "feedback_title", "feedback_prompt", "teacher_label", "coordinator_label", "principal_label"], TextFormat] = Field(default_factory=dict)
     title: str = Field("Report Card", min_length=1, max_length=80)
@@ -50,6 +51,12 @@ class ReportDesign(BaseModel):
     show_attendance: bool = True
     show_feedback: bool = True
     mark_colors: MarkColours = Field(default_factory=MarkColours)
+
+    @field_validator("document_json")
+    @classmethod
+    def validate_rich_document(cls, value):
+        from app.report_document import validate_document
+        return validate_document(value)
 
     @field_validator("title")
     @classmethod
@@ -121,6 +128,9 @@ def download_custom_report(design: ReportDesign, student_id: int, exam_id: int,
     data = build_report_card_data(db, student_id, exam_id)
     data["design"] = design.model_dump()
     data["mark_colors"] = design.mark_colors.model_dump()
-    result = report_card_pdf(data, design.template)
+    try:
+        result = report_card_pdf(data, design.template)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
     return StreamingResponse(io.BytesIO(result), media_type="application/pdf",
                              headers={"Content-Disposition": 'attachment; filename="report-card.pdf"'})
