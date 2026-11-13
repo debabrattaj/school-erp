@@ -27,6 +27,9 @@ router = APIRouter(
 )
 
 
+from app.routes.report_card_templates import router as report_template_router
+router.include_router(report_template_router)
+
 VALID_SUBJECTS = [
     "English",
     "Mathematics",

@@ -149,6 +149,14 @@ class SchoolSettings(Base):
     report_card_template = Column(String, nullable=False, default="classic")
 
 
+class ReportCardTemplate(Base):
+    __tablename__ = "report_card_templates"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    configuration = Column(Text, nullable=False)
+    revision = Column(Integer, nullable=False, default=1)
+
+
 class Student(Base):
     __tablename__ = "students"
 

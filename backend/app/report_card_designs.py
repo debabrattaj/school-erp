@@ -22,7 +22,13 @@ def designed_report_card(data, template):
     from app.report_card_colors import mark_palette, score_band, contrasting_text, table_mark_styles
     palette = mark_palette(data.get("mark_colors"))
     ink_hex, tint_hex, heading_font = DESIGN_THEMES[template]
+    design = data.get("design") or {}
+    ink_hex = design.get("accent_color") or ink_hex
+    if design.get("font_family") == "serif": heading_font = "Times-Bold"
+    if design.get("font_family") == "sans": heading_font = "Helvetica-Bold"
     ink, tint = colors.HexColor(ink_hex), colors.HexColor(tint_hex)
+    if design.get("accent_color"):
+        tint = colors.Color(*[.93 + .07 * channel for channel in (ink.red, ink.green, ink.blue)])
     muted, rule = colors.HexColor("#526174"), colors.HexColor("#d8dfe7")
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm,
@@ -62,11 +68,11 @@ def designed_report_card(data, template):
         story.append(Spacer(1,3*mm))
     else:
         white = template == "scholar"
-        heading = p(school,fontName=heading_font,fontSize=18,leading=22,textColor=colors.white if white else ink)
+        heading = p(school,fontName=heading_font,fontSize=18,leading=22,textColor=colors.HexColor(contrasting_text(ink_hex)) if white else ink)
         cells = [[logo,heading]] if logo else [[heading]]
         story.append(table(cells,[24*mm,width-24*mm] if logo else [width],ink if white else tint,8))
     story.append(Spacer(1,3*mm))
-    story.append(p("ACADEMIC REPORT CARD",fontName=heading_font,fontSize=16,leading=21,textColor=ink,
+    story.append(p(design.get("title") or "ACADEMIC REPORT CARD",fontName=heading_font,fontSize=16,leading=21,textColor=ink,
                    alignment=1 if template in ("heritage","studio") else 2 if template=="ledger" else 0))
     story.append(p(f"{data.get('exam_name') or '-'}  |  Academic year {data.get('academic_year') or '-'}",
                    alignment=1 if template in ("heritage","studio") else 0,textColor=muted,fontSize=9))
@@ -80,7 +86,7 @@ def designed_report_card(data, template):
     story.append(Spacer(1,3*mm))
     story.append(p("SUBJECT PERFORMANCE",fontName="Helvetica-Bold",fontSize=9,textColor=ink,spaceAfter=6))
     headers=["Subject","Marks","Maximum","Grade","Remarks"]
-    rows=[[p(h,fontName="Helvetica-Bold",fontSize=8,textColor=ink if template=="ledger" else colors.white) for h in headers]]
+    rows=[[p(h,fontName="Helvetica-Bold",fontSize=8,textColor=ink if template=="ledger" else colors.HexColor(contrasting_text(ink_hex))) for h in headers]]
     for row in data.get("rows",[]):
         band = score_band(row, data.get("pass_percentage", 40))
         mark_text = colors.HexColor(contrasting_text(palette[band])) if band else colors.HexColor("#263345")
@@ -108,20 +114,22 @@ def designed_report_card(data, template):
     # Missing attendance/rank remains explicitly unknown, never fabricated.
     if not any(k=="Class Rank" for k,v in facts): facts.append(("Class Rank","Not available"))
     if not any(k=="Attendance" for k,v in facts): facts.append(("Attendance","Not recorded"))
+    if not design.get("show_rank", True): facts = [(k,v) for k,v in facts if k != "Class Rank"]
+    if not design.get("show_attendance", True): facts = [(k,v) for k,v in facts if k != "Attendance"]
     columns=2 if template=="horizon" else 3
     fact_cells=[[p(k.upper(),fontSize=7,textColor=muted),p(v,fontName="Helvetica-Bold",fontSize=13,leading=18,textColor=ink)] for k,v in facts]
     fact_rows=[fact_cells[i:i+columns] for i in range(0,len(fact_cells),columns)]
     for row in fact_rows: row.extend([""]*(columns-len(row)))
     summary=table(fact_rows,[width/columns]*columns,tint)
     story.extend([KeepTogether([p("RESULT SUMMARY",fontName="Helvetica-Bold",fontSize=9,textColor=ink,spaceAfter=6),summary]),Spacer(1,3*mm)])
-    feedback=table([[p("TEACHER FEEDBACK & NEXT STEPS",fontName="Helvetica-Bold",fontSize=9,textColor=ink)],
-                    [p("Strengths, areas to develop and agreed learning goals",fontSize=8,textColor=muted)],
+    feedback=table([[p(design.get("feedback_title", "TEACHER FEEDBACK & NEXT STEPS"),fontName="Helvetica-Bold",fontSize=9,textColor=ink)],
+                    [p(design.get("feedback_prompt", "Strengths, areas to develop and agreed learning goals"),fontSize=8,textColor=muted)],
                     [""],[""]],[width],padding=5)
     feedback.setStyle(TableStyle([("BOX",(0,0),(-1,-1),.5,rule),("LINEBELOW",(0,2),(0,3),.4,rule),
                                   ("TOPPADDING",(0,2),(0,3),8)]))
-    signatures=table([[p(label,fontSize=8,alignment=1) for label in ("Class Teacher","Exam Coordinator","Principal")]],[width/3]*3)
+    signatures=table([[p(label,fontSize=8,alignment=1) for label in (design.get("teacher_label","Class Teacher"),design.get("coordinator_label","Exam Coordinator"),design.get("principal_label","Principal"))]],[width/3]*3)
     signatures.setStyle(TableStyle([("LINEABOVE",(0,0),(-1,0),.5,muted)]))
-    story.append(KeepTogether([feedback,Spacer(1,10*mm),signatures]))
+    story.append(KeepTogether(([feedback] if design.get("show_feedback", True) else []) + [Spacer(1,10*mm),signatures]))
 
     def decorate(c, document):
         c.saveState()

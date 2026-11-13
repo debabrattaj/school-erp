@@ -3,6 +3,7 @@ import { Download, FileText, Printer } from "lucide-react";
 
 import API from "../api";
 import CustomSelect from "../components/CustomSelect";
+import ReportCardDesignEditor, { DEFAULT_REPORT_DESIGN } from "../components/ReportCardDesignEditor";
 import { useSchoolSettings } from "../SettingsContext";
 
 import { REPORT_CARD_TEMPLATE_OPTIONS, NEW_REPORT_CARD_TEMPLATES } from "../config/reportCardTemplates";
@@ -191,11 +192,18 @@ export default function ReportCard() {
     loadMarksAndReportData();
   }, [selectedStudentId, selectedExamId, academicYear]);
 
+  const [design, setDesign] = useState(DEFAULT_REPORT_DESIGN);
   const [markColors, setMarkColors] = useState(DEFAULT_MARK_COLORS);
   const passPercentage = reportData?.pass_percentage ?? (settings?.pass_percentage || 40);
   const [downloading, setDownloading] = useState(false);
   const template = templateOverride || settings?.report_card_template || "classic";
 
+  const editableDesign = NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template);
+  const accent = design.accent_color || ({heritage:"#1e3554",scholar:"#195548",horizon:"#086879",ledger:"#252525",studio:"#73415b"}[template] || "#2563eb");
+  function openSavedDesign(configuration) {
+    const {template: base, mark_colors: colours, ...details} = configuration;
+    setTemplateOverride(base); setMarkColors(colours); setDesign({...DEFAULT_REPORT_DESIGN,...details});
+  }
   const selectedStudent = students.find((student) => String(student.id) === String(selectedStudentId));
   const selectedExam = exams.find((exam) => String(exam.id) === String(selectedExamId));
   const selectedExamMapping = classExamMappings.find(
@@ -267,7 +275,9 @@ export default function ReportCard() {
     }
     setDownloading(true);
     try {
-      const response = await API.get("/marks/report-card", {
+      const response = editableDesign ? await API.post("/marks/report-card-preview", {...design,template,mark_colors:markColors}, {
+        params: {student_id:selectedStudentId, exam_id:selectedExamId}, responseType:"blob",
+      }) : await API.get("/marks/report-card", {
         params: { student_id: selectedStudentId, exam_id: selectedExamId, template, ...Object.fromEntries(Object.entries(markColors).map(([key,value]) => [`${key}_color`,value])) },
         responseType: "blob",
       });
@@ -297,7 +307,7 @@ export default function ReportCard() {
       <section className="page-heading no-print">
         <div>
           <p className="eyebrow">Assessments</p>
-          <h2>Report Card</h2>
+          <h2>{editableDesign ? design.title : "Report Card"}</h2>
           <p>Generate a printable academic report by student, exam, and academic year.</p>
         </div>
 
@@ -340,8 +350,10 @@ export default function ReportCard() {
         <div><h3>Make the marks easy to read</h3><p>Choose colours for this download. Text contrast adjusts automatically.</p></div>
         <div className="report-color-options">{Object.entries(MARK_BAND_LABELS).map(([key,label]) => (
           <label key={key}>{label}<input type="color" aria-label={`${label} colour`} value={markColors[key]} onChange={(event) => setMarkColors((prev) => ({...prev,[key]:event.target.value}))} /><span>{markColors[key].toUpperCase()}</span></label>
-        ))}<button type="button" className="light-button" onClick={() => setMarkColors(DEFAULT_MARK_COLORS)}>Reset colours</button></div>
+        ))}<div className="report-color-reset"><button type="button" className="light-button" onClick={() => setMarkColors(DEFAULT_MARK_COLORS)}>Reset colours</button></div></div>
       </section>
+
+      <ReportCardDesignEditor design={design} template={template} markColors={markColors} onChange={setDesign} onOpen={openSavedDesign} accent={accent} />
 
       <section className="table-panel module-filter-panel no-print">
         <div className="filter-row sis-filter-row">
@@ -381,7 +393,10 @@ export default function ReportCard() {
         </div>
       </section>
 
-      <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`}>
+      <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`} style={editableDesign ? {
+        "--rc-ink":accent, "--rc-tint":`${accent}12`, "--rc-header-text":contrastingText(accent),
+        "--rc-heading-font":design.font_family === "serif" ? "Georgia, serif" : design.font_family === "sans" ? "Arial, sans-serif" : undefined,
+      } : undefined}>
         <header className="report-card-header">
           <div className="school-logo-box">
             {settings?.logo_url ? <img src={settings.logo_url} alt="School logo" /> : <FileText size={34} />}
@@ -393,7 +408,7 @@ export default function ReportCard() {
         </header>
 
         <div className="report-card-title">
-          <h2>Report Card</h2>
+          <h2>{editableDesign ? design.title : "Report Card"}</h2>
           <p>
             {reportExamName} | Academic Year {academicYear || selectedExam?.academic_year || "-"}
           </p>
@@ -531,29 +546,29 @@ export default function ReportCard() {
                 <span>Result</span>
                 <strong>{reportData?.result || "-"}</strong>
               </div>
-              <div>
+              {(!editableDesign || design.show_rank) && <div>
                 <span>Class Rank</span>
                 <strong>{reportData?.rank ? `${reportData.rank} of ${reportData.out_of}` : "-"}</strong>
-              </div>
-              <div>
+              </div>}
+              {(!editableDesign || design.show_attendance) && <div>
                 <span>Attendance</span>
                 <strong>
                   {reportData?.attendance_percent != null ? `${reportData.attendance_percent.toFixed(2)}%` : "-"}
                 </strong>
-              </div>
+              </div>}
             </div>
           </>
         )}
 
         <div className="report-mark-legend">{Object.entries(MARK_BAND_LABELS).map(([key,label]) => <span key={key}><i style={{backgroundColor:markColors[key]}} />{label}</span>)}</div>
         <p className="report-mark-key">Top: 90% and above. Passed: 75–89.99%. Average band: passing scores below 75% (not the class average). Failed: below {passPercentage}% or grade F. Failure rules take priority; absent and exempt subjects are not colour-coded.</p>
-        {NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) && (
-          <section className="report-card-feedback"><h3>Teacher feedback &amp; next steps</h3><p>Strengths, areas to develop and agreed learning goals</p><div /><div /></section>
+        {editableDesign && design.show_feedback && (
+          <section className="report-card-feedback"><h3>{design.feedback_title}</h3><p>{design.feedback_prompt}</p><div /><div /></section>
         )}
         <div className="report-card-signatures">
-          <div>Class Teacher</div>
-          <div>Exam Coordinator</div>
-          <div>Principal</div>
+          <div>{editableDesign ? design.teacher_label : "Class Teacher"}</div>
+          <div>{editableDesign ? design.coordinator_label : "Exam Coordinator"}</div>
+          <div>{editableDesign ? design.principal_label : "Principal"}</div>
         </div>
       </section>
 
