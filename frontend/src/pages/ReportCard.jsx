@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Printer } from "lucide-react";
 
 import API from "../api";
+import { reportTextStyle } from "../components/ReportTextToolbar";
 import CustomSelect from "../components/CustomSelect";
 import ReportCardDesignEditor, { DEFAULT_REPORT_DESIGN } from "../components/ReportCardDesignEditor";
 import { useSchoolSettings } from "../SettingsContext";
@@ -307,7 +308,7 @@ export default function ReportCard() {
       <section className="page-heading no-print">
         <div>
           <p className="eyebrow">Assessments</p>
-          <h2>{editableDesign ? design.title : "Report Card"}</h2>
+          <h2 style={editableDesign ? reportTextStyle(design,"title") : undefined}>{editableDesign ? design.title : "Report Card"}</h2>
           <p>Generate a printable academic report by student, exam, and academic year.</p>
         </div>
 
@@ -393,6 +394,7 @@ export default function ReportCard() {
         </div>
       </section>
 
+      {editableDesign && <a className="secondary-button no-print" href="#report-template-editor">Edit template text and formatting</a>}
       <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`} style={editableDesign ? {
         "--rc-ink":accent, "--rc-tint":`${accent}12`, "--rc-header-text":contrastingText(accent),
         "--rc-heading-font":design.font_family === "serif" ? "Georgia, serif" : design.font_family === "sans" ? "Arial, sans-serif" : undefined,
@@ -408,7 +410,7 @@ export default function ReportCard() {
         </header>
 
         <div className="report-card-title">
-          <h2>{editableDesign ? design.title : "Report Card"}</h2>
+          <h2 style={editableDesign ? reportTextStyle(design,"title") : undefined}>{editableDesign ? design.title : "Report Card"}</h2>
           <p>
             {reportExamName} | Academic Year {academicYear || selectedExam?.academic_year || "-"}
           </p>
@@ -563,12 +565,12 @@ export default function ReportCard() {
         <div className="report-mark-legend">{Object.entries(MARK_BAND_LABELS).map(([key,label]) => <span key={key}><i style={{backgroundColor:markColors[key]}} />{label}</span>)}</div>
         <p className="report-mark-key">Top: 90% and above. Passed: 75–89.99%. Average band: passing scores below 75% (not the class average). Failed: below {passPercentage}% or grade F. Failure rules take priority; absent and exempt subjects are not colour-coded.</p>
         {editableDesign && design.show_feedback && (
-          <section className="report-card-feedback"><h3>{design.feedback_title}</h3><p>{design.feedback_prompt}</p><div /><div /></section>
+          <section className="report-card-feedback"><h3 style={reportTextStyle(design,"feedback_title")}>{design.feedback_title}</h3><p style={reportTextStyle(design,"feedback_prompt")}>{design.feedback_prompt}</p><div /><div /></section>
         )}
         <div className="report-card-signatures">
-          <div>{editableDesign ? design.teacher_label : "Class Teacher"}</div>
-          <div>{editableDesign ? design.coordinator_label : "Exam Coordinator"}</div>
-          <div>{editableDesign ? design.principal_label : "Principal"}</div>
+          <div style={editableDesign ? reportTextStyle(design,"teacher_label") : undefined}>{editableDesign ? design.teacher_label : "Class Teacher"}</div>
+          <div style={editableDesign ? reportTextStyle(design,"coordinator_label") : undefined}>{editableDesign ? design.coordinator_label : "Exam Coordinator"}</div>
+          <div style={editableDesign ? reportTextStyle(design,"principal_label") : undefined}>{editableDesign ? design.principal_label : "Principal"}</div>
         </div>
       </section>
 

@@ -5,6 +5,7 @@ from pathlib import Path
 def test_school_template_save_reopen_edit_and_conflict(client, auth):
     payload = {"name":"Senior school custom report", "configuration": {
         "template":"studio", "title":"Term Achievement Record", "accent_color":"#531978",
+        "text_styles":{"title":{"font":"serif","size":24,"bold":True,"italic":True,"underline":True,"align":"center","color":"#663399","line_height":1.5}},
         "font_family":"serif", "teacher_label":"Mentor", "principal_label":"Head of School",
         "show_rank":False, "mark_colors":{"top":"#ff7700"},
     }}
@@ -16,6 +17,7 @@ def test_school_template_save_reopen_edit_and_conflict(client, auth):
     assert reopened["configuration"]["title"]=="Term Achievement Record"
     assert reopened["configuration"]["mark_colors"]["top"]=="#ff7700"
     assert reopened["configuration"]["show_rank"] is False
+    assert reopened["configuration"]["text_styles"]["title"]["size"] == 24
     edited={"name":saved["name"],"configuration":reopened["configuration"],"revision":1}
     edited["configuration"]["title"]="Updated School Report"
     changed=client.put(f"/marks/templates/{saved['id']}",json=edited,headers=auth)
@@ -29,7 +31,7 @@ def test_school_template_save_reopen_edit_and_conflict(client, auth):
 
 def test_template_validation_and_auth(client, auth):
     assert client.get("/marks/templates").status_code in (401,403)
-    for config in ({"accent_color":"not a colour"}, {"template":"unknown"}, {"total_obtained":100}, {"title":"  "}):
+    for config in ({"accent_color":"not a colour"}, {"template":"unknown"}, {"total_obtained":100}, {"title":"  "}, {"text_styles":{"title":{"size":99}}}, {"text_styles":{"title":{"color":"red"}}}, {"text_styles":{"student_name":{}}}):
         response=client.post("/marks/templates",json={"name":"Invalid", "configuration":config},headers=auth)
         assert response.status_code==422, response.text
     assert client.post("/marks/templates",json={"name":"  ","configuration":{}},headers=auth).status_code==422
@@ -51,7 +53,7 @@ def test_custom_report_download_uses_design_with_real_student_data(client, auth,
         return original(data, template)
     monkeypatch.setattr(pdf, "report_card_pdf", capture)
     response = client.post("/marks/report-card-preview", params={"student_id":student.json()["id"], "exam_id":exam.json()["id"]},
-                           json={"template":"scholar", "title":"School Achievement", "show_rank":False, "teacher_label":"Mentor", "mark_colors":{"top":"#ff8800"}}, headers=auth)
+                           json={"template":"scholar", "title":"School Achievement", "text_styles":{"title":{"size":24,"bold":True,"italic":True,"underline":True,"font":"serif"}}, "show_rank":False, "teacher_label":"Mentor", "mark_colors":{"top":"#ff8800"}}, headers=auth)
     assert response.status_code == 200, response.text
     assert response.content.startswith(b"%PDF")
     assert captured["student_name"].startswith("Sample")

@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
 import API from "../api";
+import ReportTextToolbar from "./ReportTextToolbar";
 
 export const DEFAULT_REPORT_DESIGN = {
   title: "Report Card", accent_color: null, font_family: "default",
   feedback_title: "Teacher feedback & next steps",
   feedback_prompt: "Strengths, areas to develop and agreed learning goals",
   teacher_label: "Class Teacher", coordinator_label: "Exam Coordinator", principal_label: "Principal",
-  show_rank: true, show_attendance: true, show_feedback: true,
+  text_styles: {}, show_rank: true, show_attendance: true, show_feedback: true,
 };
-const fields = [
-  ["title", "Report heading", 80], ["feedback_title", "Feedback heading", 100],
-  ["feedback_prompt", "Feedback instructions", 250], ["teacher_label", "First signature label", 60],
-  ["coordinator_label", "Second signature label", 60], ["principal_label", "Third signature label", 60],
-];
+
 
 export default function ReportCardDesignEditor({ design, template, markColors, onChange, onOpen, accent }) {
   const [saved, setSaved] = useState([]);
@@ -61,7 +58,7 @@ export default function ReportCardDesignEditor({ design, template, markColors, o
     } finally { setBusy(false); }
   }
 
-  return <section className="report-design-editor no-print">
+  return <section id="report-template-editor" className="report-design-editor no-print">
     <h3>Your school’s saved templates</h3>
     <p>Save a named design with its colours, headings and signature labels. Saved designs are shared with authorised staff in this school.</p>
     <div className="report-design-open">
@@ -72,9 +69,10 @@ export default function ReportCardDesignEditor({ design, template, markColors, o
     </div>
     {dirty && <p className="report-design-dirty">You have unsaved edits. Opening another template replaces the current draft; save it first to keep your changes.</p>}
     {editable ? <>
+      <ReportTextToolbar key={opened ? `${opened.id}-${opened.revision}` : "new"} design={design} onChange={onChange} />
       <div className="report-design-fields">
         <label>Template name<input value={name} maxLength={100} onChange={(event) => setName(event.target.value)} placeholder="e.g. Senior school term report" /></label>
-        {fields.map(([key,label,max]) => <label key={key}>{label}<input value={design[key]} maxLength={max} onChange={(event) => onChange({...design,[key]:event.target.value})} /></label>)}
+
         <label>Heading font<select value={design.font_family} onChange={(event) => onChange({...design,font_family:event.target.value})}><option value="default">Design default</option><option value="sans">Modern sans serif</option><option value="serif">Traditional serif</option></select></label>
         <label>Design accent<input type="color" value={design.accent_color || accent} onChange={(event) => onChange({...design,accent_color:event.target.value})} /><button type="button" className="light-button" onClick={() => onChange({...design,accent_color:null})}>Use design colour</button></label>
       </div>

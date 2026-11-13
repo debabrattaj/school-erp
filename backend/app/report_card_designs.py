@@ -41,6 +41,22 @@ def designed_report_card(data, template):
         if "fontSize" in kw and "leading" not in kw: kw["leading"] = kw["fontSize"] * 1.4
         return Paragraph(escape(str(text if text is not None else "-")).replace("\n", "<br/>"), ParagraphStyle("cell", parent=base, **kw))
 
+    def edited_text(key, fallback, **defaults):
+        style = (design.get("text_styles") or {}).get(key)
+        if not style:
+            return p(design.get(key, fallback), **defaults)
+        fonts = {"sans": ("Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"),
+                 "serif": ("Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"),
+                 "mono": ("Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique")}
+        font = fonts[style.get("font", "sans")][int(style.get("bold", False)) + 2*int(style.get("italic", False))]
+        size = style.get("size", 12)
+        defaults.update(fontName=font, fontSize=size, leading=size*style.get("line_height", 1.4),
+                        textColor=colors.HexColor(style.get("color", "#263345")),
+                        alignment={"left":0,"center":1,"right":2,"justify":4}[style.get("align", "left")])
+        text = escape(str(design.get(key, fallback))).replace("\n", "<br/>")
+        if style.get("underline"): text = "<u>" + text + "</u>"
+        return Paragraph(text, ParagraphStyle("edited", parent=base, **defaults))
+
     def table(rows, widths, background=None, padding=6):
         t = Table(rows, colWidths=widths, hAlign="LEFT")
         commands = [("VALIGN", (0,0),(-1,-1),"TOP"),
@@ -72,7 +88,7 @@ def designed_report_card(data, template):
         cells = [[logo,heading]] if logo else [[heading]]
         story.append(table(cells,[24*mm,width-24*mm] if logo else [width],ink if white else tint,8))
     story.append(Spacer(1,3*mm))
-    story.append(p(design.get("title") or "ACADEMIC REPORT CARD",fontName=heading_font,fontSize=16,leading=21,textColor=ink,
+    story.append(edited_text("title", "ACADEMIC REPORT CARD",fontName=heading_font,fontSize=16,leading=21,textColor=ink,
                    alignment=1 if template in ("heritage","studio") else 2 if template=="ledger" else 0))
     story.append(p(f"{data.get('exam_name') or '-'}  |  Academic year {data.get('academic_year') or '-'}",
                    alignment=1 if template in ("heritage","studio") else 0,textColor=muted,fontSize=9))
@@ -122,12 +138,12 @@ def designed_report_card(data, template):
     for row in fact_rows: row.extend([""]*(columns-len(row)))
     summary=table(fact_rows,[width/columns]*columns,tint)
     story.extend([KeepTogether([p("RESULT SUMMARY",fontName="Helvetica-Bold",fontSize=9,textColor=ink,spaceAfter=6),summary]),Spacer(1,3*mm)])
-    feedback=table([[p(design.get("feedback_title", "TEACHER FEEDBACK & NEXT STEPS"),fontName="Helvetica-Bold",fontSize=9,textColor=ink)],
-                    [p(design.get("feedback_prompt", "Strengths, areas to develop and agreed learning goals"),fontSize=8,textColor=muted)],
+    feedback=table([[edited_text("feedback_title", "TEACHER FEEDBACK & NEXT STEPS",fontName="Helvetica-Bold",fontSize=9,textColor=ink)],
+                    [edited_text("feedback_prompt", "Strengths, areas to develop and agreed learning goals",fontSize=8,textColor=muted)],
                     [""],[""]],[width],padding=5)
     feedback.setStyle(TableStyle([("BOX",(0,0),(-1,-1),.5,rule),("LINEBELOW",(0,2),(0,3),.4,rule),
                                   ("TOPPADDING",(0,2),(0,3),8)]))
-    signatures=table([[p(label,fontSize=8,alignment=1) for label in (design.get("teacher_label","Class Teacher"),design.get("coordinator_label","Exam Coordinator"),design.get("principal_label","Principal"))]],[width/3]*3)
+    signatures=table([[edited_text(key,label,fontSize=8,alignment=1) for key,label in (("teacher_label","Class Teacher"),("coordinator_label","Exam Coordinator"),("principal_label","Principal"))]],[width/3]*3)
     signatures.setStyle(TableStyle([("LINEABOVE",(0,0),(-1,0),.5,muted)]))
     story.append(KeepTogether(([feedback] if design.get("show_feedback", True) else []) + [Spacer(1,10*mm),signatures]))
 

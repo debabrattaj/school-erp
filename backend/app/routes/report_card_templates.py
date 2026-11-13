@@ -22,9 +22,22 @@ class MarkColours(BaseModel):
     failed: str = Field("#dc2626", pattern=r"^#[0-9a-fA-F]{6}$")
 
 
+class TextFormat(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    font: Literal["sans", "serif", "mono"] = "sans"
+    size: int = Field(12, ge=8, le=32)
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    color: str = Field("#263345", pattern=r"^#[0-9a-fA-F]{6}$")
+    align: Literal["left", "center", "right", "justify"] = "left"
+    line_height: float = Field(1.4, ge=1, le=2)
+
+
 class ReportDesign(BaseModel):
     model_config = ConfigDict(extra="forbid")
     template: Literal["heritage", "scholar", "horizon", "ledger", "studio"] = "heritage"
+    text_styles: dict[Literal["title", "feedback_title", "feedback_prompt", "teacher_label", "coordinator_label", "principal_label"], TextFormat] = Field(default_factory=dict)
     title: str = Field("Report Card", min_length=1, max_length=80)
     accent_color: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
     font_family: Literal["default", "sans", "serif"] = "default"
