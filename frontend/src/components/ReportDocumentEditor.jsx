@@ -6,7 +6,7 @@ import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 import { TextStyleKit } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
-import { REPORT_FIELDS } from "./reportDocument";
+import { REPORT_FIELDS, DOCUMENT_THEMES } from "./reportDocument";
 import { scoreBand, contrastingText } from "../config/reportCardColors";
 
 const PageBreak = Node.create({name:"pageBreak",group:"block",atom:true,parseHTML:()=>[{tag:'div[data-page-break]'}],renderHTML:()=>["div",{"data-page-break":"true",class:"report-page-break"},"Page break"]});
@@ -19,14 +19,16 @@ function usePreview(extension) {
 }
 function FieldView({node,extension}) {
   const {data}=usePreview(extension);
-  return <NodeViewWrapper as="span" className="report-auto-field" title={`Automatic: ${REPORT_FIELDS[node.attrs.field]}`} contentEditable={false}>{data[node.attrs.field] ?? `[${REPORT_FIELDS[node.attrs.field]}]`}</NodeViewWrapper>;
+  const value=data[node.attrs.field];
+  const display=value === null || value === undefined || value === "" ? "—" : typeof value === "number" ? Number(value.toFixed(2)).toString() : value;
+  return <NodeViewWrapper as="span" className="report-auto-field" title={`Automatic: ${REPORT_FIELDS[node.attrs.field]}`} contentEditable={false}>{display}</NodeViewWrapper>;
 }
 function MarksView({extension}) {
   const {data,colours}=usePreview(extension);
-  return <NodeViewWrapper className="report-auto-marks" contentEditable={false}><small className="no-print">Automatic marks table · move or delete this block; marks come from the student record</small><table><thead><tr>{["Subject","Marks","Maximum","Grade","Remarks"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{data.rows?.length ? data.rows.map((r,i)=>{const band=scoreBand({...r,marks_obtained:r.obtained,max_marks:r.max},data.pass_percentage ?? 40);const color=colours[band];return <tr key={i}><td>{r.subject}</td><td style={color ? {background:color,color:contrastingText(color)} : undefined}>{r.obtained}</td><td>{r.max}</td><td style={color ? {background:color,color:contrastingText(color)} : undefined}>{r.grade}</td><td>{r.remarks}</td></tr>}) : <tr><td colSpan="5">Select a student and exam with marks to preview results.</td></tr>}</tbody></table></NodeViewWrapper>;
+  return <NodeViewWrapper className="report-auto-marks" contentEditable={false}><table><thead><tr>{["Subject","Marks","Maximum","Grade","Remarks"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{data.rows?.length ? data.rows.map((r,i)=>{const band=scoreBand({...r,marks_obtained:r.obtained,max_marks:r.max},data.pass_percentage ?? 40);const color=colours[band];return <tr key={i}><td>{r.subject}</td><td style={color ? {background:color,color:contrastingText(color)} : undefined}>{r.obtained}</td><td>{r.max}</td><td style={color ? {background:color,color:contrastingText(color)} : undefined}>{r.grade}</td><td>{r.remarks}</td></tr>}) : <tr><td colSpan="5">No marks recorded for this student and exam.</td></tr>}</tbody></table></NodeViewWrapper>;
 }
 
-export default function ReportDocumentEditor({document,onChange,data,colours,readOnly=false}) {
+export default function ReportDocumentEditor({document,onChange,data,colours,readOnly=false,template="heritage",accent}) {
   const latest=useRef(onChange);latest.current=onChange;
   const preview=useRef({data,colours});preview.current={data,colours};
   if(!preview.listeners) preview.listeners=new Set();
@@ -50,9 +52,10 @@ export default function ReportDocumentEditor({document,onChange,data,colours,rea
     if(!["image/png","image/jpeg"].includes(file.type)||file.size>1024*1024){setMessage("Choose a PNG or JPEG image smaller than 1 MB.");return;}
     const reader=new FileReader();reader.onload=()=>{editor.chain().focus().setImage({src:String(reader.result),alt:file.name,width:180}).run();setMessage("");};reader.readAsDataURL(file);
   }
-  return <section id="report-document-editor" className={`report-document-editor ${full ? "is-fullscreen" : ""}`}>
+  const theme=DOCUMENT_THEMES[template] || DOCUMENT_THEMES.heritage;
+  return <section id="report-document-editor" className={`report-document-editor document-${template} ${full ? "is-fullscreen" : ""}`} style={{"--document-accent":accent || theme.accent,"--document-tint":theme.tint,"--document-heading-font":theme.font}}>
     {!readOnly && <>
-    <div className="report-document-heading no-print"><div><h3>Edit the complete report</h3><p>Click anywhere on the page to type. Select words to format them. Cut and paste paragraphs or tables to rearrange them. Blue fields update for each student.</p></div><button type="button" onClick={()=>setFull(!full)}>{full ? "Exit full screen" : "Full screen"}</button><a href="#report-template-editor" onClick={()=>setFull(false)}>Save template</a></div>
+    <div className="report-document-heading no-print"><div><h3>Edit the complete report</h3><p>Click anywhere on the page to type. Select words to format them. Cut and paste paragraphs or tables to rearrange them. Automatic fields update for each student; hover over a value to identify its field.</p></div><button type="button" onClick={()=>setFull(!full)}>{full ? "Exit full screen" : "Full screen"}</button><a href="#report-template-editor" onClick={()=>setFull(false)}>Save template</a></div>
     <div className="report-document-toolbar no-print" role="group" aria-label="Document editing toolbar">
       {button("Undo",c=>c.undo(),false,!editor.can().undo())}{button("Redo",c=>c.redo(),false,!editor.can().redo())}
       <label>Style<select value={editor.isActive("heading") ? editor.getAttributes("heading").level : "paragraph"} onChange={e=>run(c=>e.target.value==="paragraph" ? c.setParagraph() : c.setHeading({level:Number(e.target.value)}))}><option value="paragraph">Normal</option>{[1,2,3].map(n=><option value={n} key={n}>Heading {n}</option>)}</select></label>

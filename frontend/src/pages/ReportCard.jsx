@@ -422,7 +422,8 @@ export default function ReportCard({ designer = false }) {
       </section>
 
       {designer && editableDesign && !design.document_json && <button type="button" className="primary-button no-print" onClick={()=>setDesign({...design,document_json:createReportDocument(design,template)})}>Edit entire report as a document</button>}
-      {editableDesign && design.document_json ? <ReportDocumentEditor document={design.document_json} onChange={document_json=>setDesign(prev=>({...prev,document_json}))} data={previewData} colours={markColors} readOnly={!designer}/> : (
+      {designer && editableDesign && design.document_json && <button type="button" className="secondary-button no-print" onClick={()=>{if(window.confirm("Restore the original designed layout for this draft? Your saved template will stay unchanged until you save."))setDesign(prev=>({...prev,document_json:null}));}}>Restore original template layout</button>}
+      {editableDesign && design.document_json ? <ReportDocumentEditor document={design.document_json} onChange={document_json=>setDesign(prev=>({...prev,document_json}))} data={previewData} colours={markColors} readOnly={!designer} template={template} accent={accent}/> : (
       <section className={`report-card-paper print-area template-${template} ${NEW_REPORT_CARD_TEMPLATES.some((item) => item.value === template) ? "report-designed" : ""}`} style={editableDesign ? {
         "--rc-ink":accent, "--rc-tint":`${accent}12`, "--rc-header-text":contrastingText(accent),
         "--rc-heading-font":design.font_family === "serif" ? "Georgia, serif" : design.font_family === "sans" ? "Arial, sans-serif" : undefined,

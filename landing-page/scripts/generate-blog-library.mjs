@@ -10,7 +10,8 @@ const sourceArticle = path.join(blogRoot, 'guide-to-online-fee-payment-systems',
 const source = fs.readFileSync(sourceArticle, 'utf8');
 const header = source.slice(source.indexOf('<header class="site-header"'), source.indexOf('  <!-- ===== Breadcrumb ===== -->'));
 const footer = source.slice(source.indexOf('  <footer class="site-footer">'), source.lastIndexOf('</body>'));
-const favicon = `<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cg fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4 4)'%3E%3Cpath d='M12 3 3.5 8h17z'/%3E%3Cpath d='M6.5 8v9'/%3E%3Cpath d='M10 8v9'/%3E%3Cpath d='M14 8v9'/%3E%3Cpath d='M17.5 8v9'/%3E%3Cpath d='M4 20h16'/%3E%3C/g%3E%3C/svg%3E" />`;
+const favicon = `<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />`;
 
 const clusters = [
   ['admissions', 'Admissions and enrolment', [

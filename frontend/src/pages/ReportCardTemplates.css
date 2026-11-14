@@ -128,3 +128,21 @@
 .report-document-editor.is-fullscreen{position:fixed;inset:0;z-index:1500;border-radius:0;overflow:auto;}.report-document-editor.is-fullscreen .report-document-toolbar{position:sticky;top:0;z-index:2;}
 .report-document-page[contenteditable=false] .report-auto-field{background:transparent;padding:0;}.report-document-page[contenteditable=false] .report-auto-marks small{display:none;}
 @media print {.report-document-editor{background:white;border:0;padding:0;}.report-document-sheet{padding:0;overflow:visible;}.report-document-page{width:auto;min-height:0;padding:0;box-shadow:none;}.report-auto-field{background:transparent;padding:0;}.report-page-break{break-after:page;border:0;font-size:0;margin:0;}.report-document-page table{break-inside:auto;}.report-document-page tr{break-inside:avoid;}}
+
+/* Keep document tables independent of the application's list-table rules. */
+.report-document-editor .report-document-page { --text:#263345; --text-muted:#526174; --surface-subtle:#f8fafc; color:#263345; }
+.report-document-editor .report-document-page table { font-size:11pt; overflow:visible; }
+.report-document-editor .report-document-page table tbody tr td,.report-document-editor .report-document-page table th { border:1px solid #cbd5e1; color:#263345; }
+.report-document-editor .report-document-page table tr:hover {background:transparent;}
+.report-document-editor .report-document-page h1,.report-document-editor .report-document-page h2 {color:var(--document-accent);font-family:var(--document-heading-font);}
+.report-document-editor .report-document-page .report-auto-field {background:transparent;padding:0;border-radius:0;}
+.report-document-editor .report-document-page[contenteditable=true] .report-auto-field:hover {outline:1px dotted #64748b;outline-offset:2px;}
+.document-heritage .report-document-page {border:4px double #a48b55;}
+.document-heritage .report-document-page > hr {border:0;border-top:3px double #a48b55;margin:18px 0 26px;}
+.document-scholar .report-document-page {border-top:10px solid var(--document-accent);}
+.document-scholar .report-document-page > h1 {background:var(--document-tint);padding:16px;}
+.document-horizon .report-document-page {border-left:8px solid var(--document-accent);}
+.document-ledger .report-document-page {border:1px solid #64748b;}
+.document-studio .report-document-page {border-top:8px solid var(--document-accent);border-radius:16px;}
+.document-studio .report-document-page > h1 {background:var(--document-tint);border-radius:10px;padding:16px;}
+.report-document-editor .report-document-page .report-auto-marks th {background:var(--document-tint);font-weight:700;color:var(--document-accent);}

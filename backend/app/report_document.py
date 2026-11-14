@@ -96,6 +96,11 @@ def validate_document(document):
 def document_pdf(data, document):
     validate_document(document)
     from app.report_card_colors import table_mark_styles, score_band, mark_palette, contrasting_text
+    from app.report_card_designs import DESIGN_THEMES
+    design=data.get("design") or {}
+    theme=design.get("template", "heritage")
+    ink,tint,_=DESIGN_THEMES.get(theme,DESIGN_THEMES["heritage"])
+    ink=design.get("accent_color") or ink
     stream=io.BytesIO()
     width=A4[0]-88
     base=ParagraphStyle("document",fontName="Helvetica",fontSize=11,leading=15.4,spaceAfter=8,textColor=colors.HexColor("#263345"))
@@ -131,7 +136,7 @@ def document_pdf(data, document):
                 if a.get("lineHeight"): spacing.append(float(a["lineHeight"]))
             for c in n.get("content",[]): scan(c)
         scan(node)
-        style=ParagraphStyle("block",parent=base,fontSize=size,fontName="Helvetica-Bold" if node["type"]=="heading" else "Helvetica",leading=max(sizes)*max(spacing or [1.4]),alignment={"left":0,"center":1,"right":2,"justify":4}.get(attrs.get("textAlign"),0))
+        style=ParagraphStyle("block",parent=base,fontSize=size,fontName=("Times-Bold" if theme=="heritage" else "Helvetica-Bold") if node["type"]=="heading" else "Helvetica",leading=max(sizes)*max(spacing or [1.4]),alignment={"left":0,"center":1,"right":2,"justify":4}.get(attrs.get("textAlign"),0))
         return Paragraph(prefix+inline(node) or "<br/>",style)
     def blocks(nodes,available=width):
         output=[]
@@ -187,11 +192,20 @@ def document_pdf(data, document):
                     rows.append([Paragraph(escape(str(row.get(k) if row.get(k) is not None else "—")),highlighted if k in ("obtained","grade") else base) for k in ("subject","obtained","max","grade","remarks")])
                 if len(rows)==1: rows.append([Paragraph("No marks recorded",base),"","","",""])
                 table=Table(rows,colWidths=[available*n for n in (.30,.13,.13,.11,.33)],repeatRows=1,splitInRow=1)
-                table.setStyle(TableStyle([("GRID",(0,0),(-1,-1),.5,colors.HexColor("#cbd5e1")),("BACKGROUND",(0,0),(-1,0),colors.HexColor("#eef2f7")),("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]+table_mark_styles(data)))
+                table.setStyle(TableStyle([("GRID",(0,0),(-1,-1),.5,colors.HexColor("#cbd5e1")),("BACKGROUND",(0,0),(-1,0),colors.HexColor(tint)),("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]+table_mark_styles(data)))
                 output.extend([table,Spacer(1,10)])
         return output
     def footer(canvas,doc):
-        canvas.saveState();canvas.setFont("Helvetica",8);canvas.setFillColor(colors.HexColor("#64748b"));canvas.drawRightString(A4[0]-44,24,f"Page {doc.page}");canvas.restoreState()
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor(ink))
+        if theme=="heritage":
+            canvas.setStrokeColor(colors.HexColor("#a48b55"));canvas.setLineWidth(.6)
+            for inset in (24,27):canvas.rect(inset,inset,A4[0]-2*inset,A4[1]-2*inset)
+        elif theme=="horizon":
+            canvas.setFillColor(colors.HexColor(ink));canvas.rect(24,30,4,A4[1]-60,fill=1,stroke=0)
+        else:
+            canvas.setLineWidth(5 if theme in ("scholar","studio") else 1);canvas.line(44,A4[1]-24,A4[0]-44,A4[1]-24)
+        canvas.setFont("Helvetica",8);canvas.setFillColor(colors.HexColor("#64748b"));canvas.drawRightString(A4[0]-44,14,f"Page {doc.page}");canvas.restoreState()
     doc=SimpleDocTemplate(stream,pagesize=A4,leftMargin=44,rightMargin=44,topMargin=40,bottomMargin=40,title="School report card")
     doc.build(blocks(document.get("content",[])) or [Spacer(1,1)],onFirstPage=footer,onLaterPages=footer)
     return stream.getvalue()
